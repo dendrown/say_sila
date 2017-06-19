@@ -8,7 +8,7 @@
     stdlib
    ]},
   {env,[]},
-  {modules, []},
+  {modules, [llog]},
 
   {maintainers, []},
   {licenses, []},

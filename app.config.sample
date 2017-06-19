@@ -1,0 +1,10 @@
+%% -*- mode: erlang -*-
+[
+    {lager, [{log_root, "/tmp/say_sila"},
+             {colored, true},
+             {handlers, [{lager_console_backend, debug},
+                         {lager_file_backend, [{file, "error.log"},   {level, error}]},
+                         {lager_file_backend, [{file, "console.log"}, {level, info}]}]}]},
+
+    {say_sila, []}
+].
