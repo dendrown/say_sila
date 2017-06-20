@@ -30,8 +30,17 @@
 start(_StartType, _StartArgs) ->
     llog:start(),
     ?notice("Say hello to Say Sila"),
-    ?debug("Type: ~p", [_StartType]),
-    ?debug("Args: ~p", [_StartArgs]),
+    %?debug("Type: ~p", [_StartType]),
+    %?debug("Args: ~p", [_StartArgs]),
+
+    % Setup for Twitter
+    lists:foreach(fun(App) -> ok = application:start(App) end,
+                  [inets,
+                   crypto,
+                   asn1,
+                   public_key,
+                   ssl,
+                   oauth]),
     say_sila_sup:start_link().
 
 

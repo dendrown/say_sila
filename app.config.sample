@@ -6,5 +6,10 @@
                          {lager_file_backend, [{file, "error.log"},   {level, error}]},
                          {lager_file_backend, [{file, "console.log"}, {level, info}]}]}]},
 
-    {say_sila, []}
+    {say_sila, [{twitter_consumer_key,      "consumerkey"},
+                {twitter_consumer_secret,   "consumersecret"},
+                {twitter_access_token,      "accesstoken"},
+                {twitter_access_secret,     "accesssecret"},
+                {twitter_owner,             "screen_name"},
+                {twitter_ownser_id,         12345} ]}
 ].

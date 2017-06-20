@@ -44,8 +44,8 @@ start_link() ->
 % @doc  Returns the top level supervision tree
 % @end  --
 init([]) ->
-    %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
-    {ok, { {one_for_all, 0, 1}, []} }.
+    {ok, {{one_for_all, 0, 1},
+          [{twitter, {twitter, start_link, []}, permanent, 2000, worker, [twitter]} ]}}.
 
 
 %%====================================================================

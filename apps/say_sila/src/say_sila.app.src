@@ -1,15 +1,12 @@
 {application, say_sila,
- [{description, "An OTP application"},
+ [{description, "Analysis of Sentiment on Climate Change"},
   {vsn, "0.1.0"},
   {registered, []},
   {mod, { say_sila_app, []}},
-  {applications,
-   [kernel,
-    stdlib
-   ]},
+  {applications, [kernel, stdlib ]},
   {env,[]},
-  {modules, [llog]},
-
+  {modules, [llog,
+             twitter ]},
   {maintainers, []},
   {licenses, []},
   {links, []}
