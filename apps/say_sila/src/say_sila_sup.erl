@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila top level supervisor
 %%
-%% @copyright 2017 Dennis Drown
+%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(say_sila_sup).
@@ -18,7 +18,7 @@
 -export([start_link/0]).
 -export([init/1]).
 
--define(SERVER, ?MODULE).
+-include("sila.hrl").
 
 
 %%====================================================================
@@ -31,7 +31,7 @@
 % @doc  Starts uptop level supervisor
 % @end  --
 start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+    supervisor:start_link({?REG_DIST, ?MODULE}, ?MODULE, []).
 
 
 
@@ -45,7 +45,8 @@ start_link() ->
 % @end  --
 init([]) ->
     {ok, {{one_for_all, 0, 1},
-          [{twitter, {twitter, start_link, []}, permanent, 2000, worker, [twitter]} ]}}.
+          [{twitter, {twitter, start_link, []}, permanent, 2000, worker, [twitter]},
+           {nest,    {nest,    start_link, []}, permanent, 2000, worker, [nest]} ]}}.
 
 
 %%====================================================================

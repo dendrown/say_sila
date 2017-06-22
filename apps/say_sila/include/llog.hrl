@@ -8,7 +8,7 @@
 %%
 %% @doc Definitions for the Lager Logger
 %%
-%% @copyright 2017 Dennis Drown
+%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -ifndef(_llog_included).

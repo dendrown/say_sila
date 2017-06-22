@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila Twitter access
 %%
-%% @copyright 2017 Dennis Drown
+%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(twitter).
@@ -21,6 +21,7 @@
          authenticate/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
+-include("sila.hrl").
 -include("llog.hrl").
 
 -define(twitter_oauth_url(Cmd), "https://api.twitter.com/oauth/" ++ Cmd).
@@ -29,6 +30,7 @@
                 oauth_token  :: string(),
                 oauth_secret :: string() }).
 -type state() :: #state{}.
+
 
 %%% TODO: API Example:
 %%%
@@ -63,7 +65,7 @@ start_link() ->
         [_, _, _, nak]  -> {error, "Missing Twitter access secret"};
 
         Args ->
-            gen_server:start_link({local, ?MODULE}, ?MODULE, Args, [])
+            gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, Args, [])
     end.
 
 
@@ -119,7 +121,7 @@ init([ConsKey, ConsSecret, AccessKey, AccessSecret]) ->
 
 %%--------------------------------------------------------------------
 -spec terminate(Why   :: term(),
-                State :: term()) -> normal.
+                State :: state()) -> normal.
 %%
 % @doc  Server shutdown callback.
 % @end  --
@@ -154,6 +156,7 @@ handle_call(get_pin, _From, State = #state{oauth_token = Token}) ->
 
 handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
                                                        oauth_token = ReqToken}) ->
+    ?debug("Authenticating<~s>", [PIN]),
     {ok, Resp} = oauth:post(?twitter_oauth_url("access_token"),
                             [{ oauth_verifier, PIN}, { oauth_token, ReqToken}],
                             Consumer),
