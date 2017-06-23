@@ -146,9 +146,7 @@ code_change(OldVsn, State, _Extra) ->
 
 
 %%--------------------------------------------------------------------
--spec handle_call(Msg   :: term(),
-                  From  :: {pid(), term()},
-                  State :: state()) -> any().
+%% handle_call:
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
@@ -159,15 +157,27 @@ handle_call(get_pin, _From, State = #state{oauth_token = Token}) ->
 
 handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
                                                        oauth_token = ReqToken}) ->
-    ?debug("Authenticating<~s>", [PIN]),
-    {ok, Resp} = oauth:post(?twitter_oauth_url("access_token"),
-                            [{ oauth_verifier, PIN}, { oauth_token, ReqToken}],
-                            Consumer),
-    Params  = oauth:params_decode(Resp),
-    Token   = oauth:token(Params),
-    Secret  = oauth:token_secret(Params),
-    {reply, ok, State#state{oauth_token  = Token,
-                            oauth_secret = Secret}};
+
+    NewState = case oauth:post(?twitter_oauth_url("access_token"),
+                               [{ oauth_verifier, PIN}, { oauth_token, ReqToken}],
+                               Consumer) of
+
+        {ok, Resp = {{_, 200, _}, _, _}} ->
+            Params  = oauth:params_decode(Resp),
+            Token   = oauth:token(Params),
+            Secret  = oauth:token_secret(Params),
+            ?info("Authenticated on Twitter"),
+            State#state{oauth_token  = Token, oauth_secret = Secret};
+
+        {ok, {{_, StatCode, StatMsg}, _, ErrMsg}} ->
+            ?info("Authentication failed: stat[~B:~s] msg[~s]", [StatCode, StatMsg, ErrMsg]),
+            State;
+
+        Bummer ->
+            ?info("Authentication issue: ~p", [Bummer]),
+            State
+    end,
+    {reply, ok, NewState};
 
 
 handle_call(stop, _From, State) ->
