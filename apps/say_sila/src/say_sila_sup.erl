@@ -44,7 +44,7 @@ start_link() ->
 % @doc  Returns the top level supervision tree
 % @end  --
 init([]) ->
-    {ok, {{one_for_all, 0, 1},
+    {ok, {{one_for_all, 5, 60},
           [{twitter, {twitter, start_link, []}, permanent, 2000, worker, [twitter]},
            {nest,    {nest,    start_link, []}, permanent, 2000, worker, [nest]} ]}}.
 
