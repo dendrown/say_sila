@@ -206,7 +206,7 @@ handle_cast({request_token, AccessKey, AccessSecret}, State = #state{consumer = 
 
 
 handle_cast({track, KeyWords}, State) ->
-    PID = spawn_link(fun() -> stream_track(KeyWords, State) end),
+    PID = spawn_link(fun() -> track(KeyWords, State) end),
     ?debug("Tracking on ~p: ~s", [PID, KeyWords]),
     {noreply, State};
 
@@ -221,14 +221,21 @@ handle_cast(Msg, State) ->
 %%
 % @doc  Process out-of-band messages
 % @end  --
+handle_info({track_headers, Headers}, State) ->
+    lists:foreach(fun({Hdr, Val}) ->
+                      ?info("Track header ~s: ~s", [Hdr, Val]) end,
+                  Headers),
+    {noreply, State};
+
+
 handle_info({track, DataIn}, State) ->
 
-    ?info("Tracking in: ~p", [DataIn]),
-   %try jsx:decode(DataIn, [return_maps]) of
-   %    Tweet -> ?info("Tweet: ~p", [Tweet])
-   %catch
-   %    Exc:Why -> ?warning("Bad JSON: why[~p:~p]", [Exc, Why])
-   %end,
+    %?info("Tracking in: ~p", [DataIn]),
+    try jsx:decode(DataIn, [return_maps]) of
+        Tweet -> ?info("Tweet: ~p", [Tweet])
+    catch
+        Exc:Why -> ?warning("Bad JSON: why[~p:~p]", [Exc, Why])
+    end,
     {noreply, State};
 
 
@@ -240,19 +247,18 @@ handle_info(Msg, State) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec stream_track(KeyWords :: binary()
-                             | string(),
-                   State    :: term()) -> ok
-                                        | bad_post.
+-spec track(KeyWords :: binary()
+                      | string(),
+            State    :: term()) -> ok
+                                 | bad_post.
 %%
 % @doc  Stream a tracking command
 % @end  --
-stream_track(KeyWords, #state{consumer     = Consumer,
-                              oauth_token  = Token,
-                              oauth_secret = Secret}) ->
+track(KeyWords, #state{consumer     = Consumer,
+                       oauth_token  = Token,
+                       oauth_secret = Secret}) ->
     case oauth:post(?twitter_stream_url("statuses/filter.json"),
-                    [{delimited, <<"length">>},
-                     {track,     <<"climate">>}],
+                    [{track, <<"climate">>}],
                     Consumer,
                     Token,
                     Secret,
@@ -269,22 +275,33 @@ stream_track(KeyWords, #state{consumer     = Consumer,
 
 
 %%--------------------------------------------------------------------
--spec stream_track(ReqID :: term()) -> ok.
+-spec stream_track(ReqID  :: term()) -> ok.
 %%
-% @doc  Recursively stream tracking input
+% @doc  Recursively stream tracking input.
 % @end  --
 stream_track(ReqID) ->
+    stream_track(ReqID, <<>>).
+
+
+
+%%--------------------------------------------------------------------
+-spec stream_track(ReqID  :: term(),
+                   Prefix :: binary()) -> ok.
+%%
+% @doc  Recursively stream tracking input.  `Prefix' is data we've
+%       read in already, but which does not constitute a complete packet.
+% @end  --
+stream_track(ReqID, Prefix) ->
     receive
         {http, {ReqID, stream_start, Hdrs}} ->
-          ?MODULE ! {self(), {stream_start, Hdrs}},
-          stream_track(ReqID);
+            ?MODULE ! {track_headers, Hdrs},
+            stream_track(ReqID, Prefix);
 
         {http, {ReqID, stream, DataIn}} ->
-          case DataIn of
-            <<"\r\n">> -> ok;
-            _          -> ?MODULE ! {track, DataIn}
-          end,
-          stream_track(ReqID);
+            DataMerge = iolist_to_binary([Prefix, DataIn]),
+            DataSplit = binary:split(DataMerge, <<"\r\n">>, [global]),
+            NewPrefix = process_track(DataSplit),
+            stream_track(ReqID, NewPrefix);
 
         {http, {ReqID, {error, Why}}} ->
             ?info("Error tracking on ~p: why[~p]", [self(), Why]);
@@ -293,5 +310,27 @@ stream_track(ReqID) ->
             ?info("Stopped tracking on ~p", [self()]);
 
         _ ->
-          stream_track(ReqID)
+            stream_track(ReqID, Prefix)
     end.
+
+
+%%--------------------------------------------------------------------
+-spec process_track(Data :: [binary()]) -> binary.
+%%
+% @doc  Split track data into JSON packets and forward to our Twitter
+%       server for processing.  Note that `Data' containing at least
+%       one full packet will have at least two list items, and if it
+%       represents a single packet, the `Extra' data will be <<>>.
+% @end  --
+process_track([Extra]) ->
+    Extra;
+
+
+process_track([Packet, Extra]) ->
+    ?MODULE ! {track, Packet},
+    Extra;
+
+
+process_track([Packet | Rest]) ->
+    ?MODULE ! {track, Packet},
+    process_track(Rest).
