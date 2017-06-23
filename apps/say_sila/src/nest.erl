@@ -114,9 +114,11 @@ handle_call(Msg, _From, State) ->
 % @end  --
 handle_cast(authenticate, State) ->
     URL = twitter:get_pin(),
-    io:format("Please retrieve our PIN from ~s~n", [URL]),
-    {ok, PIN} = io:fread("PIN> ", "~s"),
-    twitter:authenticate(PIN),
+    ?notice("Please retrieve your PIN from ~s~n", [URL]),
+
+    % TODO: We need a proper UI for PIN entry
+    %{ok, PIN} = io:fread("PIN> ", "~s"),
+    %twitter:authenticate(PIN),
     {noreply, State};
 
 

@@ -18,28 +18,22 @@
 -export([start_link/0,
          stop/0,
          get_pin/0,
-         authenticate/1]).
+         authenticate/1,
+         track/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
 -include("llog.hrl").
 
--define(twitter_oauth_url(Cmd), "https://api.twitter.com/oauth/" ++ Cmd).
+-define(twitter_oauth_url(Cmd),  "https://api.twitter.com/oauth/"  ++ Cmd).
+-define(twitter_stream_url(Cmd), "https://stream.twitter.com/1.1/" ++ Cmd).
+
 
 -record(state, {consumer     :: tuple(),
                 oauth_token  :: string(),
                 oauth_secret :: string() }).
 -type state() :: #state{}.
 
-
-%%% TODO: API Example:
-%%%
-%%% {ok, {_,_,IPCC}} = oauth:get("https://api.twitter.com/1.1/users/show.json",
-%%%                              [{screen_name, <<"IPCC_CH">>}],
-%%%                              {ConsumerKey, ConsumerSecret, hmac_sha1},
-%%%                              #state.oauth_token,
-%%%                              #state.oauth_secret).
-%%%
 
 
 %%====================================================================
@@ -98,6 +92,15 @@ get_pin() ->
 % @end  --
 authenticate(PIN) ->
     gen_server:call(?MODULE, {authenticate, PIN}).
+
+
+%%--------------------------------------------------------------------
+-spec track(KeyWords :: string() | binary()) -> ok.
+%%
+% @doc  Tracks status/tweets on Twitter for the specified `KeyWords'
+% @end  --
+track(KeyWords) ->
+    gen_server:cast(?MODULE, {track, KeyWords}).
 
 
 
@@ -177,8 +180,7 @@ handle_call(Msg, _From, State) ->
 
 
 %%--------------------------------------------------------------------
--spec handle_cast(Msg   :: term(),
-                  State :: state()) -> any().
+%% handle_cast
 %%
 % @doc  Process async messages
 % @end  --
@@ -193,17 +195,33 @@ handle_cast({request_token, AccessKey, AccessSecret}, State = #state{consumer = 
     {noreply, State#state{oauth_token = Token}};
 
 
+handle_cast({track, KeyWords}, State) ->
+    PID = spawn_link(fun() -> stream_track(KeyWords, State) end),
+    ?debug("Tracking on ~p: ~s", [PID, KeyWords]),
+    {noreply, State};
+
+
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.
 
 
 %%--------------------------------------------------------------------
--spec handle_info(Msg   :: term(),
-                  State :: term()) -> any().
+%% handle_info:
 %%
 % @doc  Process out-of-band messages
 % @end  --
+handle_info({track, DataIn}, State) ->
+
+    ?info("Tracking in: ~p", [DataIn]),
+   %try jsx:decode(DataIn, [return_maps]) of
+   %    Tweet -> ?info("Tweet: ~p", [Tweet])
+   %catch
+   %    Exc:Why -> ?warning("Bad JSON: why[~p:~p]", [Exc, Why])
+   %end,
+    {noreply, State};
+
+
 handle_info(Msg, State) ->
     ?warning("Unknown info: ~p", [Msg]),
     {noreply, State}.
@@ -211,4 +229,59 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
-%%====================================================================
+%%--------------------------------------------------------------------
+-spec stream_track(KeyWords :: binary()
+                             | string(),
+                   State    :: term()) -> ok
+                                        | bad_post.
+%%
+% @doc  Stream a tracking command
+% @end  --
+stream_track(KeyWords, #state{consumer     = Consumer,
+                              oauth_token  = Token,
+                              oauth_secret = Secret}) ->
+    case oauth:post(?twitter_stream_url("statuses/filter.json"),
+                    [{delimited, <<"length">>},
+                     {track,     <<"climate">>}],
+                    Consumer,
+                    Token,
+                    Secret,
+                    [{sync, false}, {stream, self}]) of
+
+        {ok, ReqID} ->
+            ?debug("Tracking on ~p: ~s", [self(), KeyWords]),
+            stream_track(ReqID);
+
+        {error, Why} ->
+            ?debug("Tracking failure on ~p: ~s", [self(), Why]),
+            bad_post
+    end.
+
+
+%%--------------------------------------------------------------------
+-spec stream_track(ReqID :: term()) -> ok.
+%%
+% @doc  Recursively stream tracking input
+% @end  --
+stream_track(ReqID) ->
+    receive
+        {http, {ReqID, stream_start, Hdrs}} ->
+          ?MODULE ! {self(), {stream_start, Hdrs}},
+          stream_track(ReqID);
+
+        {http, {ReqID, stream, DataIn}} ->
+          case DataIn of
+            <<"\r\n">> -> ok;
+            _          -> ?MODULE ! {track, DataIn}
+          end,
+          stream_track(ReqID);
+
+        {http, {ReqID, {error, Why}}} ->
+            ?info("Error tracking on ~p: why[~p]", [self(), Why]);
+
+        {_, stop} ->
+            ?info("Stopped tracking on ~p", [self()]);
+
+        _ ->
+          stream_track(ReqID)
+    end.
