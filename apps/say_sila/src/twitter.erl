@@ -232,7 +232,12 @@ handle_info({track, DataIn}, State) ->
 
     %?info("Tracking in: ~p", [DataIn]),
     try jsx:decode(DataIn, [return_maps]) of
-        Tweet -> ?info("Tweet: ~p", [Tweet])
+        Tweet ->
+            %?debug("Tweet: ~p", [Tweet])
+            lists:foreach(fun({_,   null}) -> ok;
+                             ({Key, Val }) -> ?debug("~s: ~p", [Key, Val]) end,
+                          maps:to_list(Tweet)),
+            ?notice("END OF TWEET~n")
     catch
         Exc:Why -> ?warning("Bad JSON: why[~p:~p]", [Exc, Why])
     end,
@@ -298,6 +303,7 @@ stream_track(ReqID, Prefix) ->
             stream_track(ReqID, Prefix);
 
         {http, {ReqID, stream, DataIn}} ->
+            % Glue the old and new data, then split it again on the packet delimiter
             DataMerge = iolist_to_binary([Prefix, DataIn]),
             DataSplit = binary:split(DataMerge, <<"\r\n">>, [global]),
             NewPrefix = process_track(DataSplit),
@@ -315,7 +321,7 @@ stream_track(ReqID, Prefix) ->
 
 
 %%--------------------------------------------------------------------
--spec process_track(Data :: [binary()]) -> binary.
+-spec process_track(Data :: [binary()]) -> binary().
 %%
 % @doc  Split track data into JSON packets and forward to our Twitter
 %       server for processing.  Note that `Data' containing at least
