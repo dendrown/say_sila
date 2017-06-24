@@ -233,10 +233,8 @@ handle_info({track, DataIn}, State) ->
     %?info("Tracking in: ~p", [DataIn]),
     try jsx:decode(DataIn, [return_maps]) of
         Tweet ->
-            %?debug("Tweet: ~p", [Tweet])
-            lists:foreach(fun({_,   null}) -> ok;
-                             ({Key, Val }) -> ?debug("~s: ~p", [Key, Val]) end,
-                          maps:to_list(Tweet)),
+            %?debug("Raw Tweet: ~p", [Tweet])
+            log_tweet(Tweet),
             ?notice("END OF TWEET~n")
     catch
         Exc:Why -> ?warning("Bad JSON: why[~p:~p]", [Exc, Why])
@@ -340,3 +338,42 @@ process_track([Packet, Extra]) ->
 process_track([Packet | Rest]) ->
     ?MODULE ! {track, Packet},
     process_track(Rest).
+
+
+%%--------------------------------------------------------------------
+-spec log_tweet(map()) -> ok.
+%%
+% @doc  Pretty-prints the information contained in a tweet over
+%       multiple log lines.
+% @end  --
+log_tweet(Tweet) ->
+    lists:foreach(fun(Pair) -> log_tweet("", Pair) end,
+                  maps:to_list(Tweet)).
+
+
+
+%%--------------------------------------------------------------------
+-spec log_tweet(Indent :: string(),
+                Pair   :: {binary(), term()}) -> ok.
+%%
+% @doc  Recursively logs the information contained in a tweet
+% @end  --
+log_tweet(_, {_, null}) ->
+    ok;
+
+log_tweet(Indent, {Key, Val}) when is_map(Val) ->
+    ?debug("~s~s:", [Indent, Key]),
+    NewIndent = "  " ++ Indent,
+    lists:foreach(fun(Pair) -> log_tweet(NewIndent, Pair) end,
+                  maps:to_list(Val));
+
+
+log_tweet(Indent, {Key, Val}) ->
+    Fmt = if
+        is_binary(Val) orelse
+        is_atom(Val)        -> "~s~s: ~s";
+        is_integer(Val)     -> "~s~s: ~B";
+        is_list(Val)        -> "~s~s: ~p"
+    end,
+    ?debug(Fmt, [Indent, Key, Val]).
+
