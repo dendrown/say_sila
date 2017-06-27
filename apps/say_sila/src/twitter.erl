@@ -261,7 +261,7 @@ track(KeyWords, #state{consumer     = Consumer,
                        oauth_token  = Token,
                        oauth_secret = Secret}) ->
     case oauth:post(?twitter_stream_url("statuses/filter.json"),
-                    [{track, <<"climate">>}],
+                    [{track, KeyWords}],
                     Consumer,
                     Token,
                     Secret,
