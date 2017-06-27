@@ -347,8 +347,7 @@ process_track([Packet | Rest]) ->
 %       multiple log lines.
 % @end  --
 log_tweet(Tweet) ->
-    lists:foreach(fun(Pair) -> log_tweet("", Pair) end,
-                  maps:to_list(Tweet)).
+    log_tweet("", Tweet).
 
 
 
@@ -361,11 +360,21 @@ log_tweet(Tweet) ->
 log_tweet(_, {_, null}) ->
     ok;
 
+
+log_tweet(_, {_, []}) ->
+    ok;
+
+
+log_tweet(Indent, Map) when is_map(Map) ->
+    log_subtweet(Indent, maps:to_list(Map));
+
+
 log_tweet(Indent, {Key, Val}) when is_map(Val) ->
-    ?debug("~s~s:", [Indent, Key]),
-    NewIndent = "  " ++ Indent,
-    lists:foreach(fun(Pair) -> log_tweet(NewIndent, Pair) end,
-                  maps:to_list(Val));
+    log_subtweet(Indent, Key, maps:to_list(Val));
+
+
+log_tweet(Indent, {Key, MapList = [MapVal | _]}) when is_map(MapVal) ->
+    log_subtweet(Indent, Key, MapList);
 
 
 log_tweet(Indent, {Key, Val}) ->
@@ -375,5 +384,31 @@ log_tweet(Indent, {Key, Val}) ->
         is_integer(Val)     -> "~s~s: ~B";
         is_list(Val)        -> "~s~s: ~p"
     end,
-    ?debug(Fmt, [Indent, Key, Val]).
+    case Key of
+        <<"text">>  -> ?info(Fmt, [Indent, Key, Val]);      % Tweet text
+        _           -> ?debug(Fmt, [Indent, Key, Val])
+    end.
+
+
+%%--------------------------------------------------------------------
+-spec log_subtweet(Indent   :: string(),
+                   Key      :: binary(),
+                   SubTweet :: map() | list()) -> ok.
+%%
+% @doc  Logs the information contained in a tweet substructure
+% @end  --
+log_subtweet(Indent, Key,  SubTweet) ->
+    ?debug("~s~s:", [Indent, Key]),
+    log_subtweet(Indent, SubTweet).
+
+
+%%--------------------------------------------------------------------
+-spec log_subtweet(Indent   :: string(),
+                   SubTweet :: list()) -> ok.
+%%
+% @doc  Logs the information contained in a tweet substructure
+% @end  --
+log_subtweet(Indent, SubTweet)  ->
+    NewIndent = "  " ++ Indent,
+    lists:foreach(fun(Elem) -> log_tweet(NewIndent, Elem) end, SubTweet).
 
