@@ -61,7 +61,8 @@ init([go]) ->
     ?notice("Welcome to Say Sila's Twitter Nest"),
     process_flag(trap_exit, true),
 
-    gen_server:cast(self(), authenticate),
+    % Until we get a WUI, help a user out
+    %gen_server:cast(self(), authenticate),
 
     {ok, #state{}}.
 
