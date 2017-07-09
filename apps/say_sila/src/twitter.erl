@@ -31,7 +31,9 @@
 
 -record(state, {consumer     :: tuple(),
                 oauth_token  :: string(),
-                oauth_secret :: string() }).
+                oauth_secret :: string(),
+                track        :: string() | binary(),
+                db_conn      :: pid() }).
 -type state() :: #state{}.
 
 
@@ -58,7 +60,9 @@ start_link() ->
         [_, _, nak, _]  -> {error, "Missing Twitter access key"};
         [_, _, _, nak]  -> {error, "Missing Twitter access secret"};
 
-        Args ->
+        Twitter ->
+            % TODO: The DB functionality will be moving to its own module
+            Args = [application:get_env(App, db_config, undefined) | Twitter],
             gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, Args, [])
     end.
 
@@ -112,11 +116,12 @@ track(KeyWords) ->
 %%
 % @doc  Initialization for the Twitter access server.
 % @end  --
-init([ConsKey, ConsSecret, AccessKey, AccessSecret]) ->
+init([DBConfig, ConsKey, ConsSecret, AccessKey, AccessSecret]) ->
     ?notice("Initializing access to Twitter"),
     process_flag(trap_exit, true),
 
     gen_server:cast(self(), {request_token, AccessKey, AccessSecret}),
+    gen_server:cast(self(), {db_connect, DBConfig}),
 
     {ok, #state{consumer = {ConsKey, ConsSecret, hmac_sha1}}}.
 
@@ -128,8 +133,12 @@ init([ConsKey, ConsSecret, AccessKey, AccessSecret]) ->
 %%
 % @doc  Server shutdown callback.
 % @end  --
-terminate(Why, _State) ->
+terminate(Why, #state{db_conn = DBConn}) ->
     ?notice("Twitter access shutdown: why[~p]", [Why]),
+    case DBConn of
+        undefined -> ok;
+        _         -> epgsql:close(DBConn)
+    end,
     normal.
 
 
@@ -205,10 +214,27 @@ handle_cast({request_token, AccessKey, AccessSecret}, State = #state{consumer = 
     {noreply, State#state{oauth_token = Token}};
 
 
+handle_cast({db_connect, undefined}, State) ->
+    ?info("No database in use"),
+    {noreply, State};
+
+
+handle_cast({db_connect, DBConfig}, State) ->
+    Host = proplists:get_value(host, DBConfig),
+    User = proplists:get_value(user, DBConfig),
+    Pass = proplists:get_value(pass, DBConfig),
+    Database = proplists:get_value(database, DBConfig),
+    ?info("Connecting to ~s database as ~s@~s", [Database, User, Host]),
+    {ok, DBConn} = epgsql:connect(Host, User, Pass,
+                                  [{database, Database},
+                                   {timeout,  5000}]),
+    {noreply, State#state{db_conn = DBConn}};
+
+
 handle_cast({track, KeyWords}, State) ->
     PID = spawn_link(fun() -> track(KeyWords, State) end),
     ?debug("Tracking on ~p: ~s", [PID, KeyWords]),
-    {noreply, State};
+    {noreply, State#state{track = KeyWords}};
 
 
 handle_cast(Msg, State) ->
@@ -235,10 +261,21 @@ handle_info({track, DataIn}, State) ->
         Tweet ->
             %?debug("Raw Tweet: ~p", [Tweet])
             log_tweet(Tweet),
-            ?notice("END OF TWEET~n")
+
+        % Store the raw tweet
+        case State#state.db_conn of
+            undefined ->
+                ok;
+            DBConn ->
+                DBResult = epgsql:equery(DBConn,
+                                         "INSERT INTO tbl_statuses (status, track) VALUES  ($1, $2)",
+                                         [DataIn, State#state.track]),
+                ?info("Tweet stored: ~p", [DBResult])
+        end
     catch
         Exc:Why -> ?warning("Bad JSON: why[~p:~p]", [Exc, Why])
     end,
+    ?notice("END OF TWEET"),
     {noreply, State};
 
 
