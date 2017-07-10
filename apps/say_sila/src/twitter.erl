@@ -19,7 +19,8 @@
          stop/0,
          get_pin/0,
          authenticate/1,
-         track/1]).
+         track/1,
+         get_first_dts/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -27,6 +28,8 @@
 
 -define(twitter_oauth_url(Cmd),  "https://api.twitter.com/oauth/"  ++ Cmd).
 -define(twitter_stream_url(Cmd), "https://stream.twitter.com/1.1/" ++ Cmd).
+
+-define(DB_TRACK, <<"#climatechange,#globalwarming">>).
 
 
 -record(state, {consumer     :: tuple(),
@@ -98,6 +101,7 @@ authenticate(PIN) ->
     gen_server:call(?MODULE, {authenticate, PIN}).
 
 
+
 %%--------------------------------------------------------------------
 -spec track(KeyWords :: string() | binary()) -> ok.
 %%
@@ -105,6 +109,19 @@ authenticate(PIN) ->
 % @end  --
 track(KeyWords) ->
     gen_server:cast(?MODULE, {track, KeyWords}).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_first_dts(Tracker :: atom()
+                             | string()
+                             | binary()) -> string().
+%
+% @doc  Returns the timestamp of the first tweet for the specified
+%       `Tracker' atom: `cc' or `gw'.
+% @end  --
+get_first_dts(Tracker) ->
+    gen_server:call(?MODULE, {get_first_dts, Tracker}).
 
 
 
@@ -189,6 +206,20 @@ handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
     {reply, ok, NewState};
 
 
+handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) ->
+    Query = io_lib:format("SELECT status->>'timestamp_ms' AS timestamp_ms "
+                          "FROM tbl_statuses "
+                          "WHERE track = '~s' AND hash_~s "
+                          "ORDER BY status->'timestamp_ms' LIMIT 1",
+                          [?DB_TRACK, Tracker]),
+    %?debug("QUERY: ~s", [Query]),
+    Reply = case epgsql:squery(DBConn, Query) of
+        {ok, _, [{DTS}]} -> binary_to_integer(DTS);
+        _                -> undefined
+    end,
+    {reply, Reply, State};
+
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
@@ -196,6 +227,7 @@ handle_call(stop, _From, State) ->
 handle_call(Msg, _From, State) ->
     ?warning("Unknown call: ~p", [Msg]),
     {noreply, State}.
+
 
 
 %%--------------------------------------------------------------------
