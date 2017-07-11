@@ -24,6 +24,7 @@
 
 -export([start_link/0,
          stop/0,
+         has_hashtag/2,     % DEBUG: REMOVE
          has_lookup/2,      % DEBUG: REMOVE
          get_pin/0,
          authenticate/1,
@@ -509,9 +510,28 @@ log_subtweet(Indent, SubTweet) ->
 
 
 %%--------------------------------------------------------------------
--spec has_lookup(Hash :: string() | atom(),
+-spec has_hashtag(Hash :: string() | atom(),
                   Text :: string() | binary()) -> undefined
-                                                  | string().
+                                                | string().
+%%
+% @doc  Returns `true' if the specified tweet text contains the requested
+%       hashtag; and `false' otherwise.
+% @end  --
+has_hashtag(Hash, Text) when is_binary(Text) ->
+    has_hashtag(Hash, binary_to_list(Text));
+
+has_hashtag([$#|Hash], Text) ->
+    has_lookup(Hash, Text);
+
+has_hashtag(Hash, Text) ->
+    has_lookup(Hash, Text).
+
+
+
+%%--------------------------------------------------------------------
+-spec has_lookup(Look :: string() | atom(),
+                 Text :: string() | binary()) -> undefined
+                                               | string().
 %%
 % @doc  Returns `true' if the specified tweet text contains the requested
 %       hashtag; and `false' otherwise.
@@ -519,22 +539,22 @@ log_subtweet(Indent, SubTweet) ->
 %       NOTE: The `string' library is enhanced in Erlang/OTP 20, and this
 %             function may benefit from some rework when we move onto it.
 % @end  --
-has_lookup(Hash, Text) when is_atom(Hash) ->
-    has_lookup(?lookup(Hash), Text);
+has_lookup(Look, Text) when is_atom(Look) ->
+    has_lookup(?lookup(Look), Text);
 
-has_lookup(Hash, Text) when is_binary(Text) ->
-    has_lookup(Hash, binary_to_list(Text));
+has_lookup(Look, Text) when is_binary(Text) ->
+    has_lookup(Look, binary_to_list(Text));
 
-has_lookup(Hash, Text) ->
+has_lookup(Look, Text) ->
     TextParts = string:tokens(string:to_lower(Text), "#"),
 
     % The first part of the tweet will be the same whether or not it had a
     % hashtag, so throw it away if it didn't
-    Hashtags  = case ($# =:= hd(Text)) of
+    Lookups  = case ($# =:= hd(Text)) of
         true  -> TextParts;
         false -> tl(TextParts)
     end,
-    is_prefix_in_parts(Hash, Hashtags).
+    is_prefix_in_parts(Look, Lookups).
 
 
 %%--------------------------------------------------------------------
