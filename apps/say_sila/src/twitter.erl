@@ -21,11 +21,9 @@
 -module(twitter).
 -behaviour(gen_server).
 
-
 -export([start_link/0,
          stop/0,
          has_hashtag/2,     % DEBUG: REMOVE
-         has_lookup/2,      % DEBUG: REMOVE
          get_pin/0,
          authenticate/1,
          track/1,
@@ -318,18 +316,15 @@ handle_info({track, DataIn}, State) ->
             %?debug("Raw Tweet: ~p", [Tweet])
             log_tweet(Tweet),
 
-        % Store the raw tweet
-        case State#state.db_conn of
-            undefined ->
-                ok;
-            DBConn ->
-                DBResult = epgsql:equery(DBConn,
-                                         "INSERT INTO tbl_statuses (status, track) VALUES  ($1, $2)",
-                                         [DataIn, State#state.track]),
-                ?info("Tweet stored: ~p", [DBResult])
-        end
+            % A real tweet will have a text field
+            case maps:get(<<"text">>, Tweet, undefined) of
+                undefined ->
+                    ok;
+                Text ->
+                    store_tweet(DataIn, has_lookup(cc, Text), has_lookup(gw, Text), State)
+            end
     catch
-        Exc:Why -> ?warning("Bad JSON: why[~p:~p]", [Exc, Why])
+        Exc:Why -> ?warning("Bad JSON: why[~p:~p] data[~p]", [Exc, Why, DataIn])
     end,
     ?notice("END OF TWEET"),
     {noreply, State};
@@ -526,6 +521,25 @@ has_hashtag([$#|Hash], Text) ->
 has_hashtag(Hash, Text) ->
     has_lookup(Hash, Text).
 
+%%--------------------------------------------------------------------
+-spec store_tweet(RawTweet  :: binary(),
+                  IsCC      :: boolean(),
+                  IsGW      :: boolean(),
+                  State     :: state()) -> ok.
+%%
+% @doc  Inserts the tweet into the database, if we're connected.
+% @end  --
+store_tweet(_, _, _, #state{db_conn = undefined}) ->
+    ok;
+
+store_tweet(RawTweet, IsCC, IsGW, #state{db_conn = DBConn,
+                                         track   = Track}) ->
+    DBResult = epgsql:equery(DBConn,
+                             "INSERT INTO tbl_statuses (status, track, hash_cc, hash_gw) "
+                             "VALUES  ($1, $2, $3, $4)",
+                             [RawTweet, Track, IsCC, IsGW]),
+    ?info("Tweet stored: ~p", [DBResult]).
+
 
 
 %%--------------------------------------------------------------------
@@ -534,7 +548,7 @@ has_hashtag(Hash, Text) ->
                                                | string().
 %%
 % @doc  Returns `true' if the specified tweet text contains the requested
-%       hashtag; and `false' otherwise.
+%       lookup keyword (hashtag without the hash); and `false' otherwise.
 %
 %       NOTE: The `string' library is enhanced in Erlang/OTP 20, and this
 %             function may benefit from some rework when we move onto it.
