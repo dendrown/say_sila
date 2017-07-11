@@ -8,6 +8,13 @@
 %%
 %% @doc Say-Sila Twitter access
 %%
+%%      Functionality for tracking and storing statuses (tweets) about
+%%      ClimateChange/GlobalWarming from Twitter.
+%%
+%%      Note that usage of the word "hash" in this module is likely
+%%      referring to Twitter hashtags, and not to hashtables or
+%%      related structures.
+%%
 %% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
@@ -17,6 +24,7 @@
 
 -export([start_link/0,
          stop/0,
+         has_lookup/2,      % DEBUG: REMOVE
          get_pin/0,
          authenticate/1,
          track/1,
@@ -29,7 +37,22 @@
 -define(twitter_oauth_url(Cmd),  "https://api.twitter.com/oauth/"  ++ Cmd).
 -define(twitter_stream_url(Cmd), "https://stream.twitter.com/1.1/" ++ Cmd).
 
--define(DB_TRACK, <<"#climatechange,#globalwarming">>).
+% NOTE: Lookups are hashtags without the hashtag character
+%       Keep lookups/hashtags defined here in all lowercase
+-define(LOOK_CC, "climatechange").
+-define(LOOK_GW, "globalwarming").
+-define(HASH_CC, "#" ?LOOK_CC).
+-define(HASH_GW, "#" ?LOOK_GW).
+
+-define(LOOKUPS,    #{cc => ?LOOK_CC,
+                      gw => ?LOOK_GW}).
+-define(lookup(Key),  maps:get(Key, ?LOOKUPS, undefined)).
+
+-define(HASHTAGS,   #{cc => ?HASH_CC,
+                      gw => ?HASH_GW}).
+-define(hashtag(Key), maps:get(Key, ?HASHTAGS, undefined)).
+
+-define(DB_TRACK, << ?HASH_CC "," ?HASH_GW >>).
 
 
 -record(state, {consumer     :: tuple(),
@@ -459,6 +482,7 @@ log_tweet(Indent, {Key, Val}) ->
     end.
 
 
+
 %%--------------------------------------------------------------------
 -spec log_subtweet(Indent   :: string(),
                    Key      :: binary(),
@@ -471,13 +495,60 @@ log_subtweet(Indent, Key,  SubTweet) ->
     log_subtweet(Indent, SubTweet).
 
 
+
 %%--------------------------------------------------------------------
 -spec log_subtweet(Indent   :: string(),
                    SubTweet :: list()) -> ok.
 %%
 % @doc  Logs the information contained in a tweet substructure
 % @end  --
-log_subtweet(Indent, SubTweet)  ->
+log_subtweet(Indent, SubTweet) ->
     NewIndent = "  " ++ Indent,
     lists:foreach(fun(Elem) -> log_tweet(NewIndent, Elem) end, SubTweet).
 
+
+
+%%--------------------------------------------------------------------
+-spec has_lookup(Hash :: string() | atom(),
+                  Text :: string() | binary()) -> undefined
+                                                  | string().
+%%
+% @doc  Returns `true' if the specified tweet text contains the requested
+%       hashtag; and `false' otherwise.
+%
+%       NOTE: The `string' library is enhanced in Erlang/OTP 20, and this
+%             function may benefit from some rework when we move onto it.
+% @end  --
+has_lookup(Hash, Text) when is_atom(Hash) ->
+    has_lookup(?lookup(Hash), Text);
+
+has_lookup(Hash, Text) when is_binary(Text) ->
+    has_lookup(Hash, binary_to_list(Text));
+
+has_lookup(Hash, Text) ->
+    TextParts = string:tokens(string:to_lower(Text), "#"),
+
+    % The first part of the tweet will be the same whether or not it had a
+    % hashtag, so throw it away if it didn't
+    Hashtags  = case ($# =:= hd(Text)) of
+        true  -> TextParts;
+        false -> tl(TextParts)
+    end,
+    is_prefix_in_parts(Hash, Hashtags).
+
+
+%%--------------------------------------------------------------------
+-spec is_prefix_in_parts(Prefix    :: string(),
+                         TextParts :: [string()]) -> boolean().
+%%
+% @doc  Looks for the `Prefix' as the first word in any of the `TextParts'.
+% @end  --
+is_prefix_in_parts(_, []) ->
+    false;
+
+is_prefix_in_parts(Lookup, [Part|Rest]) ->
+    %?debug("Checking for '~s' in '~s'", [Lookup, Part]),
+    case string:tokens(Part, " ") of
+        [Word|_] when Word =:= Lookup -> true;
+        _                             -> is_prefix_in_parts(Lookup, Rest)
+    end.
