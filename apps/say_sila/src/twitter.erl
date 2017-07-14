@@ -28,7 +28,9 @@
          authenticate/1,
          track/1,
          get_first_dts/1,
-         get_players/1]).
+         get_players/1,
+         get_players/2,
+         get_players_R/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -145,14 +147,46 @@ get_first_dts(Tracker) ->
     gen_server:call(?MODULE, {get_first_dts, Tracker}).
 
 
+
 %%--------------------------------------------------------------------
 -spec get_players(Tracker :: atom()) -> [{binary(), pos_integer()}].
 %
-% @doc  Returns the timestamp of the first tweet for the specified
-%       `Tracker' atom: `cc' or `gw'.
+% @doc  Returns a list of pairs of screen names and the number of
+%       tweets the user has published for the specified `Tracker'
+%       atom: `cc' or `gw'.
 % @end  --
 get_players(Tracker) ->
-    gen_server:call(?MODULE, {get_players, Tracker}).
+    get_players(Tracker, 0).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_players(Tracker   :: atom(),
+                  MinTweets :: pos_integer()) -> [{binary(), pos_integer()}].
+%
+% @doc  Returns a list of pairs of screen names and the number of
+%       tweets the user has published for the specified `Tracker'
+%       atom: `cc' or `gw'.  Only accounts having `MinTweets'
+%       or more status upates are included.
+%
+% @end  --
+get_players(Tracker, MinTweets) ->
+    gen_server:call(?MODULE, {get_players, Tracker, MinTweets}).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_players_R(Tracker   :: atom(),
+                    MinTweets :: pos_integer()) -> string().
+%
+% @doc  DEBUG: Prepares a player list for processing by R.
+%
+%       TODO: R-module: eri:eval("barplot(gw, main='#globalwarming', ylab='tweets', xlab='account')").
+% @end  --
+get_players_R(Tracker, MinTweets) ->
+    Players = get_players(Tracker, MinTweets),
+    Counts  = [binary_to_list(Cnt) || {_, Cnt} <- Players],
+    lists:flatten([atom_to_list(Tracker), " <- c(", lists:join($,, Counts), ")"]).
 
 
 
@@ -251,14 +285,15 @@ handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) -
     {reply, Reply, State};
 
 
-handle_call({get_players, Tracker}, _From, State = #state{db_conn = DBConn}) ->
+handle_call({get_players, Tracker, MinTweets}, _From, State = #state{db_conn = DBConn}) ->
     Query = io_lib:format("SELECT status->'user'->>'screen_name' AS screen_name, "
-                                 "count(1) AS cnt "
+                                 "COUNT(1) AS cnt "
                           "FROM tbl_statuses "
                           "WHERE track = '~s' AND hash_~s "
                           "GROUP BY screen_name "
+                          "HAVING COUNT(1) >= ~B "
                           "ORDER BY cnt DESC",
-                          [?DB_TRACK, Tracker]),
+                          [?DB_TRACK, Tracker, MinTweets]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows   } -> Rows;
