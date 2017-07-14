@@ -27,7 +27,8 @@
          get_pin/0,
          authenticate/1,
          track/1,
-         get_first_dts/1]).
+         get_first_dts/1,
+         get_players/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -135,15 +136,23 @@ track(KeyWords) ->
 
 
 %%--------------------------------------------------------------------
--spec get_first_dts(Tracker :: atom()
-                             | string()
-                             | binary()) -> string().
+-spec get_first_dts(Tracker :: atom()) -> string().
 %
 % @doc  Returns the timestamp of the first tweet for the specified
 %       `Tracker' atom: `cc' or `gw'.
 % @end  --
 get_first_dts(Tracker) ->
     gen_server:call(?MODULE, {get_first_dts, Tracker}).
+
+
+%%--------------------------------------------------------------------
+-spec get_players(Tracker :: atom()) -> [{binary(), pos_integer()}].
+%
+% @doc  Returns the timestamp of the first tweet for the specified
+%       `Tracker' atom: `cc' or `gw'.
+% @end  --
+get_players(Tracker) ->
+    gen_server:call(?MODULE, {get_players, Tracker}).
 
 
 
@@ -237,6 +246,22 @@ handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) -
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, [{DTS}]} -> binary_to_integer(DTS);
+        _                -> undefined
+    end,
+    {reply, Reply, State};
+
+
+handle_call({get_players, Tracker}, _From, State = #state{db_conn = DBConn}) ->
+    Query = io_lib:format("SELECT status->'user'->>'screen_name' AS screen_name, "
+                                 "count(1) AS cnt "
+                          "FROM tbl_statuses "
+                          "WHERE track = '~s' AND hash_~s "
+                          "GROUP BY screen_name "
+                          "ORDER BY cnt DESC",
+                          [?DB_TRACK, Tracker]),
+    %?debug("QUERY: ~s", [Query]),
+    Reply = case epgsql:squery(DBConn, Query) of
+        {ok, _, Rows   } -> Rows;
         _                -> undefined
     end,
     {reply, Reply, State};
