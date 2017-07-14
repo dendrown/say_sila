@@ -1,3 +1,4 @@
+%% -*- mode: erlang -*-
 {application, say_sila,
  [{description, "Analysis of Sentiment on Climate Change"},
   {vsn, "0.1.0"},
@@ -7,6 +8,7 @@
   {env,[]},
   {modules, [llog,
              nest,
+             r,
              twitter ]},
   {maintainers, []},
   {licenses, []},

@@ -46,6 +46,7 @@ start_link() ->
 init([]) ->
     {ok, {{one_for_all, 5, 60},
           [{twitter, {twitter, start_link, []}, permanent, 2000, worker, [twitter]},
+           {r,       {r,       start_link, []}, permanent, 2000, worker, [r]},
            {nest,    {nest,    start_link, []}, permanent, 2000, worker, [nest]} ]}}.
 
 
