@@ -1,14 +1,12 @@
 # sila-weka
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure bridge from say_sila (BEAM) to weka (JVM).
 
 ## Usage
 
-FIXME
-
+To be defined...
 ## License
 
-Copyright © 2017 FIXME
+Copyright © 2017 Dennis Drown et l'Université du Québec à Montréal
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the BSD 3-clause License.
