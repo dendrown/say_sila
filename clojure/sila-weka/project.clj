@@ -3,4 +3,8 @@
   :url "http://dendrown.net"
   :license {:name "BSD 3-clause License"
             :url "https://spdx.org/licenses/BSD-3-Clause.html"}
-  :dependencies [[org.clojure/clojure "1.8.0"]])
+  :plugins [[lein-localrepo "0.5.4"]]
+  :dependencies [[org.clojure/clojure "1.8.0"]
+                 [com.ericsson.otp.erlang/jinterface "1.7.1"]])
+
+; NOTE: lein localrepo install /usr/lib/erlang/lib/jinterface-1.7.1/priv/OtpErlang.jar com.ericsson.otp.erlang/jinterface 1.7.1
