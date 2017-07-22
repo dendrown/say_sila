@@ -565,23 +565,6 @@ log_subtweet(Indent, SubTweet) ->
 
 
 %%--------------------------------------------------------------------
--spec has_hashtag(Hash :: string() | atom(),
-                  Text :: string() | binary()) -> undefined
-                                                | string().
-%%
-% @doc  Returns `true' if the specified tweet text contains the requested
-%       hashtag; and `false' otherwise.
-% @end  --
-has_hashtag(Hash, Text) when is_binary(Text) ->
-    has_hashtag(Hash, binary_to_list(Text));
-
-has_hashtag([$#|Hash], Text) ->
-    has_lookup(Hash, Text);
-
-has_hashtag(Hash, Text) ->
-    has_lookup(Hash, Text).
-
-%%--------------------------------------------------------------------
 -spec store_tweet(RawTweet  :: binary(),
                   IsCC      :: boolean(),
                   IsGW      :: boolean(),
@@ -599,6 +582,26 @@ store_tweet(RawTweet, IsCC, IsGW, #state{db_conn = DBConn,
                              "VALUES  ($1, $2, $3, $4)",
                              [RawTweet, Track, IsCC, IsGW]),
     ?info("Tweet stored: ~p", [DBResult]).
+
+
+
+
+%%--------------------------------------------------------------------
+-spec has_hashtag(Hash :: string() | atom(),
+                  Text :: string() | binary()) -> undefined
+                                                | string().
+%%
+% @doc  Returns `true' if the specified tweet text contains the requested
+%       hashtag; and `false' otherwise.
+% @end  --
+has_hashtag(Hash, Text) when is_binary(Text) ->
+    has_hashtag(Hash, binary_to_list(Text));
+
+has_hashtag([$#|Hash], Text) ->
+    has_lookup(Hash, Text);
+
+has_hashtag(Hash, Text) ->
+    has_lookup(Hash, Text).
 
 
 
