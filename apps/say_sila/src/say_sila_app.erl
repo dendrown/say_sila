@@ -34,7 +34,7 @@ start(_StartType, _StartArgs) ->
     %?debug("Args: ~p", [_StartArgs]),
 
     % Setup for Twitter
-    lists:foreach(fun(App) -> ok = application:start(App) end,
+    lists:foreach(fun(App) -> ok = application:ensure_started(App) end,
                   [inets,
                    crypto,
                    asn1,
