@@ -30,11 +30,17 @@
          get_first_dts/1,
          get_players/1,
          get_players/2,
-         get_players_R/2]). % DEBUG: REMOVE
+         get_players_R/2,
+         get_tweets/2]). % DEBUG: REMOVE
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
 -include("llog.hrl").
+
+%%====================================================================
+%% TODO:
+%% <> Decide about retweets
+%%====================================================================
 
 -define(twitter_oauth_url(Cmd),  "https://api.twitter.com/oauth/"  ++ Cmd).
 -define(twitter_stream_url(Cmd), "https://stream.twitter.com/1.1/" ++ Cmd).
@@ -189,6 +195,17 @@ get_players_R(Tracker, MinTweets) ->
     lists:flatten([atom_to_list(Tracker), " <- c(", lists:join($,, Counts), ")"]).
 
 
+%%--------------------------------------------------------------------
+-spec get_tweets(Tracker    :: atom(),
+                 ScreenName :: binary() | string()) -> list().
+%
+% @doc  Returns the tweets for a account.
+%
+%       NOTE: this pulls only classic 140-char tweets
+% @end  --
+get_tweets(Tracker, ScreenName) ->
+    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenName}).
+
 
 
 %%====================================================================
@@ -296,8 +313,26 @@ handle_call({get_players, Tracker, MinTweets}, _From, State = #state{db_conn = D
                           [?DB_TRACK, Tracker, MinTweets]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
-        {ok, _, Rows   } -> Rows;
-        _                -> undefined
+        {ok, _, Rows} -> Rows;
+        _             -> undefined
+    end,
+    {reply, Reply, State};
+
+
+handle_call({get_tweets, Tracker, ScreenName}, _From, State = #state{db_conn = DBConn}) ->
+    % Note: this pulls only classic 140-char tweets
+    Query = io_lib:format("SELECT status->>'timestamp_ms' AS timestamp_ms, "
+                                 "status->>'text' AS text "
+                          "FROM tbl_statuses "
+                          "WHERE track = '~s' "
+                            "AND hash_~s "
+                            "AND status->'user'->>'screen_name' = '~s' "
+                          "ORDER BY timestamp_ms",
+                          [?DB_TRACK, Tracker, ScreenName]),
+    ?debug("QUERY: ~s", [Query]),
+    Reply = case epgsql:squery(DBConn, Query) of
+        {ok, _, Rows} -> {ScreenName, [{binary_to_integer(DTS), Text} || {DTS, Text} <- Rows]};
+        _             -> undefined
     end,
     {reply, Reply, State};
 
