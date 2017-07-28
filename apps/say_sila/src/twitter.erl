@@ -31,7 +31,7 @@
          get_players/1,
          get_players/2,
          get_players_R/2,
-         get_tweets/2]). % DEBUG: REMOVE
+         get_tweets/2]).    % DEBUG: REMOVE
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -196,15 +196,32 @@ get_players_R(Tracker, MinTweets) ->
 
 
 %%--------------------------------------------------------------------
--spec get_tweets(Tracker    :: atom(),
-                 ScreenName :: binary() | string()) -> list().
+-spec get_tweets(Tracker     :: atom(),
+                 ScreenNames :: binary()
+                              | string()
+                              | list()) -> list().
 %
-% @doc  Returns the tweets for a account.
+% @doc  Returns the tweets for one or more accounts; `ScreenNames' can
+%       take the form <<"denDrown">>, "denDrown" or ["denDrown", "someOneElse"]
 %
 %       NOTE: this pulls only classic 140-char tweets
 % @end  --
-get_tweets(Tracker, ScreenName) ->
-    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenName}).
+get_tweets(_, []) ->
+    [];
+
+
+get_tweets(Tracker, ScreenName) when is_binary(ScreenName) ->
+    get_tweets(Tracker, binary_to_list(ScreenName));
+
+
+get_tweets(Tracker, ScreenNames) ->
+    % Convert a singleton ScreenName to a list of one
+    ScreenNameList = case io_lib:printable_unicode_list(ScreenNames) of
+        true  -> [ScreenNames];                         % ["justOne"]
+        false -> ScreenNames
+    end,
+    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList}).
+
 
 
 
@@ -319,19 +336,25 @@ handle_call({get_players, Tracker, MinTweets}, _From, State = #state{db_conn = D
     {reply, Reply, State};
 
 
-handle_call({get_tweets, Tracker, ScreenName}, _From, State = #state{db_conn = DBConn}) ->
-    % Note: this pulls only classic 140-char tweets
-    Query = io_lib:format("SELECT status->>'timestamp_ms' AS timestamp_ms, "
+handle_call({get_tweets, Tracker, ScreenNames}, _From, State = #state{db_conn = DBConn}) ->
+    % Note: This pulls only classic 140-char tweets
+    %       Also, we're going to want to move the list_to_sql line to a DB module
+    ScreenNameSQL = lists:flatten(["('", hd(ScreenNames), "'",
+                                   [io_lib:format(",'~s'", [SN]) || {SN, _} <- tl(ScreenNames)],
+                                   ")"]),
+    Query = io_lib:format("SELECT status->>'id' AS id, "
+                                 "status->'user'->>'screen_name' AS screen_name, "
+                                 "status->>'timestamp_ms' AS timestamp_ms, "
                                  "status->>'text' AS text "
                           "FROM tbl_statuses "
                           "WHERE track = '~s' "
                             "AND hash_~s "
-                            "AND status->'user'->>'screen_name' = '~s' "
+                            "AND status->'user'->>'screen_name' IN ~s "
                           "ORDER BY timestamp_ms",
-                          [?DB_TRACK, Tracker, ScreenName]),
+                          [?DB_TRACK, Tracker, ScreenNameSQL]),
     ?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
-        {ok, _, Rows} -> {ScreenName, [{binary_to_integer(DTS), Text} || {DTS, Text} <- Rows]};
+        {ok, _, Rows} -> [{ID, SN, binary_to_integer(DTS), Text} || {ID, SN, DTS, Text} <- Rows];
         _             -> undefined
     end,
     {reply, Reply, State};
