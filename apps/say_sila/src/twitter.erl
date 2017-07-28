@@ -36,6 +36,7 @@
 
 -include("sila.hrl").
 -include("llog.hrl").
+-include("twitter.hrl").
 
 %%====================================================================
 %% TODO:
@@ -352,9 +353,12 @@ handle_call({get_tweets, Tracker, ScreenNames}, _From, State = #state{db_conn = 
                             "AND status->'user'->>'screen_name' IN ~s "
                           "ORDER BY timestamp_ms",
                           [?DB_TRACK, Tracker, ScreenNameSQL]),
-    ?debug("QUERY: ~s", [Query]),
+    %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
-        {ok, _, Rows} -> [{ID, SN, binary_to_integer(DTS), Text} || {ID, SN, DTS, Text} <- Rows];
+        {ok, _, Rows} -> [#tweet{id           = ID,
+                                 screen_name  = SN,
+                                 timestamp_ms = binary_to_integer(DTS),
+                                 text         = Text} || {ID, SN, DTS, Text} <- Rows];
         _             -> undefined
     end,
     {reply, Reply, State};
