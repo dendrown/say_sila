@@ -71,6 +71,10 @@
                 db_conn      :: pid() }).
 -type state() :: #state{}.
 
+-record(player, {screen_name :: binary(),
+                 tweet_cnt   :: integer() }).
+-type player() :: #player{}.
+
 
 
 %%====================================================================
@@ -156,7 +160,7 @@ get_first_dts(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec get_players(Tracker :: atom()) -> [{binary(), pos_integer()}].
+-spec get_players(Tracker :: atom()) -> [player()].
 %
 % @doc  Returns a list of pairs of screen names and the number of
 %       tweets the user has published for the specified `Tracker'
@@ -209,6 +213,10 @@ get_players_R(Tracker, MinTweets) ->
 % @end  --
 get_tweets(_, []) ->
     [];
+
+
+get_tweets(Tracker, Player = #player{}) ->
+    get_tweets(Tracker, [Player]);
 
 
 get_tweets(Tracker, ScreenName) when is_binary(ScreenName) ->
@@ -331,17 +339,29 @@ handle_call({get_players, Tracker, MinTweets}, _From, State = #state{db_conn = D
                           [?DB_TRACK, Tracker, MinTweets]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
-        {ok, _, Rows} -> Rows;
+        {ok, _, Rows} -> [#player{screen_name = SN,
+                                  tweet_cnt   = binary_to_integer(Cnt)} || {SN, Cnt} <- Rows];
         _             -> undefined
     end,
     {reply, Reply, State};
 
 
+handle_call({get_tweets, Tracker, Players = [#player{}|_]},
+            From,
+            State) ->
+    %
+    % Pull a list of screen names from the player recs
+    handle_call({get_tweets, Tracker, [Player#player.screen_name || Player <- Players]},
+                 From,
+                 State);
+
+
 handle_call({get_tweets, Tracker, ScreenNames}, _From, State = #state{db_conn = DBConn}) ->
     % Note: This pulls only classic 140-char tweets
     %       Also, we're going to want to move the list_to_sql line to a DB module
+    %?debug("Screenames: ~p", [ScreenNames]),
     ScreenNameSQL = lists:flatten(["('", hd(ScreenNames), "'",
-                                   [io_lib:format(",'~s'", [SN]) || {SN, _} <- tl(ScreenNames)],
+                                   [io_lib:format(",'~s'", [SN]) || SN <- tl(ScreenNames)],
                                    ")"]),
     Query = io_lib:format("SELECT status->>'id' AS id, "
                                  "status->'user'->>'screen_name' AS screen_name, "
