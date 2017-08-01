@@ -65,7 +65,6 @@
 % @end  --
 tweets_to_arff(Name, Tweets) ->
     FPath = make_fpath(Name),
-    ?debug("ARFF: ~s", [FPath]),
     {ok, FOut} = file:open(FPath, [write]),
 
     io:format(FOut, "@RELATION  ~s~n~n", [Name]),
@@ -114,9 +113,13 @@ make_fpath(Name) ->
 write_tweets(_, []) ->
     ok;
 
-write_tweets(Out, [Tweet | Rest]) ->
+write_tweets(Out, [Tweet = #tweet{text = Text0} | Rest]) ->
+    %
+    % So Weka doesn't freak:
+    Text1 = re:replace(Text0, "'", [$\\, $\\, $'], [global]),           % Escape single quotes
+    Text  = re:replace(Text1, "\n", " ", [global, {return, binary}]),   % Convert newlines to spaces
     io:format(Out, "'~s','~s','~s'~n", [Tweet#tweet.id,
                                         Tweet#tweet.screen_name,
-                                        Tweet#tweet.text]),
+                                        Text]),
     write_tweets(Out, Rest).
 
