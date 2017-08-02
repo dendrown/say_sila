@@ -13,7 +13,7 @@
 (ns sila-weka.core
   (:import [com.ericsson.otp.erlang OtpErlangTuple OtpMbox OtpNode]))
 
-;(set! *warn-on-reflection* true)
+(set! *warn-on-reflection* true)
 
 (def ^:const +ERLANG-COOKIE+ "say_sila_uqam_00")
 (def ^:const +RECV-TIMEOUT+  300000)
@@ -45,7 +45,7 @@
   Breaks apart an incoming message into [sender dispatch message].
   This function can be much more lispy...!
   "
-  [tuple]
+  [#^OtpErlangTuple tuple]
   (if (some? tuple)
       [(.elementAt tuple 0)
        (.elementAt tuple 1)

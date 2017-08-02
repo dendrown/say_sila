@@ -5,6 +5,9 @@
             :url "https://spdx.org/licenses/BSD-3-Clause.html"}
   :plugins [[lein-localrepo "0.5.4"]]
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [com.ericsson.otp.erlang/jinterface "1.7.1"]])
+                 [com.ericsson.otp.erlang/jinterface "1.7.1"]
+                 [weka/weka "3.8.1"]])
 
-; NOTE: lein localrepo install /usr/lib/erlang/lib/jinterface-1.7.1/priv/OtpErlang.jar com.ericsson.otp.erlang/jinterface 1.7.1
+; NOTE for external JARs:
+;  lein localrepo install /usr/lib/erlang/lib/jinterface-1.7.1/priv/OtpErlang.jar com.ericsson.otp.erlang/jinterface 1.7.1
+;  lein localrepo install /usr/local/java/weka-3-8-1/weka.jar weka/weka 3.8.1
