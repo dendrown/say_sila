@@ -55,9 +55,9 @@
         fout  (io/file fpath)]
     (.createNewFile fout)
     (doto saver
-			(.setFile fout)
-			(.setInstances data)
-			(.writeBatch))
+        (.setFile fout)
+        (.setInstances data)
+        (.writeBatch))
     (.numInstances data)))
 
 
