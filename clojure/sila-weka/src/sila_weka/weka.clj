@@ -15,13 +15,43 @@
             [clojure.string  :as str])
   (:import  (weka.core Instances)
             (weka.filters Filter)
-            (weka.core.converters ArffLoader ArffSaver)
+            (weka.core.converters ArffLoader
+                                  ArffSaver)
             (weka.filters.unsupervised.attribute TweetToEmbeddingsFeatureVector
-                                                 TweetToLexiconFeatureVector)))
+                                                 TweetToLexiconFeatureVector
+                                                 TweetToSentiStrengthFeatureVector)))
 
 (set! *warn-on-reflection* true)
 
 (def ^:const +ARFF-TEXT-ATTR+ "3")
+(def ^:const +FILTERS+ {:embed  {:filter  '(TweetToEmbeddingsFeatureVector.)
+                                 :options ["-I" +ARFF-TEXT-ATTR+
+                                           "-S" "0"    ; 0=avg, 1=add, 2=cat
+                                           "-K" "15"   ; Concat word count
+                                           "-L"        ; Lowercase
+                                           "-O"]}      ; Normalize URLs/@users
+                                                       ; Default embeddings [ -B ]:
+                                                       ;   w2v.twitter.edinburgh.100d.csv.gz
+                        :lex    {:filter  '(TweetToLexiconFeatureVector.)
+                                 :options ["-I" +ARFF-TEXT-ATTR+
+                                           "-A"        ; MPQA Lexicon
+                                           "-D"        ; Bing Liu
+                                           "-F"        ; AFINN
+                                           "-H"        ; S140
+                                           "-J"        ; NRC-Hash-Sent
+                                           "-L"        ; NRC-10 Emotion
+                                           "-N"        ; NRC-10-Expanded Emotion
+                                           "-P"        ; NRC Hashtag Emotion
+                                           "-Q"        ; SentiWordNet
+                                           "-R"        ; Emoticon List
+                                           "-T"        ; Negation List
+                                           "-U"        ; Lowercase (not upper)
+                                           "-O"]}      ; Normalize URLs/@users
+                        :senti  {:filter  '(TweetToLexiconFeatureVector.)
+                                 :options ["-I" +ARFF-TEXT-ATTR+
+                                           "-U"        ; Lowercase (not upper)
+                                           "-O"]}})    ; Normalize URLs/@users
+
 
 ;;; --------------------------------------------------------------------------
 ;;; ╻  ┏━┓┏━┓╺┳┓   ┏━┓┏━┓┏━╸┏━╸
@@ -85,11 +115,14 @@
   "
   Applies a filter to the specified data Instances
   "
-  [data #^Filter sieve opts]
+  [data flt-key]
+  (let [flt-map (flt-key  +FILTERS+)
+        opts    (:options flt-map)
+        sieve   #^Filter (eval (:filter  flt-map))]
   (doto sieve
     (.setOptions     (into-array String opts))
     (.setInputFormat data))
-  (Filter/useFilter data sieve))
+  (Filter/useFilter data sieve)))
 
 
 
@@ -115,6 +148,25 @@
 
 
 
+;;; --------------------------------------------------------------------------
+;;; ┏━╸╻╻  ╺┳╸┏━╸┏━┓   ┏━┓┏━┓┏━╸┏━╸
+;;; ┣╸ ┃┃   ┃ ┣╸ ┣┳┛╺━╸┣━┫┣┳┛┣╸ ┣╸
+;;; ╹  ╹┗━╸ ╹ ┗━╸╹┗╸   ╹ ╹╹┗╸╹  ╹
+;;; --------------------------------------------------------------------------
+(defn filter-arff
+  "
+  Reads in an ARFF file with tweets and writes it back out after applying
+  the specified filter.
+  "
+  [fpath flt-key]
+    (let [data  (load-arff fpath)
+          tag   (name flt-key)]
+      (println "Filtering<" tag ">: " fpath)
+      (save-arff (tag-filename fpath tag)
+                 (filter-instances data flt-key))))
+
+
+
 
 ;;; --------------------------------------------------------------------------
 ;;; ┏━╸┏┳┓┏┓ ┏━╸╺┳┓   ┏━┓┏━┓┏━╸┏━╸
@@ -126,17 +178,7 @@
   Reads in an ARFF file with tweets and writes it back out with embeddings.
   "
   [fpath]
-    (let [data  (load-arff fpath)]
-      (println "Embedding " fpath)
-      ; Default embeddings: "w2v.twitter.edinburgh.100d.csv.gz"
-      (save-arff (tag-filename fpath "embed")
-                 (filter-instances data
-                                   (TweetToEmbeddingsFeatureVector.)
-                                   ["-I" +ARFF-TEXT-ATTR+
-                                    "-S" "0"    ; 0=avg, 1=add, 2=cat
-                                    "-K" "15"   ; Concat word count
-                                    "-L"        ; Lowercase
-                                    "-O"]))))   ; Normalize URLs/@users
+  (filter-arff fpath :embed))
 
 
 
@@ -149,26 +191,21 @@
   "
   Reads in an ARFF file with tweets and writes it back out with lexicon feature
   vectors.
-
-  TODO: consolidate filter-arff functions
   "
   [fpath]
-    (let [data  (load-arff fpath)]
-      (println "Lexifying " fpath)
-      (save-arff (tag-filename fpath "lex")
-                 (filter-instances data
-                                   (TweetToLexiconFeatureVector.)
-                                   ["-I" +ARFF-TEXT-ATTR+
-                                    "-A"        ; MPQA Lexicon
-                                    "-D"        ; Bing Liu
-                                    "-F"        ; AFINN
-                                    "-H"        ; S140
-                                    "-J"        ; NRC-Hash-Sent
-                                    "-L"        ; NRC-10 Emotion
-                                    "-N"        ; NRC-10-Expanded Emotion
-                                    "-P"        ; NRC Hashtag Emotion
-                                    "-Q"        ; SentiWordNet
-                                    "-R"        ; Emoticon List
-                                    "-T"        ; Negation List
-                                    "-U"        ; Lowercase
-                                    "-O"]))))   ; Normalize URLs/@users
+  (filter-arff fpath :lex))
+
+
+
+;;; --------------------------------------------------------------------------
+;;; ┏━┓┏━╸┏┓╻╺┳╸╻   ┏━┓┏━┓┏━╸┏━╸
+;;; ┗━┓┣╸ ┃┗┫ ┃ ┃╺━╸┣━┫┣┳┛┣╸ ┣╸
+;;; ┗━┛┗━╸╹ ╹ ╹ ╹   ╹ ╹╹┗╸╹  ╹
+;;; --------------------------------------------------------------------------
+(defn senti-arff
+  "
+  Reads in an ARFF file with tweets and writes it back out with SentiStrength
+  feature vectors.
+  "
+  [fpath]
+  (filter-arff fpath :senti))
