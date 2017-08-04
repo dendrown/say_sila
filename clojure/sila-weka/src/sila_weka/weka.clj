@@ -16,10 +16,12 @@
   (:import  (weka.core Instances)
             (weka.filters Filter)
             (weka.core.converters ArffLoader ArffSaver)
-            (weka.filters.unsupervised.attribute TweetToEmbeddingsFeatureVector)))
+            (weka.filters.unsupervised.attribute TweetToEmbeddingsFeatureVector
+                                                 TweetToLexiconFeatureVector)))
 
 (set! *warn-on-reflection* true)
 
+(def ^:const +ARFF-TEXT-ATTR+ "3")
 
 ;;; --------------------------------------------------------------------------
 ;;; ╻  ┏━┓┏━┓╺┳┓   ┏━┓┏━┓┏━╸┏━╸
@@ -30,11 +32,12 @@
   "
   Reads in and returns the Instances from the specified ARFF file
   "
-  [#^String fpath]
+  [fpath]
   (let [loader (ArffLoader.)]
     ; Pull the instances and give 'em to the caller
     (.setFile loader (io/file fpath))
     (.getDataSet loader)))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -51,9 +54,11 @@
   (let [saver (ArffSaver.)
         fout  (io/file fpath)]
     (.createNewFile fout)
-    (.setFile saver fout)
-    (.setInstances saver data)
-    (.writeBatch saver)))
+    (doto saver
+			(.setFile fout)
+			(.setInstances data)
+			(.writeBatch))
+    (.numInstances data)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -68,6 +73,23 @@
   [fpath tag]
   (let [parts (str/split fpath #"\.")]
     (str/join "." (flatten [(butlast parts) tag (last parts)]))))
+
+
+
+;;; --------------------------------------------------------------------------
+;;; ┏━╸╻╻  ╺┳╸┏━╸┏━┓   ╻┏┓╻┏━┓╺┳╸┏━┓┏┓╻┏━╸┏━╸┏━┓
+;;; ┣╸ ┃┃   ┃ ┣╸ ┣┳┛╺━╸┃┃┗┫┗━┓ ┃ ┣━┫┃┗┫┃  ┣╸ ┗━┓
+;;; ╹  ╹┗━╸ ╹ ┗━╸╹┗╸   ╹╹ ╹┗━┛ ╹ ╹ ╹╹ ╹┗━╸┗━╸┗━┛
+;;; --------------------------------------------------------------------------
+(defn #^Instances filter-instances
+  "
+  Applies a filter to the specified data Instances
+  "
+  [data #^Filter sieve opts]
+  (doto sieve
+    (.setOptions     (into-array String opts))
+    (.setInputFormat data))
+  (Filter/useFilter data sieve))
 
 
 
@@ -93,6 +115,7 @@
 
 
 
+
 ;;; --------------------------------------------------------------------------
 ;;; ┏━╸┏┳┓┏┓ ┏━╸╺┳┓   ┏━┓┏━┓┏━╸┏━╸
 ;;; ┣╸ ┃┃┃┣┻┓┣╸  ┃┃╺━╸┣━┫┣┳┛┣╸ ┣╸
@@ -103,15 +126,49 @@
   Reads in an ARFF file with tweets and writes it back out with embeddings.
   "
   [fpath]
-    (let [data        (load-arff fpath)
-          filter      (TweetToEmbeddingsFeatureVector.)]
+    (let [data  (load-arff fpath)]
       (println "Embedding " fpath)
       ; Default embeddings: "w2v.twitter.edinburgh.100d.csv.gz"
-      (.setOptions filter (into-array String ["-I" "3"  ; Text attribute
-                                              "-S" "0"  ; 0=avg, 1=add, 2=cat
-                                              "-K" "15" ; Concat word count
-                                              "-L"      ; Lowercase
-                                              "-O"]))   ; Normalize URLs/@users
-      (.setInputFormat filter data)
       (save-arff (tag-filename fpath "embed")
-                 (Filter/useFilter data filter))))
+                 (filter-instances data
+                                   (TweetToEmbeddingsFeatureVector.)
+                                   ["-I" +ARFF-TEXT-ATTR+
+                                    "-S" "0"    ; 0=avg, 1=add, 2=cat
+                                    "-K" "15"   ; Concat word count
+                                    "-L"        ; Lowercase
+                                    "-O"]))))   ; Normalize URLs/@users
+
+
+
+;;; --------------------------------------------------------------------------
+;;; ╻  ┏━╸╻ ╻╻┏━╸╻ ╻   ┏━┓┏━┓┏━╸┏━╸
+;;; ┃  ┣╸ ┏╋┛┃┣╸ ┗┳┛╺━╸┣━┫┣┳┛┣╸ ┣╸
+;;; ┗━╸┗━╸╹ ╹╹╹   ╹    ╹ ╹╹┗╸╹  ╹
+;;; --------------------------------------------------------------------------
+(defn lexify-arff
+  "
+  Reads in an ARFF file with tweets and writes it back out with lexicon feature
+  vectors.
+
+  TODO: consolidate filter-arff functions
+  "
+  [fpath]
+    (let [data  (load-arff fpath)]
+      (println "Lexifying " fpath)
+      (save-arff (tag-filename fpath "lex")
+                 (filter-instances data
+                                   (TweetToLexiconFeatureVector.)
+                                   ["-I" +ARFF-TEXT-ATTR+
+                                    "-A"        ; MPQA Lexicon
+                                    "-D"        ; Bing Liu
+                                    "-F"        ; AFINN
+                                    "-H"        ; S140
+                                    "-J"        ; NRC-Hash-Sent
+                                    "-L"        ; NRC-10 Emotion
+                                    "-N"        ; NRC-10-Expanded Emotion
+                                    "-P"        ; NRC Hashtag Emotion
+                                    "-Q"        ; SentiWordNet
+                                    "-R"        ; Emoticon List
+                                    "-T"        ; Negation List
+                                    "-U"        ; Lowercase
+                                    "-O"]))))   ; Normalize URLs/@users
