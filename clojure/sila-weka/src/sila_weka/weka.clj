@@ -23,6 +23,12 @@
 
 (set! *warn-on-reflection* true)
 
+;; ---------------------------------------------------------------------------
+;; LEXI-NOTES:
+;;   BWS-Lex  -P [4e] NRC-Hashtag-Emotion-Lexicon-v0.2
+;;   Emo-Lex  -L [8e] NRC-emotion-lexicon-wordlevel-v0.92
+;;   Expanded -N [8e] w2v-dp-BCC-Lex
+;; ---------------------------------------------------------------------------
 (def ^:const +ARFF-TEXT-ATTR+ "3")
 (def ^:const +FILTERS+ {:embed  {:filter  '(TweetToEmbeddingsFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
@@ -39,15 +45,15 @@
                                            "-F"        ; AFINN
                                            "-H"        ; S140
                                            "-J"        ; NRC-Hash-Sent
-                                           "-L"        ; NRC-10 Emotion
+                                           "-L"        ; NRC-10 Emotion [EmoLex]
                                            "-N"        ; NRC-10-Expanded Emotion
-                                           "-P"        ; NRC Hashtag Emotion
+                                           "-P"        ; NRC Hashtag Emotion [BWS]
                                            "-Q"        ; SentiWordNet
                                            "-R"        ; Emoticon List
                                            "-T"        ; Negation List
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}      ; Normalize URLs/@users
-                        :senti  {:filter  '(TweetToLexiconFeatureVector.)
+                        :senti  {:filter  '(TweetToSentiStrengthFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}})    ; Normalize URLs/@users
