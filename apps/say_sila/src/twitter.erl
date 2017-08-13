@@ -143,6 +143,11 @@ authenticate(PIN) ->
 %%
 % @doc  Tracks status/tweets on Twitter for the specified `KeyWords'
 % @end  --
+track([Nickname | Rest]) when is_atom(Nickname)->
+    KeyWords = [?hashtag(Nickname), [ io_lib:format(",~s", [?hashtag(Nick)]) || Nick <- Rest]],
+    track(lists:flatten(KeyWords));
+
+
 track(KeyWords) ->
     gen_server:cast(?MODULE, {track, KeyWords}).
 
