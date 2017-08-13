@@ -47,7 +47,7 @@
                                            "-J"        ; NRC-Hash-Sent
                                            "-L"        ; NRC-10 Emotion [EmoLex]
                                            "-N"        ; NRC-10-Expanded Emotion
-                                           "-P"        ; NRC Hashtag Emotion [BWS]
+                                           "-P"        ; NRC Hashtag Emotion
                                            "-Q"        ; SentiWordNet
                                            "-R"        ; Emoticon List
                                            "-T"        ; Negation List
