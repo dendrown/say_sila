@@ -18,6 +18,7 @@
             (weka.core.converters ArffLoader
                                   ArffSaver)
             (weka.filters.unsupervised.attribute TweetToEmbeddingsFeatureVector
+                                                 TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
                                                  TweetToSentiStrengthFeatureVector)))
 
@@ -38,6 +39,10 @@
                                            "-O"]}      ; Normalize URLs/@users
                                                        ; Default embeddings [ -B ]:
                                                        ;   w2v.twitter.edinburgh.100d.csv.gz
+                        :input  {:filter  '(TweetToInputLexiconFeatureVector.)
+                                 :options ["-I" +ARFF-TEXT-ATTR+
+                                           "-U"        ; Lowercase (not upper)
+                                           "-O"]}      ; Normalize URLs/@users
                         :lex    {:filter  '(TweetToLexiconFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-A"        ; MPQA Lexicon
@@ -215,3 +220,4 @@
   "
   [fpath]
   (filter-arff fpath :senti))
+

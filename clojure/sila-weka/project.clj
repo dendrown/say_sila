@@ -10,7 +10,7 @@
                  [uk.ac.wlv/sentistrength            "0.1.0"]
                  [com.ericsson.otp.erlang/jinterface "1.7.1"]
                  [weka/weka                          "3.8.1"]
-                 [affective/affectivetweets          "1.0.0"]])
+                 [affective/affectivetweets          "1.0.1"]])
 
 ; NOTE for external JARs:
 ;  lein localrepo install /usr/lib/erlang/lib/jinterface-1.7.1/priv/OtpErlang.jar com.ericsson.otp.erlang/jinterface 1.7.1
