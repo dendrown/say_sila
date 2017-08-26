@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila Tweet Emotion Analyzer for Climate Change
 %%
-%% @copyright 2017 Dennis Drown
+%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(sila).
