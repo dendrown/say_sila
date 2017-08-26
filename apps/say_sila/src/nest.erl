@@ -6,7 +6,8 @@
 %%         _/    _/    _/        _/    _/
 %%  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 %%
-%% @doc The twitter data nest
+%% @doc The Twitter data nest. This module represents a higher level
+%%      of abstraction over the `twitter' module.
 %%
 %% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
@@ -15,11 +16,14 @@
 -behaviour(gen_server).
 
 
--export([start_link/0, stop/0, connect/0]).
+-export([start_link/0, stop/0,
+         connect/0,
+         partition/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
 -include("llog.hrl").
+-include("twitter.hrl").
 
 -record(state, {todo   :: any() }).
 -type state() :: #state{}.
@@ -58,6 +62,31 @@ connect() ->
     gen_server:cast(?MODULE, authenticate).
 
 
+
+%%--------------------------------------------------------------------
+-spec partition(Tracker  :: atom(),
+                Activity :: float()) -> {big_players(), players()}.
+%%
+% @doc  Gets the players for the Twitter tracking code (`cc' or `gw')
+%       and partitions them into two lists: the "big players", who
+%       form `Activity' percent of the tweet communications, and
+%       the rest of the players.
+%
+%       NOTE: `Activity' must be between 0.0 (inclusive) and 1.0 (inclusive).
+% @end  --
+partition(Tracker, Activity) when    Activity >= 0.0
+                             andalso Activity =< 1.0 ->
+    AllPlayers = twitter:get_players(Tracker),
+    TweetTotal = lists:foldl(fun(#player{tweet_cnt = Cnt}, Acc) -> Acc + Cnt end,
+                             0,
+                             AllPlayers),
+    {AllPlayers, TweetTotal, round(TweetTotal * Activity)};
+
+
+partition(_, Activity) when   is_float(Activity)
+                       orelse is_integer(Activity) ->
+    ?error("Specify percentage between 0 and 1"),
+    error(badarg).
 
 
 

@@ -20,4 +20,12 @@
                 text        :: binary() }).
 -type tweet() :: #tweet{}.
 
+
+-record(player, {screen_name :: binary(),
+                 tweet_cnt   :: integer() }).
+-type player()      :: #player{}.
+-type players()     :: [player()].
+-type big_players() :: [player()].
+
+
 -endif.

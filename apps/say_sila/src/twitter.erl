@@ -71,10 +71,6 @@
                 db_conn      :: pid() }).
 -type state() :: #state{}.
 
--record(player, {screen_name :: binary(),
-                 tweet_cnt   :: integer() }).
--type player() :: #player{}.
-
 
 
 %%====================================================================
@@ -165,7 +161,7 @@ get_first_dts(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec get_players(Tracker :: atom()) -> [player()].
+-spec get_players(Tracker :: atom()) -> players().
 %
 % @doc  Returns a list of pairs of screen names and the number of
 %       tweets the user has published for the specified `Tracker'
