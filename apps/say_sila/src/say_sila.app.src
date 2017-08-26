@@ -9,6 +9,7 @@
   {modules, [llog,
              nest,
              r,
+             sila,
              twitter,
              weka ]},
   {maintainers, []},

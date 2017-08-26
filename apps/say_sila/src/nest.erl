@@ -15,7 +15,7 @@
 -behaviour(gen_server).
 
 
--export([start_link/0, stop/0]).
+-export([start_link/0, stop/0, connect/0]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -49,6 +49,17 @@ stop() ->
 
 
 
+%%--------------------------------------------------------------------
+-spec connect() -> ok.
+%%
+% @doc  Higher level connection functionality for Twitter
+% @end  --
+connect() ->
+    gen_server:cast(?MODULE, authenticate).
+
+
+
+
 
 %%====================================================================
 %% Server Implementation
@@ -62,7 +73,7 @@ init([go]) ->
     process_flag(trap_exit, true),
 
     % Until we get a WUI, help a user out
-    %gen_server:cast(self(), authenticate),
+    %gen_server:connect()
 
     {ok, #state{}}.
 
