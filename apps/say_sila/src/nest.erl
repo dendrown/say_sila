@@ -64,23 +64,36 @@ connect() ->
 
 
 %%--------------------------------------------------------------------
--spec partition(Tracker :: atom(),
-                BigP100 :: float()) -> {big_players(), players()}.
+-spec partition(Tracker :: atom() | players(),
+                BigP100 :: float()) -> {float(), big_players(), players()}.
 %%
 % @doc  Gets the players for the Twitter tracking code (`cc' or `gw')
 %       and partitions them into two lists: the "big players", who
 %       form `BigP100' percent of the tweet communications, and
 %       the rest of the players.
 %
+%       The function will also accept a list of players, rather than
+%       a tracking code.  In this case the call to the database is skipped
+%       and the player list is used in its place.  (This functionality is
+%       primarily for debug purposes, and the function will expect that
+%       the players are ordered by descending tweet count.)
+%
+%       The function returns a triple containing an adjusted big player
+%       tweet count percentage, a list of the big players, and a list of
+%       the regular players.
+%
 %       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
 % @end  --
-partition(Tracker, BigP100) when    BigP100 >= 0.0
+partition(Tracker, BigP100) when is_atom(Tracker) ->
+    partition(twitter:get_players(Tracker), BigP100);
+
+
+partition(Players, BigP100) when    BigP100 >= 0.0
                             andalso BigP100 =< 1.0 ->
-    AllPlayers = twitter:get_players(Tracker),
     TweetTotal = lists:foldl(fun(#player{tweet_cnt = Cnt}, Acc) -> Acc + Cnt end,
                              0,
-                             AllPlayers),
-    partition_aux(BigP100, TweetTotal, AllPlayers);
+                             Players),
+    partition_aux(BigP100, TweetTotal, Players);
 
 
 partition(_, BigP100) when   is_float(BigP100)
