@@ -24,6 +24,7 @@
 
 -export([tweets_to_arff/2]).
 
+-include("sila.hrl").
 -include("llog.hrl").
 -include("twitter.hrl").
 
@@ -94,11 +95,7 @@ tweets_to_arff(Name, Tweets) ->
 %       using under `/tmp' exists.
 % @end  --
 make_fpath(Name) ->
-    Stub = case application:get_application() of
-        {ok, App} -> App;
-        undefined -> ?MODULE
-    end,
-    FPath = io_lib:format("/tmp/~s/weka/~s.arff", [Stub, Name]),
+    FPath = io_lib:format("~s/weka/~s.arff", [?WORK_DIR, Name]),
     ok  = filelib:ensure_dir(FPath),
     FPath.
 

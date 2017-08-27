@@ -100,7 +100,7 @@ get_big_players(Players, BigP100) when    BigP100 >= 0.0
 
     % Warn if we had to pull more tweets than requested
     if  abs(AdjBigP100 - BigP100) > 0.001 ->
-            ?warning("Adjusted big-player activity percentage: ~6.3f % >> ~6.3f %",
+            ?warning("Adjusted big-player activity percentage: ~6.3f% >> ~6.3f%",
                      [100 * BigP100,
                       100 * AdjBigP100]);
         true -> ok
@@ -131,11 +131,24 @@ get_big_players(_, BigP100) when   is_float(BigP100)
 %       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
 % @end  --
 get_big_tweets(Tracker, BigP100) ->
-    {BigPlayers, RegPlayers} = get_big_players(Tracker, BigP100),
+    %
+    % FIXME: The name of this module doesn't represent its function very well
+    %
+    ?notice("Preparing big-vs-regular player tweets"),
+    {BigPlayers,
+     RegPlayers} = get_big_players(Tracker, BigP100),
+    ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
+
+    ?debug("Pulling big player tweets"),
     BigTweets = twitter:get_tweets(Tracker, BigPlayers),
+
+    ?debug("Pulling regular player tweets"),
     RegTweets = twitter:get_tweets(Tracker, RegPlayers),
-    weka:tweets_to_arff(io_lib:format("tweets.~s.big", [Tracker]), BigTweets),
-    weka:tweets_to_arff(io_lib:format("tweets.~s.reg", [Tracker]), RegTweets).
+
+    ?debug("Packaging tweets for Weka"),
+    ActivityPct = round(100 * BigP100),
+    weka:tweets_to_arff(io_lib:format("tweets.~s.~B.big", [Tracker, ActivityPct]), BigTweets),
+    weka:tweets_to_arff(io_lib:format("tweets.~s.~B.reg", [Tracker, ActivityPct]), RegTweets).
 
 
 

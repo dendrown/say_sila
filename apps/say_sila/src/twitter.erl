@@ -38,7 +38,7 @@
 -include("llog.hrl").
 -include("twitter.hrl").
 
--define(DB_TIMEOUT, 30000).
+-define(DB_TIMEOUT, (60 * 1000)).
 
 
 
@@ -380,7 +380,7 @@ handle_call({get_tweets, Tracker, ScreenNames}, _From, State = #state{db_conn = 
                             "AND status->'user'->>'screen_name' IN ~s "
                           "ORDER BY timestamp_ms",
                           [?DB_TRACK, Tracker, ScreenNameSQL]),
-    %?debug("QUERY: ~s", [Query]),
+    %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#tweet{id           = ID,
                                  screen_name  = SN,

@@ -15,5 +15,6 @@
 -define(_sila_included, ack).
 
 -define(REG_DIST, local).
+-define(WORK_DIR, "/tmp/sila").
 
 -endif.
