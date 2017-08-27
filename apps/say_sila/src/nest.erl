@@ -18,7 +18,8 @@
 
 -export([start_link/0, stop/0,
          connect/0,
-         partition/2]).
+         get_big_players/2,
+         get_big_tweets/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -64,8 +65,9 @@ connect() ->
 
 
 %%--------------------------------------------------------------------
--spec partition(Tracker :: atom() | players(),
-                BigP100 :: float()) -> {float(), big_players(), players()}.
+-spec get_big_players(Tracker :: atom()
+                               | players(),
+                      BigP100 :: float()) -> {big_players(), players()}.
 %%
 % @doc  Gets the players for the Twitter tracking code (`cc' or `gw')
 %       and partitions them into two lists: the "big players", who
@@ -84,22 +86,52 @@ connect() ->
 %
 %       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
 % @end  --
-partition(Tracker, BigP100) when is_atom(Tracker) ->
-    partition(twitter:get_players(Tracker), BigP100);
+get_big_players(Tracker, BigP100) when is_atom(Tracker) ->
+    get_big_players(twitter:get_players(Tracker), BigP100);
 
 
-partition(Players, BigP100) when    BigP100 >= 0.0
-                            andalso BigP100 =< 1.0 ->
+get_big_players(Players, BigP100) when    BigP100 >= 0.0
+                                  andalso BigP100 =< 1.0 ->
     TweetTotal = lists:foldl(fun(#player{tweet_cnt = Cnt}, Acc) -> Acc + Cnt end,
                              0,
                              Players),
-    partition_aux(BigP100, TweetTotal, Players);
+    {AdjBigP100, BigPlayers, RegPlayers} = get_big_players_aux(BigP100, TweetTotal, Players),
+
+    % Warn if we had to pull more tweets than requested
+    if  abs(AdjBigP100 - BigP100) > 0.001 ->
+            ?warning("Adjusted big-player activity percentage: ~6.3f % >> ~6.3f %",
+                     [100 * BigP100,
+                      100 * AdjBigP100]);
+        true -> ok
+    end,
+    {BigPlayers, RegPlayers};
 
 
-partition(_, BigP100) when   is_float(BigP100)
-                      orelse is_integer(BigP100) ->
+get_big_players(_, BigP100) when   is_float(BigP100)
+                            orelse is_integer(BigP100) ->
     ?error("Specify percentage between 0 and 1"),
     error(badarg).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_tweets(Tracker :: atom(),
+                     BigP100 :: float()) -> {big_players(), players()}.
+%%
+% @doc  Gets the tweets for the Twitter tracking code (`cc' or `gw')
+%       and partitions them into two lists: tweets from the "big players",
+%       who contribute `BigP100' percent of the tweet communications, and
+%       the tweets from the rest of the players.
+%
+%       The function returns a triple containing an adjusted big player
+%       tweet count percentage, a list of the big players, and a list of
+%       the regular players.
+%
+%       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
+% @end  --
+get_big_tweets(Tracker, BigP100) ->
+    {todo, Tracker, BigP100}.
+
 
 
 
@@ -195,9 +227,9 @@ handle_info(Msg, State) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec partition_aux(BigP100  :: float(),
-                    TotalCnt :: players(),
-                    Players  :: players()) -> {float(), big_players(), players()}.
+-spec get_big_players_aux(BigP100  :: float(),
+                          TotalCnt :: players(),
+                          Players  :: players()) -> {float(), big_players(), players()}.
 %%
 % @doc  Partitions the into two lists: the "big players", who
 %       form `BigP100' percent of the tweet communications, and
@@ -206,17 +238,17 @@ handle_info(Msg, State) ->
 %       percentage is included as the first item in the returned
 %       triple.
 % @end  --
-partition_aux(BigP100, TotalCnt, Players) ->
-    partition_aux(BigP100, TotalCnt, Players, 0, []).
+get_big_players_aux(BigP100, TotalCnt, Players) ->
+    get_big_players_aux(BigP100, TotalCnt, Players, 0, []).
 
 
 
 %%--------------------------------------------------------------------
--spec partition_aux(BigP100    :: float(),
-                    TotalCnt   :: players(),
-                    Players    :: players(),
-                    BigCntAcc  :: integer(),
-                    BigPlayers :: players()) -> {float(), big_players(), players()}.
+-spec get_big_players_aux(BigP100    :: float(),
+                          TotalCnt   :: players(),
+                          Players    :: players(),
+                          BigCntAcc  :: integer(),
+                          BigPlayers :: players()) -> {float(), big_players(), players()}.
 %%
 % @doc  Partitions the into two lists: the "big players", who
 %       form `BigP100' percent of the tweet communications, and
@@ -228,13 +260,13 @@ partition_aux(BigP100, TotalCnt, Players) ->
 %       This sub-aux function takes acculators for the count of
 %       big player tweets, and the growing list of big players.
 % @end  --
-partition_aux(_, TotalCnt, [], BigCntAcc, BigPlayers) ->
+get_big_players_aux(_, TotalCnt, [], BigCntAcc, BigPlayers) ->
     %
-    % We normally shouldn't get here because there are no regular players.
+    % We normally shouldn't get here because this means no regular players!
     {BigCntAcc / TotalCnt, BigPlayers, []};
 
 
-partition_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
+get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
     %
     % The current Player is considered a big player, then we use his stats
     % to see if we're done partitioning.
@@ -243,5 +275,5 @@ partition_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
     NewBigPlayers = [Player | BigPlayers],
     case AdjBigP100 >= BigP100 of
         true  -> {AdjBigP100, lists:reverse(NewBigPlayers), Rest};
-        false -> partition_aux(BigP100, TotalCnt, Rest, NewBigCnt, NewBigPlayers)
+        false -> get_big_players_aux(BigP100, TotalCnt, Rest, NewBigCnt, NewBigPlayers)
     end.
