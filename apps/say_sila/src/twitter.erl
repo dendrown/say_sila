@@ -232,7 +232,7 @@ get_tweets(Tracker, ScreenNames) ->
         true  -> [ScreenNames];                         % ["justOne"]
         false -> ScreenNames
     end,
-    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList}).
+    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList}, 20000).
 
 
 

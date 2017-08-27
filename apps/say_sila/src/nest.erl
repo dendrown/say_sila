@@ -130,7 +130,11 @@ get_big_players(_, BigP100) when   is_float(BigP100)
 %       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
 % @end  --
 get_big_tweets(Tracker, BigP100) ->
-    {todo, Tracker, BigP100}.
+    {BigPlayers, RegPlayers} = get_big_players(Tracker, BigP100),
+    BigTweets = twitter:get_tweets(Tracker, BigPlayers),
+    RegTweets = twitter:get_tweets(Tracker, RegPlayers),
+    weka:tweets_to_arff(io_lib:format("tweets.~s.big", [Tracker]), BigTweets),
+    weka:tweets_to_arff(io_lib:format("tweets.~s.reg", [Tracker]), RegTweets).
 
 
 
