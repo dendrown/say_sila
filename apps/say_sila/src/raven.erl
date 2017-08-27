@@ -6,13 +6,14 @@
 %%         _/    _/    _/        _/    _/
 %%  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 %%
-%% @doc The Twitter data nest. This module represents a higher level
-%%      of abstraction over the `twitter' module.
+%% @doc The "Say Sila" Raven Twitter module. This module provides a
+%%      high level look at the emotions surrounding Climate Change
+%%      using Twitter.
 %%
 %% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
--module(nest).
+-module(raven).
 -behaviour(gen_server).
 
 
@@ -144,10 +145,10 @@ get_big_tweets(Tracker, BigP100) ->
 %%--------------------------------------------------------------------
 -spec init(list()) -> any().
 %%
-% @doc  Handles placing the first twig in the Twitter nest.
+% @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
 init([go]) ->
-    ?notice("Welcome to Say Sila's Twitter Nest"),
+    ?notice("The raven has taken flight"),
     process_flag(trap_exit, true),
 
     % Until we get a WUI, help a user out
@@ -164,7 +165,7 @@ init([go]) ->
 % @doc  Server shutdown callback.
 % @end  --
 terminate(Why, _State) ->
-    ?notice("Shutting down the nest: why[~p]", [Why]),
+    ?notice("Ending the flight of the raven: why[~p]", [Why]),
     normal.
 
 
