@@ -64,27 +64,27 @@ connect() ->
 
 
 %%--------------------------------------------------------------------
--spec partition(Tracker  :: atom(),
-                Activity :: float()) -> {big_players(), players()}.
+-spec partition(Tracker :: atom(),
+                BigP100 :: float()) -> {big_players(), players()}.
 %%
 % @doc  Gets the players for the Twitter tracking code (`cc' or `gw')
 %       and partitions them into two lists: the "big players", who
-%       form `Activity' percent of the tweet communications, and
+%       form `BigP100' percent of the tweet communications, and
 %       the rest of the players.
 %
-%       NOTE: `Activity' must be between 0.0 (inclusive) and 1.0 (inclusive).
+%       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
 % @end  --
-partition(Tracker, Activity) when    Activity >= 0.0
-                             andalso Activity =< 1.0 ->
+partition(Tracker, BigP100) when    BigP100 >= 0.0
+                            andalso BigP100 =< 1.0 ->
     AllPlayers = twitter:get_players(Tracker),
     TweetTotal = lists:foldl(fun(#player{tweet_cnt = Cnt}, Acc) -> Acc + Cnt end,
                              0,
                              AllPlayers),
-    {AllPlayers, TweetTotal, round(TweetTotal * Activity)};
+    partition_aux(BigP100, TweetTotal, AllPlayers);
 
 
-partition(_, Activity) when   is_float(Activity)
-                       orelse is_integer(Activity) ->
+partition(_, BigP100) when   is_float(BigP100)
+                      orelse is_integer(BigP100) ->
     ?error("Specify percentage between 0 and 1"),
     error(badarg).
 
@@ -181,4 +181,54 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
-%%====================================================================
+%%--------------------------------------------------------------------
+-spec partition_aux(BigP100  :: float(),
+                    TotalCnt :: players(),
+                    Players  :: players()) -> {float(), big_players(), players()}.
+%%
+% @doc  Partitions the into two lists: the "big players", who
+%       form `BigP100' percent of the tweet communications, and
+%       the rest of the players.  Since we have to split on a
+%       player, the percentages may not add up, an adjusted
+%       percentage is included as the first item in the returned
+%       triple.
+% @end  --
+partition_aux(BigP100, TotalCnt, Players) ->
+    partition_aux(BigP100, TotalCnt, Players, 0, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec partition_aux(BigP100    :: float(),
+                    TotalCnt   :: players(),
+                    Players    :: players(),
+                    BigCntAcc  :: integer(),
+                    BigPlayers :: players()) -> {float(), big_players(), players()}.
+%%
+% @doc  Partitions the into two lists: the "big players", who
+%       form `BigP100' percent of the tweet communications, and
+%       the rest of the players.  Since we have to split on a
+%       player, the percentages may not add up, an adjusted
+%       percentage is included as the first item in the returned
+%       triple.
+%
+%       This sub-aux function takes acculators for the count of
+%       big player tweets, and the growing list of big players.
+% @end  --
+partition_aux(_, TotalCnt, [], BigCntAcc, BigPlayers) ->
+    %
+    % We normally shouldn't get here because there are no regular players.
+    {BigCntAcc / TotalCnt, BigPlayers, []};
+
+
+partition_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
+    %
+    % The current Player is considered a big player, then we use his stats
+    % to see if we're done partitioning.
+    NewBigCnt  = BigCntAcc + Player#player.tweet_cnt,
+    AdjBigP100 = NewBigCnt / TotalCnt,
+    NewBigPlayers = [Player | BigPlayers],
+    case AdjBigP100 >= BigP100 of
+        true  -> {AdjBigP100, lists:reverse(NewBigPlayers), Rest};
+        false -> partition_aux(BigP100, TotalCnt, Rest, NewBigCnt, NewBigPlayers)
+    end.

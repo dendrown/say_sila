@@ -174,13 +174,15 @@ get_players(Tracker) ->
 
 %%--------------------------------------------------------------------
 -spec get_players(Tracker   :: atom(),
-                  MinTweets :: pos_integer()) -> [{binary(), pos_integer()}].
+                  MinTweets :: pos_integer()) -> players().
 %
 % @doc  Returns a list of pairs of screen names and the number of
 %       tweets the user has published for the specified `Tracker'
 %       atom: `cc' or `gw'.  Only accounts having `MinTweets'
 %       or more status upates are included.
 %
+%       The returned list of players is sorted in order of descending
+%       tweet count.
 % @end  --
 get_players(Tracker, MinTweets) ->
     gen_server:call(?MODULE, {get_players, Tracker, MinTweets}).
