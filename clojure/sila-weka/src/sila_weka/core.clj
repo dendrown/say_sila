@@ -97,8 +97,8 @@
   "
   ([node mbox] (otp-loop node mbox false))
 
-  ([node mbox quit?]
-    (when-not (identical? quit? :quit)
+  ([node mbox quitter]
+    (when-not (identical? quitter :quit)
       (let [tuple #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
             msg   (parse-msg tuple)]
         (println (:src msg) "<" (:cmd msg) ">: " (:arg msg))
