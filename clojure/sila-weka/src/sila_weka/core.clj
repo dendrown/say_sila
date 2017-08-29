@@ -12,6 +12,7 @@
 ;;;; -------------------------------------------------------------------------
 (ns sila-weka.core
   (:import [com.ericsson.otp.erlang OtpErlangAtom
+                                    OtpErlangObject
                                     OtpErlangPid
                                     OtpErlangTuple
                                     OtpMbox
@@ -40,6 +41,31 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; ╺┳┓╻┏━┓┏━┓┏━┓╺┳╸┏━╸╻ ╻
+;;;  ┃┃┃┗━┓┣━┛┣━┫ ┃ ┃  ┣━┫
+;;; ╺┻┛╹┗━┛╹  ╹ ╹ ╹ ┗━╸╹ ╹
+;;; --------------------------------------------------------------------------
+(defmulti dispatch
+  "
+  Process commands coming in from Sila Erlang nodes
+  "
+  :cmd)
+
+(defmethod dispatch "test" [msg]
+  (println "TEST: " (:arg msg)))
+
+
+(defmethod dispatch "bye" [msg]
+  (println "Time to say « adieu »")
+  true)
+
+
+(defmethod dispatch :default [msg]
+  (println "HUH? Unknown command:" (:cmd msg)))
+
+
+
+;;; --------------------------------------------------------------------------
 ;;; ┏━┓┏━┓┏━┓┏━┓┏━╸   ┏┳┓┏━┓┏━╸
 ;;; ┣━┛┣━┫┣┳┛┗━┓┣╸ ╺━╸┃┃┃┗━┓┃╺┓
 ;;; ╹  ╹ ╹╹┗╸┗━┛┗━╸   ╹ ╹┗━┛┗━┛
@@ -53,10 +79,11 @@
   (if (some? tuple)
     (let [arity (.arity tuple)]
       ; Note that we're assuming datatypes: pid() atom() term()
-      [(if (>= arity 1) (.node      #^OtpErlangPid  (.elementAt tuple 0)) nil)
-       (if (>= arity 2) (.atomValue #^OtpErlangAtom (.elementAt tuple 1)) nil)
-       (if (>= arity 3)                             (.elementAt tuple 2)  nil)])
+      {:src (if (>= arity 1) (.node      #^OtpErlangPid  (.elementAt tuple 0)) nil)
+       :cmd (if (>= arity 2) (.atomValue #^OtpErlangAtom (.elementAt tuple 1)) nil)
+       :arg (if (>= arity 3)                             (.elementAt tuple 2)  nil)})
       ["TIMEOUT" "bye" nil]))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -72,12 +99,11 @@
 
   ([node mbox quit?]
     (when-not quit?
-      (let [tuple       #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
-            [sender
-             command
-             message]   (parse-msg tuple)]
-        (println sender "<" command ">: " message)
-        (recur node mbox (.equals "bye" command))))))
+      (let [tuple #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
+            msg   (parse-msg tuple)]
+        (println (:src msg) "<" (:cmd msg) ">: " (:arg msg))
+        (recur node mbox (dispatch msg))))))
+
 
 
 ;;; --------------------------------------------------------------------------
