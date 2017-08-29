@@ -11,7 +11,11 @@
 ;;;; @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns sila-weka.core
-  (:import [com.ericsson.otp.erlang OtpErlangTuple OtpMbox OtpNode]))
+  (:import [com.ericsson.otp.erlang OtpErlangAtom
+                                    OtpErlangPid
+                                    OtpErlangTuple
+                                    OtpMbox
+                                    OtpNode]))
 
 (set! *warn-on-reflection* true)
 
@@ -42,15 +46,17 @@
 ;;; --------------------------------------------------------------------------
 (defn parse-msg
   "
-  Breaks apart an incoming message into [sender dispatch message].
+  Breaks apart an incoming message into [sender command args].
   This function can be much more lispy...!
   "
   [#^OtpErlangTuple tuple]
   (if (some? tuple)
-      [(.elementAt tuple 0)
-       (.elementAt tuple 1)
-       (.elementAt tuple 2)]
-      ["TIMEOUT" "none" "bye"]))
+    (let [arity (.arity tuple)]
+      ; Note that we're assuming datatypes: pid() atom() term()
+      [(if (>= arity 1) (.node      #^OtpErlangPid  (.elementAt tuple 0)) nil)
+       (if (>= arity 2) (.atomValue #^OtpErlangAtom (.elementAt tuple 1)) nil)
+       (if (>= arity 3)                             (.elementAt tuple 2)  nil)])
+      ["TIMEOUT" "bye" nil]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -68,10 +74,10 @@
     (when-not quit?
       (let [tuple       #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
             [sender
-             dispatch
+             command
              message]   (parse-msg tuple)]
-        (println sender "<" dispatch ">: " message)
-        (recur node mbox (.equals "bye" (.toString message)))))))
+        (println sender "<" command ">: " message)
+        (recur node mbox (.equals "bye" command))))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -83,7 +89,7 @@
   "
   Starts up an Erlang jInterface process for communication with Erlang sila
   "
-  ([] (start "clojure"))
+  ([] (start "jvm"))
 
   ([name]
     (let [node (make-node name)
