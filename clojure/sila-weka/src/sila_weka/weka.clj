@@ -15,8 +15,10 @@
             [clojure.string  :as str])
   (:import  (weka.core Instances)
             (weka.filters Filter)
-            (weka.core.converters ArffLoader
-                                  ArffSaver)
+            (weka.core.converters AbstractSaver
+                                  ArffLoader
+                                  ArffSaver
+                                  CSVSaver)
             (weka.filters.unsupervised.attribute TweetToEmbeddingsFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
@@ -82,20 +84,22 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏━┓╻ ╻┏━╸   ┏━┓┏━┓┏━╸┏━╸
-;;; ┗━┓┣━┫┃┏┛┣╸ ╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ┗━┛╹ ╹┗┛ ┗━╸   ╹ ╹╹┗╸╹  ╹
+;;; ┏━┓┏━┓╻ ╻┏━╸   ┏━╸╻╻  ┏━╸
+;;; ┗━┓┣━┫┃┏┛┣╸ ╺━╸┣╸ ┃┃  ┣╸
+;;; ┗━┛╹ ╹┗┛ ┗━╸   ╹  ╹┗━╸┗━╸
 ;;; --------------------------------------------------------------------------
-(defn save-arff
+(defn save-file
   "
-  Writes out the given Instances to the specified ARFF file
+  Writes out the given Instances to the specified ARFF or CSV file
   "
   [#^String    fpath
-   #^Instances data]
-  (let [saver (ArffSaver.)
+   #^Instances data
+               ftype]
+  (let [saver (case ftype :arff (ArffSaver.)
+                          :csv  (CSVSaver.))
         fout  (io/file fpath)]
     (.createNewFile fout)
-    (doto saver
+    (doto #^AbstractSaver saver
         (.setFile fout)
         (.setInstances data)
         (.writeBatch))
@@ -152,8 +156,9 @@
     (let [data  (load-arff fpath)
           tag   (name flt-key)]
       (println "Filtering<" tag ">: " fpath)
-      (save-arff (tag-filename fpath tag)
-                 (filter-instances data flt-key))))
+      (save-file (tag-filename fpath tag)
+                 (filter-instances data flt-key)
+                 :arff)))
 
 
 
