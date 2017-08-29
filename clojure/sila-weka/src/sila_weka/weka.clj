@@ -170,6 +170,7 @@
   the specified filter.
   "
   [fpath flt-key]
+    (in-ns 'sila-weka.weka)
     (let [data  (load-arff fpath)
           tag   (name flt-key)]
       (println "Filtering<" tag ">: " fpath)
