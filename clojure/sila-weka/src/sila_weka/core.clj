@@ -57,7 +57,7 @@
 
 (defmethod dispatch "bye" [msg]
   (println "Time to say « adieu »")
-  true)
+  :quit)
 
 
 (defmethod dispatch :default [msg]
@@ -98,7 +98,7 @@
   ([node mbox] (otp-loop node mbox false))
 
   ([node mbox quit?]
-    (when-not quit?
+    (when-not (identical? quit? :quit)
       (let [tuple #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
             msg   (parse-msg tuple)]
         (println (:src msg) "<" (:cmd msg) ">: " (:arg msg))
