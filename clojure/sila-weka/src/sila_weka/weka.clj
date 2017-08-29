@@ -138,28 +138,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━╸┏━╸╻ ╻┏━┓   ┏━┓┏━┓┏━╸┏━╸
-;;; ┣╸ ┃  ┣━┫┃ ┃╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ┗━╸┗━╸╹ ╹┗━┛   ╹ ╹╹┗╸╹  ╹ 
-;;; --------------------------------------------------------------------------
-(defn echo-arff
-  "
-  This is a test function.  It reads in an ARFF file:
-
-    «/path/to/sample.arff»
-    
-  and creates an «echo» copy
-  
-    «/path/to/sample.echo.arff»
-  "
-  [fpath]
-  (let [data (load-arff fpath)]
-    (println "Echoing " fpath)
-    (save-arff (tag-filename fpath "echo") data)))
-
-
-
-;;; --------------------------------------------------------------------------
 ;;; ┏━╸╻╻  ╺┳╸┏━╸┏━┓   ┏━┓┏━┓┏━╸┏━╸
 ;;; ┣╸ ┃┃   ┃ ┣╸ ┣┳┛╺━╸┣━┫┣┳┛┣╸ ┣╸
 ;;; ╹  ╹┗━╸ ╹ ┗━╸╹┗╸   ╹ ╹╹┗╸╹  ╹
@@ -188,6 +166,8 @@
 (defn embed-arff
   "
   Reads in an ARFF file with tweets and writes it back out with embeddings.
+
+  NOTE: This is a test wrapper, and will be deleted soon; use filter-arff
   "
   [fpath]
   (filter-arff fpath :embed))
@@ -203,6 +183,8 @@
   "
   Reads in an ARFF file with tweets and writes it back out with lexicon feature
   vectors.
+
+  NOTE: This is a test wrapper, and will be deleted soon; use filter-arff
   "
   [fpath]
   (filter-arff fpath :lex))
@@ -218,6 +200,8 @@
   "
   Reads in an ARFF file with tweets and writes it back out with SentiStrength
   feature vectors.
+
+  NOTE: This is a test wrapper, and will be deleted soon; use filter-arff
   "
   [fpath]
   (filter-arff fpath :senti))
