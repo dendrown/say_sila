@@ -96,7 +96,7 @@
       {:src (if (>= arity 1) (.node      #^OtpErlangPid  (.elementAt tuple 0)) nil)
        :cmd (if (>= arity 2) (.atomValue #^OtpErlangAtom (.elementAt tuple 1)) nil)
        :arg (if (>= arity 3)                             (.elementAt tuple 2)  nil)})
-      ["TIMEOUT" "bye" nil]))
+      {:src "TIMEOUT" :cmd "bye" :arg nil}))
 
 
 
