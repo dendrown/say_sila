@@ -113,8 +113,8 @@ write_tweets(_, []) ->
 write_tweets(Out, [Tweet = #tweet{text = Text0} | Rest]) ->
     %
     % So Weka doesn't freak:
-    Text1 = re:replace(Text0, "'", [$\\, $\\, $'], [global]),           % Escape single quotes
-    Text  = re:replace(Text1, "\n", " ", [global, {return, binary}]),   % Convert newlines to spaces
+    Text1 = re:replace(Text0, "'", [$\\, $\\, $'], [global]),               % Escape single quotes
+    Text  = re:replace(Text1, "[\r\n]", " ", [global, {return, binary}]),   % Linefeeds/newlines to spaces
     io:format(Out, "'~s','~s','~s'~n", [Tweet#tweet.id,
                                         Tweet#tweet.screen_name,
                                         Text]),

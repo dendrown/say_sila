@@ -11,12 +11,14 @@
 ;;;; @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns sila-weka.core
-  (:import [com.ericsson.otp.erlang OtpErlangAtom
-                                    OtpErlangObject
-                                    OtpErlangPid
-                                    OtpErlangTuple
-                                    OtpMbox
-                                    OtpNode]))
+  (:require [sila-weka.weka :as weka])
+  (:import  [com.ericsson.otp.erlang OtpErlangAtom
+                                     OtpErlangObject
+                                     OtpErlangPid
+                                     OtpErlangTuple
+                                     OtpErlangString
+                                     OtpMbox
+                                     OtpNode]))
 
 (set! *warn-on-reflection* true)
 
@@ -51,8 +53,20 @@
   "
   :cmd)
 
+(defmethod dispatch "embed" [msg]
+  (let [fpath (.stringValue #^OtpErlangString (:arg msg))]
+  (println "Filter/EMBED:" fpath)
+  (weka/filter-arff fpath :embed)))
+
+
+(defmethod dispatch "lex" [msg]
+  (let [fpath (.stringValue #^OtpErlangString (:arg msg))]
+  (println "Filter/LEX:" fpath)
+  (weka/filter-arff fpath :lex)))
+
+
 (defmethod dispatch "test" [msg]
-  (println "TEST: " (:arg msg)))
+  (println "TEST:" (:arg msg)))
 
 
 (defmethod dispatch "bye" [msg]
@@ -101,7 +115,7 @@
     (when-not (identical? quitter :quit)
       (let [tuple #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
             msg   (parse-msg tuple)]
-        (println (:src msg) "<" (:cmd msg) ">: " (:arg msg))
+        (println (:src msg) "<" (:cmd msg) ">:" (:arg msg))
         (recur node mbox (dispatch msg))))))
 
 
