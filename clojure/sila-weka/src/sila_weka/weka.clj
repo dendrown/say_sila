@@ -113,11 +113,16 @@
 ;;; --------------------------------------------------------------------------
 (defn tag-filename
   "
-  Turns «/path/to/filename.extn» into «/path/to/filename.tag.extn»
+  Turns «/path/to/filename.extn» into a map with tagged versions of the file,
+  as «/path/to/filename.tag.EXTN», where EXTN is the original extension (:tagged),
+  «.arff» and «.csv» to represent different output formats.
   "
   [fpath tag]
-  (let [parts (str/split fpath #"\.")]
-    (str/join "." (flatten [(butlast parts) tag (last parts)]))))
+  (let [parts (str/split fpath #"\.")
+        stub  (str/join "." (flatten [(butlast parts) tag]))]
+    {:tagged (str stub "." (last parts))
+     :arff   (str stub ".arff")
+     :csv    (str stub ".csv")}))
 
 
 
@@ -153,12 +158,13 @@
   "
   [fpath flt-key]
     (in-ns 'sila-weka.weka)
-    (let [data  (load-arff fpath)
-          tag   (name flt-key)]
-      (println "Filtering<" tag ">: " fpath)
-      (save-file (tag-filename fpath tag)
-                 (filter-instances data flt-key)
-                 :arff)))
+    (let [data-in   (load-arff fpath)
+          data-out  (filter-instances data-in flt-key)
+          tag        (name flt-key)
+          tag-fpaths (tag-filename fpath tag)]
+      (println "Filter<" tag ">: " fpath)
+      (save-file (:arff tag-fpaths) data-out :arff)
+      (save-file (:csv  tag-fpaths) data-out :csv)))
 
 
 
