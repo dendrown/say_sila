@@ -38,7 +38,7 @@
 -include("llog.hrl").
 -include("twitter.hrl").
 
--define(DB_TIMEOUT, (60 * 1000)).
+-define(DB_TIMEOUT, (2 * 60 * 1000)).
 
 
 
