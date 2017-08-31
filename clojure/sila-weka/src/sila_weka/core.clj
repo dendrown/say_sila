@@ -12,6 +12,7 @@
 ;;;; -------------------------------------------------------------------------
 (ns sila-weka.core
   (:require [sila-weka.weka :as weka])
+  (:require [sila-weka.log  :as log])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
                                      OtpErlangObject
                                      OtpErlangPid
@@ -55,27 +56,29 @@
 
 (defmethod dispatch "embed" [msg]
   (let [fpath (.stringValue #^OtpErlangString (:arg msg))]
-  (println "Filter/EMBED:" fpath)
-  (weka/filter-arff fpath :embed)))
+  (log/info "Filter/EMBED:" fpath)
+  (weka/filter-arff fpath :embed)
+  (log/info "Filter/EMBED:" fpath "OK")))
 
 
 (defmethod dispatch "lex" [msg]
   (let [fpath (.stringValue #^OtpErlangString (:arg msg))]
-  (println "Filter/LEX:" fpath)
-  (weka/filter-arff fpath :lex)))
+  (log/info "Filter/LEX:" fpath)
+  (weka/filter-arff fpath :lex)
+  (log/info "Filter/LEX:" fpath "OK")))
 
 
 (defmethod dispatch "test" [msg]
-  (println "TEST:" (:arg msg)))
+  (log/info "TEST:" (:arg msg)))
 
 
 (defmethod dispatch "bye" [msg]
-  (println "Time to say « adieu »")
+  (log/notice "Time to say « adieu »")
   :quit)
 
 
 (defmethod dispatch :default [msg]
-  (println "HUH? Unknown command:" (:cmd msg)))
+  (log/warn "HUH? Unknown command:" (:cmd msg)))
 
 
 
@@ -115,7 +118,7 @@
     (when-not (identical? quitter :quit)
       (let [tuple #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
             msg   (parse-msg tuple)]
-        (println (:src msg) "<" (:cmd msg) ">:" (:arg msg))
+        (log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
         (recur node mbox (dispatch msg))))))
 
 
@@ -134,10 +137,10 @@
   ([name]
     (let [node (make-node name)
           mbox (.createMbox  node "weka")]
-      (println "Started: " (.node    node))
-      (println "Cookie : " (.cookie  node))
-      (println "Mailbox: " (.getName mbox))
-      (println "Pinging: " (.ping node "sila@chiron" 2000))
+      (log/notice "Started: " (.node    node))
+      (log/notice "Mailbox: " (.getName mbox))
+      (log/debug "Cookie : " (.cookie  node))
+      (log/debug "Pinging: " (.ping node "sila@chiron" 2000))
       (otp-loop node mbox)
       (.close node))
     'ok))

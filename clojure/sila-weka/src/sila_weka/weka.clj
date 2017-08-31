@@ -12,7 +12,8 @@
 ;;;; -------------------------------------------------------------------------
 (ns sila-weka.weka
   (:require [clojure.java.io :as io]
-            [clojure.string  :as str])
+            [clojure.string  :as str]
+            [sila-weka.log  :as log])
   (:import  (weka.core Instances)
             (weka.filters Filter)
             (weka.core.converters AbstractSaver
@@ -162,7 +163,7 @@
           data-out  (filter-instances data-in flt-key)
           tag        (name flt-key)
           tag-fpaths (tag-filename fpath tag)]
-      (println "Filter<" tag ">: " fpath)
+      (log/debug "Filter<" tag ">: " fpath)
       (save-file (:arff tag-fpaths) data-out :arff)
       (save-file (:csv  tag-fpaths) data-out :csv)))
 
