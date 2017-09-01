@@ -26,6 +26,8 @@
 (def ^:const +ERLANG-COOKIE+ "say_sila_uqam_00")
 (def ^:const +RECV-TIMEOUT+  300000)
 
+(def +to-sila+ (agent {:cnt 0}))
+
 
 ;;; --------------------------------------------------------------------------
 ;;; ┏┳┓┏━┓╻┏ ┏━╸   ┏┓╻┏━┓╺┳┓┏━╸
@@ -40,6 +42,28 @@
   (let [node (OtpNode. name)]
     (.setCookie node +ERLANG-COOKIE+)
     node))
+
+
+
+;;; --------------------------------------------------------------------------
+;;; ┏━┓┏┓╻┏━┓╻ ╻┏━╸┏━┓   ┏━┓╻╻  ┏━┓
+;;; ┣━┫┃┗┫┗━┓┃╻┃┣╸ ┣┳┛╺━╸┗━┓┃┃  ┣━┫
+;;; ╹ ╹╹ ╹┗━┛┗┻┛┗━╸╹┗╸   ┗━┛╹┗━╸╹ ╹
+;;; --------------------------------------------------------------------------
+(defn- answer-sila
+  "
+	Send a message to the Erlang Sila server
+	"
+  [req rsp-key & rsp-arg]
+  (log/debug "SILA:" rsp-key)
+  (let [mbox    #^OtpMbox      (:mbox req)
+        from    (.self mbox)
+        rsp     (OtpErlangAtom. (name rsp-key))
+        elms    (into-array OtpErlangObject [from rsp])
+        otp-msg (OtpErlangTuple. elms)]
+    (log/debug "OTP-TUPLE:" (.getName (class elms)))     ; Ouch!
+    (.send mbox #^OtpErlangPid (:pid req)
+                                otp-msg)))
 
 
 
@@ -68,8 +92,9 @@
   (log/info "Filter/LEX:" fpath "OK")))
 
 
-(defmethod dispatch "test" [msg]
-  (log/info "TEST:" (:arg msg)))
+(defmethod dispatch "ping" [msg]
+  (log/info "ping from" (:src msg) ":" (:arg msg))
+  (answer-sila msg :pong))
 
 
 (defmethod dispatch "bye" [msg]
@@ -94,9 +119,12 @@
   "
   [#^OtpErlangTuple tuple]
   (if (some? tuple)
-    (let [arity (.arity tuple)]
+    (let [pid  #^OtpErlangPid (.elementAt tuple 0)
+          node  (.node pid)
+          arity (.arity tuple)]
       ; Note that we're assuming datatypes: pid() atom() term()
-      {:src (if (>= arity 1) (.node      #^OtpErlangPid  (.elementAt tuple 0)) nil)
+      {:pid pid
+       :src node
        :cmd (if (>= arity 2) (.atomValue #^OtpErlangAtom (.elementAt tuple 1)) nil)
        :arg (if (>= arity 3)                             (.elementAt tuple 2)  nil)})
       {:src "TIMEOUT" :cmd "bye" :arg nil}))
@@ -108,7 +136,7 @@
 ;;; ┃ ┃ ┃ ┣━┛╺━╸┃  ┃ ┃┃ ┃┣━┛
 ;;; ┗━┛ ╹ ╹     ┗━╸┗━┛┗━┛╹
 ;;; --------------------------------------------------------------------------
-(defn otp-loop
+(defn- otp-loop
   "
   Recursive receive loop for an OTP process
   "
@@ -116,10 +144,11 @@
 
   ([node mbox quitter]
     (when-not (identical? quitter :quit)
+      (log/info "Waiting on SILA command...")
       (let [tuple #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
             msg   (parse-msg tuple)]
         (log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
-        (recur node mbox (dispatch msg))))))
+        (recur node mbox (dispatch (conj msg {:mbox mbox})))))))
 
 
 
@@ -137,10 +166,10 @@
   ([name]
     (let [node (make-node name)
           mbox (.createMbox  node "weka")]
-      (log/notice "Started: " (.node    node))
-      (log/notice "Mailbox: " (.getName mbox))
-      (log/debug "Cookie : " (.cookie  node))
-      (log/debug "Pinging: " (.ping node "sila@chiron" 2000))
+      (log/notice "Started:" (.node    node))
+      (log/notice "Mailbox:" (.getName mbox))
+      (log/debug  "Cookie :" (.cookie  node))
+      (log/debug  "Pinging:" (.ping node "sila@chiron" 2000))
       (otp-loop node mbox)
       (.close node))
     'ok))
