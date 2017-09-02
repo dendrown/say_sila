@@ -34,7 +34,7 @@
 ;;; ┃┃┃┣━┫┣┻┓┣╸ ╺━╸┃┗┫┃ ┃ ┃┃┣╸
 ;;; ╹ ╹╹ ╹╹ ╹┗━╸   ╹ ╹┗━┛╺┻┛┗━╸
 ;;; --------------------------------------------------------------------------
-(defn #^OtpNode make-node
+(defn- ^OtpNode make-node
   "
   Creates and initializes a jInterface OTP node
   "
@@ -56,13 +56,14 @@
   "
   [req rsp-key & rsp-arg]
   (log/debug "SILA:" rsp-key)
-  (let [mbox    #^OtpMbox      (:mbox req)
+  ;; TODO: Incorporate rsp-arg
+  (let [mbox    ^OtpMbox      (:mbox req)
         from    (.self mbox)
         rsp     (OtpErlangAtom. (name rsp-key))
-        otp-msg (OtpErlangTuple. #^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
+        otp-msg (OtpErlangTuple. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
                                  (into-array OtpErlangObject [from rsp]))]
-    (.send mbox #^OtpErlangPid  (:pid req)
-                #^OtpErlangTuple otp-msg)))
+    (.send mbox ^OtpErlangPid  (:pid req)
+                                 otp-msg)))
 
 
 
@@ -78,14 +79,14 @@
   :cmd)
 
 (defmethod dispatch "embed" [msg]
-  (let [fpath (.stringValue #^OtpErlangString (:arg msg))]
+  (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
   (log/info "Filter/EMBED:" fpath)
   (weka/filter-arff fpath :embed)
   (log/info "Filter/EMBED:" fpath "OK")))
 
 
 (defmethod dispatch "lex" [msg]
-  (let [fpath (.stringValue #^OtpErlangString (:arg msg))]
+  (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
   (log/info "Filter/LEX:" fpath)
   (weka/filter-arff fpath :lex)
   (log/info "Filter/LEX:" fpath "OK")))
@@ -111,20 +112,20 @@
 ;;; ┣━┛┣━┫┣┳┛┗━┓┣╸ ╺━╸┃┃┃┗━┓┃╺┓
 ;;; ╹  ╹ ╹╹┗╸┗━┛┗━╸   ╹ ╹┗━┛┗━┛
 ;;; --------------------------------------------------------------------------
-(defn parse-msg
+(defn- parse-msg
   "
   Breaks apart an incoming message into [sender command args].
   This function can be much more lispy...!
   "
-  [#^OtpErlangTuple tuple]
+  [^OtpErlangTuple tuple]
   (if (some? tuple)
-    (let [pid  #^OtpErlangPid (.elementAt tuple 0)
+    (let [pid  ^OtpErlangPid (.elementAt tuple 0)
           node  (.node pid)
           arity (.arity tuple)]
       ; Note that we're assuming datatypes: pid() atom() term()
       {:pid pid
        :src node
-       :cmd (if (>= arity 2) (.atomValue #^OtpErlangAtom (.elementAt tuple 1)) nil)
+       :cmd (if (>= arity 2) (.atomValue ^OtpErlangAtom (.elementAt tuple 1)) nil)
        :arg (if (>= arity 3)                             (.elementAt tuple 2)  nil)})
       {:src "TIMEOUT" :cmd "bye" :arg nil}))
 
@@ -144,7 +145,7 @@
   ([node mbox quitter]
     (when-not (identical? quitter :quit)
       (log/info "Waiting on SILA command...")
-      (let [tuple #^OtpErlangTuple (.receive #^OtpMbox mbox +RECV-TIMEOUT+)
+      (let [tuple ^OtpErlangTuple (.receive ^OtpMbox mbox +RECV-TIMEOUT+)
             msg   (parse-msg tuple)]
         (log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
         (recur node mbox (dispatch (conj msg {:mbox mbox})))))))

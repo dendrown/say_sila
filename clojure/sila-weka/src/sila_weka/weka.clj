@@ -93,14 +93,14 @@
   "
   Writes out the given Instances to the specified ARFF or CSV file
   "
-  [#^String    fpath
-   #^Instances data
+  [^String    fpath
+   ^Instances data
                ftype]
   (let [saver (case ftype :arff (ArffSaver.)
                           :csv  (CSVSaver.))
         fout  (io/file fpath)]
     (.createNewFile fout)
-    (doto #^AbstractSaver saver
+    (doto ^AbstractSaver saver
         (.setFile fout)
         (.setInstances data)
         (.writeBatch))
@@ -132,14 +132,14 @@
 ;;; ┣╸ ┃┃   ┃ ┣╸ ┣┳┛╺━╸┃┃┗┫┗━┓ ┃ ┣━┫┃┗┫┃  ┣╸ ┗━┓
 ;;; ╹  ╹┗━╸ ╹ ┗━╸╹┗╸   ╹╹ ╹┗━┛ ╹ ╹ ╹╹ ╹┗━╸┗━╸┗━┛
 ;;; --------------------------------------------------------------------------
-(defn #^Instances filter-instances
+(defn ^Instances filter-instances
   "
   Applies a filter to the specified data Instances
   "
   [data flt-key]
   (let [flt-map (flt-key  +FILTERS+)
         opts    (:options flt-map)
-        sieve   #^Filter (eval (:filter  flt-map))]
+        sieve   ^Filter (eval (:filter  flt-map))]
   (doto sieve
     (.setOptions     (into-array String opts))
     (.setInputFormat data))
