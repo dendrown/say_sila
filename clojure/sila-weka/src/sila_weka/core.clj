@@ -52,18 +52,17 @@
 ;;; --------------------------------------------------------------------------
 (defn- answer-sila
   "
-	Send a message to the Erlang Sila server
-	"
+  Send a message to the Erlang Sila server
+  "
   [req rsp-key & rsp-arg]
   (log/debug "SILA:" rsp-key)
   (let [mbox    #^OtpMbox      (:mbox req)
         from    (.self mbox)
         rsp     (OtpErlangAtom. (name rsp-key))
-        elms    (into-array OtpErlangObject [from rsp])
-        otp-msg (OtpErlangTuple. elms)]
-    (log/debug "OTP-TUPLE:" (.getName (class elms)))     ; Ouch!
-    (.send mbox #^OtpErlangPid (:pid req)
-                                otp-msg)))
+        otp-msg (OtpErlangTuple. #^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
+                                 (into-array OtpErlangObject [from rsp]))]
+    (.send mbox #^OtpErlangPid  (:pid req)
+                #^OtpErlangTuple otp-msg)))
 
 
 

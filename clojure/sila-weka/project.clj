@@ -3,6 +3,7 @@
   :url "http://dendrown.net"
   :license {:name "BSD 3-clause License"
             :url "https://spdx.org/licenses/BSD-3-Clause.html"}
+  :main sila-weka.core
   :plugins [[lein-localrepo "0.5.4"]]
   :dependencies [[org.clojure/clojure                "1.8.0" ]
                  [clj-time                           "0.14.0"]
