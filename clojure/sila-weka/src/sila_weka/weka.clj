@@ -13,28 +13,35 @@
 (ns sila-weka.weka
   (:require [clojure.java.io :as io]
             [clojure.string  :as str]
-            [sila-weka.log  :as log])
-  (:import  (weka.core Instances)
-            (weka.filters Filter)
-            (weka.core.converters AbstractSaver
+            [sila-weka.log   :as log])
+  (:import  [weka.core Instances]
+            [weka.filters Filter]
+            [weka.core.converters AbstractSaver
                                   ArffLoader
                                   ArffSaver
-                                  CSVSaver)
-            (weka.filters.unsupervised.attribute TweetToEmbeddingsFeatureVector
+                                  CSVSaver]
+            [weka.filters.unsupervised.attribute TweetToEmbeddingsFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
-                                                 TweetToSentiStrengthFeatureVector)))
+                                                 TweetToSentiStrengthFeatureVector]))
 
 (set! *warn-on-reflection* true)
 
 ;; ---------------------------------------------------------------------------
 ;; LEXI-NOTES:
-;;   BWS-Lex  -P [4e] NRC-Hashtag-Emotion-Lexicon-v0.2
-;;   Emo-Lex  -L [8e] NRC-emotion-lexicon-wordlevel-v0.92
-;;   Expanded -N [8e] w2v-dp-BCC-Lex
+;; :bws  BWS         [4e] NRC-AffectIntensity-Lexicon.arff
+;; :lex  Hash-Lex -P [8e] NRC-Hashtag-Emotion-Lexicon-v0.2
+;;       Emo-Lex  -L [8e] NRC-emotion-lexicon-wordlevel-v0.92
+;;       Expanded -N [8e] w2v-dp-BCC-Lex
+;;
+;; NOTE: Even though the AffectiveTweets Filter classes are imported in this
+;;       namespace, we must fully qualify the :filter elements in +FILTERS+
+;;       because the quoted code is likely to be evaluated in a non-binding-thread
+;;       (future) launched from another namespace, which won't have access to the
+;;       Java imports.
 ;; ---------------------------------------------------------------------------
 (def ^:const +ARFF-TEXT-ATTR+ "3")
-(def ^:const +FILTERS+ {:embed  {:filter  '(TweetToEmbeddingsFeatureVector.)
+(def ^:const +FILTERS+ {:embed  {:filter  '(weka.filters.unsupervised.attribute.TweetToEmbeddingsFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-S" "0"    ; 0=avg, 1=add, 2=cat
                                            "-K" "15"   ; Concat word count
@@ -42,11 +49,11 @@
                                            "-O"]}      ; Normalize URLs/@users
                                                        ; Default embeddings [ -B ]:
                                                        ;   w2v.twitter.edinburgh.100d.csv.gz
-                        :input  {:filter  '(TweetToInputLexiconFeatureVector.)
+                        :bws    {:filter  '(weka.filters.unsupervised.attribute.TweetToInputLexiconFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}      ; Normalize URLs/@users
-                        :lex    {:filter  '(TweetToLexiconFeatureVector.)
+                        :lex    {:filter  '(weka.filters.unsupervised.attribute.TweetToLexiconFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-A"        ; MPQA Lexicon
                                            "-D"        ; Bing Liu
@@ -61,7 +68,7 @@
                                            "-T"        ; Negation List
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}      ; Normalize URLs/@users
-                        :senti  {:filter  '(TweetToSentiStrengthFeatureVector.)
+                        :senti  {:filter  '(weka.filters.unsupervised.attribute.TweetToSentiStrengthFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}})    ; Normalize URLs/@users
@@ -91,7 +98,9 @@
 ;;; --------------------------------------------------------------------------
 (defn save-file
   "
-  Writes out the given Instances to the specified ARFF or CSV file
+  Writes out the given Instances to the specified ARFF or CSV file.
+
+  Returns the filename again as a convenience.
   "
   [^String    fpath
    ^Instances data
@@ -104,7 +113,7 @@
         (.setFile fout)
         (.setInstances data)
         (.writeBatch))
-    (.numInstances data)))
+    fpath))
 
 
 ;;; --------------------------------------------------------------------------
@@ -156,17 +165,37 @@
   "
   Reads in an ARFF file with tweets and writes it back out after applying
   the specified filter.
+
+  Returns a vector of the output filenames.
   "
   [fpath flt-key]
-    (in-ns 'sila-weka.weka)
     (let [data-in   (load-arff fpath)
           data-out  (filter-instances data-in flt-key)
           tag        (name flt-key)
           tag-fpaths (tag-filename fpath tag)]
       (log/debug "Filter<" tag ">: " fpath)
-      (save-file (:arff tag-fpaths) data-out :arff)
-      (save-file (:csv  tag-fpaths) data-out :csv)))
+      [(save-file (:arff tag-fpaths) data-out :arff)
+       (save-file (:csv  tag-fpaths) data-out :csv)]))
 
+
+
+
+;;; --------------------------------------------------------------------------
+;;; ┏━╸┏┳┓┏━┓╺┳╸┏━╸   ┏━┓┏━┓┏━╸┏━╸
+;;; ┣╸ ┃┃┃┃ ┃ ┃ ┣╸ ╺━╸┣━┫┣┳┛┣╸ ┣╸
+;;; ┗━╸╹ ╹┗━┛ ╹ ┗━╸   ╹ ╹╹┗╸╹  ╹
+;;; --------------------------------------------------------------------------
+(defn emote-arff
+	"
+	Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
+	as needed for «Say Sila», and then outputs the results in ARFF and CSV formats.
+
+  NOTE: This will be the main point of definition of what (Erlang) Sila wants,
+        until such time as it starts sending us its specific configurations.
+	"
+  [fpath]
+  (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
+  (filter-arff fpath :bws))
 
 
 
@@ -179,7 +208,7 @@
   "
   Reads in an ARFF file with tweets and writes it back out with embeddings.
 
-  NOTE: This is a test wrapper, and will be deleted soon; use filter-arff
+  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff
   "
   [fpath]
   (filter-arff fpath :embed))
@@ -196,7 +225,7 @@
   Reads in an ARFF file with tweets and writes it back out with lexicon feature
   vectors.
 
-  NOTE: This is a test wrapper, and will be deleted soon; use filter-arff
+  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff
   "
   [fpath]
   (filter-arff fpath :lex))
@@ -213,7 +242,7 @@
   Reads in an ARFF file with tweets and writes it back out with SentiStrength
   feature vectors.
 
-  NOTE: This is a test wrapper, and will be deleted soon; use filter-arff
+  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff
   "
   [fpath]
   (filter-arff fpath :senti))

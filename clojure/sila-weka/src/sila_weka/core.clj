@@ -14,6 +14,7 @@
   (:require [sila-weka.weka :as weka])
   (:require [sila-weka.log  :as log])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
+                                     OtpErlangList
                                      OtpErlangObject
                                      OtpErlangPid
                                      OtpErlangTuple
@@ -52,18 +53,23 @@
 ;;; --------------------------------------------------------------------------
 (defn- answer-sila
   "
-  Send a message to the Erlang Sila server
+  Send a response, with an optional argument, to the Erlang Sila server.
   "
-  [req rsp-key & rsp-arg]
-  (log/debug "SILA:" rsp-key)
-  ;; TODO: Incorporate rsp-arg
+  ([req rsp-key]
+    (answer-sila req rsp-key nil))
+
+
+  ([req rsp-key rsp-arg]
   (let [mbox    ^OtpMbox      (:mbox req)
         from    (.self mbox)
         rsp     (OtpErlangAtom. (name rsp-key))
+        elms    (if rsp-arg   [from rsp rsp-arg]
+                              [from rsp])
         otp-msg (OtpErlangTuple. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
-                                 (into-array OtpErlangObject [from rsp]))]
+                                 (into-array OtpErlangObject elms))]
+    (log/debug "SILA<" rsp ">:" rsp-arg)
     (.send mbox ^OtpErlangPid  (:pid req)
-                                 otp-msg)))
+                                 otp-msg))))
 
 
 
@@ -78,18 +84,30 @@
   "
   :cmd)
 
+(defmethod dispatch "emote" [msg]
+  (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
+  (log/info "->emote:" fpath)
+  (future
+    (let [rsp     (weka/emote-arff fpath)
+          bin-rsp (map #(OtpErlangString. ^String %) rsp)
+					otp-rsp (OtpErlangList. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
+																	 (into-array OtpErlangObject bin-rsp))]
+      (log/info "<-emote:" rsp "[OK]")
+      (answer-sila msg :emote otp-rsp)))))
+
+
 (defmethod dispatch "embed" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
   (log/info "Filter/EMBED:" fpath)
   (weka/filter-arff fpath :embed)
-  (log/info "Filter/EMBED:" fpath "OK")))
+  (log/info "Filter/EMBED:" fpath "[OK]")))
 
 
 (defmethod dispatch "lex" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
   (log/info "Filter/LEX:" fpath)
   (weka/filter-arff fpath :lex)
-  (log/info "Filter/LEX:" fpath "OK")))
+  (log/info "Filter/LEX:" fpath "[OK]")))
 
 
 (defmethod dispatch "ping" [msg]
@@ -99,6 +117,7 @@
 
 (defmethod dispatch "bye" [msg]
   (log/notice "Time to say « adieu »")
+  (answer-sila msg :bye)
   :quit)
 
 
@@ -125,8 +144,8 @@
       ; Note that we're assuming datatypes: pid() atom() term()
       {:pid pid
        :src node
-       :cmd (if (>= arity 2) (.atomValue ^OtpErlangAtom (.elementAt tuple 1)) nil)
-       :arg (if (>= arity 3)                             (.elementAt tuple 2)  nil)})
+       :cmd (when (>= arity 2) (.atomValue ^OtpErlangAtom (.elementAt tuple 1)))
+       :arg (when (>= arity 3)                            (.elementAt tuple 2))})
       {:src "TIMEOUT" :cmd "bye" :arg nil}))
 
 
