@@ -90,8 +90,8 @@
   (future
     (let [rsp     (weka/emote-arff fpath)
           bin-rsp (map #(OtpErlangString. ^String %) rsp)
-					otp-rsp (OtpErlangList. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
-																	 (into-array OtpErlangObject bin-rsp))]
+          otp-rsp (OtpErlangList. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
+                                  (into-array OtpErlangObject bin-rsp))]
       (log/info "<-emote:" rsp "[OK]")
       (answer-sila msg :emote otp-rsp)))))
 
