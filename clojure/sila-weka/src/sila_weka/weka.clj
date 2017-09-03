@@ -106,7 +106,8 @@
    ^Instances data
                ftype]
   (let [saver (case ftype :arff (ArffSaver.)
-                          :csv  (CSVSaver.))
+                          :csv  (doto (CSVSaver.)
+                                  (.setOptions (into-array String ["-F" "\t"]))))
         fout  (io/file fpath)]
     (.createNewFile fout)
     (doto ^AbstractSaver saver
