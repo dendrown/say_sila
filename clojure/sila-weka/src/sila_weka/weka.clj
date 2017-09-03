@@ -174,8 +174,8 @@
           tag        (name flt-key)
           tag-fpaths (tag-filename fpath tag)]
       (log/debug "Filter<" tag ">: " fpath)
-      [(save-file (:arff tag-fpaths) data-out :arff)
-       (save-file (:csv  tag-fpaths) data-out :csv)]))
+      {:arff (save-file (:arff tag-fpaths) data-out :arff)
+       :csv  (save-file (:csv  tag-fpaths) data-out :csv)}))
 
 
 

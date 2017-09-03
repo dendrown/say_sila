@@ -15,6 +15,7 @@
   (:require [sila-weka.log  :as log])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
                                      OtpErlangList
+                                     OtpErlangMap
                                      OtpErlangObject
                                      OtpErlangPid
                                      OtpErlangTuple
@@ -37,12 +38,35 @@
 ;;; --------------------------------------------------------------------------
 (defn- ^OtpNode make-node
   "
-  Creates and initializes a jInterface OTP node
+  Creates and initializes a jInterface OTP node.
   "
   [name]
   (let [node (OtpNode. name)]
     (.setCookie node +ERLANG-COOKIE+)
     node))
+
+
+
+;;; --------------------------------------------------------------------------
+;;; ┏┳┓┏━┓┏━┓    ┏━┓╺┳╸┏━┓
+;;; ┃┃┃┣━┫┣━┛╺━╸➤┃ ┃ ┃ ┣━┛
+;;; ╹ ╹╹ ╹╹      ┗━┛ ╹ ╹
+;;; --------------------------------------------------------------------------
+(defn map->otp
+  "
+  Our standard communication to Erlang Sila is {self(), atom(), map()}.
+  This function converts a clojure map in the form {:keyword «string»}
+  to an Erlang map to handle that third element in response tuples.
+
+  NOTE: This function currently works only on shallow maps.
+  "
+  [clj-map]
+  (let [clj-keys (keys clj-map)
+        clj-vals (vals clj-map)
+        otp-keys (into-array OtpErlangObject (map #(OtpErlangAtom. (name %))    clj-keys))
+        otp-vals (into-array OtpErlangObject (map #(OtpErlangString. ^String %) clj-vals))]
+    (OtpErlangMap. otp-keys otp-vals)))
+
 
 
 
@@ -62,9 +86,10 @@
   ([req rsp-key rsp-arg]
   (let [mbox    ^OtpMbox      (:mbox req)
         from    (.self mbox)
-        rsp     (OtpErlangAtom. (name rsp-key))
-        elms    (if rsp-arg   [from rsp rsp-arg]
-                              [from rsp])
+        rsp     (name rsp-key)
+        otp-rsp (OtpErlangAtom. rsp)
+        elms    (if rsp-arg   [from otp-rsp rsp-arg]
+                              [from otp-rsp])
         otp-msg (OtpErlangTuple. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
                                  (into-array OtpErlangObject elms))]
     (log/debug "SILA<" rsp ">:" rsp-arg)
@@ -88,12 +113,9 @@
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
   (log/info "->emote:" fpath)
   (future
-    (let [rsp     (weka/emote-arff fpath)
-          bin-rsp (map #(OtpErlangString. ^String %) rsp)
-          otp-rsp (OtpErlangList. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
-                                  (into-array OtpErlangObject bin-rsp))]
+    (let [rsp (weka/emote-arff fpath)]
       (log/info "<-emote:" rsp "[OK]")
-      (answer-sila msg :emote otp-rsp)))))
+      (answer-sila msg :emote (map->otp rsp))))))
 
 
 (defmethod dispatch "embed" [msg]
