@@ -21,6 +21,8 @@
 -module(twitter).
 -behaviour(gen_server).
 
+-author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
+
 -export([start_link/0,
          stop/0,
          has_hashtag/2,     % DEBUG: REMOVE
@@ -28,6 +30,7 @@
          authenticate/1,
          track/1,
          get_first_dts/1,
+         get_first_dts/2,
          get_players/1,
          get_players/2,
          get_players_R/2,   % TODO: Move to raven
@@ -154,13 +157,38 @@ track(KeyWords) ->
 
 
 %%--------------------------------------------------------------------
--spec get_first_dts(Tracker :: atom()) -> string().
+-spec get_first_dts(Tracker :: atom()) -> integer().
 %
 % @doc  Returns the timestamp of the first tweet for the specified
 %       `Tracker' atom: `cc' or `gw'.
 % @end  --
 get_first_dts(Tracker) ->
-    gen_server:call(?MODULE, {get_first_dts, Tracker}).
+    get_first_dts(Tracker, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_first_dts(Tracker :: atom(),
+                    Options :: list()) -> integer()
+                                        | tuple().
+%
+% @doc  Returns the timestamp of the first tweet for the specified
+%       `Tracker' atom: `cc' or `gw'.
+%
+%       The caller may specify a list of Options.  We currently support one:
+%           - `calendar' :  Gives the result as a tuple: {{year,mon,day},{hour,min,sec}}
+% @end  --
+get_first_dts(Tracker, Options) ->
+    DTS = gen_server:call(?MODULE, {get_first_dts, Tracker}),
+    case proplists:get_value(calendar, Options) of
+        true ->
+            % TODO: We're going to want to move this to a utility module
+            Base = calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}),
+            Secs = Base + (DTS div 1000),
+            calendar:gregorian_seconds_to_datetime(Secs);
+        undefined ->
+            DTS
+        end.
 
 
 
