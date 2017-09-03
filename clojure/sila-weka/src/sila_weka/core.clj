@@ -28,7 +28,7 @@
 (def ^:const +ERLANG-COOKIE+ "say_sila_uqam_00")
 (def ^:const +RECV-TIMEOUT+  300000)
 
-(def +to-sila+ (agent {:cnt 0}))
+(def +to-sila+ (agent {:cnt 0}))       ; TODO: Serialize responses to Erlang
 
 
 ;;; --------------------------------------------------------------------------

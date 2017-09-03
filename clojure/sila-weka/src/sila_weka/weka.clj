@@ -20,7 +20,8 @@
                                   ArffLoader
                                   ArffSaver
                                   CSVSaver]
-            [weka.filters.unsupervised.attribute TweetToEmbeddingsFeatureVector
+            [weka.filters.unsupervised.attribute Reorder
+                                                 TweetToEmbeddingsFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
                                                  TweetToSentiStrengthFeatureVector]))
@@ -40,7 +41,9 @@
 ;;       (future) launched from another namespace, which won't have access to the
 ;;       Java imports.
 ;; ---------------------------------------------------------------------------
-(def ^:const +ARFF-TEXT-ATTR+ "3")
+(def ^:const +ARFF-TEXT-ATTR-NUM+ 3)
+(def ^:const +ARFF-TEXT-ATTR+    (str +ARFF-TEXT-ATTR-NUM+))
+
 (def ^:const +FILTERS+ {:embed  {:filter  '(weka.filters.unsupervised.attribute.TweetToEmbeddingsFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-S" "0"    ; 0=avg, 1=add, 2=cat
@@ -71,7 +74,11 @@
                         :senti  {:filter  '(weka.filters.unsupervised.attribute.TweetToSentiStrengthFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-U"        ; Lowercase (not upper)
-                                           "-O"]}})    ; Normalize URLs/@users
+                                           "-O"]}      ; Normalize URLs/@users
+                        :attrs  {:filter  '(weka.filters.unsupervised.attribute.Reorder.)
+                                 :options [; Remove text attribute from the output
+                                           "-R" (str "1-" (dec +ARFF-TEXT-ATTR-NUM+)
+                                                     ","  (inc +ARFF-TEXT-ATTR-NUM+) "-last")]}})
 
 
 ;;; --------------------------------------------------------------------------
@@ -106,8 +113,7 @@
    ^Instances data
                ftype]
   (let [saver (case ftype :arff (ArffSaver.)
-                          :csv  (doto (CSVSaver.)
-                                  (.setOptions (into-array String ["-F" "\t"]))))
+                          :csv  (CSVSaver.))
         fout  (io/file fpath)]
     (.createNewFile fout)
     (doto ^AbstractSaver saver
@@ -164,14 +170,16 @@
 ;;; --------------------------------------------------------------------------
 (defn filter-arff
   "
-  Reads in an ARFF file with tweets and writes it back out after applying
-  the specified filter.
+  Reads in an ARFF file with tweets and writes it back out after applying:
+   (1) the specified filter.
+   (2) the Reorder filter to remove the tweet text
 
   Returns a vector of the output filenames.
   "
   [fpath flt-key]
     (let [data-in   (load-arff fpath)
-          data-out  (filter-instances data-in flt-key)
+          data-mid  (filter-instances data-in  flt-key)
+          data-out  (filter-instances data-mid :attrs)   ; Remove text attr
           tag        (name flt-key)
           tag-fpaths (tag-filename fpath tag)]
       (log/debug "Filter<" tag ">: " fpath)

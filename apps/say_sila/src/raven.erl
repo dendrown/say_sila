@@ -16,6 +16,7 @@
 -module(raven).
 -behaviour(gen_server).
 
+-author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/0, stop/0,
          connect/0,
@@ -164,7 +165,7 @@ get_big_tweets(Tracker, BigP100) ->
 %%--------------------------------------------------------------------
 run_tweet_csv(FName) ->
     Separator = "-----------------------------------------------------~n",
-    LineFn = fun({newline, [ID, ScreenName, Text, Anger, Fear, Sadness, Joy]}, Cnt) ->
+    LineFn = fun({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]}, Cnt) ->
                  io:format(Separator),
                  io:format("   tweet id : ~s~n", [ID]),
                  io:format("screen name : ~s~n", [ScreenName]),
@@ -172,12 +173,10 @@ run_tweet_csv(FName) ->
                  io:format("       fear : ~s~n", [Fear]),
                  io:format("    sadness : ~s~n", [Sadness]),
                  io:format("        joy : ~s~n", [Joy]),
-                 io:format("       text : ~s~n", [Text]),
                  Cnt + 1;
                 ({eof}, Cnt) -> Cnt end,
     {ok, In} = file:open(FName, [read]),
-    Result   = ecsv:process_csv_file_with(In, LineFn, 0, #ecsv_opts{delimiter=$\t,
-                                                                    quote=$'}),
+    Result   = ecsv:process_csv_file_with(In, LineFn, 0, #ecsv_opts{quote=$'}),
     io:format(Separator),
     file:close(In),
     Result.
