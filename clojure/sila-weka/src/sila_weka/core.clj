@@ -26,7 +26,6 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const +ERLANG-COOKIE+ "say_sila_uqam_00")
-(def ^:const +RECV-TIMEOUT+  300000)
 
 (def +to-sila+ (agent {:cnt 0}))       ; TODO: Serialize responses to Erlang
 
@@ -186,7 +185,7 @@
   ([node mbox quitter]
     (when-not (identical? quitter :quit)
       (log/info "Waiting on SILA command...")
-      (let [tuple ^OtpErlangTuple (.receive ^OtpMbox mbox +RECV-TIMEOUT+)
+      (let [tuple ^OtpErlangTuple (.receive ^OtpMbox mbox)
             msg   (parse-msg tuple)]
         (log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
         (recur node mbox (dispatch (conj msg {:mbox mbox})))))))
