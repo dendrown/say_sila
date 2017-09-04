@@ -91,6 +91,14 @@ connect() ->
 %
 %       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
 % @end  --
+get_big_players(_, BigP100) when   is_float(BigP100)
+                            orelse is_integer(BigP100) ->
+    % Give the user a break and don't make them wait on a long query
+    % before telling them what we want a percentage value to look like.
+    ?error("Specify percentage between 0 and 1"),
+    error(badarg);
+
+
 get_big_players(Tracker, BigP100) when is_atom(Tracker) ->
     get_big_players(twitter:get_players(Tracker), BigP100);
 
@@ -109,13 +117,7 @@ get_big_players(Players, BigP100) when    BigP100 >= 0.0
                       100 * AdjBigP100]);
         true -> ok
     end,
-    {BigPlayers, RegPlayers};
-
-
-get_big_players(_, BigP100) when   is_float(BigP100)
-                            orelse is_integer(BigP100) ->
-    ?error("Specify percentage between 0 and 1"),
-    error(badarg).
+    {BigPlayers, RegPlayers}.
 
 
 
