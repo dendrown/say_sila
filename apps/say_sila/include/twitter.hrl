@@ -18,7 +18,8 @@
                 timestamp_ms:: pos_integer(),
                 screen_name :: binary(),
                 text        :: binary() }).
--type tweet() :: #tweet{}.
+-type tweet()  :: #tweet{}.
+-type tweets() :: [tweet()].
 
 
 -record(player, {screen_name :: binary(),

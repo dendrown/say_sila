@@ -17,5 +17,6 @@
                                              {user,     "dbuser"},
                                              {password, "dbpass"},
                                              {database, "sila_tweets"}]},
+                {big_percent,                0.20},
                 {weka_node,                  "jvm@localhost"} ]}
 ].

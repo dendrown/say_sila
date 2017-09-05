@@ -20,8 +20,8 @@
 
 -export([start_link/0, stop/0,
          connect/0,
+         emote/1,
          get_big_players/2,
-         get_big_tweets/2,
          run_tweet_csv/1]).     %% DEBUG!
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -31,7 +31,12 @@
 
 -include_lib("ecsv/include/ecsv.hrl").
 
--record(state, {weka_node :: string() }).
+-define(DEFAULT_BIG_P100, 0.15).
+
+-record(state, {big_percent :: float(),
+                players     :: {players(), players()},
+                tweets      :: {tweets(), tweets()},
+                weka_node   :: string() }).
 -type state() :: #state{}.
 
 
@@ -46,8 +51,9 @@
 % @end  --
 start_link() ->
     {ok, App} = application:get_application(),
-    WekaNode = application:get_env(App, weka_node, undefined),
-    gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [WekaNode], []).
+    WekaNode = application:get_env(App, weka_node,   undefined),
+    BigP100  = application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
+    gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [BigP100, WekaNode], []).
 
 
 
@@ -92,6 +98,8 @@ connect() ->
 %       the regular players.
 %
 %       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
+%
+%       TODO: This function needs to move into the handle_call/cast logic.
 % @end  --
 get_big_players(_, BigP100) when   BigP100 =< 0.0
                             orelse BigP100 >= 1.0 ->
@@ -123,43 +131,20 @@ get_big_players(Players, BigP100) ->
 
 
 %%--------------------------------------------------------------------
--spec get_big_tweets(Tracker :: atom(),
-                     BigP100 :: float()) -> {big_players(), players()}.
+-spec emote(Tracker :: atom()) -> ok.
 %%
-% @doc  Gets the tweets for the Twitter tracking code (`cc' or `gw')
-%       and partitions them into two lists: tweets from the "big players",
-%       who contribute `BigP100' percent of the tweet communications, and
-%       the tweets from the rest of the players.
+% @doc  Process the tweets for the Twitter tracking code (`cc' or `gw').
+%       We send the compiled tweets to Weka to generate word embeddings
+%       and sentiment/emotion ratings per our selected lexicons.  Weka
+%       will notify that it has finished its processing via a message,
+%       which this module will pick up in handle_info.
 %
-%       The function returns a triple containing an adjusted big player
-%       tweet count percentage, a list of the big players, and a list of
-%       the regular players.
-%
-%       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
+%       This function is the current "do what we want" function for the
+%       `raven' module and the `say_sila' application...but take heed:
+%       we are evolving...
 % @end  --
-get_big_tweets(Tracker, BigP100) ->
-    %
-    % FIXME: The name of this function doesn't represent its usage very well
-    %
-    ?notice("Preparing big-vs-regular player tweets"),
-    {BigPlayers,
-     RegPlayers} = get_big_players(Tracker, BigP100),
-    ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
-
-    ActivityPct = round(100 * BigP100),
-    lists:foreach(fun({Size, Player}) ->
-
-                      ?debug("Pulling ~s-player tweets", [Size]),
-                      Tweets = twitter:get_tweets(Tracker, Player),
-
-                      ?debug("Packaging tweets for Weka"),
-                      FStub = io_lib:format("tweets.~s.~B.~s", [Tracker, ActivityPct, Size]),
-                      {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
-                      {weka, jvm@chiron} ! {self(), emote, FPath}
-                      end,
-                  [{big, BigPlayers}, {reg, RegPlayers}]).
-
-
+emote(Tracker) ->
+    gen_server:cast(?MODULE, {emote, Tracker}).
 
 
 
@@ -197,11 +182,22 @@ run_tweet_csv(FName) ->
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
-init([WekaNode]) ->
-    ?notice("The raven has taken flight: weka[~s]", [WekaNode]),
+init([BigP100, WekaNode]) ->
+    ?notice("The raven is taking flight: big[~6.3f%] weka[~s]",
+            [100 * BigP100,
+             WekaNode]),
     process_flag(trap_exit, true),
 
-    {ok, #state{weka_node = WekaNode}}.
+    % The big-player percentage range is: 0.0 (inclusive) to 1.0 (inclusive).
+    if
+        BigP100 >= 0.0 andalso
+        BigP100 =< 1.0 ->
+            {ok, #state{big_percent = BigP100,
+                        weka_node   = WekaNode}};
+        true ->
+            ?error("Big player percentage must be between 0 and 1"),
+            {stop, badarg}
+    end.
 
 
 
@@ -258,6 +254,30 @@ handle_cast(authenticate, State) ->
     %{ok, PIN} = io:fread("PIN> ", "~s"),
     %twitter:authenticate(PIN),
     {noreply, State};
+
+
+handle_cast({emote, Tracker}, State = #state{big_percent = BigP100,
+                                             weka_node   = WekaNode}) ->
+    ?notice("Preparing big-vs-regular player tweets"),
+    Players = {BigPlayers,
+               RegPlayers} = get_big_players(Tracker, BigP100),
+    ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
+
+    ActivityPct = round(100 * BigP100),
+    Tweets = lists:map(fun({Size, Player}) ->
+                           % Pull the actual tweets for these players from the DB
+                           ?debug("Pulling ~s-player tweets", [Size]),
+                           Tweets = twitter:get_tweets(Tracker, Player),
+
+                           ?debug("Packaging tweets for Weka"),
+                           FStub = io_lib:format("tweets.~s.~B.~s", [Tracker, ActivityPct, Size]),
+                           {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
+                           {weka, WekaNode} ! {self(), emote, FPath},
+                           Tweets
+                           end,
+                       [{big, BigPlayers}, {reg, RegPlayers}]),
+    {noreply, State#state{players = Players,
+                          tweets  = Tweets}};
 
 
 handle_cast(Msg, State) ->
