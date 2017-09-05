@@ -22,6 +22,8 @@
 %%%-------------------------------------------------------------------
 -module(weka).
 
+-author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
+
 -export([tweets_to_arff/2]).
 
 -include("sila.hrl").
@@ -34,13 +36,14 @@
 %% API
 %%--------------------------------------------------------------------
 -spec tweets_to_arff(Name   :: string(),
-                     Tweets :: [tweet()]) -> ok.
+                     Tweets :: [tweet()]) -> {ok, string()}
+                                           | {{error, term()}, string()}.
 %%
 % @doc  Convert a list of tweets to an ARFF (Attribute-Relation File Format)
 %       file for Weka.
 %
 %       Sample Weka target from https://github.com/felipebravom/EmoInt :
-%
+% ```
 %       java -Xmx4G -cp $HOME/weka-3-8-1/weka.jar weka.Run weka.classifiers.meta.FilteredClassifier
 %           -t data/anger-ratings-0to1.train.arff
 %           -T data/anger-ratings-0to1.test.target.arff
@@ -60,9 +63,7 @@
 %               -F \"weka.filters.unsupervised.attribute.Reorder
 %                   -R 5-last,4\""
 %           -W weka.classifiers.functions.LibLINEAR -- -S 12 -C 1.0 -E 0.001 -B 1.0 -L 0.1 -I 1000
-%
-%   NEED ATTRS: id, screen_name, text
-%
+% '''
 % @end  --
 tweets_to_arff(Name, Tweets) ->
     FPath = make_fpath(Name),
@@ -80,7 +81,7 @@ tweets_to_arff(Name, Tweets) ->
     % All ready for some learnin'
     FStatus = file:close(FOut),
     ?info("ARFF<create>: path[~s] stat[~p]", [FPath, FStatus]),
-    FStatus.
+    {FStatus, FPath}.
 
 
 
@@ -95,8 +96,8 @@ tweets_to_arff(Name, Tweets) ->
 %       using under `/tmp' exists.
 % @end  --
 make_fpath(Name) ->
-    FPath = io_lib:format("~s/weka/~s.arff", [?WORK_DIR, Name]),
-    ok  = filelib:ensure_dir(FPath),
+    FPath = lists:flatten(io_lib:format("~s/weka/~s.arff", [?WORK_DIR, Name])),
+    ok = filelib:ensure_dir(FPath),
     FPath.
 
 

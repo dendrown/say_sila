@@ -31,7 +31,7 @@
 
 -include_lib("ecsv/include/ecsv.hrl").
 
--record(state, {todo   :: any() }).
+-record(state, {weka_node :: string() }).
 -type state() :: #state{}.
 
 
@@ -45,7 +45,9 @@
 % @doc  Startup function for Twitter services
 % @end  --
 start_link() ->
-    gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [go], []).
+    {ok, App} = application:get_application(),
+    WekaNode = application:get_env(App, weka_node, undefined),
+    gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [WekaNode], []).
 
 
 
@@ -137,23 +139,27 @@ get_big_players(Players, BigP100) ->
 % @end  --
 get_big_tweets(Tracker, BigP100) ->
     %
-    % FIXME: The name of this module doesn't represent its function very well
+    % FIXME: The name of this function doesn't represent its usage very well
     %
     ?notice("Preparing big-vs-regular player tweets"),
     {BigPlayers,
      RegPlayers} = get_big_players(Tracker, BigP100),
     ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
 
-    ?debug("Pulling big player tweets"),
-    BigTweets = twitter:get_tweets(Tracker, BigPlayers),
-
-    ?debug("Pulling regular player tweets"),
-    RegTweets = twitter:get_tweets(Tracker, RegPlayers),
-
-    ?debug("Packaging tweets for Weka"),
     ActivityPct = round(100 * BigP100),
-    weka:tweets_to_arff(io_lib:format("tweets.~s.~B.big", [Tracker, ActivityPct]), BigTweets),
-    weka:tweets_to_arff(io_lib:format("tweets.~s.~B.reg", [Tracker, ActivityPct]), RegTweets).
+    lists:foreach(fun({Size, Player}) ->
+
+                      ?debug("Pulling ~s-player tweets", [Size]),
+                      Tweets = twitter:get_tweets(Tracker, Player),
+
+                      ?debug("Packaging tweets for Weka"),
+                      FStub = io_lib:format("tweets.~s.~B.~s", [Tracker, ActivityPct, Size]),
+                      {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
+                      {weka, jvm@chiron} ! {self(), emote, FPath}
+                      end,
+                  [{big, BigPlayers}, {reg, RegPlayers}]).
+
+
 
 
 
@@ -191,14 +197,11 @@ run_tweet_csv(FName) ->
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
-init([go]) ->
-    ?notice("The raven has taken flight"),
+init([WekaNode]) ->
+    ?notice("The raven has taken flight: weka[~s]", [WekaNode]),
     process_flag(trap_exit, true),
 
-    % Until we get a WUI, help a user out
-    %gen_server:connect()
-
-    {ok, #state{}}.
+    {ok, #state{weka_node = WekaNode}}.
 
 
 

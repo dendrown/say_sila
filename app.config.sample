@@ -16,5 +16,6 @@
                                              {port,     5432},
                                              {user,     "dbuser"},
                                              {password, "dbpass"},
-                                             {database, "sila_tweets"}]} ]}
+                                             {database, "sila_tweets"}]},
+                {weka_node,                  "jvm@localhost"} ]}
 ].
