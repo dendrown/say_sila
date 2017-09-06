@@ -18,6 +18,7 @@
                                      OtpErlangMap
                                      OtpErlangObject
                                      OtpErlangPid
+                                     OtpErlangRef
                                      OtpErlangTuple
                                      OtpErlangString
                                      OtpMbox
@@ -85,10 +86,11 @@
   ([req rsp-key rsp-arg]
   (let [mbox    ^OtpMbox      (:mbox req)
         from    (.self mbox)
+        ref     (:ref req)
         rsp     (name rsp-key)
         otp-rsp (OtpErlangAtom. rsp)
-        elms    (if rsp-arg   [from otp-rsp rsp-arg]
-                              [from otp-rsp])
+        elms    (if rsp-arg   [from ref otp-rsp rsp-arg]
+                              [from ref otp-rsp])
         otp-msg (OtpErlangTuple. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
                                  (into-array OtpErlangObject elms))]
     (log/debug "SILA<" rsp ">:" rsp-arg)
@@ -162,11 +164,12 @@
     (let [pid  ^OtpErlangPid (.elementAt tuple 0)
           node  (.node pid)
           arity (.arity tuple)]
-      ; Note that we're assuming datatypes: pid() atom() term()
+      ; Note that we're assuming datatypes: pid() ref() atom() term()
       {:pid pid
        :src node
-       :cmd (when (>= arity 2) (.atomValue ^OtpErlangAtom (.elementAt tuple 1)))
-       :arg (when (>= arity 3)                            (.elementAt tuple 2))})
+       :ref (when (>= arity 2)             ^OtpErlangRef  (.elementAt tuple 1))
+       :cmd (when (>= arity 3) (.atomValue ^OtpErlangAtom (.elementAt tuple 2)))
+       :arg (when (>= arity 4)                            (.elementAt tuple 3))})
       {:src "TIMEOUT" :cmd "bye" :arg nil}))
 
 

@@ -33,10 +33,19 @@
 
 -define(DEFAULT_BIG_P100, 0.15).
 
--record(state, {big_percent :: float(),
-                players     :: {players(), players()},
-                tweets      :: {tweets(), tweets()},
-                weka_node   :: string() }).
+
+% @doc Slots are for keeping everything about a player category in one place
+-record(tweet_slot, {category:: atom(),
+                     players :: players(),
+                     tweets  :: tweets()}).
+%type tweet_slot() :: #tweet_slot{}.
+
+
+% @doc gen_server state
+-record(state, {big_percent       :: float(),
+                tweet_slots = #{} :: map(),
+                tweet_todo  = #{} :: map(),
+                weka_node         :: string() }).
 -type state() :: #state{}.
 
 
@@ -257,32 +266,37 @@ handle_cast(authenticate, State) ->
 
 
 handle_cast({emote, Tracker}, State = #state{big_percent = BigP100,
+                                             tweet_todo  = TodoMap,
                                              weka_node   = WekaNode}) ->
     ?notice("Preparing big-vs-regular player tweets"),
-    Players = {BigPlayers,
-               RegPlayers} = get_big_players(Tracker, BigP100),
+    {BigPlayers,
+     RegPlayers} = get_big_players(Tracker, BigP100),
     ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
 
     ActivityPct = round(100 * BigP100),
-    Tweets = lists:map(fun({Size, Player}) ->
-                           % Pull the actual tweets for these players from the DB
-                           ?debug("Pulling ~s-player tweets", [Size]),
-                           Tweets = twitter:get_tweets(Tracker, Player),
+    NewTodo = lists:map(fun({Size, Players}) ->
+                            % Pull the actual tweets for these players from the DB
+                            ?debug("Pulling ~s-player tweets", [Size]),
+                            Tweets = twitter:get_tweets(Tracker, Players),
 
-                           ?debug("Packaging tweets for Weka"),
-                           FStub = io_lib:format("tweets.~s.~B.~s", [Tracker, ActivityPct, Size]),
-                           {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
-                           {weka, WekaNode} ! {self(), emote, FPath},
-                           Tweets
-                           end,
-                       [{big, BigPlayers}, {reg, RegPlayers}]),
-    {noreply, State#state{players = Players,
-                          tweets  = Tweets}};
+                            ?debug("Packaging tweets for Weka"),
+                            FStub  = io_lib:format("tweets.~s.~B.~s", [Tracker, ActivityPct, Size]),
+                            {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
+                            Lookup = make_ref(),
+                            {weka, WekaNode} ! {self(), Lookup, emote, FPath},
+                            {Lookup, #tweet_slot{category = Size,
+                                                 players  = Players,
+                                                 tweets   = Tweets}}
+                            end,
+                        [{big, BigPlayers}, {reg, RegPlayers}]),
+    NewTodoMap = maps:from_list(NewTodo),
+    {noreply, State#state{tweet_todo = maps:merge(TodoMap, NewTodoMap)}};
 
 
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.
+
 
 
 %%--------------------------------------------------------------------
@@ -291,6 +305,21 @@ handle_cast(Msg, State) ->
 %%
 % @doc  Process out-of-band messages
 % @end  --
+handle_info({From, Ref, emote, ArgMap = #{csv := CSV}}, State = #state{tweet_todo = TodoMap}) ->
+    NewState = case maps:take(Ref, TodoMap) of
+        {Task, NewTodoMap} ->
+            Category = Task#tweet_slot.category,
+            ?notice("Received CSV from Weka: pid[~p] cat[~s] csv[~s]",
+                    [From, Category, CSV]),
+            State#state{tweet_todo = NewTodoMap};
+
+        error ->
+            ?warning("Received unsolicited CSV: ref[~p] arg[~p]", [Ref, ArgMap]),
+            State
+        end,
+    {noreply, NewState};
+
+
 handle_info(Msg, State) ->
     ?warning("Unknown info: ~p", [Msg]),
     {noreply, State}.
