@@ -17,7 +17,11 @@
 -record(tweet, {id          :: binary(),
                 timestamp_ms:: pos_integer(),
                 screen_name :: binary(),
-                text        :: binary() }).
+                text        :: binary(),
+                anger       :: float(),
+                fear        :: float(),
+                sadness     :: float(),
+                joy         :: float() }).
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
 

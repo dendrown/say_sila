@@ -168,12 +168,12 @@ run_tweet_csv(FName) ->
     Separator = "-----------------------------------------------------~n",
     LineFn = fun({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]}, Cnt) ->
                  io:format(Separator),
-                 io:format("   tweet id : ~s~n", [ID]),
-                 io:format("screen name : ~s~n", [ScreenName]),
-                 io:format("      anger : ~s~n", [Anger]),
-                 io:format("       fear : ~s~n", [Fear]),
-                 io:format("    sadness : ~s~n", [Sadness]),
-                 io:format("        joy : ~s~n", [Joy]),
+                 io:format("   tweet id : ~p~n", [ID]),
+                 io:format("screen name : ~p~n", [ScreenName]),
+                 io:format("      anger : ~p~n", [Anger]),
+                 io:format("       fear : ~p~n", [Fear]),
+                 io:format("    sadness : ~p~n", [Sadness]),
+                 io:format("        joy : ~p~n", [Joy]),
                  Cnt + 1;
                 ({eof}, Cnt) -> Cnt end,
     {ok, In} = file:open(FName, [read]),
@@ -282,6 +282,8 @@ handle_cast({emote, Tracker}, State = #state{big_percent = BigP100,
                             ?debug("Packaging tweets for Weka"),
                             FStub  = io_lib:format("tweets.~s.~B.~s", [Tracker, ActivityPct, Size]),
                             {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
+
+                            % Send to Weka to apply embedding/emotion filters
                             Lookup = make_ref(),
                             {weka, WekaNode} ! {self(), Lookup, emote, FPath},
                             {Lookup, #tweet_slot{category = Size,
@@ -305,13 +307,17 @@ handle_cast(Msg, State) ->
 %%
 % @doc  Process out-of-band messages
 % @end  --
-handle_info({From, Ref, emote, ArgMap = #{csv := CSV}}, State = #state{tweet_todo = TodoMap}) ->
+handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{tweet_slots = SlotMap,
+                                                                            tweet_todo  = TodoMap}) ->
     NewState = case maps:take(Ref, TodoMap) of
-        {Task, NewTodoMap} ->
-            Category = Task#tweet_slot.category,
+        {#tweet_slot{category = Category,
+                     tweets   = Tweets},
+         NewTodoMap} ->
             ?notice("Received CSV from Weka: pid[~p] cat[~s] csv[~s]",
-                    [From, Category, CSV]),
-            State#state{tweet_todo = NewTodoMap};
+                    [From, Category, FPathCSV]),
+            EmoTweets = emote_tweets(Tweets, FPathCSV),
+            State#state{tweet_slots = maps:put(Category, EmoTweets, SlotMap),
+                        tweet_todo  = NewTodoMap};
 
         error ->
             ?warning("Received unsolicited CSV: ref[~p] arg[~p]", [Ref, ArgMap]),
@@ -378,3 +384,81 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
         true  -> {AdjBigP100, lists:reverse(NewBigPlayers), Rest};
         false -> get_big_players_aux(BigP100, TotalCnt, Rest, NewBigCnt, NewBigPlayers)
     end.
+
+
+
+%%--------------------------------------------------------------------
+-spec emote_tweets(Tweets   :: tweets(),
+                   FPathCSV :: string()) -> tweets().
+%%
+% @doc  Applies the emotion levels from the specified CSV file (filtered
+%       using Weka/AfectiveTweets) to the matching list of Tweets.
+%
+%       NOTE: Yes, I know "emote" is intransitive.
+% @end  --
+emote_tweets(Tweets, FPathCSV) ->
+    {ok, InCSV} = file:open(FPathCSV, [read]),
+    {Cnt, EmoTweets} = ecsv:process_csv_file_with(InCSV,
+                                                  fun emote_tweets_csv/2,
+                                                  {0, Tweets, []},
+                                                  #ecsv_opts{quote=$'}),
+    file:close(InCSV),
+    ?info("Applied emotion: cnt[~B] arff[~s]", [Cnt, FPathCSV]),
+    EmoTweets.
+
+
+
+%%--------------------------------------------------------------------
+-spec emote_tweets_csv(Fields  :: {newline, list()},
+                       Acc     :: {integer(), tweets(), tweets()}) -> {integer(), tweets()}.
+%%
+% @doc  Callback function for the ecsv parser.
+% @end  --
+emote_tweets_csv({newline,
+                  ["id",
+                   "screen_name",
+                   "NRC-Affect-Intensity-anger_Score",
+                   "NRC-Affect-Intensity-fear_Score",
+                   "NRC-Affect-Intensity-sadness_Score",
+                   "NRC-Affect-Intensity-joy_Score"]},
+                 Acc = {0, _, _}) ->
+    %
+    % This clause checks that the first line is correct
+    ?debug("CSV file is correct for emote"),
+    Acc;
+
+
+emote_tweets_csv({eof}, {Cnt, Unprocessed, EmoTweets}) ->
+    case length(Unprocessed) of
+        0     -> ok;
+        UnCnt -> ?warning("Unprocessed tweets after emote: cnt[~B]", [UnCnt])
+    end,
+    {Cnt, EmoTweets};
+
+
+emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
+                 {Cnt, [Tweet | RestTweets], EmoTweets}) ->
+    ?debug("   tweet id : ~p : ~p~n", [Tweet#tweet.id, ID]),
+    ?debug("screen name : ~s~n", [ScreenName]),
+    ?debug("      anger : ~s~n", [Anger]),
+    ?debug("       fear : ~s~n", [Fear]),
+    ?debug("    sadness : ~s~n", [Sadness]),
+    ?debug("        joy : ~s~n", [Joy]),
+    ?debug("       text : ~s~n", [Tweet#tweet.text]),
+    ?debug("-----------------------------------------------------"),
+    %
+    % Do a sanity check on the IDs
+    NewEmoTweets = case (Tweet#tweet.id =:= list_to_binary(ID)) of
+
+        true ->
+            EmoTweet = Tweet#tweet{anger   = Anger,
+                                   fear    = Fear,
+                                   sadness = Sadness,
+                                   joy     = Joy},
+            [EmoTweet | EmoTweets];
+
+        false ->
+            ?warning("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
+            EmoTweets
+    end,
+    {Cnt + 1, RestTweets, NewEmoTweets}.
