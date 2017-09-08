@@ -334,6 +334,19 @@ handle_info(Msg, State) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
+-spec string_to_float(Value :: string()) -> float().
+%%
+% @doc  Converts an integer/float in string format to a float value.
+% @end  --
+string_to_float(Value) ->
+    case string:chr(Value, $.) of
+        0 -> list_to_float(Value ++ ".0");
+        _ -> list_to_float(Value)
+    end.
+
+
+
+%%--------------------------------------------------------------------
 -spec get_big_players_aux(BigP100  :: float(),
                           TotalCnt :: players(),
                           Players  :: players()) -> {float(), big_players(), players()}.
@@ -398,10 +411,10 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
 % @end  --
 emote_tweets(Tweets, FPathCSV) ->
     {ok, InCSV} = file:open(FPathCSV, [read]),
-    {Cnt, EmoTweets} = ecsv:process_csv_file_with(InCSV,
-                                                  fun emote_tweets_csv/2,
-                                                  {0, Tweets, []},
-                                                  #ecsv_opts{quote=$'}),
+    {ok, {Cnt, EmoTweets}} = ecsv:process_csv_file_with(InCSV,
+                                                        fun emote_tweets_csv/2,
+                                                        {0, Tweets, []},
+                                                        #ecsv_opts{quote=$'}),
     file:close(InCSV),
     ?info("Applied emotion: cnt[~B] arff[~s]", [Cnt, FPathCSV]),
     EmoTweets.
@@ -440,10 +453,7 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
                  {Cnt, [Tweet | RestTweets], EmoTweets}) ->
     ?debug("   tweet id : ~p : ~p~n", [Tweet#tweet.id, ID]),
     ?debug("screen name : ~s~n", [ScreenName]),
-    ?debug("      anger : ~s~n", [Anger]),
-    ?debug("       fear : ~s~n", [Fear]),
-    ?debug("    sadness : ~s~n", [Sadness]),
-    ?debug("        joy : ~s~n", [Joy]),
+    ?debug("   emotions : A[~s] F[~s] S[~s] J[~s]~n", [Anger, Fear, Sadness, Joy]),
     ?debug("       text : ~s~n", [Tweet#tweet.text]),
     ?debug("-----------------------------------------------------"),
     %
@@ -451,10 +461,10 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
     NewEmoTweets = case (Tweet#tweet.id =:= list_to_binary(ID)) of
 
         true ->
-            EmoTweet = Tweet#tweet{anger   = Anger,
-                                   fear    = Fear,
-                                   sadness = Sadness,
-                                   joy     = Joy},
+            EmoTweet = Tweet#tweet{anger   = string_to_float(Anger),
+                                   fear    = string_to_float(Fear),
+                                   sadness = string_to_float(Sadness),
+                                   joy     = string_to_float(Joy)},
             [EmoTweet | EmoTweets];
 
         false ->
