@@ -14,10 +14,18 @@
 -ifndef(_twitter_included).
 -define(_twitter_included, ack).
 
+-record(emotions, {anger       :: float(),
+                   fear        :: float(),
+                   sadness     :: float(),
+                   joy         :: float() }).
+-type emotions() :: #emotions{}.
+
+
 -record(tweet, {id          :: binary(),
                 timestamp_ms:: pos_integer(),
                 screen_name :: binary(),
                 text        :: binary(),
+               %-- deprecated emotion format --
                 anger       :: float(),
                 fear        :: float(),
                 sadness     :: float(),

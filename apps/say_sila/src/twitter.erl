@@ -181,14 +181,9 @@ get_first_dts(Tracker) ->
 get_first_dts(Tracker, Options) ->
     DTS = gen_server:call(?MODULE, {get_first_dts, Tracker}),
     case proplists:get_value(calendar, Options) of
-        true ->
-            % TODO: We're going to want to move this to a utility module
-            Base = calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}),
-            Secs = Base + (DTS div 1000),
-            calendar:gregorian_seconds_to_datetime(Secs);
-        undefined ->
-            DTS
-        end.
+        true      -> dts:unix_to_datetime(DTS, millisecond);
+        undefined -> DTS
+    end.
 
 
 

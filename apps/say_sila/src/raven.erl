@@ -22,6 +22,7 @@
          connect/0,
          emote/1,
          get_big_players/2,
+         report_hourly/0,
          run_tweet_csv/1]).     %% DEBUG!
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -43,6 +44,7 @@
 
 % @doc gen_server state
 -record(state, {big_percent       :: float(),
+                hourly_data = #{} :: map(),
                 tweet_slots = #{} :: map(),
                 tweet_todo  = #{} :: map(),
                 weka_node         :: string() }).
@@ -158,6 +160,17 @@ emote(Tracker) ->
 
 
 %%--------------------------------------------------------------------
+-spec report_hourly() -> {ok, integer()}.
+%%
+% @doc  Prepares the hour-by-hour report on tweet data, which has been
+%       processed by `emote'.
+%%--------------------------------------------------------------------
+report_hourly() ->
+    gen_server:call(?MODULE, report_hourly).
+
+
+
+%%--------------------------------------------------------------------
 -spec run_tweet_csv(FName :: string()) -> {ok, integer()}.
 %%
 % @doc  Formats and prints a Weka output CSV.
@@ -240,6 +253,16 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call(report_hourly, _From, State = #state{tweet_slots = SlotMap}) ->
+    % FIXME: this intial version is coded as a one-shot, but
+    %        we will need to adjust and recalcuate automatically
+    %        every hour...
+    Report = lists:map(fun(Size) -> report_hourly_R(maps:get(Size, SlotMap, [])) end,
+                       [big, reg]),
+    Reply = {ok, Report},
+    {reply, Reply, State#state{hourly_data = Report}};
+
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
@@ -472,3 +495,55 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
             EmoTweets
     end,
     {Cnt + 1, RestTweets, NewEmoTweets}.
+
+
+
+%%--------------------------------------------------------------------
+-spec report_hourly_R(Tweets :: tweets()) -> {integer(), string()}.
+%%
+% @doc  Runs through the specified `tweet' list and prepares hourly data
+%       for graph analysis under R.  The tuple returned to the caller
+%       includes the count of tweets processed, and the generated R
+%       source filename.
+% @end  --
+report_hourly_R(Tweets) ->
+    report_hourly_R(Tweets, {0, #{}}).
+
+
+
+%%--------------------------------------------------------------------
+-spec report_hourly_R(Tweets :: tweets(),
+                      Acc    :: term()) -> {integer(), string()}.
+%%
+% @doc  Workhorse for `report_hourly_R/1'.
+% @end  --
+report_hourly_R([], Acc) ->
+    Acc;
+
+
+report_hourly_R([#tweet{timestamp_ms = Millis1970,
+                        anger        = Anger,
+                        fear         = Fear,
+                        sadness      = Sadness,
+                        joy          = Joy} | RestTweets], {Cnt, HourlyEmos}) ->
+    %
+    % Tweet emotion calculations go into buckets representing the hour
+    DTS = dts:unix_to_datetime(Millis1970, millisecond),
+    Key = dts:hourize(DTS),
+    %
+    % NOTE: The emotion structures are evolving as we test and incorporate
+    %       the various lexicons...
+    NewHourEmo = case maps:get(Key, HourlyEmos, undefined) of
+        undefined ->
+            #emotions{anger   = Anger,
+                      fear    = Fear,
+                      sadness = Sadness,
+                      joy     = Joy};
+        HourEmo ->
+            #emotions{anger   = Anger   + HourEmo#emotions.anger,
+                      fear    = Fear    + HourEmo#emotions.fear,
+                      sadness = Sadness + HourEmo#emotions.sadness,
+                      joy     = Joy     + HourEmo#emotions.joy}
+    end,
+    report_hourly_R(RestTweets, {Cnt + 1, maps:put(Key, NewHourEmo, HourlyEmos)}).
+
