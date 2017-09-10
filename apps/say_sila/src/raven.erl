@@ -33,13 +33,17 @@
 -include_lib("ecsv/include/ecsv.hrl").
 
 -define(DEFAULT_BIG_P100, 0.15).
+-define(BEG_EPOCH,        {{1970,  1,  1}, { 0,  0,  0}}).
+-define(END_EPOCH,        {{9999, 12, 31}, {23, 59, 59}}).
 
 
 % @doc Slots are for keeping everything about a player category in one place
--record(report, {category :: atom(),
-                 count    :: integer(),
-                 emotions :: map() }).
-%type report() :: #report{}.
+-record(report, {category               :: atom(),
+                 count    = 0           :: integer(),
+                 beg_dts  = ?END_EPOCH  :: tuple(),
+                 end_dts  = ?BEG_EPOCH  :: tuple(),
+                 emotions = #{}         :: map() }).
+-type report() :: #report{}.
 
 
 % @doc Slots are for keeping everything about a player category in one place
@@ -265,10 +269,7 @@ handle_call(report_hourly, _From, State = #state{tweet_slots = SlotMap}) ->
     %        we will need to adjust and recalcuate automatically
     %        every hour...
     Reports = lists:map(fun(Size) ->
-                            {Cnt, Report} = report_hourly_R(maps:get(Size, SlotMap, [])),
-                            {Size, #report{category = Size,
-                                           count    = Cnt,
-                                           emotions = Report}}
+                            {Size, report_hourly_R(Size, maps:get(Size, SlotMap, []))}
                             end,
                        [big, reg]),
     HourlyData = maps:from_list(Reports),
@@ -514,30 +515,35 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
 
 
 %%--------------------------------------------------------------------
--spec report_hourly_R(Tweets :: tweets()) -> {integer(), string()}.
+-spec report_hourly_R(Category :: atom(),
+                      Tweets   :: tweets()) -> report().
 %%
 % @doc  Runs through the specified `tweet' list and prepares hourly data
 %       for graph analysis under R.  The tuple returned to the caller
 %       includes the count of tweets processed, and the generated R
 %       source filename.
 % @end  --
-report_hourly_R(Tweets) ->
-    report_hourly_R(Tweets, {0, #{}}).
+report_hourly_R(Category, Tweets) ->
+    report_hourly_R_aux(Tweets, #report{category = Category}).
 
 
 
 %%--------------------------------------------------------------------
--spec report_hourly_R(Tweets :: tweets(),
-                      Acc    :: term()) -> {integer(), string()}.
+-spec report_hourly_R_aux(Tweets :: tweets(),
+                          Report :: report()) -> report().
 %%
-% @doc  Workhorse for `report_hourly_R/1'.
+% @doc  Workhorse for `report_hourly_R/2'.
 % @end  --
-report_hourly_R([], Acc) ->
-    Acc;
+report_hourly_R_aux([], Report) ->
+    Report;
 
 
-report_hourly_R([#tweet{timestamp_ms = Millis1970,
-                        emotions     = TweetEmo} | RestTweets], {Cnt, HourlyEmos}) ->
+report_hourly_R_aux([#tweet{timestamp_ms = Millis1970,
+                            emotions     = TweetEmo} | RestTweets],
+                    Report = #report{count    = Cnt,
+                                     beg_dts  = BegDTS,
+                                     end_dts  = EndDTS,
+                                     emotions = HourlyEmos}) ->
     %
     % Tweet emotion calculations go into buckets representing the hour
     DTS = dts:unix_to_datetime(Millis1970, millisecond),
@@ -549,5 +555,8 @@ report_hourly_R([#tweet{timestamp_ms = Millis1970,
         undefined -> TweetEmo;
         HourEmo   -> emo:add(HourEmo, TweetEmo)
     end,
-    report_hourly_R(RestTweets, {Cnt + 1, maps:put(Key, NewHourEmo, HourlyEmos)}).
+    report_hourly_R_aux(RestTweets, Report#report{count    = Cnt + 1,
+                                                  beg_dts  = dts:earlier(BegDTS, Key),
+                                                  end_dts  = dts:later(EndDTS, Key),
+                                                  emotions = maps:put(Key, NewHourEmo, HourlyEmos)}).
 
