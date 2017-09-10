@@ -36,9 +36,16 @@
 
 
 % @doc Slots are for keeping everything about a player category in one place
--record(tweet_slot, {category:: atom(),
-                     players :: players(),
-                     tweets  :: tweets()}).
+-record(report, {category :: atom(),
+                 count    :: integer(),
+                 emotions :: map() }).
+%type report() :: #report{}.
+
+
+% @doc Slots are for keeping everything about a player category in one place
+-record(tweet_slot, {category :: atom(),
+                     players  :: players(),
+                     tweets   :: tweets() }).
 %type tweet_slot() :: #tweet_slot{}.
 
 
@@ -257,10 +264,15 @@ handle_call(report_hourly, _From, State = #state{tweet_slots = SlotMap}) ->
     % FIXME: this intial version is coded as a one-shot, but
     %        we will need to adjust and recalcuate automatically
     %        every hour...
-    Report = lists:map(fun(Size) -> report_hourly_R(maps:get(Size, SlotMap, [])) end,
+    Reports = lists:map(fun(Size) ->
+                            {Cnt, Report} = report_hourly_R(maps:get(Size, SlotMap, [])),
+                            {Size, #report{category = Size,
+                                           count    = Cnt,
+                                           emotions = Report}}
+                            end,
                        [big, reg]),
-    Reply = {ok, Report},
-    {reply, Reply, State#state{hourly_data = Report}};
+    HourlyData = maps:from_list(Reports),
+    {reply, {ok, HourlyData}, State#state{hourly_data = HourlyData}};
 
 
 handle_call(stop, _From, State) ->
@@ -474,20 +486,23 @@ emote_tweets_csv({eof}, {Cnt, Unprocessed, EmoTweets}) ->
 
 emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
                  {Cnt, [Tweet | RestTweets], EmoTweets}) ->
-    ?debug("   tweet id : ~p : ~p~n", [Tweet#tweet.id, ID]),
-    ?debug("screen name : ~s~n", [ScreenName]),
-    ?debug("   emotions : A[~s] F[~s] S[~s] J[~s]~n", [Anger, Fear, Sadness, Joy]),
-    ?debug("       text : ~s~n", [Tweet#tweet.text]),
-    ?debug("-----------------------------------------------------"),
+    %
+    %debug("   tweet id : ~p : ~p~n", [Tweet#tweet.id, ID]),
+    %debug("screen name : ~s~n", [ScreenName]),
+    %debug("   emotions : A[~s] F[~s] S[~s] J[~s]~n", [Anger, Fear, Sadness, Joy]),
+    %debug("       text : ~s~n", [Tweet#tweet.text]),
+    %debug("-----------------------------------------------------"),
+    ?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),
     %
     % Do a sanity check on the IDs
     NewEmoTweets = case (Tweet#tweet.id =:= list_to_binary(ID)) of
 
         true ->
-            EmoTweet = Tweet#tweet{anger   = string_to_float(Anger),
-                                   fear    = string_to_float(Fear),
-                                   sadness = string_to_float(Sadness),
-                                   joy     = string_to_float(Joy)},
+            Emotions = #emotions{anger   = string_to_float(Anger),
+                                 fear    = string_to_float(Fear),
+                                 sadness = string_to_float(Sadness),
+                                 joy     = string_to_float(Joy)},
+            EmoTweet = Tweet#tweet{emotions = Emotions},
             [EmoTweet | EmoTweets];
 
         false ->
@@ -522,10 +537,7 @@ report_hourly_R([], Acc) ->
 
 
 report_hourly_R([#tweet{timestamp_ms = Millis1970,
-                        anger        = Anger,
-                        fear         = Fear,
-                        sadness      = Sadness,
-                        joy          = Joy} | RestTweets], {Cnt, HourlyEmos}) ->
+                        emotions     = TweetEmo} | RestTweets], {Cnt, HourlyEmos}) ->
     %
     % Tweet emotion calculations go into buckets representing the hour
     DTS = dts:unix_to_datetime(Millis1970, millisecond),
@@ -534,16 +546,8 @@ report_hourly_R([#tweet{timestamp_ms = Millis1970,
     % NOTE: The emotion structures are evolving as we test and incorporate
     %       the various lexicons...
     NewHourEmo = case maps:get(Key, HourlyEmos, undefined) of
-        undefined ->
-            #emotions{anger   = Anger,
-                      fear    = Fear,
-                      sadness = Sadness,
-                      joy     = Joy};
-        HourEmo ->
-            #emotions{anger   = Anger   + HourEmo#emotions.anger,
-                      fear    = Fear    + HourEmo#emotions.fear,
-                      sadness = Sadness + HourEmo#emotions.sadness,
-                      joy     = Joy     + HourEmo#emotions.joy}
+        undefined -> TweetEmo;
+        HourEmo   -> emo:add(HourEmo, TweetEmo)
     end,
     report_hourly_R(RestTweets, {Cnt + 1, maps:put(Key, NewHourEmo, HourlyEmos)}).
 

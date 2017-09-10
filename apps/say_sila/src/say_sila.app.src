@@ -7,6 +7,7 @@
   {applications, [kernel, stdlib ]},
   {env,[]},
   {modules, [dts,
+             emo,
              llog,
              r,
              raven,

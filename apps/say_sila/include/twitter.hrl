@@ -25,11 +25,7 @@
                 timestamp_ms:: pos_integer(),
                 screen_name :: binary(),
                 text        :: binary(),
-               %-- deprecated emotion format --
-                anger       :: float(),
-                fear        :: float(),
-                sadness     :: float(),
-                joy         :: float() }).
+                emotions    :: emotions() }).
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
 
