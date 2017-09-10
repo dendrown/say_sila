@@ -98,6 +98,7 @@ init([go]) ->
 % @end  --
 terminate(Why, _State) ->
     ?notice("Shutting down the R/Erlang bridge: why[~p]", [Why]),
+    eri:stop(),
     normal.
 
 
