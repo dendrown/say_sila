@@ -28,22 +28,12 @@
 
 -include("sila.hrl").
 -include("llog.hrl").
+-include("raven.hrl").
 -include("twitter.hrl").
 
 -include_lib("ecsv/include/ecsv.hrl").
 
 -define(DEFAULT_BIG_P100, 0.15).
--define(BEG_EPOCH,        {{1970,  1,  1}, { 0,  0,  0}}).
--define(END_EPOCH,        {{9999, 12, 31}, {23, 59, 59}}).
-
-
-% @doc Slots are for keeping everything about a player category in one place
--record(report, {category               :: atom(),
-                 count    = 0           :: integer(),
-                 beg_dts  = ?END_EPOCH  :: tuple(),
-                 end_dts  = ?BEG_EPOCH  :: tuple(),
-                 emotions = #{}         :: map() }).
--type report() :: #report{}.
 
 
 % @doc Slots are for keeping everything about a player category in one place
@@ -273,6 +263,7 @@ handle_call(report_hourly, _From, State = #state{tweet_slots = SlotMap}) ->
                             end,
                        [big, reg]),
     HourlyData = maps:from_list(Reports),
+    %%r:report_emotions(hourly, HourlyData),
     {reply, {ok, HourlyData}, State#state{hourly_data = HourlyData}};
 
 

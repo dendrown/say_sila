@@ -14,11 +14,7 @@
 -ifndef(_twitter_included).
 -define(_twitter_included, ack).
 
--record(emotions, {anger       :: float(),
-                   fear        :: float(),
-                   sadness     :: float(),
-                   joy         :: float() }).
--type emotions() :: #emotions{}.
+-include("raven.hrl").
 
 
 -record(tweet, {id          :: binary(),

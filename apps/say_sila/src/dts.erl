@@ -15,16 +15,43 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([earlier/2,
+-export([add/3,
+         earlier/2,
          hourize/1,
          later/2,
          minutize/1,
+         str/1,
+         sub/3,
          unix_to_datetime/2]).
 
-
+-define(SECS_IN_MIN,    60).
+-define(SECS_IN_HOUR,  (60 * ?SECS_IN_MIN)).
+-define(SECS_IN_DAY,   (24 * ?SECS_IN_HOUR)).
 
 %%====================================================================
 %% API
+%%--------------------------------------------------------------------
+-spec add(DTS  :: tuple(),
+          Amt  :: integer(),
+          Unit :: atom()) -> tuple().
+%
+%     Adds the specified amout of `second', `minute', `hour' or `day'
+%     to DTS.
+% @end  --
+add(DTS, Amt, Unit) ->
+    Secs = case Unit of
+        millisecond -> Amt div 1000;
+        second      -> Amt;
+        minute      -> Amt * ?SECS_IN_MIN;
+        hour        -> Amt * ?SECS_IN_HOUR;
+        day         -> Amt * ?SECS_IN_DAY
+    end,
+    OrigSecs = calendar:datetime_to_gregorian_seconds(DTS),
+    NewSecs  = OrigSecs + Secs,
+    calendar:gregorian_seconds_to_datetime(NewSecs).
+
+
+
 %%--------------------------------------------------------------------
 -spec earlier(DTS1 :: tuple(),
               DTS2 :: tuple()) -> tuple().
@@ -74,6 +101,30 @@ minutize({{Year, Month, Day}, {Hour, Min, _}}) ->
 
 
 %%--------------------------------------------------------------------
+-spec str(DTS :: tuple()) -> string().
+%
+%     Creates something printable from a datetime tuple.
+%     from DTS.
+% @end  --
+str({{Year, Mon, Day}, {Hour, Min, Sec}}) ->
+    io_lib:format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B", [Year, Mon, Day, Hour, Min, Sec]).
+
+
+
+%%--------------------------------------------------------------------
+-spec sub(DTS  :: tuple(),
+          Amt  :: integer(),
+          Unit :: atom()) -> tuple().
+%
+%     Subtracts the specified amount of `second', `minute', `hour' or `day'
+%     from DTS.
+% @end  --
+sub(DTS, Amt, Unit) ->
+    add(DTS, -Amt, Unit).
+
+
+
+%%--------------------------------------------------------------------
 -spec unix_to_datetime(DTS1970 :: integer(),
                        Unit    :: atom()) -> tuple().
 %
@@ -81,13 +132,7 @@ minutize({{Year, Month, Day}, {Hour, Min, _}}) ->
 %     datetime tuple: `{{year,mon,day},{hour,min,sec}}'
 % @end  --
 unix_to_datetime(DTS1970, Unit) ->
-    Secs1970 = case Unit of
-        millisecond -> DTS1970 div 1000;
-        second      -> DTS1970
-    end,
-    Base = calendar:datetime_to_gregorian_seconds({{1970,1,1},{0,0,0}}),
-    Secs = Base + Secs1970,
-    calendar:gregorian_seconds_to_datetime(Secs).
+    add({{1970,1,1},{0,0,0}}, DTS1970, Unit).
 
 
 
