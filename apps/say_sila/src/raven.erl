@@ -22,7 +22,7 @@
          connect/0,
          emote/1,
          get_big_players/2,
-         report_hourly/0,
+         report/1,
          run_tweet_csv/1]).     %% DEBUG!
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -44,8 +44,9 @@
 
 
 % @doc gen_server state
--record(state, {big_percent       :: float(),
-                hourly_data = #{} :: map(),
+-record(state, {tracker           :: atom(),
+                big_percent       :: float(),
+                emo_report  = #{} :: map(),
                 tweet_slots = #{} :: map(),
                 tweet_todo  = #{} :: map(),
                 weka_node         :: string() }).
@@ -161,13 +162,13 @@ emote(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec report_hourly() -> {ok, integer()}.
+-spec report(Period :: atom()) -> {ok, integer()}.
 %%
-% @doc  Prepares the hour-by-hour report on tweet data, which has been
-%       processed by `emote'.
+% @doc  Prepares a report on tweet data (already processed by `emote')
+%       for the specified time period: `hour', `day', etc.
 %%--------------------------------------------------------------------
-report_hourly() ->
-    gen_server:call(?MODULE, report_hourly).
+report(Period) ->
+    gen_server:call(?MODULE, {report, Period}).
 
 
 
@@ -248,23 +249,25 @@ code_change(OldVsn, State, _Extra) ->
 
 
 %%--------------------------------------------------------------------
--spec handle_call(Msg   :: term(),
-                  From  :: {pid(), term()},
-                  State :: state()) -> any().
+%% handle_call:
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call(report_hourly, _From, State = #state{tweet_slots = SlotMap}) ->
+handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
+                                                    big_percent = BigP100,
+                                                    tweet_slots = SlotMap}) ->
     % FIXME: this intial version is coded as a one-shot, but
     %        we will need to adjust and recalcuate automatically
     %        every hour...
-    Reports = lists:map(fun(Size) ->
-                            {Size, report_hourly_R(Size, maps:get(Size, SlotMap, []))}
-                            end,
-                       [big, reg]),
-    HourlyData = maps:from_list(Reports),
-    %%r:report_emotions(hourly, HourlyData),
-    {reply, {ok, HourlyData}, State#state{hourly_data = HourlyData}};
+    Rpts = lists:map(fun(Size) ->
+                         {Size, report(Size, Period, maps:get(Size, SlotMap, []))}
+                         end,
+                     [big, reg]),
+    RptMap = maps:from_list(Rpts),
+    RptTag = io_lib:format("~s.~B", [Tracker,
+                                     round(100 * BigP100)]),
+    r:report_emotions(RptTag, Period, RptMap),
+    {reply, {ok, RptMap}, State#state{emo_report = RptMap}};
 
 
 handle_call(stop, _From, State) ->
@@ -319,7 +322,8 @@ handle_cast({emote, Tracker}, State = #state{big_percent = BigP100,
                             end,
                         [{big, BigPlayers}, {reg, RegPlayers}]),
     NewTodoMap = maps:from_list(NewTodo),
-    {noreply, State#state{tweet_todo = maps:merge(TodoMap, NewTodoMap)}};
+    {noreply, State#state{tracker    = Tracker,
+                          tweet_todo = maps:merge(TodoMap, NewTodoMap)}};
 
 
 handle_cast(Msg, State) ->
@@ -506,48 +510,54 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
 
 
 %%--------------------------------------------------------------------
--spec report_hourly_R(Category :: atom(),
-                      Tweets   :: tweets()) -> report().
+-spec report(Category :: atom(),
+             Period   :: atom(),
+             Tweets   :: tweets()) -> report().
 %%
-% @doc  Runs through the specified `tweet' list and prepares hourly data
+% @doc  Runs through the specified `tweet' list and prepares period data
 %       for graph analysis under R.  The tuple returned to the caller
 %       includes the count of tweets processed, and the generated R
 %       source filename.
 % @end  --
-report_hourly_R(Category, Tweets) ->
-    report_hourly_R_aux(Tweets, #report{category = Category}).
+report(Category, Period, Tweets) ->
+    report_aux(Tweets, Period, #report{category = Category}).
 
 
 
 %%--------------------------------------------------------------------
--spec report_hourly_R_aux(Tweets :: tweets(),
-                          Report :: report()) -> report().
+-spec report_aux(Tweets :: tweets(),
+                 Period :: atom(),
+                 Report :: report()) -> report().
 %%
-% @doc  Workhorse for `report_hourly_R/2'.
+% @doc  Workhorse for `report/3'.
 % @end  --
-report_hourly_R_aux([], Report) ->
+report_aux([], Period, Report) ->
+    ?debug("Compiled tweets for reporting: per[~s]", [Period]),
     Report;
 
 
-report_hourly_R_aux([#tweet{timestamp_ms = Millis1970,
-                            emotions     = TweetEmo} | RestTweets],
-                    Report = #report{count    = Cnt,
-                                     beg_dts  = BegDTS,
-                                     end_dts  = EndDTS,
-                                     emotions = HourlyEmos}) ->
-    %
-    % Tweet emotion calculations go into buckets representing the hour
+report_aux([#tweet{timestamp_ms = Millis1970,
+                   emotions     = TweetEmo} | RestTweets],
+            Period,
+            Report = #report{count    = Cnt,
+                             beg_dts  = BegDTS,
+                             end_dts  = EndDTS,
+                             emotions = RptEmos}) ->
+    % Tweet emotion calculations go into buckets representing the period
     DTS = dts:unix_to_datetime(Millis1970, millisecond),
-    Key = dts:hourize(DTS),
+    Key = case Period of
+        day  -> dts:dayize(DTS);
+        hour -> dts:hourize(DTS)
+    end,
     %
     % NOTE: The emotion structures are evolving as we test and incorporate
     %       the various lexicons...
-    NewHourEmo = case maps:get(Key, HourlyEmos, undefined) of
+    NewEmo = case maps:get(Key, RptEmos, undefined) of
         undefined -> TweetEmo;
-        HourEmo   -> emo:add(HourEmo, TweetEmo)
+        Emo       -> emo:add(Emo, TweetEmo)
     end,
-    report_hourly_R_aux(RestTweets, Report#report{count    = Cnt + 1,
-                                                  beg_dts  = dts:earlier(BegDTS, Key),
-                                                  end_dts  = dts:later(EndDTS, Key),
-                                                  emotions = maps:put(Key, NewHourEmo, HourlyEmos)}).
+    report_aux(RestTweets, Period, Report#report{count    = Cnt + 1,
+                                                 beg_dts  = dts:earlier(BegDTS, Key),
+                                                 end_dts  = dts:later(EndDTS, Key),
+                                                 emotions = maps:put(Key, NewEmo, RptEmos)}).
 

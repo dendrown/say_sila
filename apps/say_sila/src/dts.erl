@@ -16,6 +16,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([add/3,
+         dayize/1,
          earlier/2,
          hourize/1,
          later/2,
@@ -49,6 +50,16 @@ add(DTS, Amt, Unit) ->
     OrigSecs = calendar:datetime_to_gregorian_seconds(DTS),
     NewSecs  = OrigSecs + Secs,
     calendar:gregorian_seconds_to_datetime(NewSecs).
+
+
+
+%%--------------------------------------------------------------------
+-spec dayize(DateTime :: tuple()) -> tuple().
+%
+% @doc  Zeros out the time portion from a datetime tuple.
+% @end  --
+dayize({{Year, Month, Day}, {_, _, _}}) ->
+    {{Year, Month, Day}, {0, 0, 0}}.
 
 
 

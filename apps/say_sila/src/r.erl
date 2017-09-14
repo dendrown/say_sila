@@ -72,14 +72,14 @@ eval(_) ->
 
 
 %%--------------------------------------------------------------------
--spec report_emotions(Tracker :: atom(),
+-spec report_emotions(Tag     :: string(),
                       Period  :: atom(),
                       Reports :: map()) -> ok.
 %%
 % @doc  Create reports for hourly or daily (soon) emotion totals.
 % @end  --
-report_emotions(Tracker, Period, Reports) ->
-    gen_server:cast(?MODULE, {report_emotions, Tracker, Period, Reports}).
+report_emotions(Tag, Period, Reports) ->
+    gen_server:cast(?MODULE, {report_emotions, Tag, Period, Reports}).
 
 
 
@@ -162,20 +162,20 @@ handle_cast(connect, State) ->
     {Action, State#state{eri_status = Eri}};
 
 
-handle_cast({report_emotions, Tracker, hourly, #{big := BigRpt,
-                                                 reg := RegRpt}},
+handle_cast({report_emotions, Tag, Period, #{big := BigRpt,
+                                             reg := RegRpt}},
             State) ->
-    % TODO: generalizing the reporting and use a date/time formatting library
-    %
     % Start with the earliest data and go to the latest,
-    % but drop the first and last hour as they are partials
-    BegDTS = dts:earlier(dts:add(BigRpt#report.beg_dts, 1, hour),
-                         dts:add(RegRpt#report.beg_dts, 1, hour)),
-    EndDTS = dts:later(dts:sub(BigRpt#report.end_dts, 1, hour),
-                       dts:sub(RegRpt#report.end_dts, 1, hour)),
-    ?info("Running hourly report from ~s to ~s", [dts:str(BegDTS),
-                                                  dts:str(EndDTS)]),
-    plot_emotions(Tracker,
+    % but drop the first and last period as they are partials
+    BegDTS = dts:earlier(dts:add(BigRpt#report.beg_dts, 1, Period),
+                         dts:add(RegRpt#report.beg_dts, 1, Period)),
+    EndDTS = dts:later(dts:sub(BigRpt#report.end_dts, 1, Period),
+                       dts:sub(RegRpt#report.end_dts, 1, Period)),
+    ?info("Running report from ~s to ~s: per[~s]", [dts:str(BegDTS),
+                                                    dts:str(EndDTS),
+                                                    Period]),
+    plot_emotions(Tag,
+                  Period,
                   BegDTS,
                   EndDTS,
                   BigRpt#report.emotions,
@@ -201,7 +201,8 @@ handle_info(Msg, State) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec plot_emotions(Tracker :: atom(),
+-spec plot_emotions(Tag     :: string(),
+                    Period  :: atom(),
                     BegDTS  :: tuple(),
                     EndDTS  :: tuple(),
                     BigEmos :: map(),
@@ -209,9 +210,12 @@ handle_info(Msg, State) ->
 %%
 % @doc  Prepare Sila report and plot it in R.
 % @end  --
-plot_emotions(Tracker, BegDTS, EndDTS, BigEmos, RegEmos) ->
+plot_emotions(Tag, Period, BegDTS, EndDTS, BigEmos, RegEmos) ->
     EmoFiler = fun(Emotion) ->
-                   FPath = lists:flatten(io_lib:format("~s/R/~s.~s.csv", [?WORK_DIR, Emotion, Tracker])),
+                   FPath = io_lib:format("~s/R/~s.~s.~s.csv", [?WORK_DIR,
+                                                               Tag,
+                                                               Period,
+                                                               Emotion]),
                    ok = filelib:ensure_dir(FPath),
                    {ok, FOut} = file:open(FPath, [write]),
                    #emo_file{fpath = FPath,
@@ -223,18 +227,20 @@ plot_emotions(Tracker, BegDTS, EndDTS, BigEmos, RegEmos) ->
                          fear    = EmoFiler(fear),
                          sadness = EmoFiler(sadess),
                          joy     = EmoFiler(joy)},
-    fill_emotion_files(BegDTS, EndDTS, BigEmos, RegEmos, EmoOuts),
-    lists:map(fun({Emo, Ndx}) ->
-                  EmoFile = element(Ndx, EmoOuts),
-                  {Emo, EmoFile#emo_file.fpath}
-                  end,
-              lists:zip(record_info(fields, emo_files),
-                        lists:seq(2, record_info(size, emo_files)))).
+    fill_emotion_files(Period, BegDTS, EndDTS, BigEmos, RegEmos, EmoOuts),
+    RptFiles = lists:map(fun({Emo, Ndx}) ->
+                             EmoFile = element(Ndx, EmoOuts),
+                             {Emo, EmoFile#emo_file.fpath}
+                             end,
+                         lists:zip(record_info(fields, emo_files),
+                                   lists:seq(2, record_info(size, emo_files)))),
+    ?notice("R Emotion Data: ~p", [RptFiles]).
 
 
 
 %%--------------------------------------------------------------------
--spec fill_emotion_files(CurrDTS :: tuple(),
+-spec fill_emotion_files(Period  :: atom(),
+                         CurrDTS :: tuple(),
                          EndDTS  :: tuple(),
                          BigEmos :: map(),
                          RegEmos :: map(),
@@ -242,7 +248,7 @@ plot_emotions(Tracker, BegDTS, EndDTS, BigEmos, RegEmos) ->
 %%
 % @doc  Prepare Sila report and plot it in R.
 % @end  --
-fill_emotion_files(CurrDTS, EndDTS, _, _, EmoOuts) when CurrDTS > EndDTS ->
+fill_emotion_files(_, CurrDTS, EndDTS, _, _, EmoOuts) when CurrDTS > EndDTS ->
     lists:foreach(fun(Ndx) ->
                       Out = element(Ndx, EmoOuts),
                       file:close(Out#emo_file.io)
@@ -250,7 +256,8 @@ fill_emotion_files(CurrDTS, EndDTS, _, _, EmoOuts) when CurrDTS > EndDTS ->
                   lists:seq(2, record_info(size, emo_files)));
 
 
-fill_emotion_files(CurrDTS, EndDTS, BigEmos, RegEmos, EmoOuts) ->
+fill_emotion_files(Period, CurrDTS, EndDTS, BigEmos, RegEmos, EmoOuts) ->
+    ?debug("Processing report for ~s", [dts:str(CurrDTS)]),
     BigEmo = maps:get(CurrDTS, BigEmos, #emotions{}),
     RegEmo = maps:get(CurrDTS, RegEmos, #emotions{}),
     lists:foreach(fun(Ndx) ->
@@ -260,4 +267,5 @@ fill_emotion_files(CurrDTS, EndDTS, BigEmos, RegEmos, EmoOuts) ->
                                 element(Ndx, RegEmo)])
                       end,
                   lists:seq(2, record_info(size, emo_files))),
-    fill_emotion_files(dts:add(CurrDTS, 1, hour), EndDTS, BigEmos, RegEmos, EmoOuts).
+    fill_emotion_files(Period, dts:add(CurrDTS, 1, Period), EndDTS, BigEmos, RegEmos, EmoOuts).
+
