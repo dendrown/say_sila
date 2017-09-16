@@ -13,7 +13,8 @@
              raven,
              sila,
              twitter,
-             weka ]},
+             weka,
+             wui ]},
   {maintainers, []},
   {licenses, []},
   {links, []}

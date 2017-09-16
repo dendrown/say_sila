@@ -6,6 +6,8 @@
                          {lager_file_backend, [{file, "error.log"},   {level, error}]},
                          {lager_file_backend, [{file, "console.log"}, {level, info}]}]}]},
 
+    {yaws, [{embedded, true}]},
+
     {say_sila, [{twitter_consumer_key,      "consumerkey"},
                 {twitter_consumer_secret,   "consumersecret"},
                 {twitter_access_token,      "accesstoken"},

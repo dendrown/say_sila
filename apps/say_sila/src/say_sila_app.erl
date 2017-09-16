@@ -41,7 +41,12 @@ start(_StartType, _StartArgs) ->
                    public_key,
                    ssl,
                    oauth]),
-    say_sila_sup:start_link().
+    Return = say_sila_sup:start_link(),
+    case Return of
+        {ok, _} -> wui:configure();
+        _       -> ?warning("Not launching user interface due to abnormal startup")
+    end,
+    Return.
 
 
 
