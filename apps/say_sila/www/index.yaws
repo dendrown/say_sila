@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <title>Everyone say, "Say Sila"</title>
    <!-- Bootstrap CSS -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -11,15 +12,45 @@
           crossorigin="anonymous">
 </head>
 <body>
-<h1>Everyone say, "Say Sila"</h1>
-<p>  
-<erl>
+<div class="container-fluid">
+    <!-- ----------------------------------------------------------- -->
+    <div class="row">
+        <div class="col" style="background-color:#00FF00">
+        <h2>FEAR</h2>
+        </div>
+        <div class="col" style="background-color:#FF0000">
+        <h2>ANGER</h2>
+        </div>
+    </div>
+    <!-- ----------------------------------------------------------- -->
+    <div class="row">
+        <div class="col" style="background-color:#6666FF">
+        <h2>SADNESS</h2>
+        </div>
+        <div class="col" style="background-color:#FFFF33">
+        <h2>JOY</h2>
+        <hr>
+        <erl>
 
-out(Arg) -> 
-    {html, "This part from Erlang<br/>" ++ io_lib:format("<~p>", [Arg])}.
+        % ---------------------------------------------------------------------
+        out(Arg) ->
+            {html, [<<"Erlang<br/>">>, get_arg_dlist(Arg)]}.
 
-</erl>
-</p>
+        % ---------------------------------------------------------------------
+        get_arg_dlist(Arg) ->
+            [<<"<dl>">>,
+             lists:map(fun({Field, Ndx}) ->
+                           io_lib:format("<dt>~p</dt><dd>~p</dd>", [Field,
+                                                                    element(Ndx, Arg)])
+                           end,
+                       lists:zip(record_info(fields, arg),
+                                 lists:seq(2, record_info(size, arg)))),
+             <<"</dl>">>].
+
+        </erl>
+        </div>
+    </div>
+</div>
 <!-- ClojureScript goes here -->
 
 <!-- jQuery first, then Popper.js, then Bootstrap JS -->
