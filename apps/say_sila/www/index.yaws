@@ -15,26 +15,38 @@
 <div class="container-fluid">
     <!-- ----------------------------------------------------------- -->
     <div class="row">
-        <div class="col" style="background-color:#00FF00">
+        <div class="col" style="text-align: center; background-color:#00FF00">
         <h2>FEAR</h2>
+        <img src="graph/gw.15.day.fear.png" class="img-fluid" alt="Fear Analysis">
+        <p>&nbsp;</p>
         </div>
-        <div class="col" style="background-color:#FF0000">
+        <div class="col" style="text-align: center; background-color:#FF0000">
         <h2>ANGER</h2>
+        <img src="graph/gw.15.day.anger.png" class="img-fluid" alt="Anger Analysis">
+        <p>&nbsp;</p>
         </div>
     </div>
     <!-- ----------------------------------------------------------- -->
     <div class="row">
-        <div class="col" style="background-color:#6666FF">
+        <div class="col" style="text-align: center; background-color:#6666FF">
         <h2>SADNESS</h2>
+        <img src="graph/gw.15.day.sadness.png" class="img-fluid" alt="Sadness Analysis">
+        <p>&nbsp;</p>
         </div>
-        <div class="col" style="background-color:#FFFF33">
+        <div class="col" style="text-align: center; background-color:#FFFF33">
         <h2>JOY</h2>
-        <hr>
+        <img src="graph/gw.15.day.joy.png" class="img-fluid" alt="Joy Analysis">
+        <p>&nbsp;</p>
+        </div>
+    </div>
+    <!-- ----------------------------------------------------------- -->
+    <div class="row" style="background-color:#AAAAAA">
+    <p>
         <erl>
 
         % ---------------------------------------------------------------------
         out(Arg) ->
-            {html, [<<"Erlang<br/>">>, get_arg_dlist(Arg)]}.
+            {html, [<<"Erlang/YAWS<br/>">>, get_arg_dlist(Arg)]}.
 
         % ---------------------------------------------------------------------
         get_arg_dlist(Arg) ->
@@ -48,7 +60,7 @@
              <<"</dl>">>].
 
         </erl>
-        </div>
+    </p>
     </div>
 </div>
 <!-- ClojureScript goes here -->

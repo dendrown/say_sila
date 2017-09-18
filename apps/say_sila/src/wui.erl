@@ -19,7 +19,8 @@
 -export([start_link/1,
         stop/0,
         configure/0,
-        get_conf/0]).
+        get_conf/0,
+        get_graph_dir/0]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -28,15 +29,16 @@
 
 
 % TODO: Move config to the configuration
--define(ID,       "wui").
--define(DOC_ROOT, ?WORK_DIR "/www").
--define(LOG_DIR,  ?WORK_DIR "/log").
--define(GCONFS,   [{id, ?ID},
-                   {logdir,     ?LOG_DIR}]).
--define(SCONFS,   [{port,       8080},
-                   {servername, "sila"},
-                   {listen,     {0,0,0,0}},
-                   {docroot,    ?DOC_ROOT}]).
+-define(ID,         "wui").
+-define(DOC_ROOT,   ?WORK_DIR "/www").
+-define(LOG_DIR,    ?WORK_DIR "/log").
+-define(GRAPH_DIR,  ?DOC_ROOT "/graph").
+-define(GCONFS,     [{id, ?ID},
+                     {logdir,     ?LOG_DIR}]).
+-define(SCONFS,     [{port,       8080},
+                     {servername, "sila"},
+                     {listen,     {0,0,0,0}},
+                     {docroot,    ?DOC_ROOT}]).
 
 
 % @doc WUI server state
@@ -100,6 +102,16 @@ get_conf() ->
     ?debug("YAWS: srvs[~p]", [Conf#yaws_conf.sConfs]),
     ?debug("YAWS: chSp[~p]", [Conf#yaws_conf.childSpecs]),
     Conf.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_graph_dir() -> string().
+%%
+% @doc  Reports the directory where the WUI expects charts and graphs.
+% @end  --
+get_graph_dir() ->
+    ?GRAPH_DIR.
 
 
 

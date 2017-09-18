@@ -1,5 +1,6 @@
 say_sila.config
 yaws.conf
+apps/say_sila/www/graph/*.png
 
 rebar.lock
 .rebar3

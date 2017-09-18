@@ -27,8 +27,9 @@
 
 
 % @doc File handling for one emotion
--record(emo_file, {fpath :: string(),
-                   io   :: pid() }).
+-record(emo_file, {fpath_csv :: string(),
+                   fpath_png :: string(),
+                   io        :: pid() }).
 -type emo_file() :: #emo_file{}.
 
 

@@ -19,12 +19,20 @@
 -export([start_link/0,
          stop/0,
          eval/1,
+         eval/2,
         report_emotions/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
 -include("llog.hrl").
 -include("raven.hrl").
+
+
+-define(BIG_TAG,    <<"BIG">>).
+-define(BIG_COLOUR, <<"red">>).
+
+-define(REG_TAG,    <<"REG">>).
+-define(REG_COLOUR, <<"blue">>).
 
 
 -record(state, {eri_status :: term() }).
@@ -55,19 +63,36 @@ stop() ->
 
 
 
-
 %%--------------------------------------------------------------------
 -spec eval(Cmd :: string()) -> term().
 %%
 % @doc  Pass-thru evaluator for rErlang.
 % @end  --
 eval(Cmd) when is_list(Cmd) ->
-    eri:eval(Cmd);
+    %
+    ?debug("CMD: ~s", [Cmd]),
+    Rsp = eri:eval(Cmd),
+    %
+    ?debug("RSP: ~p", [Rsp]),
+    Rsp;
+
 
 eval(_) ->
     % TODO: Sending commands as binaries will freeze the eri process.
-    %       Make the interface more client-friendly.
+    %       Try to make the interface more client-friendly.
     ?warning("R commands must be in string (list) form!").
+
+
+
+%%--------------------------------------------------------------------
+-spec eval(Fmt  :: string(),
+           Args :: list()) -> term().
+%%
+% @doc  Accept R commands in io:format style and evaluate them.
+% @end  --
+eval(Fmt, Args) ->
+    Cmd = io_lib:format(Fmt, Args),
+    eval(lists:flatten(Cmd)).
 
 
 
@@ -98,7 +123,7 @@ init([go]) ->
     Return = case eri:start() of
         true ->
             gen_server:cast(self(), connect),
-            {ok, #state{}};
+            {ok, #state{eri_status = true}};
         Fail ->
             {stop, Fail}
     end,
@@ -206,35 +231,41 @@ handle_info(Msg, State) ->
                     BegDTS  :: tuple(),
                     EndDTS  :: tuple(),
                     BigEmos :: map(),
-                    RegEmos :: map()) -> string().
+                    RegEmos :: map()) -> ok.
 %%
 % @doc  Prepare Sila report and plot it in R.
 % @end  --
 plot_emotions(Tag, Period, BegDTS, EndDTS, BigEmos, RegEmos) ->
+    GraphDir = wui:get_graph_dir(),
     EmoFiler = fun(Emotion) ->
-                   FPath = io_lib:format("~s/R/~s.~s.~s.csv", [?WORK_DIR,
-                                                               Tag,
-                                                               Period,
-                                                               Emotion]),
-                   ok = filelib:ensure_dir(FPath),
-                   {ok, FOut} = file:open(FPath, [write]),
-                   #emo_file{fpath = FPath,
-                             io    = FOut}
+                   FStub    = io_lib:format("~s.~s.~s", [Tag, Period, Emotion]),
+                   FPathCSV = io_lib:format("~s/R/~s.csv", [?WORK_DIR, FStub]),
+                   FPathPNG = io_lib:format("~s/~s.png", [GraphDir, FStub]),
+                   %
+                   % We've got data and plot filenames now; but just open the data file
+                   ok = filelib:ensure_dir(FPathCSV),
+                   {ok, FOut} = file:open(FPathCSV, [write]),
+                   io:format(FOut, "~s,~s~n", [?BIG_TAG, ?REG_TAG]),
+                   ?info("Creating data file: ~s", FPathCSV),
+                   #emo_file{fpath_csv = FPathCSV,
+                             fpath_png = FPathPNG,
+                             io        = FOut}
                    end,
     %
     % NOTE: There is a bit of flux as to the best way to handle four simultaneous files.
     EmoOuts = #emo_files{anger   = EmoFiler(anger),
                          fear    = EmoFiler(fear),
-                         sadness = EmoFiler(sadess),
+                         sadness = EmoFiler(sadness),
                          joy     = EmoFiler(joy)},
     fill_emotion_files(Period, BegDTS, EndDTS, BigEmos, RegEmos, EmoOuts),
     RptFiles = lists:map(fun({Emo, Ndx}) ->
                              EmoFile = element(Ndx, EmoOuts),
-                             {Emo, EmoFile#emo_file.fpath}
+                             {Emo, EmoFile}
                              end,
                          lists:zip(record_info(fields, emo_files),
                                    lists:seq(2, record_info(size, emo_files)))),
-    ?notice("R Emotion Data: ~p", [RptFiles]).
+    lists:foreach(fun(Rpt) -> graph_emotion(Period, Rpt) end,
+                  RptFiles).
 
 
 
@@ -269,3 +300,32 @@ fill_emotion_files(Period, CurrDTS, EndDTS, BigEmos, RegEmos, EmoOuts) ->
                   lists:seq(2, record_info(size, emo_files))),
     fill_emotion_files(Period, dts:add(CurrDTS, 1, Period), EndDTS, BigEmos, RegEmos, EmoOuts).
 
+
+
+
+%%--------------------------------------------------------------------
+-spec graph_emotion(Period  :: atom(),
+                    EmoFile :: {atom(), emo_file()}) -> ok.
+%%
+% @doc  Plot the emotion data in R and collect the image file.
+% @end  --
+graph_emotion(Period,
+              {Emotion, #emo_file{fpath_csv = FPathCSV,
+                                  fpath_png = FPathPNG}}) ->
+    %
+    ?info("Creating ~s graph: ~s", [Emotion, FPathPNG]),
+    Title = io_lib:format("~s in tweets: ~s vs. ~s players", [Emotion, ?BIG_TAG, ?REG_TAG]),
+    eval("png(file = '~s')", [FPathPNG]),
+    eval("data <- read.csv('~s')", [FPathCSV]),
+    eval("yRng <- signif(10 + range(data$BIG, data$REG), digits=2)"),
+    eval("plot(data$~s, type='l', col='~s', ylim=yRng, xlab='~ss', ylab='~s', main='~s')", [?BIG_TAG,
+                                                                                            ?BIG_COLOUR,
+                                                                                            Period,
+                                                                                            Emotion,
+                                                                                            Title]),
+    eval("lines(data$~s, type='l', col='~s')", [?REG_TAG, ?REG_COLOUR]),
+    eval("legend(1, yRng[2], c('~s','~s'), cex=0.8, col=c('~s','~s'), pch=21:22, lty=1:2)", [?BIG_TAG,
+                                                                                             ?REG_TAG,
+                                                                                             ?BIG_COLOUR,
+                                                                                             ?REG_COLOUR]),
+    eval("dev.off()").
