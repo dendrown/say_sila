@@ -246,7 +246,7 @@ plot_emotions(Tag, Period, BegDTS, EndDTS, BigEmos, RegEmos) ->
                    ok = filelib:ensure_dir(FPathCSV),
                    {ok, FOut} = file:open(FPathCSV, [write]),
                    io:format(FOut, "~s,~s~n", [?BIG_TAG, ?REG_TAG]),
-                   ?info("Creating data file: ~s", FPathCSV),
+                   ?info("Creating data file: ~ts", [FPathCSV]),
                    #emo_file{fpath_csv = FPathCSV,
                              fpath_png = FPathPNG,
                              io        = FOut}
