@@ -494,10 +494,11 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
     NewEmoTweets = case (Tweet#tweet.id =:= list_to_binary(ID)) of
 
         true ->
-            Emotions = #emotions{anger   = string_to_float(Anger),
-                                 fear    = string_to_float(Fear),
-                                 sadness = string_to_float(Sadness),
-                                 joy     = string_to_float(Joy)},
+            Emotions = #emotions{count   = 1,
+                                 levels  = #{anger   => string_to_float(Anger),
+                                             fear    => string_to_float(Fear),
+                                             sadness => string_to_float(Sadness),
+                                             joy     => string_to_float(Joy)}},
             EmoTweet = Tweet#tweet{emotions = Emotions},
             [EmoTweet | EmoTweets];
 

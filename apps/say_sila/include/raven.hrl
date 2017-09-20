@@ -14,16 +14,17 @@
 -ifndef(_raven_included).
 -define(_raven_included, ack).
 
+-define(EMOTIONS,   [anger, fear, sadness, joy]).
 
 -define(BEG_EPOCH,  {{1970,  1,  1}, { 0,  0,  0}}).
 -define(END_EPOCH,  {{9999, 12, 31}, {23, 59, 59}}).
 
-% Emotions for analysis
--record(emotions, {anger   = 0.0 :: float(),
-                   fear    = 0.0 :: float(),
-                   sadness = 0.0 :: float(),
-                   joy     = 0.0 :: float() }).
+
+% @doc Emotions for analysis
+-record(emotions, {count   = 0   :: integer(),
+                   levels  = #{} :: map() }).
 -type emotions() :: #emotions{}.
+
 
 
 % @doc File handling for one emotion
@@ -32,13 +33,6 @@
                    io        :: pid() }).
 -type emo_file() :: #emo_file{}.
 
-
-% @doc Files for emotions MUST match the generic #emotions record
--record(emo_files, {anger       :: emo_file(),
-                    fear        :: emo_file(),
-                    sadness     :: emo_file(),
-                    joy         :: emo_file() }).
--type emo_files() :: #emo_files{}.
 
 
 % @doc Slots are for keeping everything about a player category in one place

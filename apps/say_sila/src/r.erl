@@ -17,10 +17,11 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/0,
+         reset/0,
          stop/0,
          eval/1,
          eval/2,
-        report_emotions/3]).
+         report_emotions/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -50,6 +51,18 @@
 % @end  --
 start_link() ->
     gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [go], []).
+
+
+
+%%--------------------------------------------------------------------
+-spec reset() -> ok.
+%%
+% @doc  The R<==>Erlang Bridge can get stuck easily.  This function
+%       kills the process, which will trigger the supervisor to restart
+%       it.
+% @end  --
+reset() ->
+    exit(whereis(?MODULE), kill).
 
 
 
@@ -230,12 +243,14 @@ handle_info(Msg, State) ->
                     Period  :: atom(),
                     BegDTS  :: tuple(),
                     EndDTS  :: tuple(),
-                    BigEmos :: map(),
-                    RegEmos :: map()) -> ok.
+                    BigMap  :: map(),
+                    RegMap  :: map()) -> ok.
 %%
 % @doc  Prepare Sila report and plot it in R.
 % @end  --
-plot_emotions(Tag, Period, BegDTS, EndDTS, BigEmos, RegEmos) ->
+plot_emotions(Tag, Period, BegDTS, EndDTS, BigMap, RegMap) ->
+    %
+    % Figure out where to put the data and graph files
     GraphDir = wui:get_graph_dir(),
     EmoFiler = fun(Emotion) ->
                    FStub    = io_lib:format("~s.~s.~s", [Tag, Period, Emotion]),
@@ -252,20 +267,15 @@ plot_emotions(Tag, Period, BegDTS, EndDTS, BigEmos, RegEmos) ->
                              io        = FOut}
                    end,
     %
-    % NOTE: There is a bit of flux as to the best way to handle four simultaneous files.
-    EmoOuts = #emo_files{anger   = EmoFiler(anger),
-                         fear    = EmoFiler(fear),
-                         sadness = EmoFiler(sadness),
-                         joy     = EmoFiler(joy)},
-    fill_emotion_files(Period, BegDTS, EndDTS, BigEmos, RegEmos, EmoOuts),
-    RptFiles = lists:map(fun({Emo, Ndx}) ->
-                             EmoFile = element(Ndx, EmoOuts),
-                             {Emo, EmoFile}
-                             end,
-                         lists:zip(record_info(fields, emo_files),
-                                   lists:seq(2, record_info(size, emo_files)))),
-    lists:foreach(fun(Rpt) -> graph_emotion(Period, Rpt) end,
-                  RptFiles).
+    % Relevel is meant for operations on emotion level maps, but it works nicely for our files too
+    EmoOuts = emo:relevel(fun(Emo) -> {Emo, EmoFiler(Emo)} end),
+    %
+    % Create CSVs
+    fill_emotion_files(Period, BegDTS, EndDTS, BigMap, RegMap, EmoOuts),
+    %
+    % Create PNGs
+    lists:foreach(fun({Emo, Out}) -> graph_emotion(Period, Emo, Out) end,
+                  maps:to_list(EmoOuts)).
 
 
 
@@ -273,51 +283,50 @@ plot_emotions(Tag, Period, BegDTS, EndDTS, BigEmos, RegEmos) ->
 -spec fill_emotion_files(Period  :: atom(),
                          CurrDTS :: tuple(),
                          EndDTS  :: tuple(),
-                         BigEmos :: map(),
-                         RegEmos :: map(),
-                         EmoOuts :: emo_files()) -> [string()].
+                         BigMap  :: map(),
+                         RegMap  :: map(),
+                         EmoOuts :: map()) -> ok.
 %%
 % @doc  Prepare Sila report and plot it in R.
 % @end  --
 fill_emotion_files(_, CurrDTS, EndDTS, _, _, EmoOuts) when CurrDTS > EndDTS ->
-    lists:foreach(fun(Ndx) ->
-                      Out = element(Ndx, EmoOuts),
-                      file:close(Out#emo_file.io)
-                      end,
-                  lists:seq(2, record_info(size, emo_files)));
+    lists:foreach(fun({_, Out}) -> file:close(Out#emo_file.io) end,
+                  maps:to_list(EmoOuts));
 
 
-fill_emotion_files(Period, CurrDTS, EndDTS, BigEmos, RegEmos, EmoOuts) ->
+fill_emotion_files(Period, CurrDTS, EndDTS, BigMap, RegMap, EmoOuts) ->
     ?debug("Processing report for ~s", [dts:str(CurrDTS)]),
-    BigEmo = maps:get(CurrDTS, BigEmos, #emotions{}),
-    RegEmo = maps:get(CurrDTS, RegEmos, #emotions{}),
-    lists:foreach(fun(Ndx) ->
-                      Out = element(Ndx, EmoOuts),
+    BigEmos = emo:average(maps:get(CurrDTS, BigMap, emo:stoic())),
+    RegEmos = emo:average(maps:get(CurrDTS, RegMap, emo:stoic())),
+    lists:foreach(fun({Emo, Out}) ->
                       io:format(Out#emo_file.io, "~.6f,~.6f~n",
-                               [element(Ndx, BigEmo),
-                                element(Ndx, RegEmo)])
+                               [maps:get(Emo, BigEmos#emotions.levels),
+                                maps:get(Emo, RegEmos#emotions.levels)])
                       end,
-                  lists:seq(2, record_info(size, emo_files))),
-    fill_emotion_files(Period, dts:add(CurrDTS, 1, Period), EndDTS, BigEmos, RegEmos, EmoOuts).
+                  maps:to_list(EmoOuts)),
+    fill_emotion_files(Period, dts:add(CurrDTS, 1, Period), EndDTS, BigMap, RegMap, EmoOuts).
 
 
 
 
 %%--------------------------------------------------------------------
 -spec graph_emotion(Period  :: atom(),
+                    Emotion :: atom(),
                     EmoFile :: {atom(), emo_file()}) -> ok.
 %%
 % @doc  Plot the emotion data in R and collect the image file.
 % @end  --
 graph_emotion(Period,
-              {Emotion, #emo_file{fpath_csv = FPathCSV,
-                                  fpath_png = FPathPNG}}) ->
+              Emotion,
+              #emo_file{fpath_csv = FPathCSV,
+                        fpath_png = FPathPNG}) ->
     %
     ?info("Creating ~s graph: ~s", [Emotion, FPathPNG]),
-    Title = io_lib:format("~s in tweets: ~s vs. ~s players", [Emotion, ?BIG_TAG, ?REG_TAG]),
+    Title = io_lib:format("Average ~s in tweets: ~s vs. ~s players", [Emotion, ?BIG_TAG, ?REG_TAG]),
     eval("png(file = '~s')", [FPathPNG]),
     eval("data <- read.csv('~s')", [FPathCSV]),
-    eval("yRng <- signif(10 + range(data$BIG, data$REG), digits=2)"),
+    %val("yRng <- signif(10 + range(data$BIG, data$REG), digits=2)"),
+    eval("yRng <- c(0, 1)"),
     eval("plot(data$~s, type='l', col='~s', ylim=yRng, xlab='~ss', ylab='~s', main='~s')", [?BIG_TAG,
                                                                                             ?BIG_COLOUR,
                                                                                             Period,
