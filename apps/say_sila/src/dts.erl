@@ -16,6 +16,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([add/3,
+         datetime_to_unix/2,
          dayize/1,
          earlier/2,
          hourize/1,
@@ -25,9 +26,11 @@
          sub/3,
          unix_to_datetime/2]).
 
+-define(SECS_EPOCH,     62167219200).
 -define(SECS_IN_MIN,    60).
 -define(SECS_IN_HOUR,  (60 * ?SECS_IN_MIN)).
 -define(SECS_IN_DAY,   (24 * ?SECS_IN_HOUR)).
+
 
 %%====================================================================
 %% API
@@ -50,6 +53,23 @@ add(DTS, Amt, Unit) ->
     OrigSecs = calendar:datetime_to_gregorian_seconds(DTS),
     NewSecs  = OrigSecs + Secs,
     calendar:gregorian_seconds_to_datetime(NewSecs).
+
+
+
+%%--------------------------------------------------------------------
+-spec datetime_to_unix(DateTime :: {{integer(), integer(), integer()},
+                                    {integer(), integer(), integer()}},
+                       Unit     :: atom()) -> tuple().
+%
+%     Returns the Epoch timestamp (specify `second' or `millisecond')
+%     corresponding to Erlang datetime tuple: `{{year,mon,day},{hour,min,sec}}'
+% @end  --
+datetime_to_unix(DateTime, Unit) ->
+    Secs = calendar:datetime_to_gregorian_seconds(DateTime) - ?SECS_EPOCH,
+    case Unit of
+        millisecond -> Secs * 1000;
+        second      -> Secs
+    end.
 
 
 
