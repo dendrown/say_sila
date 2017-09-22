@@ -34,7 +34,8 @@
          get_players/1,
          get_players/2,
          get_players_R/2,   % TODO: Move to raven
-         get_tweets/2]).
+         get_tweets/2,
+         get_tweets/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -210,7 +211,7 @@ get_players(Tracker) ->
 %       Options is a property list allowing the following:
 %           - `min_tweets'  Only accounts having at least this many
 %                           status upates (tweets) are included.
-%           - `start'       Minimum datetime or epoch millis DTS
+%           - `start'       Begining datetime to start looking for players
 %
 %       The returned list of players is sorted in order of descending
 %       tweet count.
@@ -243,27 +244,47 @@ get_players_R(Tracker, MinTweets) ->
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
 %       take the form <<"denDrown">>, "denDrown" or ["denDrown", "someOneElse"]
 %
+%       Options is a property list allowing the following:
+%           - `start'       Begining datetime to start looking for tweets
+%
 %       NOTE: this pulls only classic 140-char tweets
 % @end  --
-get_tweets(_, []) ->
+get_tweets(Tracker, ScreenNames) ->
+    get_tweets(Tracker, ScreenNames, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_tweets(Tracker     :: atom(),
+                 ScreenNames :: binary()
+                              | string()
+                              | list(),
+                 Options     :: list()) -> list().
+%
+% @doc  Returns the tweets for one or more accounts; `ScreenNames' can
+%       take the form <<"denDrown">>, "denDrown" or ["denDrown", "someOneElse"]
+%
+%       NOTE: this pulls only classic 140-char tweets
+% @end  --
+get_tweets(_, [], _) ->
     [];
 
 
-get_tweets(Tracker, Player = #player{}) ->
-    get_tweets(Tracker, [Player]);
+get_tweets(Tracker, Player = #player{}, Options) ->
+    get_tweets(Tracker, [Player], Options);
 
 
-get_tweets(Tracker, ScreenName) when is_binary(ScreenName) ->
-    get_tweets(Tracker, binary_to_list(ScreenName));
+get_tweets(Tracker, ScreenName, Options) when is_binary(ScreenName) ->
+    get_tweets(Tracker, binary_to_list(ScreenName), Options);
 
 
-get_tweets(Tracker, ScreenNames) ->
+get_tweets(Tracker, ScreenNames, Options) ->
     % Convert a singleton ScreenName to a list of one
     ScreenNameList = case io_lib:printable_unicode_list(ScreenNames) of
         true  -> [ScreenNames];                         % ["justOne"]
         false -> ScreenNames
     end,
-    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList}, ?DB_TIMEOUT).
+    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList, Options}, ?DB_TIMEOUT).
 
 
 
@@ -365,14 +386,10 @@ handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) -
 handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBConn}) ->
     %
     % Prepare additions to the query according to the specified Options
+    AndWhere = get_timestamp_ms_sql("AND", Options),
     Having = case proplists:get_value(min_tweets, Options) of
         undefined -> "";
         MinTweets -> io_lib:format("HAVING COUNT(1) >= ~B ", [MinTweets])
-    end,
-    AndWhere = case proplists:get_value(start, Options) of
-        undefined -> "";
-        DateTime  -> io_lib:format("AND (status->>'timestamp_ms' > '~B') ",
-                                   [dts:datetime_to_unix(DateTime, millisecond)])
     end,
     Query = io_lib:format("SELECT status->'user'->>'screen_name' AS screen_name, "
                                  "COUNT(1) AS cnt "
@@ -390,17 +407,14 @@ handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBC
     {reply, Reply, State};
 
 
-handle_call({get_tweets, Tracker, Players = [#player{}|_]},
-            From,
-            State) ->
+handle_call({get_tweets, Tracker, Players = [#player{} | _], Options}, From, State) ->
     %
     % Pull a list of screen names from the player recs
-    handle_call({get_tweets, Tracker, [Player#player.screen_name || Player <- Players]},
-                 From,
-                 State);
+    ScreenNames = [Player#player.screen_name || Player <- Players],
+    handle_call({get_tweets, Tracker, ScreenNames, Options}, From, State);
 
 
-handle_call({get_tweets, Tracker, ScreenNames}, _From, State = #state{db_conn = DBConn}) ->
+handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{db_conn = DBConn}) ->
     % Note: This pulls only classic 140-char tweets
     %       Also, we're going to want to move the list_to_sql line to a DB module
     %?debug("Screenames: ~p", [ScreenNames]),
@@ -413,10 +427,10 @@ handle_call({get_tweets, Tracker, ScreenNames}, _From, State = #state{db_conn = 
                                  "status->>'text' AS text "
                           "FROM tbl_statuses "
                           "WHERE track = '~s' "
-                            "AND hash_~s "
+                            "AND hash_~s ~s"
                             "AND status->'user'->>'screen_name' IN ~s "
                           "ORDER BY timestamp_ms",
-                          [?DB_TRACK, Tracker, ScreenNameSQL]),
+                          [?DB_TRACK, Tracker, get_timestamp_ms_sql("AND", Options), ScreenNameSQL]),
     %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#tweet{id           = ID,
@@ -774,4 +788,24 @@ is_prefix_in_parts(Lookup, [Part|Rest]) ->
     case string:tokens(Part, " ") of
         [Word|_] when Word =:= Lookup -> true;
         _                             -> is_prefix_in_parts(Lookup, Rest)
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_timestamp_ms_sql(Prefix   :: string()
+                                     | binary(),
+                           Options  :: list()) -> string().
+%%
+% @doc  Returns a timestamp constraint for an SQL query if the Options
+%       proplist calls for one with a `start' element.  Allows for a
+%       Prefix for the expression, usually "AND", "WHERE" or an empty
+%       string.
+% @end  --
+get_timestamp_ms_sql(Prefix, Options) ->
+    case proplists:get_value(start, Options) of
+        undefined -> "";
+        DateTime  -> io_lib:format(" ~s (status->>'timestamp_ms' > '~B') ",
+                                   [Prefix,
+                                    dts:datetime_to_unix(DateTime, millisecond)])
     end.
