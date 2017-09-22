@@ -195,18 +195,22 @@ get_first_dts(Tracker, Options) ->
 %       atom: `cc' or `gw'.
 % @end  --
 get_players(Tracker) ->
-    get_players(Tracker, 0).
+    get_players(Tracker, []).
 
 
 
 %%--------------------------------------------------------------------
 -spec get_players(Tracker   :: atom(),
-                  MinTweets :: pos_integer()) -> players().
+                  Options   :: list()) -> players().
 %
 % @doc  Returns a list of pairs of screen names and the number of
 %       tweets the user has published for the specified `Tracker'
-%       atom: `cc' or `gw'.  Only accounts having `MinTweets'
-%       or more status upates are included.
+%       atom: `cc' or `gw'.
+%
+%       Options is a property list allowing the following:
+%           - `min_tweets'  Only accounts having at least this many
+%                           status upates (tweets) are included.
+%           - `start'       Minimum datetime or epoch millis DTS
 %
 %       The returned list of players is sorted in order of descending
 %       tweet count.
@@ -358,15 +362,25 @@ handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) -
     {reply, Reply, State};
 
 
-handle_call({get_players, Tracker, MinTweets}, _From, State = #state{db_conn = DBConn}) ->
+handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBConn}) ->
+    %
+    % Prepare additions to the query according to the specified Options
+    Having = case proplists:get_value(min_tweets, Options) of
+        undefined -> "";
+        MinTweets -> io_lib:format("HAVING COUNT(1) >= ~B ", [MinTweets])
+    end,
+    AndWhere = case proplists:get_value(start, Options) of
+        undefined -> "";
+        DateTime  -> io_lib:format("AND (status->>'timestamp_ms' > '~B') ",
+                                   [dts:datetime_to_unix(DateTime, millisecond)])
+    end,
     Query = io_lib:format("SELECT status->'user'->>'screen_name' AS screen_name, "
                                  "COUNT(1) AS cnt "
                           "FROM tbl_statuses "
-                          "WHERE track = '~s' AND hash_~s "
-                          "GROUP BY screen_name "
-                          "HAVING COUNT(1) >= ~B "
+                          "WHERE (track = '~s') AND hash_~s ~s"
+                          "GROUP BY screen_name ~s"
                           "ORDER BY cnt DESC",
-                          [?DB_TRACK, Tracker, MinTweets]),
+                          [?DB_TRACK, Tracker, AndWhere, Having]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#player{screen_name = SN,
