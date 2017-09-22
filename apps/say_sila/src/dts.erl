@@ -32,6 +32,12 @@
 -define(SECS_IN_DAY,   (24 * ?SECS_IN_HOUR)).
 
 
+-type date()     :: {integer(), integer(), integer()}.
+-type time()     :: {integer(), integer(), integer()}.
+-type datetime() :: {date(), time()}.
+
+
+
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
@@ -57,13 +63,16 @@ add(DTS, Amt, Unit) ->
 
 
 %%--------------------------------------------------------------------
--spec datetime_to_unix(DateTime :: {{integer(), integer(), integer()},
-                                    {integer(), integer(), integer()}},
+-spec datetime_to_unix(DateTime :: datetime() | date(),
                        Unit     :: atom()) -> tuple().
 %
 %     Returns the Epoch timestamp (specify `second' or `millisecond')
 %     corresponding to Erlang datetime tuple: `{{year,mon,day},{hour,min,sec}}'
 % @end  --
+datetime_to_unix({Year, Mon, Day}, Unit) ->
+    datetime_to_unix({{Year, Mon, Day}, {0, 0, 0}}, Unit);
+
+
 datetime_to_unix(DateTime, Unit) ->
     Secs = calendar:datetime_to_gregorian_seconds(DateTime) - ?SECS_EPOCH,
     case Unit of
