@@ -17,4 +17,7 @@
 -define(REG_DIST, local).
 -define(WORK_DIR, "/tmp/sila").
 
+-type property()    :: atom() | {term(), term()}.
+-type proplist()    :: [property()].
+
 -endif.
