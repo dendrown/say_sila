@@ -48,7 +48,9 @@
 
 %%====================================================================
 %% TODO:
-%% <> Decide about retweets
+%%  * Decide about retweets
+%%  * Check tweet language
+%%  * Handle extended tweets
 %%====================================================================
 
 -define(twitter_oauth_url(Cmd),  "https://api.twitter.com/oauth/"  ++ Cmd).
@@ -202,7 +204,7 @@ get_players(Tracker) ->
 
 %%--------------------------------------------------------------------
 -spec get_players(Tracker   :: atom(),
-                  Options   :: list()) -> players().
+                  Options   :: property() | proplist()) -> players().
 %
 % @doc  Returns a list of pairs of screen names and the number of
 %       tweets the user has published for the specified `Tracker'
@@ -216,8 +218,13 @@ get_players(Tracker) ->
 %       The returned list of players is sorted in order of descending
 %       tweet count.
 % @end  --
-get_players(Tracker, MinTweets) ->
-    gen_server:call(?MODULE, {get_players, Tracker, MinTweets}, ?DB_TIMEOUT).
+get_players(Tracker, Option) when   is_atom(Option)
+                             orelse is_tuple(Option) ->
+    get_players(Tracker, [Option]);
+
+
+get_players(Tracker, Options) ->
+    gen_server:call(?MODULE, {get_players, Tracker, Options}, ?DB_TIMEOUT).
 
 
 
@@ -242,7 +249,7 @@ get_players_R(Tracker, MinTweets) ->
                               | list()) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
-%       take the form <<"denDrown">>, "denDrown" or ["denDrown", "someOneElse"]
+%       take the form "denDrown" or ["denDrown", "someOneElse"]
 %
 %       Options is a property list allowing the following:
 %           - `start'       Begining datetime to start looking for tweets
@@ -262,7 +269,7 @@ get_tweets(Tracker, ScreenNames) ->
                  Options     :: list()) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
-%       take the form <<"denDrown">>, "denDrown" or ["denDrown", "someOneElse"]
+%       take the form "denDrown" or ["denDrown", "someOneElse"]
 %
 %       NOTE: this pulls only classic 140-char tweets
 % @end  --
@@ -612,7 +619,7 @@ stream_track(ReqID, Prefix) ->
 % @doc  Split track data into JSON packets and forward to our Twitter
 %       server for processing.  Note that `Data' containing at least
 %       one full packet will have at least two list items, and if it
-%       represents a single packet, the `Extra' data will be <<>>.
+%       represents a single packet, the `Extra' data will be empty.
 % @end  --
 process_track([Extra]) ->
     Extra;
