@@ -8,7 +8,7 @@
 %%
 %% @doc A Lager Logger
 %%
-%% @see https://github.com/basho/lager
+%%      REF: https://github.com/basho/lager
 %%
 %% @copyright 2017 Dennis Drown
 %% @end

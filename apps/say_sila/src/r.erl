@@ -6,7 +6,7 @@
 %%         _/    _/    _/        _/    _/
 %%  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 %%
-%% @doc R<==>Erlang bridge for Sila
+%% @doc R/Erlang bridge for Sila
 %%
 %% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
@@ -57,7 +57,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 -spec reset() -> ok.
 %%
-% @doc  The R<==>Erlang Bridge can get stuck easily.  This function
+% @doc  The R/Erlang Bridge can get stuck easily.  This function
 %       kills the process, which will trigger the supervisor to restart
 %       it.
 % @end  --

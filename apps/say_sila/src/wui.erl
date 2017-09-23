@@ -41,7 +41,6 @@
                      {docroot,    ?DOC_ROOT}]).
 
 
-% @doc WUI server state
 -record(state, {yaws :: yaws_conf()}).
 %type state() :: #state{}.
 

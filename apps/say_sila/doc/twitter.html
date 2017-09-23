@@ -1,0 +1,193 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module twitter</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module twitter</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>Say-Sila Twitter access.
+<p>Copyright © 2017 Dennis Drown et l'Université du Québec à Montréal</p>
+
+<p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2><p>Say-Sila Twitter access</p>
+ 
+       <p>Functionality for tracking and storing statuses (tweets) about       
+ClimateChange/GlobalWarming from Twitter.</p>
+ 
+       Note that usage of the word "hash" in this module is likely
+       referring to Twitter hashtags, and not to hashtables or
+       related structures.
+ 
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-state">state()</a></h3>
+<p><tt>state() = #state{consumer = tuple(), oauth_token = string(), oauth_secret = string(), track = string() | binary(), db_conn = pid()}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#authenticate-1">authenticate/1</a></td><td> Returns the Twitter URL for the access PIN.</td></tr>
+<tr><td valign="top"><a href="#code_change-3">code_change/3</a></td><td> Hot code update processing: a placeholder.</td></tr>
+<tr><td valign="top"><a href="#get_first_dts-1">get_first_dts/1</a></td><td> Returns the timestamp of the first tweet for the specified
+       <code>Tracker</code> atom: <code>cc</code> or <code>gw</code>.</td></tr>
+<tr><td valign="top"><a href="#get_first_dts-2">get_first_dts/2</a></td><td> Returns the timestamp of the first tweet for the specified
+       <code>Tracker</code> atom: <code>cc</code> or <code>gw</code>.</td></tr>
+<tr><td valign="top"><a href="#get_pin-0">get_pin/0</a></td><td> Returns the Twitter URL for the access PIN.</td></tr>
+<tr><td valign="top"><a href="#get_players-1">get_players/1</a></td><td> Returns a list of pairs of screen names and the number of
+       tweets the user has published for the specified <code>Tracker</code>
+       atom: <code>cc</code> or <code>gw</code>.</td></tr>
+<tr><td valign="top"><a href="#get_players-2">get_players/2</a></td><td> Returns a list of pairs of screen names and the number of
+       tweets the user has published for the specified <code>Tracker</code>
+       atom: <code>cc</code> or <code>gw</code>.</td></tr>
+<tr><td valign="top"><a href="#get_players_R-2">get_players_R/2</a></td><td> DEBUG: Prepares a player list for processing by R.</td></tr>
+<tr><td valign="top"><a href="#get_tweets-2">get_tweets/2</a></td><td> Returns the tweets for one or more accounts; <code>ScreenNames</code> can       
+take the form "denDrown" or ["denDrown", "someOneElse"].</td></tr>
+<tr><td valign="top"><a href="#get_tweets-3">get_tweets/3</a></td><td> Returns the tweets for one or more accounts; <code>ScreenNames</code> can       
+take the form "denDrown" or ["denDrown", "someOneElse"].</td></tr>
+<tr><td valign="top"><a href="#handle_call-3">handle_call/3</a></td><td> Synchronous messages for the web user interface server.</td></tr>
+<tr><td valign="top"><a href="#handle_cast-2">handle_cast/2</a></td><td> Process async messages.</td></tr>
+<tr><td valign="top"><a href="#handle_info-2">handle_info/2</a></td><td> Process out-of-band messages.</td></tr>
+<tr><td valign="top"><a href="#has_hashtag-2">has_hashtag/2</a></td><td> Returns <code>true</code> if the specified tweet text contains the requested
+       hashtag; and <code>false</code> otherwise.</td></tr>
+<tr><td valign="top"><a href="#init-1">init/1</a></td><td> Initialization for the Twitter access server.</td></tr>
+<tr><td valign="top"><a href="#start_link-0">start_link/0</a></td><td> Startup function for Twitter services.</td></tr>
+<tr><td valign="top"><a href="#stop-0">stop/0</a></td><td> Shutdown function for Twitter services.</td></tr>
+<tr><td valign="top"><a href="#terminate-2">terminate/2</a></td><td> Server shutdown callback.</td></tr>
+<tr><td valign="top"><a href="#track-1">track/1</a></td><td> Tracks status/tweets on Twitter for the specified <code>KeyWords</code></td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="authenticate-1">authenticate/1</a></h3>
+<div class="spec">
+<p><tt>authenticate(PIN::string() | binary()) -&gt; ok</tt><br></p>
+</div><p> Returns the Twitter URL for the access PIN.</p>
+
+<h3 class="function"><a name="code_change-3">code_change/3</a></h3>
+<div class="spec">
+<p><tt>code_change(OldVsn::term(), State::<a href="#type-state">state()</a>, Extra::term()) -&gt; {atom(), term()}</tt><br></p>
+</div><p> Hot code update processing: a placeholder.</p>
+
+<h3 class="function"><a name="get_first_dts-1">get_first_dts/1</a></h3>
+<div class="spec">
+<p><tt>get_first_dts(Tracker::atom()) -&gt; integer()</tt><br></p>
+</div><p> Returns the timestamp of the first tweet for the specified
+       <code>Tracker</code> atom: <code>cc</code> or <code>gw</code>.</p>
+
+<h3 class="function"><a name="get_first_dts-2">get_first_dts/2</a></h3>
+<div class="spec">
+<p><tt>get_first_dts(Tracker::atom(), Options::list()) -&gt; integer() | tuple()</tt><br></p>
+</div><p><p> Returns the timestamp of the first tweet for the specified
+       <code>Tracker</code> atom: <code>cc</code> or <code>gw</code>.</p>
+
+       The caller may specify a list of Options.  We currently support one:
+           - <code>calendar</code> :  Gives the result as a tuple: {{year,mon,day},{hour,min,sec}}</p>
+
+<h3 class="function"><a name="get_pin-0">get_pin/0</a></h3>
+<div class="spec">
+<p><tt>get_pin() -&gt; string() | undefined</tt><br></p>
+</div><p> Returns the Twitter URL for the access PIN.</p>
+
+<h3 class="function"><a name="get_players-1">get_players/1</a></h3>
+<div class="spec">
+<p><tt>get_players(Tracker::atom()) -&gt; <a href="#type-players">players()</a></tt><br></p>
+</div><p> Returns a list of pairs of screen names and the number of
+       tweets the user has published for the specified <code>Tracker</code>
+       atom: <code>cc</code> or <code>gw</code>.</p>
+
+<h3 class="function"><a name="get_players-2">get_players/2</a></h3>
+<div class="spec">
+<p><tt>get_players(Tracker::atom(), Options::<a href="#type-property">property()</a> | <a href="#type-proplist">proplist()</a>) -&gt; <a href="#type-players">players()</a></tt><br></p>
+</div><p><p> Returns a list of pairs of screen names and the number of
+       tweets the user has published for the specified <code>Tracker</code>
+       atom: <code>cc</code> or <code>gw</code>.</p>
+
+       <p>Options is a property list allowing the following:
+           - <code>min_tweets</code>  Only accounts having at least this many
+                           status upates (tweets) are included.
+           - <code>start</code>       Begining datetime to start looking for players</p>
+
+       The returned list of players is sorted in order of descending
+       tweet count.</p>
+
+<h3 class="function"><a name="get_players_R-2">get_players_R/2</a></h3>
+<div class="spec">
+<p><tt>get_players_R(Tracker::atom(), MinTweets::pos_integer()) -&gt; string()</tt><br></p>
+</div><p> DEBUG: Prepares a player list for processing by R.
+</p>
+
+<h3 class="function"><a name="get_tweets-2">get_tweets/2</a></h3>
+<div class="spec">
+<p><tt>get_tweets(Tracker::atom(), ScreenNames::binary() | string() | list()) -&gt; list()</tt><br></p>
+</div><p><p> Returns the tweets for one or more accounts; <code>ScreenNames</code> can       
+take the form "denDrown" or ["denDrown", "someOneElse"]</p>
+
+       <p>Options is a property list allowing the following:
+           - <code>start</code>       Begining datetime to start looking for tweets</p>
+
+       NOTE: this pulls only classic 140-char tweets</p>
+
+<h3 class="function"><a name="get_tweets-3">get_tweets/3</a></h3>
+<div class="spec">
+<p><tt>get_tweets(Tracker::atom(), ScreenNames::binary() | string() | list(), Options::list()) -&gt; list()</tt><br></p>
+</div><p><p> Returns the tweets for one or more accounts; <code>ScreenNames</code> can       
+take the form "denDrown" or ["denDrown", "someOneElse"]</p>
+
+       NOTE: this pulls only classic 140-char tweets</p>
+
+<h3 class="function"><a name="handle_call-3">handle_call/3</a></h3>
+<div class="spec">
+<p><tt>handle_call(Msg, From, State) -&gt; any()</tt></p>
+</div><p> Synchronous messages for the web user interface server.</p>
+
+<h3 class="function"><a name="handle_cast-2">handle_cast/2</a></h3>
+<div class="spec">
+<p><tt>handle_cast(Msg, State) -&gt; any()</tt></p>
+</div><p> Process async messages</p>
+
+<h3 class="function"><a name="handle_info-2">handle_info/2</a></h3>
+<div class="spec">
+<p><tt>handle_info(Msg, State) -&gt; any()</tt></p>
+</div><p> Process out-of-band messages</p>
+
+<h3 class="function"><a name="has_hashtag-2">has_hashtag/2</a></h3>
+<div class="spec">
+<p><tt>has_hashtag(Hash::string() | atom(), Text::string() | binary()) -&gt; undefined | string()</tt><br></p>
+</div><p> Returns <code>true</code> if the specified tweet text contains the requested
+       hashtag; and <code>false</code> otherwise.</p>
+
+<h3 class="function"><a name="init-1">init/1</a></h3>
+<div class="spec">
+<p><tt>init(X1::list()) -&gt; any()</tt><br></p>
+</div><p> Initialization for the Twitter access server.</p>
+
+<h3 class="function"><a name="start_link-0">start_link/0</a></h3>
+<div class="spec">
+<p><tt>start_link() -&gt; {ok, pid()} | ignore | {error, term()}</tt><br></p>
+</div><p> Startup function for Twitter services</p>
+
+<h3 class="function"><a name="stop-0">stop/0</a></h3>
+<div class="spec">
+<p><tt>stop() -&gt; ok</tt><br></p>
+</div><p> Shutdown function for Twitter services</p>
+
+<h3 class="function"><a name="terminate-2">terminate/2</a></h3>
+<div class="spec">
+<p><tt>terminate(Why::term(), State::<a href="#type-state">state()</a>) -&gt; normal</tt><br></p>
+</div><p> Server shutdown callback.</p>
+
+<h3 class="function"><a name="track-1">track/1</a></h3>
+<div class="spec">
+<p><tt>track(KeyWords::string() | binary()) -&gt; ok</tt><br></p>
+</div><p> Tracks status/tweets on Twitter for the specified <code>KeyWords</code></p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Sep 23 2017, 16:39:52.</i></p>
+</body>
+</html>

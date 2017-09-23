@@ -1,0 +1,176 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Module raven</title>
+<link rel="stylesheet" type="text/css" href="stylesheet.css" title="EDoc">
+</head>
+<body bgcolor="white">
+<div class="navbar"><a name="#navbar_top"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<hr>
+
+<h1>Module raven</h1>
+<ul class="index"><li><a href="#description">Description</a></li><li><a href="#types">Data Types</a></li><li><a href="#index">Function Index</a></li><li><a href="#functions">Function Details</a></li></ul>The "Say Sila" Raven Twitter module.
+<p>Copyright © 2017 Dennis Drown et l'Université du Québec à Montréal</p>
+
+<p><b>Behaviours:</b> <a href="gen_server.html"><tt>gen_server</tt></a>.</p>
+
+<h2><a name="description">Description</a></h2>The "Say Sila" Raven Twitter module. This module provides a
+       high level look at the emotions surrounding Climate Change
+       using Twitter.
+ 
+<h2><a name="types">Data Types</a></h2>
+
+<h3 class="typedecl"><a name="type-state">state()</a></h3>
+<p><tt>state() = #state{tracker = atom(), big_percent = float(), emo_report = #{}, tweet_slots = #{}, tweet_todo = #{}, weka_node = string()}</tt></p>
+
+
+<h2><a name="index">Function Index</a></h2>
+<table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#code_change-3">code_change/3</a></td><td> Hot code update processing: a placeholder.</td></tr>
+<tr><td valign="top"><a href="#connect-0">connect/0</a></td><td> Higher level connection functionality for Twitter.</td></tr>
+<tr><td valign="top"><a href="#emote-1">emote/1</a></td><td> Process the tweets for the Twitter tracking code (<code>cc</code> or <code>gw</code>).</td></tr>
+<tr><td valign="top"><a href="#get_big_players-2">get_big_players/2</a></td><td> Gets the players for the Twitter tracking code (<code>cc</code> or <code>gw</code>)
+       and partitions them into two lists: the "big players", who
+       form <code>BigP100</code> percent of the tweet communications, and       
+the rest of the players.</td></tr>
+<tr><td valign="top"><a href="#get_big_players-3">get_big_players/3</a></td><td> Gets the players for the Twitter tracking code (<code>cc</code> or <code>gw</code>)
+       and partitions them into two lists: the "big players", who
+       form <code>BigP100</code> percent of the tweet communications, and       
+the rest of the players.</td></tr>
+<tr><td valign="top"><a href="#handle_call-3">handle_call/3</a></td><td> Synchronous messages for the web user interface server.</td></tr>
+<tr><td valign="top"><a href="#handle_cast-2">handle_cast/2</a></td><td> Process async messages.</td></tr>
+<tr><td valign="top"><a href="#handle_info-2">handle_info/2</a></td><td> Process out-of-band messages.</td></tr>
+<tr><td valign="top"><a href="#init-1">init/1</a></td><td> Handles placing the first twig in Raven's data nest.</td></tr>
+<tr><td valign="top"><a href="#report-1">report/1</a></td><td> Prepares a report on tweet data (already processed by <code>emote</code>)
+       for the specified time period: <code>hour</code>, <code>day</code>, etc.</td></tr>
+<tr><td valign="top"><a href="#run_tweet_csv-1">run_tweet_csv/1</a></td><td> Formats and prints a Weka output CSV.</td></tr>
+<tr><td valign="top"><a href="#start_link-0">start_link/0</a></td><td> Startup function for Twitter services.</td></tr>
+<tr><td valign="top"><a href="#stop-0">stop/0</a></td><td> Shutdown function for Twitter services.</td></tr>
+<tr><td valign="top"><a href="#terminate-2">terminate/2</a></td><td> Server shutdown callback.</td></tr>
+</table>
+
+<h2><a name="functions">Function Details</a></h2>
+
+<h3 class="function"><a name="code_change-3">code_change/3</a></h3>
+<div class="spec">
+<p><tt>code_change(OldVsn::term(), State::<a href="#type-state">state()</a>, Extra::term()) -&gt; {atom(), term()}</tt><br></p>
+</div><p> Hot code update processing: a placeholder.</p>
+
+<h3 class="function"><a name="connect-0">connect/0</a></h3>
+<div class="spec">
+<p><tt>connect() -&gt; ok</tt><br></p>
+</div><p> Higher level connection functionality for Twitter</p>
+
+<h3 class="function"><a name="emote-1">emote/1</a></h3>
+<div class="spec">
+<p><tt>emote(Tracker::atom()) -&gt; ok</tt><br></p>
+</div><p><p> Process the tweets for the Twitter tracking code (<code>cc</code> or <code>gw</code>).       
+We send the compiled tweets to Weka to generate word embeddings       
+and sentiment/emotion ratings per our selected lexicons.  Weka       
+will notify that it has finished its processing via a message,       
+which this module will pick up in handle_info.</p>
+
+       This function is the current "do what we want" function for the
+       <code>raven</code> module and the <code>say_sila</code> application...but take heed:
+       we are evolving...</p>
+
+<h3 class="function"><a name="get_big_players-2">get_big_players/2</a></h3>
+<div class="spec">
+<p><tt>get_big_players(Tracker::atom() | <a href="#type-players">players()</a>, BigP100::float()) -&gt; {<a href="#type-big_players">big_players()</a>, <a href="#type-players">players()</a>}</tt><br></p>
+</div><p><p> Gets the players for the Twitter tracking code (<code>cc</code> or <code>gw</code>)
+       and partitions them into two lists: the "big players", who
+       form <code>BigP100</code> percent of the tweet communications, and       
+the rest of the players.</p>
+
+       <p>The function will also accept a list of players, rather than       
+a tracking code.  In this case the call to the database is skipped       
+and the player list is used in its place.  (This functionality is       
+primarily for debug purposes, and the function will expect that       
+the players are ordered by descending tweet count.)</p>
+
+       <p>The function returns a triple containing an adjusted big player       
+tweet count percentage, a list of the big players, and a list of       
+the regular players.</p>
+
+       NOTE: <code>BigP100</code> must be between 0.0 (inclusive) and 1.0 (inclusive).
+</p>
+
+<h3 class="function"><a name="get_big_players-3">get_big_players/3</a></h3>
+<div class="spec">
+<p><tt>get_big_players(Tracker::atom() | <a href="#type-players">players()</a>, BigP100::float(), Options::<a href="#type-property">property()</a> | <a href="#type-proplist">proplist()</a>) -&gt; {<a href="#type-big_players">big_players()</a>, <a href="#type-players">players()</a>}</tt><br></p>
+</div><p><p> Gets the players for the Twitter tracking code (<code>cc</code> or <code>gw</code>)
+       and partitions them into two lists: the "big players", who
+       form <code>BigP100</code> percent of the tweet communications, and       
+the rest of the players.</p>
+
+       <p>The function will also accept a list of players, rather than       
+a tracking code.  In this case the call to the database is skipped       
+and the player list is used in its place.  (This functionality is       
+primarily for debug purposes, and the function will expect that       
+the players are ordered by descending tweet count.)</p>
+
+       <p>The function returns a triple containing an adjusted big player       
+tweet count percentage, a list of the big players, and a list of       
+the regular players.</p>
+
+       <p>If specified, the Options passed to this function simply get passed
+       as-is to the function <code>twitter:get_players/2</code>.</p>
+
+       NOTE: <code>BigP100</code> must be between 0.0 (inclusive) and 1.0 (inclusive).
+</p>
+
+<h3 class="function"><a name="handle_call-3">handle_call/3</a></h3>
+<div class="spec">
+<p><tt>handle_call(Msg, From, State) -&gt; any()</tt></p>
+</div><p> Synchronous messages for the web user interface server.</p>
+
+<h3 class="function"><a name="handle_cast-2">handle_cast/2</a></h3>
+<div class="spec">
+<p><tt>handle_cast(Msg::term(), State::<a href="#type-state">state()</a>) -&gt; any()</tt><br></p>
+</div><p> Process async messages</p>
+
+<h3 class="function"><a name="handle_info-2">handle_info/2</a></h3>
+<div class="spec">
+<p><tt>handle_info(Msg::term(), State::term()) -&gt; any()</tt><br></p>
+</div><p> Process out-of-band messages</p>
+
+<h3 class="function"><a name="init-1">init/1</a></h3>
+<div class="spec">
+<p><tt>init(X1::list()) -&gt; any()</tt><br></p>
+</div><p> Handles placing the first twig in Raven's data nest.</p>
+
+<h3 class="function"><a name="report-1">report/1</a></h3>
+<div class="spec">
+<p><tt>report(Period::atom()) -&gt; {ok, integer()}</tt><br></p>
+</div><p> Prepares a report on tweet data (already processed by <code>emote</code>)
+       for the specified time period: <code>hour</code>, <code>day</code>, etc.
+ --------------------------------------------------------------------</p>
+
+<h3 class="function"><a name="run_tweet_csv-1">run_tweet_csv/1</a></h3>
+<div class="spec">
+<p><tt>run_tweet_csv(FName::string()) -&gt; {ok, integer()}</tt><br></p>
+</div><p><p> Formats and prints a Weka output CSV.</p>
+
+       NOTE: This is a test/debug function that will likely disappear.
+ --------------------------------------------------------------------</p>
+
+<h3 class="function"><a name="start_link-0">start_link/0</a></h3>
+<div class="spec">
+<p><tt>start_link() -&gt; {ok, pid()} | ignore | {error, term()}</tt><br></p>
+</div><p> Startup function for Twitter services</p>
+
+<h3 class="function"><a name="stop-0">stop/0</a></h3>
+<div class="spec">
+<p><tt>stop() -&gt; ok</tt><br></p>
+</div><p> Shutdown function for Twitter services</p>
+
+<h3 class="function"><a name="terminate-2">terminate/2</a></h3>
+<div class="spec">
+<p><tt>terminate(Why::term(), State::<a href="#type-state">state()</a>) -&gt; normal</tt><br></p>
+</div><p> Server shutdown callback.</p>
+<hr>
+
+<div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
+<p><i>Generated by EDoc, Sep 23 2017, 16:39:52.</i></p>
+</body>
+</html>

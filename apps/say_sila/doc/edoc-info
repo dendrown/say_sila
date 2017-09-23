@@ -1,0 +1,4 @@
+%% encoding: UTF-8
+{application,say_sila}.
+{modules,[dts,emo,llog,r,raven,say_sila_app,say_sila_sup,sila,twitter,weka,
+          wui]}.

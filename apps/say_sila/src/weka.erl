@@ -15,7 +15,7 @@
 %%      ARFF formatting corresponds to the requirements of the package
 %%      AffectiveTweets, a plugin for Weka:
 %%
-%%      @see https://github.com/felipebravom/AffectiveTweets
+%%      REF: https://github.com/felipebravom/AffectiveTweets
 %%
 %% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
