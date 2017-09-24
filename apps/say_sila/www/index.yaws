@@ -14,8 +14,22 @@
 <body>
 <div class="container-fluid">
     <!-- ------------------------------------------------------------------- -->
+    <div class="row" style="background-color: #AAAAAA">
+        <div class="col" style="text-align: center">
+        <erl> % ---------------------------------------------------------------
+        out(Arg) ->
+            HashTag = case yaws_api:queryvar(Arg, "track") of
+                {ok, "cc"}  -> <<"#climatechange">>;
+                {ok, "gw"}  -> <<"#globalwarming">>;
+                _           -> <<"Your highly emotional reaction is most illogical">>
+            end,
+            {ehtml, {h1, [], HashTag}}.
+        </erl>
+        </div>
+    </div>
+    <!-- ------------------------------------------------------------------- -->
     <div class="row">
-        <div class="col" style="text-align: center; background-color:#00FF00">
+        <div class="col" style="text-align: center; background-color: #00FF00">
         <h2>FEAR</h2>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_emote:out(Arg, fear).
@@ -23,7 +37,7 @@
         <p>&nbsp;</p>
         </div>
 
-        <div class="col" style="text-align: center; background-color:#FF0000">
+        <div class="col" style="text-align: center; background-color: #FF0000">
         <h2>ANGER</h2>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_emote:out(Arg, anger).
@@ -33,14 +47,15 @@
     </div>
     <!-- ------------------------------------------------------------------- -->
     <div class="row">
-        <div class="col" style="text-align: center; background-color:#6666FF">
+        <div class="col" style="text-align: center; background-color: #6666FF">
         <h2>SADNESS</h2>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_emote:out(Arg, sadness).
         </erl>
         <p>&nbsp;</p>
         </div>
-        <div class="col" style="text-align: center; background-color:#FFFF33">
+
+        <div class="col" style="text-align: center; background-color: #FFFF33">
         <h2>JOY</h2>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_emote:out(Arg, joy).
@@ -49,7 +64,7 @@
         </div>
     </div>
     <!-- ------------------------------------------------------------------- -->
-    <div class="row" style="background-color:#AAAAAA">
+    <div class="row" style="background-color: #AAAAAA">
     <p>
         <erl>
         % ---------------------------------------------------------------------
