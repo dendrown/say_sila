@@ -14,7 +14,8 @@
              sila,
              twitter,
              weka,
-             wui ]},
+             wui,
+             wui_emote]},
   {maintainers, []},
   {licenses, []},
   {links, []}

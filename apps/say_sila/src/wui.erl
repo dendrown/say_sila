@@ -38,7 +38,8 @@
 -define(SCONFS,     [{port,       8080},
                      {servername, "sila"},
                      {listen,     {0,0,0,0}},
-                     {docroot,    ?DOC_ROOT}]).
+                     {docroot,    ?DOC_ROOT},
+                     {appmods,    [{"/emote", wui_emote}]} ]).
 
 
 -record(state, {yaws :: yaws_conf()}).
@@ -96,7 +97,7 @@ get_conf() ->
                       sConfs = SConfs,
                       childSpecs = ChildSpecs},
 
-    ?debug("YAWS: id[~p]", [Conf#yaws_conf.id]),
+    ?debug("YAWS: id[~p]",   [Conf#yaws_conf.id]),
     ?debug("YAWS: glob[~p]", [Conf#yaws_conf.gConf]),
     ?debug("YAWS: srvs[~p]", [Conf#yaws_conf.sConfs]),
     ?debug("YAWS: chSp[~p]", [Conf#yaws_conf.childSpecs]),

@@ -17,29 +17,20 @@
     <div class="row">
         <div class="col" style="text-align: center; background-color:#00FF00">
         <h2>FEAR</h2>
-        <erl>
-        % ---------------------------------------------------------------------
+        <div class="embed-responsive embed-responsive-16by9">
+        <erl> % ---------------------------------------------------------------
         out(Arg) ->
-           %{ehtml, {img, [{src,   ["graph/", <<"gw">>, ".15.day.fear.png"]},
-            {ehtml, {img, [{src,   ["graph/", get_track(Arg), ".15.day.fear.png"]},
-                           {class, <<"img-fluid">>},
-                           {alt,   <<"Fear Analysis">>}]}}.
-
-        % ---------------------------------------------------------------------
-        get_track(#arg{querydata = QryData}) ->
-            %
-            % FIXME: We need to parse the thing...really soon!
-            case QryData of
-                "track=cc"  -> <<"cc">>;
-                _           -> <<"gw">>
-            end.
-        % ---------------------------------------------------------------------
+           {ehtml, {iframe, [{src,   ["genie.yaws?", Arg#arg.querydata]},
+                             {class, <<"embed-responsive-item">>}]}}.
         </erl>
+        </div>
         <p>&nbsp;</p>
         </div>
         <div class="col" style="text-align: center; background-color:#FF0000">
         <h2>ANGER</h2>
-        <img src="graph/gw.15.day.anger.png" class="img-fluid" alt="Anger Analysis">
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_emote:out(Arg).
+        </erl>
         <p>&nbsp;</p>
         </div>
     </div>
@@ -63,16 +54,6 @@
         % ---------------------------------------------------------------------
         out(Arg) ->
             {html, [<<"Erlang/YAWS<br/>">>, get_arg_dlist(Arg)]}.
-
-        % ---------------------------------------------------------------------
-        get_track(#arg{querydata = QryData}) ->
-            %
-            % FIXME: We need to parse the thing...really soon!
-            case QryData of
-                "track=cc"  -> <<"cc">>;
-                _           -> <<"gw">>
-            end.
-
 
         % ---------------------------------------------------------------------
         get_arg_dlist(Arg) ->
