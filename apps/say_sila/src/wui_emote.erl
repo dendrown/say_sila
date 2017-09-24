@@ -59,7 +59,7 @@ out(Arg, Emo) ->
             ["graph/", Track, ".15.day.", Emo, ".png"];
 
         true ->
-            <<"image/spock.jpg">>
+            <<"image/spock.png">>
     end,
     {ehtml, {img, [{src,   ImgSrc},
                    {class, <<"img-fluid">>},
