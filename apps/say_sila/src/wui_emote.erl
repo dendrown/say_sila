@@ -14,8 +14,9 @@
 -module(wui_emote).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([out/1]).
+-export([out/1, out/2]).
 
+-include("llog.hrl").
 -include_lib("yaws/include/yaws_api.hrl").
 -type arg() :: #arg{}.
 
@@ -30,9 +31,37 @@
 %       by the URL `querydata'.
 % @end  --
 out(Arg) ->
-   {ehtml, {img, [{src,   ["graph/", get_track(Arg), ".15.day.anger.png"]},
-                  {class, <<"img-fluid">>},
-                  {alt,   <<"Fear Analysis">>}]}}.
+    out(Arg, yaws_api:queryvar(Arg, "emo")).
+
+
+
+%%--------------------------------------------------------------------
+-spec out(Arg :: arg(),
+          Emo :: binary() | string()) -> {html,  term()}
+                                       | {ehtml, term()}.
+%%
+% @doc  Returns the WUI output for YAWS for emotion reporting as requested
+%       by the URL `querydata'.
+% @end  --
+out(Arg, Emo) when is_atom(Emo) ->
+    out(Arg, atom_to_list(Emo));
+
+
+out(Arg, Emo) ->
+    %
+    % TODO: Have raven check for valid emotion (else spock)
+    ?debug("EMO: ~p", [Emo]),
+    Track = get_track(Arg),
+    Image = if
+        Emo =/= "undefined" andalso Track =/= undefined ->
+            ["graph/", Track, ".15.day.", Emo, ".png"];
+
+        true ->
+            <<"image/spock.jpg">>
+    end,
+    {ehtml, {img, [{src,   Image},
+                   {class, <<"img-fluid">>},
+                   {alt,   <<"Fear Analysis">>}]}}.
 
 
 
@@ -43,10 +72,9 @@ out(Arg) ->
 %%
 % @doc  Returns the tracking code requested in the URL `querydata'.
 % @end  --
-get_track(#arg{querydata = QryData}) ->
-    %
-    % FIXME: We need to parse the thing...really soon!
-    case QryData of
-        "track=cc"  -> <<"cc">>;
-        _           -> <<"gw">>
+get_track(Arg) ->
+    case yaws_api:queryvar(Arg, "track") of
+        {ok, "cc"}  -> <<"cc">>;
+        {ok, "gw"}  -> <<"gw">>;
+        _           -> undefined
     end.

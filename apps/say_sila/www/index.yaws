@@ -17,19 +17,16 @@
     <div class="row">
         <div class="col" style="text-align: center; background-color:#00FF00">
         <h2>FEAR</h2>
-        <div class="embed-responsive embed-responsive-16by9">
         <erl> % ---------------------------------------------------------------
-        out(Arg) ->
-           {ehtml, {iframe, [{src,   ["genie.yaws?", Arg#arg.querydata]},
-                             {class, <<"embed-responsive-item">>}]}}.
+        out(Arg) -> wui_emote:out(Arg, fear).
         </erl>
-        </div>
         <p>&nbsp;</p>
         </div>
+
         <div class="col" style="text-align: center; background-color:#FF0000">
         <h2>ANGER</h2>
         <erl> % ---------------------------------------------------------------
-        out(Arg) -> wui_emote:out(Arg).
+        out(Arg) -> wui_emote:out(Arg, anger).
         </erl>
         <p>&nbsp;</p>
         </div>
@@ -38,12 +35,16 @@
     <div class="row">
         <div class="col" style="text-align: center; background-color:#6666FF">
         <h2>SADNESS</h2>
-        <img src="graph/gw.15.day.sadness.png" class="img-fluid" alt="Sadness Analysis">
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_emote:out(Arg, sadness).
+        </erl>
         <p>&nbsp;</p>
         </div>
         <div class="col" style="text-align: center; background-color:#FFFF33">
         <h2>JOY</h2>
-        <img src="graph/gw.15.day.joy.png" class="img-fluid" alt="Joy Analysis">
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_emote:out(Arg, joy).
+        </erl>
         <p>&nbsp;</p>
         </div>
     </div>
