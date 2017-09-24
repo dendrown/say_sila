@@ -21,6 +21,7 @@
 -type arg() :: #arg{}.
 
 
+
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
@@ -50,18 +51,19 @@ out(Arg, Emo) when is_atom(Emo) ->
 out(Arg, Emo) ->
     %
     % TODO: Have raven check for valid emotion (else spock)
-    ?debug("EMO: ~p", [Emo]),
+    %?debug("EMO: ~p", [Emo]),
     Track = get_track(Arg),
-    Image = if
-        Emo =/= "undefined" andalso Track =/= undefined ->
+    ImgSrc = if
+        Track =/=  undefined andalso
+        Emo   =/= "undefined" ->
             ["graph/", Track, ".15.day.", Emo, ".png"];
 
         true ->
             <<"image/spock.jpg">>
     end,
-    {ehtml, {img, [{src,   Image},
+    {ehtml, {img, [{src,   ImgSrc},
                    {class, <<"img-fluid">>},
-                   {alt,   <<"Fear Analysis">>}]}}.
+                   {alt,   [Emo, <<" analysis">>]}]}}.
 
 
 
