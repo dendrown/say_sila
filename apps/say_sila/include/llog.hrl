@@ -19,7 +19,7 @@
 -define(info     (Fmt, Args), llog:log(info,      ?MODULE, Fmt, Args)).
 -define(notice   (Fmt, Args), llog:log(notice,    ?MODULE, Fmt, Args)).
 -define(warning  (Fmt, Args), llog:log(warning,   ?MODULE, Fmt, Args)).
--define(errror   (Fmt, Args), llog:log(errror,    ?MODULE, Fmt, Args)).
+-define(error    (Fmt, Args), llog:log(errror,    ?MODULE, Fmt, Args)).
 -define(critical (Fmt, Args), llog:log(critical,  ?MODULE, Fmt, Args)).
 -define(alert    (Fmt, Args), llog:log(alert,     ?MODULE, Fmt, Args)).
 -define(emergency(Fmt, Args), llog:log(emergency, ?MODULE, Fmt, Args)).

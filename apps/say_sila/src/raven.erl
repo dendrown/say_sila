@@ -542,15 +542,10 @@ emote_tweets_csv({eof}, {Cnt, Unprocessed, EmoTweets}) ->
 emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
                  {Cnt, [Tweet | RestTweets], EmoTweets}) ->
     %
-    %debug("   tweet id : ~p : ~p~n", [Tweet#tweet.id, ID]),
-    %debug("screen name : ~s~n", [ScreenName]),
-    %debug("   emotions : A[~s] F[~s] S[~s] J[~s]~n", [Anger, Fear, Sadness, Joy]),
-    %debug("       text : ~s~n", [Tweet#tweet.text]),
-    %debug("-----------------------------------------------------"),
     ?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),
     %
     % Do a sanity check on the IDs
-    NewEmoTweets = case (Tweet#tweet.id =:= list_to_binary(ID)) of
+    case (Tweet#tweet.id =:= list_to_binary(ID)) of
 
         true ->
             Emotions = #emotions{count   = 1,
@@ -559,13 +554,15 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
                                              sadness => string_to_float(Sadness),
                                              joy     => string_to_float(Joy)}},
             EmoTweet = Tweet#tweet{emotions = Emotions},
-            [EmoTweet | EmoTweets];
+            {Cnt + 1, RestTweets, [EmoTweet | EmoTweets]};
 
         false ->
-            ?warning("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
-            EmoTweets
-    end,
-    {Cnt + 1, RestTweets, NewEmoTweets}.
+            ?error("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
+            %debug("tweet id   : ~p : ~p~n", [Tweet#tweet.id, ID]),
+            %debug("screen name: ~s~n", [ScreenName]),
+            %debug("tweet text : ~s~n", [Tweet#tweet.text]),
+            {Cnt + 1, [], EmoTweets}
+    end.
 
 
 
