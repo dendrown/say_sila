@@ -20,7 +20,8 @@
         stop/0,
         configure/0,
         get_conf/0,
-        get_graph_dir/0]).
+        get_graph_dir/0,
+        get_status_dir/0]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -33,6 +34,7 @@
 -define(DOC_ROOT,   ?WORK_DIR "/www").
 -define(LOG_DIR,    ?WORK_DIR "/log").
 -define(GRAPH_DIR,  ?DOC_ROOT "/graph").
+-define(STATUS_DIR, ?DOC_ROOT "/status").
 -define(GCONFS,     [{id, ?ID},
                      {logdir,     ?LOG_DIR}]).
 -define(SCONFS,     [{port,       8080},
@@ -112,6 +114,17 @@ get_conf() ->
 % @end  --
 get_graph_dir() ->
     ?GRAPH_DIR.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_status_dir() -> string().
+%%
+% @doc  Reports the directory where the WUI expects status and
+%       statistical information.
+% @end  --
+get_status_dir() ->
+    ?STATUS_DIR.
 
 
 

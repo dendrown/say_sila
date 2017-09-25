@@ -557,7 +557,7 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
             {Cnt + 1, RestTweets, [EmoTweet | EmoTweets]};
 
         false ->
-            ?error("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
+            ?warning("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
             %debug("tweet id   : ~p : ~p~n", [Tweet#tweet.id, ID]),
             %debug("screen name: ~s~n", [ScreenName]),
             %debug("tweet text : ~s~n", [Tweet#tweet.text]),

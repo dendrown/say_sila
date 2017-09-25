@@ -206,9 +206,9 @@ handle_cast({report_emotions, Tag, Period, #{big := BigRpt,
                                              reg := RegRpt}},
             State) ->
     % Start with the earliest data and go to the latest,
-    % but drop the first and last period as they are partials
-    BegDTS = dts:earlier(dts:add(BigRpt#report.beg_dts, 1, Period),
-                         dts:add(RegRpt#report.beg_dts, 1, Period)),
+    % but drop the last period as it will be a partial
+    BegDTS = dts:earlier(BigRpt#report.beg_dts,
+                         RegRpt#report.beg_dts),
     EndDTS = dts:later(dts:sub(BigRpt#report.end_dts, 1, Period),
                        dts:sub(RegRpt#report.end_dts, 1, Period)),
     ?info("Running report from ~s to ~s: per[~s]", [dts:str(BegDTS),
