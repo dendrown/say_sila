@@ -35,6 +35,8 @@
 -define(REG_TAG,    <<"REG">>).
 -define(REG_COLOUR, <<"blue">>).
 
+-define(Y_RANGE,    0.6).
+
 
 -record(state, {eri_status :: term() }).
 -type state() :: #state{}.
@@ -326,7 +328,7 @@ graph_emotion(Period,
     eval("png(file = '~s')", [FPathPNG]),
     eval("data <- read.csv('~s')", [FPathCSV]),
     %val("yRng <- signif(10 + range(data$BIG, data$REG), digits=2)"),
-    eval("yRng <- c(0, 1)"),
+    eval("yRng <- c(0, ~f)", [?Y_RANGE]),
     eval("plot(data$~s, type='l', col='~s', ylim=yRng, xlab='~ss', ylab='~s', main='~s')", [?BIG_TAG,
                                                                                             ?BIG_COLOUR,
                                                                                             Period,
