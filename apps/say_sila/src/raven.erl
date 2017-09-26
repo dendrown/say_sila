@@ -561,7 +561,7 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
             %debug("tweet id   : ~p : ~p~n", [Tweet#tweet.id, ID]),
             %debug("screen name: ~s~n", [ScreenName]),
             %debug("tweet text : ~s~n", [Tweet#tweet.text]),
-            {Cnt + 1, [], EmoTweets}
+            exit(tweet_mismatch) %% {Cnt + 1, RestTweets, EmoTweets}
     end.
 
 
