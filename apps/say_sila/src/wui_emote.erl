@@ -17,8 +17,7 @@
 -export([out/1, out/2]).
 
 -include("llog.hrl").
--include_lib("yaws/include/yaws_api.hrl").
--type arg() :: #arg{}.
+-include("wui.hrl").
 
 
 
@@ -52,31 +51,22 @@ out(Arg, Emo) ->
     %
     % TODO: Have raven check for valid emotion (else spock)
     %?debug("EMO: ~p", [Emo]),
-    Track = get_track(Arg),
+    Track = wui:get_track(Arg),
     ImgSrc = if
         Track =/=  undefined andalso
         Emo   =/= "undefined" ->
-            ["graph/", Track, ".15.day.", Emo, ".png"];
+            io_lib:format("graph/~s.~s.png", [wui:get_tag(Track), Emo]);
 
         true ->
             <<"image/spock.png">>
     end,
-    {ehtml, {img, [{src,   ImgSrc},
-                   {class, <<"img-fluid">>},
-                   {alt,   [Emo, <<" analysis">>]}]}}.
+    {ehtml, [{h2,  [],  string:to_upper(Emo)},
+             {img, [{src,   ImgSrc},
+                    {class, <<"img-fluid">>},
+                    {alt,   [Emo, <<" analysis">>]}]}]}.
 
 
 
 %%====================================================================
 %% Internal functions
-%%--------------------------------------------------------------------
--spec get_track(Arg :: arg()) -> binary().
-%%
-% @doc  Returns the tracking code requested in the URL `querydata'.
-% @end  --
-get_track(Arg) ->
-    case yaws_api:queryvar(Arg, "track") of
-        {ok, "cc"}  -> <<"cc">>;
-        {ok, "gw"}  -> <<"gw">>;
-        _           -> undefined
-    end.
+%%====================================================================

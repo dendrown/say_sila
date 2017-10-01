@@ -15,7 +15,8 @@
              twitter,
              weka,
              wui,
-             wui_emote]},
+             wui_emote,
+             wui_report]},
   {maintainers, []},
   {licenses, []},
   {links, []}

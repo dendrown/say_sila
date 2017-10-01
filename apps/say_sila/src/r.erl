@@ -255,21 +255,21 @@ plot_emotions(Tag, Period, BegDTS, EndDTS, BigMap, RegMap) ->
     % Figure out where to put the data and graph files
     GraphDir = wui:get_graph_dir(),
     EmoFiler = fun(Emotion) ->
-                   FStub    = io_lib:format("~s.~s.~s", [Tag, Period, Emotion]),
-                   FPathCSV = io_lib:format("~s/R/~s.csv", [?WORK_DIR, FStub]),
-                   FPathPNG = io_lib:format("~s/~s.png", [GraphDir, FStub]),
-                   %
-                   % We've got data and plot filenames now; but just open the data file
-                   ok = filelib:ensure_dir(FPathCSV),
-                   {ok, FOut} = file:open(FPathCSV, [write]),
-                   io:format(FOut, "~s,~s~n", [?BIG_TAG, ?REG_TAG]),
-                   ?info("Creating data file: ~ts", [FPathCSV]),
-                   #emo_file{fpath_csv = FPathCSV,
-                             fpath_png = FPathPNG,
-                             io        = FOut}
-                   end,
+        FStub    = io_lib:format("~s.~s.~s", [Tag, Period, Emotion]),
+        FPathCSV = io_lib:format("~s/R/~s.csv", [?WORK_DIR, FStub]),
+        FPathPNG = io_lib:format("~s/~s.png", [GraphDir, FStub]),
+        %
+        % We've got data and plot filenames now; but just open the data file
+        ok = filelib:ensure_dir(FPathCSV),
+        {ok, FOut} = file:open(FPathCSV, [write]),
+        io:format(FOut, "~s,~s~n", [?BIG_TAG, ?REG_TAG]),
+        ?info("Creating data file: ~ts", [FPathCSV]),
+        #emo_file{fpath_csv = FPathCSV,
+                  fpath_png = FPathPNG,
+                  io        = FOut}
+        end,
     %
-    % Relevel is meant for operations on emotion level maps, but it works nicely for our files too
+    % Relevel is meant for operations on emotion level maps, but it also works nicely to initialize our files
     EmoOuts = emo:relevel(fun(Emo) -> {Emo, EmoFiler(Emo)} end),
     %
     % Create CSVs
@@ -277,7 +277,18 @@ plot_emotions(Tag, Period, BegDTS, EndDTS, BigMap, RegMap) ->
     %
     % Create PNGs
     lists:foreach(fun({Emo, Out}) -> graph_emotion(Period, Emo, Out) end,
-                  maps:to_list(EmoOuts)).
+                  maps:to_list(EmoOuts)),
+    %
+    % Give a little info on what we did
+    FStub = io_lib:format("~s/~s.~s.", [wui:get_status_dir(), Tag, Period]),
+    {RptBegin, RptEnd} = case Period of
+        day -> {dts:str(element(1, BegDTS)),
+                dts:str(element(1, EndDTS))};
+        _   -> {dts:str(BegDTS),
+                dts:str(EndDTS)}
+    end,
+    file:write_file([FStub, "begin.txt"], RptBegin),
+    file:write_file([FStub, "end.txt"],   RptEnd).
 
 
 

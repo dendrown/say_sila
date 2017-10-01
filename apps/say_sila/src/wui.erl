@@ -21,7 +21,9 @@
         configure/0,
         get_conf/0,
         get_graph_dir/0,
-        get_status_dir/0]).
+        get_status_dir/0,
+        get_tag/1,
+        get_track/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -125,6 +127,35 @@ get_graph_dir() ->
 % @end  --
 get_status_dir() ->
     ?STATUS_DIR.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_tag(Arg :: arg()) -> binary().
+%%
+% @doc  Returns the naming tag as track.percent.period.
+% @end  --
+get_tag(Arg = #arg{}) ->
+    get_tag(get_track(Arg));
+
+get_tag(Track) ->
+    io_lib:format("~s.~B.~s", [Track,
+                               round(100 * ?DEFAULT_BIG_P100),
+                               ?DEFAULT_PERIOD]).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_track(Arg :: arg()) -> binary().
+%%
+% @doc  Returns the tracking code requested in the URL `querydata'.
+% @end  --
+get_track(Arg) ->
+    case yaws_api:queryvar(Arg, "track") of
+        {ok, "cc"}  -> <<"cc">>;
+        {ok, "gw"}  -> <<"gw">>;
+        _           -> undefined
+    end.
 
 
 

@@ -32,10 +32,8 @@
 -include("llog.hrl").
 -include("raven.hrl").
 -include("twitter.hrl").
-
 -include_lib("ecsv/include/ecsv.hrl").
 
--define(DEFAULT_BIG_P100, 0.15).
 
 
 % Slots are for keeping everything about a player category in one place

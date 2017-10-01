@@ -54,14 +54,15 @@
                                                        {href,  <<"/?track=gw">>}],
                                                       <<"#globalwarming">>}}]}}]}]}.
         </erl>
-        <br/>
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_report:out(Arg).
+        </erl>
         </div>
     </div>
     <!-- ------------------------------------------------------------------- -->
     <div class="row">
         <div class="col" style="text-align: center; background-color: #00FF00">
         <br/>
-        <h2>FEAR</h2>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_emote:out(Arg, fear).
         </erl>
@@ -70,7 +71,6 @@
 
         <div class="col" style="text-align: center; background-color: #FF0000">
         <br/>
-        <h2>ANGER</h2>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_emote:out(Arg, anger).
         </erl>
@@ -81,7 +81,6 @@
     <div class="row">
         <div class="col" style="text-align: center; background-color: #6666FF">
         <br/>
-        <h2>SADNESS</h2>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_emote:out(Arg, sadness).
         </erl>
@@ -90,7 +89,6 @@
 
         <div class="col" style="text-align: center; background-color: #FFFF33">
         <br/>
-        <h2>JOY</h2>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_emote:out(Arg, joy).
         </erl>

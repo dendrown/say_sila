@@ -146,6 +146,10 @@ minutize({{Year, Month, Day}, {Hour, Min, _}}) ->
 %     Creates something printable from a datetime tuple.
 %     from DTS.
 % @end  --
+str({Year, Mon, Day}) ->
+    io_lib:format("~4..0B-~2..0B-~2..0B", [Year, Mon, Day]);
+
+
 str({{Year, Mon, Day}, {Hour, Min, Sec}}) ->
     io_lib:format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B", [Year, Mon, Day, Hour, Min, Sec]).
 

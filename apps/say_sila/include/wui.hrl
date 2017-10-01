@@ -14,7 +14,11 @@
 -ifndef(_wui_included).
 -define(_wui_included, ack).
 
-% @doc Configuration specific to embedded YAWS
+-include_lib("yaws/include/yaws_api.hrl").
+-type arg() :: #arg{}.
+
+
+% Configuration specific to embedded YAWS
 -record(yaws_conf, {id          :: binary() | string(),
                     gConf       :: tuple(),
                     sConfs      :: [tuple()],
