@@ -220,6 +220,13 @@ handle_cast({report_emotions, Tag, Period, #{big := BigRpt,
                   EndDTS,
                   BigRpt#report.emotions,
                   RegRpt#report.emotions),
+
+    % Now that the graphs are there, update the report description data
+    RptStatsFPath = io_lib:format("~s/~s.report.etf", [wui:get_status_dir(), Tag]),
+    RptStatsMap   = #{big => BigRpt#report{emotions = info},
+                      reg => RegRpt#report{emotions = info}},
+    file:write_file(RptStatsFPath, term_to_binary(RptStatsMap)),
+
     {noreply, State};
 
 
@@ -255,7 +262,7 @@ plot_emotions(Tag, Period, BegDTS, EndDTS, BigMap, RegMap) ->
     % Figure out where to put the data and graph files
     GraphDir = wui:get_graph_dir(),
     EmoFiler = fun(Emotion) ->
-        FStub    = io_lib:format("~s.~s.~s", [Tag, Period, Emotion]),
+        FStub    = io_lib:format("~s.~s", [Tag, Emotion]),
         FPathCSV = io_lib:format("~s/R/~s.csv", [?WORK_DIR, FStub]),
         FPathPNG = io_lib:format("~s/~s.png", [GraphDir, FStub]),
         %
@@ -277,18 +284,7 @@ plot_emotions(Tag, Period, BegDTS, EndDTS, BigMap, RegMap) ->
     %
     % Create PNGs
     lists:foreach(fun({Emo, Out}) -> graph_emotion(Period, Emo, Out) end,
-                  maps:to_list(EmoOuts)),
-    %
-    % Give a little info on what we did
-    FStub = io_lib:format("~s/~s.~s.", [wui:get_status_dir(), Tag, Period]),
-    {RptBegin, RptEnd} = case Period of
-        day -> {dts:str(element(1, BegDTS)),
-                dts:str(element(1, EndDTS))};
-        _   -> {dts:str(BegDTS),
-                dts:str(EndDTS)}
-    end,
-    file:write_file([FStub, "begin.txt"], RptBegin),
-    file:write_file([FStub, "end.txt"],   RptEnd).
+                  maps:to_list(EmoOuts)).
 
 
 

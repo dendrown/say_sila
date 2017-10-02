@@ -20,14 +20,14 @@
 -define(END_EPOCH,  {{9999, 12, 31}, {23, 59, 59}}).
 
 
-% @doc Emotions for analysis
+% Emotions for analysis
 -record(emotions, {count   = 0   :: integer(),
                    levels  = #{} :: map() }).
 -type emotions() :: #emotions{}.
 
 
 
-% @doc File handling for one emotion
+% File handling for one emotion
 -record(emo_file, {fpath_csv :: string(),
                    fpath_png :: string(),
                    io        :: pid() }).
@@ -35,12 +35,15 @@
 
 
 
-% @doc Slots are for keeping everything about a player category in one place
+% Report information on emotional analysis
+%
+% NOTE: `emotions' may be set to `info' if the record instance is informational only,
+%       usually for (WUI) user feedback about the real report
 -record(report, {category               :: atom(),
                  count    = 0           :: integer(),
                  beg_dts  = ?END_EPOCH  :: tuple(),
                  end_dts  = ?BEG_EPOCH  :: tuple(),
-                 emotions = #{}         :: map() }).
+                 emotions = #{}         :: info | map() }).
 -type report() :: #report{}.
 
 

@@ -23,6 +23,7 @@
         get_graph_dir/0,
         get_status_dir/0,
         get_tag/1,
+        get_tag/3,
         get_track/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -138,10 +139,21 @@ get_status_dir() ->
 get_tag(Arg = #arg{}) ->
     get_tag(get_track(Arg));
 
+
 get_tag(Track) ->
-    io_lib:format("~s.~B.~s", [Track,
-                               round(100 * ?DEFAULT_BIG_P100),
-                               ?DEFAULT_PERIOD]).
+    get_tag(Track, ?DEFAULT_BIG_P100, ?DEFAULT_PERIOD).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_tag(Track   :: atom() | string(),
+              BigP100 :: float(),
+              Period  :: atom() | string()) -> string().
+%%
+% @doc  Returns the naming tag as track.percent.period.
+% @end  --
+get_tag(Track, BigP100, Period) ->
+    io_lib:format("~s.~B.~s", [Track, round(100 * BigP100), Period]).
 
 
 

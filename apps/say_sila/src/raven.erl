@@ -321,9 +321,9 @@ handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
                          end,
                      [big, reg]),
     RptMap = maps:from_list(Rpts),
-    RptTag = io_lib:format("~s.~B", [Tracker,
-                                     round(100 * BigP100)]),
-    r:report_emotions(RptTag, Period, RptMap),
+    r:report_emotions(wui:get_tag(Tracker, BigP100, Period),
+                      Period,
+                      RptMap),
     {reply, {ok, RptMap}, State#state{emo_report = RptMap}};
 
 
