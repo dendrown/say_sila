@@ -14,10 +14,11 @@
 -ifndef(_raven_included).
 -define(_raven_included, ack).
 
--define(EMOTIONS,   [anger, fear, sadness, joy]).
+-define(EMOTIONS,       [anger, fear, sadness, joy]).
+-define(MAX_TOP_HITS,   5).
 
--define(BEG_EPOCH,  {{1970,  1,  1}, { 0,  0,  0}}).
--define(END_EPOCH,  {{9999, 12, 31}, {23, 59, 59}}).
+-define(BEG_EPOCH,      {{1970,  1,  1}, { 0,  0,  0}}).
+-define(END_EPOCH,      {{9999, 12, 31}, {23, 59, 59}}).
 
 
 % Emotions for analysis
@@ -43,7 +44,8 @@
                  count    = 0           :: integer(),
                  beg_dts  = ?END_EPOCH  :: tuple(),
                  end_dts  = ?BEG_EPOCH  :: tuple(),
-                 emotions = #{}         :: info | map() }).
+                 emotions = #{}         :: map() | info,
+                 top_hits = #{}         :: map() }).        % emo => [level, tweet]
 -type report() :: #report{}.
 
 
