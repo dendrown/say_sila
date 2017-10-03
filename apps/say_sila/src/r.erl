@@ -6,7 +6,7 @@
 %%         _/    _/    _/        _/    _/
 %%  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 %%
-%% @doc R<==>Erlang bridge for Sila
+%% @doc R/Erlang bridge for Sila
 %%
 %% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 %% @end
@@ -35,6 +35,8 @@
 -define(REG_TAG,    <<"REG">>).
 -define(REG_COLOUR, <<"blue">>).
 
+-define(Y_RANGE,    0.6).
+
 
 -record(state, {eri_status :: term() }).
 -type state() :: #state{}.
@@ -57,7 +59,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 -spec reset() -> ok.
 %%
-% @doc  The R<==>Erlang Bridge can get stuck easily.  This function
+% @doc  The R/Erlang Bridge can get stuck easily.  This function
 %       kills the process, which will trigger the supervisor to restart
 %       it.
 % @end  --
@@ -204,9 +206,9 @@ handle_cast({report_emotions, Tag, Period, #{big := BigRpt,
                                              reg := RegRpt}},
             State) ->
     % Start with the earliest data and go to the latest,
-    % but drop the first and last period as they are partials
-    BegDTS = dts:earlier(dts:add(BigRpt#report.beg_dts, 1, Period),
-                         dts:add(RegRpt#report.beg_dts, 1, Period)),
+    % but drop the last period as it will be a partial
+    BegDTS = dts:earlier(BigRpt#report.beg_dts,
+                         RegRpt#report.beg_dts),
     EndDTS = dts:later(dts:sub(BigRpt#report.end_dts, 1, Period),
                        dts:sub(RegRpt#report.end_dts, 1, Period)),
     ?info("Running report from ~s to ~s: per[~s]", [dts:str(BegDTS),
@@ -218,6 +220,13 @@ handle_cast({report_emotions, Tag, Period, #{big := BigRpt,
                   EndDTS,
                   BigRpt#report.emotions,
                   RegRpt#report.emotions),
+
+    % Now that the graphs are there, update the report description data
+    RptStatsFPath = io_lib:format("~s/~s.report.etf", [wui:get_status_dir(), Tag]),
+    RptStatsMap   = #{big => BigRpt#report{emotions = info},
+                      reg => RegRpt#report{emotions = info}},
+    file:write_file(RptStatsFPath, term_to_binary(RptStatsMap)),
+
     {noreply, State};
 
 
@@ -253,21 +262,21 @@ plot_emotions(Tag, Period, BegDTS, EndDTS, BigMap, RegMap) ->
     % Figure out where to put the data and graph files
     GraphDir = wui:get_graph_dir(),
     EmoFiler = fun(Emotion) ->
-                   FStub    = io_lib:format("~s.~s.~s", [Tag, Period, Emotion]),
-                   FPathCSV = io_lib:format("~s/R/~s.csv", [?WORK_DIR, FStub]),
-                   FPathPNG = io_lib:format("~s/~s.png", [GraphDir, FStub]),
-                   %
-                   % We've got data and plot filenames now; but just open the data file
-                   ok = filelib:ensure_dir(FPathCSV),
-                   {ok, FOut} = file:open(FPathCSV, [write]),
-                   io:format(FOut, "~s,~s~n", [?BIG_TAG, ?REG_TAG]),
-                   ?info("Creating data file: ~ts", [FPathCSV]),
-                   #emo_file{fpath_csv = FPathCSV,
-                             fpath_png = FPathPNG,
-                             io        = FOut}
-                   end,
+        FStub    = io_lib:format("~s.~s", [Tag, Emotion]),
+        FPathCSV = io_lib:format("~s/R/~s.csv", [?WORK_DIR, FStub]),
+        FPathPNG = io_lib:format("~s/~s.png", [GraphDir, FStub]),
+        %
+        % We've got data and plot filenames now; but just open the data file
+        ok = filelib:ensure_dir(FPathCSV),
+        {ok, FOut} = file:open(FPathCSV, [write]),
+        io:format(FOut, "~s,~s~n", [?BIG_TAG, ?REG_TAG]),
+        ?info("Creating data file: ~ts", [FPathCSV]),
+        #emo_file{fpath_csv = FPathCSV,
+                  fpath_png = FPathPNG,
+                  io        = FOut}
+        end,
     %
-    % Relevel is meant for operations on emotion level maps, but it works nicely for our files too
+    % Relevel is meant for operations on emotion level maps, but it also works nicely to initialize our files
     EmoOuts = emo:relevel(fun(Emo) -> {Emo, EmoFiler(Emo)} end),
     %
     % Create CSVs
@@ -326,7 +335,7 @@ graph_emotion(Period,
     eval("png(file = '~s')", [FPathPNG]),
     eval("data <- read.csv('~s')", [FPathCSV]),
     %val("yRng <- signif(10 + range(data$BIG, data$REG), digits=2)"),
-    eval("yRng <- c(0, 1)"),
+    eval("yRng <- c(0, ~f)", [?Y_RANGE]),
     eval("plot(data$~s, type='l', col='~s', ylim=yRng, xlab='~ss', ylab='~s', main='~s')", [?BIG_TAG,
                                                                                             ?BIG_COLOUR,
                                                                                             Period,

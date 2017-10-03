@@ -13,37 +13,92 @@
 </head>
 <body>
 <div class="container-fluid">
-    <!-- ----------------------------------------------------------- -->
+    <!-- ------------------------------------------------------------------- -->
+    <div class="row" style="background-color: #AAAAAA">
+        <div class="col" style="text-align: center">
+        <br/>
+        <erl> % ---------------------------------------------------------------
+        out(Arg) ->
+        {ActiveCC,
+         ActiveGW,
+         HashTag} = case yaws_api:queryvar(Arg, "track") of
+                            %% --- CC ---   --- GW ---  ---- HASHTAG ----
+                {ok, "cc"}  -> {" active",  "",         "#climatechange"};
+                {ok, "gw"}  -> {"",         " active",  "#globalwarming"};
+                _           -> {"",         "",         "Your highly emotional reaction is most illogical"}
+            end,
+            {ehtml, [{h1,   [], HashTag},
+                     % ---- NAVIGATION BAR ------------------------------------
+                     {nav,  [{class, <<"navbar navbar-expand-lg navbar-dark">>},
+                             {style, <<"background-color: #606060">>}],
+                            [{a,      [{class,           <<"navbar-brand">>},
+                                       {href,            <<"#">>}],
+                                      <<"Say Sila:">>},
+                             {button, [{class,           <<"navbar-toggler">>},
+                                       {type,            <<"button">>},
+                                       {'data-toggle',   <<"collapse">>},
+                                       {'data-target',   <<"#sila-nav">>},
+                                       {'aria-controls', <<"#sila-nav">>},
+                                       {'aria-expanded', <<"false">>},
+                                       {'aria-label',    <<"Toggle navigation">>}],
+                                      {span, [{class, <<"navbar-toggler-icon">>}]}},
+                             {'div',  [{class, <<"collapse navbar-collapse">>},
+                                       {id,    <<"sila-nav">>}],
+                                      {ul,  [{class, <<"navbar-nav">>}],
+                                            [{li, [{class, "nav-item" ++ ActiveCC}],
+                                                  {a, [{class, <<"nav-link">>},
+                                                       {href,  <<"/?track=cc">>}],
+                                                      <<"#climatechange">>}},
+                                             {li, [{class, "nav-item" ++ ActiveGW}],
+                                                  {a, [{class, <<"nav-link">>},
+                                                       {href,  <<"/?track=gw">>}],
+                                                      <<"#globalwarming">>}}]}}]}]}.
+        </erl>
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_report:out(Arg).
+        </erl>
+        </div>
+    </div>
+    <!-- ------------------------------------------------------------------- -->
     <div class="row">
-        <div class="col" style="text-align: center; background-color:#00FF00">
-        <h2>FEAR</h2>
-        <img src="graph/gw.15.day.fear.png" class="img-fluid" alt="Fear Analysis">
+        <div class="col" style="text-align: center; background-color: #00FF00">
+        <br/>
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_emote:out(Arg, fear).
+        </erl>
         <p>&nbsp;</p>
         </div>
-        <div class="col" style="text-align: center; background-color:#FF0000">
-        <h2>ANGER</h2>
-        <img src="graph/gw.15.day.anger.png" class="img-fluid" alt="Anger Analysis">
+
+        <div class="col" style="text-align: center; background-color: #FF0000">
+        <br/>
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_emote:out(Arg, anger).
+        </erl>
         <p>&nbsp;</p>
         </div>
     </div>
-    <!-- ----------------------------------------------------------- -->
+    <!-- ------------------------------------------------------------------- -->
     <div class="row">
-        <div class="col" style="text-align: center; background-color:#6666FF">
-        <h2>SADNESS</h2>
-        <img src="graph/gw.15.day.sadness.png" class="img-fluid" alt="Sadness Analysis">
+        <div class="col" style="text-align: center; background-color: #6666FF">
+        <br/>
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_emote:out(Arg, sadness).
+        </erl>
         <p>&nbsp;</p>
         </div>
-        <div class="col" style="text-align: center; background-color:#FFFF33">
-        <h2>JOY</h2>
-        <img src="graph/gw.15.day.joy.png" class="img-fluid" alt="Joy Analysis">
+
+        <div class="col" style="text-align: center; background-color: #FFFF33">
+        <br/>
+        <erl> % ---------------------------------------------------------------
+        out(Arg) -> wui_emote:out(Arg, joy).
+        </erl>
         <p>&nbsp;</p>
         </div>
     </div>
-    <!-- ----------------------------------------------------------- -->
-    <div class="row" style="background-color:#AAAAAA">
+    <!-- ------------------------------------------------------------------- -->
+    <div class="row" style="background-color: #AAAAAA">
     <p>
         <erl>
-
         % ---------------------------------------------------------------------
         out(Arg) ->
             {html, [<<"Erlang/YAWS<br/>">>, get_arg_dlist(Arg)]}.
@@ -59,6 +114,7 @@
                                  lists:seq(2, record_info(size, arg)))),
              <<"</dl>">>].
 
+        % ---------------------------------------------------------------------
         </erl>
     </p>
     </div>

@@ -20,7 +20,11 @@
         stop/0,
         configure/0,
         get_conf/0,
-        get_graph_dir/0]).
+        get_graph_dir/0,
+        get_status_dir/0,
+        get_tag/1,
+        get_tag/3,
+        get_track/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -33,15 +37,16 @@
 -define(DOC_ROOT,   ?WORK_DIR "/www").
 -define(LOG_DIR,    ?WORK_DIR "/log").
 -define(GRAPH_DIR,  ?DOC_ROOT "/graph").
+-define(STATUS_DIR, ?DOC_ROOT "/status").
 -define(GCONFS,     [{id, ?ID},
                      {logdir,     ?LOG_DIR}]).
 -define(SCONFS,     [{port,       8080},
                      {servername, "sila"},
                      {listen,     {0,0,0,0}},
-                     {docroot,    ?DOC_ROOT}]).
+                     {docroot,    ?DOC_ROOT},
+                     {appmods,    [{"/emote", wui_emote}]} ]).
 
 
-% @doc WUI server state
 -record(state, {yaws :: yaws_conf()}).
 %type state() :: #state{}.
 
@@ -97,7 +102,7 @@ get_conf() ->
                       sConfs = SConfs,
                       childSpecs = ChildSpecs},
 
-    ?debug("YAWS: id[~p]", [Conf#yaws_conf.id]),
+    ?debug("YAWS: id[~p]",   [Conf#yaws_conf.id]),
     ?debug("YAWS: glob[~p]", [Conf#yaws_conf.gConf]),
     ?debug("YAWS: srvs[~p]", [Conf#yaws_conf.sConfs]),
     ?debug("YAWS: chSp[~p]", [Conf#yaws_conf.childSpecs]),
@@ -112,6 +117,57 @@ get_conf() ->
 % @end  --
 get_graph_dir() ->
     ?GRAPH_DIR.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_status_dir() -> string().
+%%
+% @doc  Reports the directory where the WUI expects status and
+%       statistical information.
+% @end  --
+get_status_dir() ->
+    ?STATUS_DIR.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_tag(Arg :: arg()) -> binary().
+%%
+% @doc  Returns the naming tag as track.percent.period.
+% @end  --
+get_tag(Arg = #arg{}) ->
+    get_tag(get_track(Arg));
+
+
+get_tag(Track) ->
+    get_tag(Track, ?DEFAULT_BIG_P100, ?DEFAULT_PERIOD).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_tag(Track   :: atom() | string(),
+              BigP100 :: float(),
+              Period  :: atom() | string()) -> string().
+%%
+% @doc  Returns the naming tag as track.percent.period.
+% @end  --
+get_tag(Track, BigP100, Period) ->
+    io_lib:format("~s.~B.~s", [Track, round(100 * BigP100), Period]).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_track(Arg :: arg()) -> binary().
+%%
+% @doc  Returns the tracking code requested in the URL `querydata'.
+% @end  --
+get_track(Arg) ->
+    case yaws_api:queryvar(Arg, "track") of
+        {ok, "cc"}  -> <<"cc">>;
+        {ok, "gw"}  -> <<"gw">>;
+        _           -> undefined
+    end.
 
 
 

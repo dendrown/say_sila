@@ -21,7 +21,9 @@
 -export([start_link/0, stop/0,
          connect/0,
          emote/1,
+         emote/2,
          get_big_players/2,
+         get_big_players/3,
          report/1,
          run_tweet_csv/1]).     %% DEBUG!
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
@@ -30,20 +32,17 @@
 -include("llog.hrl").
 -include("raven.hrl").
 -include("twitter.hrl").
-
 -include_lib("ecsv/include/ecsv.hrl").
 
--define(DEFAULT_BIG_P100, 0.15).
 
 
-% @doc Slots are for keeping everything about a player category in one place
+% Slots are for keeping everything about a player category in one place
 -record(tweet_slot, {category :: atom(),
                      players  :: players(),
                      tweets   :: tweets() }).
 %type tweet_slot() :: #tweet_slot{}.
 
 
-% @doc gen_server state
 -record(state, {tracker           :: atom(),
                 big_percent       :: float(),
                 emo_report  = #{} :: map(),
@@ -51,6 +50,7 @@
                 tweet_todo  = #{} :: map(),
                 weka_node         :: string() }).
 -type state() :: #state{}.
+
 
 
 %%====================================================================
@@ -114,19 +114,51 @@ connect() ->
 %
 %       TODO: This function needs to move into the handle_call/cast logic.
 % @end  --
-get_big_players(_, BigP100) when   BigP100 =< 0.0
-                            orelse BigP100 >= 1.0 ->
+get_big_players(Tracker, BigP100) ->
+    get_big_players(Tracker, BigP100, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_players(Tracker   :: atom() | players(),
+                      BigP100   :: float(),
+                      Options   :: property() | proplist()) -> {big_players(), players()}.
+%%
+% @doc  Gets the players for the Twitter tracking code (`cc' or `gw')
+%       and partitions them into two lists: the "big players", who
+%       form `BigP100' percent of the tweet communications, and
+%       the rest of the players.
+%
+%       The function will also accept a list of players, rather than
+%       a tracking code.  In this case the call to the database is skipped
+%       and the player list is used in its place.  (This functionality is
+%       primarily for debug purposes, and the function will expect that
+%       the players are ordered by descending tweet count.)
+%
+%       The function returns a triple containing an adjusted big player
+%       tweet count percentage, a list of the big players, and a list of
+%       the regular players.
+%
+%       If specified, the Options passed to this function simply get passed
+%       as-is to the function `twitter:get_players/2'.
+%
+%       NOTE: `BigP100' must be between 0.0 (inclusive) and 1.0 (inclusive).
+%
+%       TODO: This function needs to move into the handle_call/cast logic.
+% @end  --
+get_big_players(_, BigP100, _) when   BigP100 =< 0.0
+                               orelse BigP100 >= 1.0 ->
     % Give the user a break and don't make them wait on a long query
     % before telling them what we want a percentage value to look like.
     ?error("Specify percentage between 0 and 1"),
     error(badarg);
 
 
-get_big_players(Tracker, BigP100) when is_atom(Tracker) ->
-    get_big_players(twitter:get_players(Tracker), BigP100);
+get_big_players(Tracker, BigP100, Options) when is_atom(Tracker) ->
+    get_big_players(twitter:get_players(Tracker, Options), BigP100, Options);
 
 
-get_big_players(Players, BigP100) ->
+get_big_players(Players, BigP100, _) ->
     TweetTotal = lists:foldl(fun(#player{tweet_cnt = Cnt}, Acc) -> Acc + Cnt end,
                              0,
                              Players),
@@ -157,7 +189,32 @@ get_big_players(Players, BigP100) ->
 %       we are evolving...
 % @end  --
 emote(Tracker) ->
-    gen_server:cast(?MODULE, {emote, Tracker}).
+    emote(Tracker, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec emote(Tracker :: atom(),
+            Options :: property() | proplist()) -> ok.
+%%
+% @doc  Process the tweets for the Twitter tracking code (`cc' or `gw').
+%       We send the compiled tweets to Weka to generate word embeddings
+%       and sentiment/emotion ratings per our selected lexicons.  Weka
+%       will notify that it has finished its processing via a message,
+%       which this module will pick up in handle_info.
+%
+%       Options is a property list allowing the following:
+%           - `min_tweets'  Only accounts having at least this many
+%                           status upates (tweets) are included.
+%           - `start'       Begining datetime to start looking for players
+% @end  --
+emote(Tracker, Option) when   is_atom(Option)
+                       orelse is_tuple(Option) ->
+    emote(Tracker, [Option]);
+
+
+emote(Tracker, Options) ->
+    gen_server:cast(?MODULE, {emote, Tracker, Options}).
 
 
 
@@ -264,9 +321,9 @@ handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
                          end,
                      [big, reg]),
     RptMap = maps:from_list(Rpts),
-    RptTag = io_lib:format("~s.~B", [Tracker,
-                                     round(100 * BigP100)]),
-    r:report_emotions(RptTag, Period, RptMap),
+    r:report_emotions(wui:get_tag(Tracker, BigP100, Period),
+                      Period,
+                      RptMap),
     {reply, {ok, RptMap}, State#state{emo_report = RptMap}};
 
 
@@ -295,19 +352,19 @@ handle_cast(authenticate, State) ->
     {noreply, State};
 
 
-handle_cast({emote, Tracker}, State = #state{big_percent = BigP100,
-                                             tweet_todo  = TodoMap,
-                                             weka_node   = WekaNode}) ->
+handle_cast({emote, Tracker, Options}, State = #state{big_percent = BigP100,
+                                                      tweet_todo  = TodoMap,
+                                                      weka_node   = WekaNode}) ->
     ?notice("Preparing big-vs-regular player tweets"),
     {BigPlayers,
-     RegPlayers} = get_big_players(Tracker, BigP100),
+     RegPlayers} = get_big_players(Tracker, BigP100, Options),
     ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
 
     ActivityPct = round(100 * BigP100),
     NewTodo = lists:map(fun({Size, Players}) ->
                             % Pull the actual tweets for these players from the DB
                             ?debug("Pulling ~s-player tweets", [Size]),
-                            Tweets = twitter:get_tweets(Tracker, Players),
+                            Tweets = twitter:get_tweets(Tracker, Players, Options),
 
                             ?debug("Packaging tweets for Weka"),
                             FStub  = io_lib:format("tweets.~s.~B.~s", [Tracker, ActivityPct, Size]),
@@ -483,15 +540,10 @@ emote_tweets_csv({eof}, {Cnt, Unprocessed, EmoTweets}) ->
 emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
                  {Cnt, [Tweet | RestTweets], EmoTweets}) ->
     %
-    %debug("   tweet id : ~p : ~p~n", [Tweet#tweet.id, ID]),
-    %debug("screen name : ~s~n", [ScreenName]),
-    %debug("   emotions : A[~s] F[~s] S[~s] J[~s]~n", [Anger, Fear, Sadness, Joy]),
-    %debug("       text : ~s~n", [Tweet#tweet.text]),
-    %debug("-----------------------------------------------------"),
     ?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),
     %
     % Do a sanity check on the IDs
-    NewEmoTweets = case (Tweet#tweet.id =:= list_to_binary(ID)) of
+    case (Tweet#tweet.id =:= list_to_binary(ID)) of
 
         true ->
             Emotions = #emotions{count   = 1,
@@ -500,13 +552,15 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
                                              sadness => string_to_float(Sadness),
                                              joy     => string_to_float(Joy)}},
             EmoTweet = Tweet#tweet{emotions = Emotions},
-            [EmoTweet | EmoTweets];
+            {Cnt + 1, RestTweets, [EmoTweet | EmoTweets]};
 
         false ->
             ?warning("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
-            EmoTweets
-    end,
-    {Cnt + 1, RestTweets, NewEmoTweets}.
+            %debug("tweet id   : ~p : ~p~n", [Tweet#tweet.id, ID]),
+            %debug("screen name: ~s~n", [ScreenName]),
+            %debug("tweet text : ~s~n", [Tweet#tweet.text]),
+            exit(tweet_mismatch) %% {Cnt + 1, RestTweets, EmoTweets}
+    end.
 
 
 

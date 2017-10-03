@@ -17,4 +17,11 @@
 -define(REG_DIST, local).
 -define(WORK_DIR, "/tmp/sila").
 
+-type property()    :: atom() | {term(), term()}.
+-type proplist()    :: [property()].
+
+-define(DEFAULT_BIG_P100, 0.15).
+-define(DEFAULT_PERIOD,   "day").
+
+
 -endif.
