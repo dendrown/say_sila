@@ -38,20 +38,7 @@
 %       by the URL `querydata'.
 % @end  --
 out(Arg) ->
-    {BigRpt, RegRpt} = case wui:get_track(Arg) of
-        undefined ->
-            {#report{}, #report{}};
-
-        Track ->
-            StatDir = wui:get_status_dir(),
-            FileTag = wui:get_tag(Track),
-            {ok, RptBin} = file:read_file(io_lib:format("~s/~s.report.etf", [StatDir, FileTag])),
-            RptMap = binary_to_term(RptBin),
-            {maps:get(big, RptMap, #report{}),
-             maps:get(reg, RptMap, #report{})}
-    end,
-    %
-    % FIXME: We're currently only handling report periods of a day
+    {BigRpt, RegRpt} = wui:get_reports(Arg),
     BegDTS  = element(1, dts:earlier(BigRpt#report.beg_dts, RegRpt#report.beg_dts)),
     EndDTS  = element(1, dts:later(BigRpt#report.end_dts, RegRpt#report.end_dts)),
     RptSpan = io_lib:format("Report Span: ~s &ndash; ~s", [dts:str(BegDTS),

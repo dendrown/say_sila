@@ -22,6 +22,7 @@
         get_conf/0,
         get_graph_dir/0,
         get_status_dir/0,
+        get_reports/1,
         get_tag/1,
         get_tag/3,
         get_track/1]).
@@ -29,6 +30,7 @@
 
 -include("sila.hrl").
 -include("llog.hrl").
+-include("raven.hrl").
 -include("wui.hrl").
 
 
@@ -121,6 +123,34 @@ get_graph_dir() ->
 
 
 %%--------------------------------------------------------------------
+-spec get_reports(Arg :: arg()
+                       | atom()
+                       | string()) -> {report(), report()}.
+%%
+% @doc  Returns a double tuple with the Big Player Report and the
+%       Regular Player Report as indicated by `raven'.
+%
+%       FIXME: We're currently only handling report periods of a day
+% @end  --
+get_reports(Arg = #arg{}) ->
+    get_reports(get_track(Arg));
+
+
+get_reports(undefined) ->
+    {#report{}, #report{}};
+
+
+get_reports(Track) ->
+    StatDir = wui:get_status_dir(),
+    FileTag = wui:get_tag(Track),
+    {ok, RptBin} = file:read_file(io_lib:format("~s/~s.report.etf", [StatDir, FileTag])),
+    RptMap = binary_to_term(RptBin),
+    {maps:get(big, RptMap, #report{}),
+     maps:get(reg, RptMap, #report{})}.
+
+
+
+%%--------------------------------------------------------------------
 -spec get_status_dir() -> string().
 %%
 % @doc  Reports the directory where the WUI expects status and
@@ -132,7 +162,9 @@ get_status_dir() ->
 
 
 %%--------------------------------------------------------------------
--spec get_tag(Arg :: arg()) -> binary().
+-spec get_tag(Arg :: arg()
+                   | atom()
+                   | string()) -> binary().
 %%
 % @doc  Returns the naming tag as track.percent.period.
 % @end  --

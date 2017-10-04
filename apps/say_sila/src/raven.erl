@@ -591,13 +591,14 @@ report_aux([], Period, Report) ->
     Report;
 
 
-report_aux([#tweet{timestamp_ms = Millis1970,
-                   emotions     = TweetEmo} | RestTweets],
+report_aux([Tweet = #tweet{timestamp_ms = Millis1970,
+                           emotions     = TweetEmo} | RestTweets],
             Period,
             Report = #report{count    = Cnt,
                              beg_dts  = BegDTS,
                              end_dts  = EndDTS,
-                             emotions = RptEmos}) ->
+                             emotions = RptEmos,
+                             top_hits = TopHits}) ->
     % Tweet emotion calculations go into buckets representing the period
     DTS = dts:unix_to_datetime(Millis1970, millisecond),
     Key = case Period of
@@ -614,5 +615,6 @@ report_aux([#tweet{timestamp_ms = Millis1970,
     report_aux(RestTweets, Period, Report#report{count    = Cnt + 1,
                                                  beg_dts  = dts:earlier(BegDTS, Key),
                                                  end_dts  = dts:later(EndDTS, Key),
-                                                 emotions = maps:put(Key, NewEmo, RptEmos)}).
+                                                 emotions = maps:put(Key, NewEmo, RptEmos),
+                                                 top_hits = emo:do_top_hits(Tweet, TopHits)}).
 

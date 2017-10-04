@@ -17,6 +17,8 @@
 -export([out/1, out/2]).
 
 -include("llog.hrl").
+-include("raven.hrl").
+-include("twitter.hrl").
 -include("wui.hrl").
 
 
@@ -60,13 +62,53 @@ out(Arg, Emo) ->
         true ->
             <<"image/spock.png">>
     end,
-    {ehtml, [{h2,  [],  string:to_upper(Emo)},
-             {img, [{src,   ImgSrc},
-                    {class, <<"img-fluid">>},
-                    {alt,   [Emo, <<" analysis">>]}]}]}.
+    {BigRpt, RegRpt} = wui:get_reports(Arg),
+    {ehtml, [{h2,    [], string:to_upper(Emo)},
+             {img,   [{src,   ImgSrc},
+                      {class, <<"img-fluid">>},
+                      {alt,   [Emo, <<" analysis">>]}]},
+             {br,    []},
+             {br,    []},
+             {table, [{class, <<"table table-sm">>}],
+                     [{thead, [], {h4, [], <<"Big Player Top Tweets">>}},
+                      {tbody, [], get_top_hit_trs(Emo, BigRpt#report.top_hits)}]},
+             {br,    []},
+             {table, [{class, <<"table table-sm">>}],
+                     [{thead, [], {h4, [], <<"Regular Player Top Tweets">>}},
+                      {tbody, [], get_top_hit_trs(Emo, RegRpt#report.top_hits)}]} ]}.
 
 
 
 %%====================================================================
 %% Internal functions
-%%====================================================================
+%%--------------------------------------------------------------------
+-spec get_top_hit_trs(Emo     :: atom() | string(),
+                      TopHits :: map()) -> [tuple()].
+%%
+% @doc  Returns `ehtml' (tr/td) table rows representing the highest level
+%       tweets for the specified emotion.
+%
+%       FIXME: The main `out' function changes the emotion atom to a list,
+%              and here we change it back to an atoms.  Surely we can do
+%              better.
+%
+% @end  --
+get_top_hit_trs(Emo, TopHits) when is_list(Emo) ->
+    get_top_hit_trs(list_to_existing_atom(Emo), TopHits);
+
+
+get_top_hit_trs(Emo, TopHits) ->
+    case maps:get(Emo, TopHits, undefined) of
+        undefined ->
+            {tr, [], {td, [], io_lib:format("No tweets for ~s", [Emo])}};
+
+        EmoHits ->
+            lists:map(fun({Level, #tweet{text        = Text,
+                                         screen_name = Player}}) ->
+                          {tr, [],
+                               [{td, [], Player},
+                                {td, [], Text},
+                                {td, [], io_lib:format("~g", [Level])}]}
+                          end,
+                          lists:reverse(EmoHits))
+    end.
