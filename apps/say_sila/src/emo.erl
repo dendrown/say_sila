@@ -17,10 +17,13 @@
 
 -export([add/2,
          average/1,
+         do_top_hits/2,
          relevel/1,
          stoic/0]).
 
+-include("llog.hrl").
 -include("raven.hrl").
+-include("twitter.hrl").
 
 
 %%====================================================================
@@ -55,15 +58,47 @@ average(Emos = #emotions{count = Cnt}) ->
     end.
 
 
+%%--------------------------------------------------------------------
+-spec do_top_hits(Tweet   :: tweet(),
+                  TopHits :: map()) -> map().
+%
+% @doc  Determines if the specified Tweet is a "top hit" (if it registers
+%       extremely high for one [or more] emotions), and if so, updates
+%       the given TopHit map to include the Tweet, possibly removing a
+%       previous high-emotion tweet with a lower emotion level.
+% @end  --
+do_top_hits(Tweet = #tweet{emotions = TweetEmos}, TopHits) ->
+    TweetLevels = TweetEmos#emotions.levels,
+    CmpHits = fun(Emo) ->
+        % Add in the new Tweet, which may give us one too many "hits"
+        TweetLevel = maps:get(Emo, TweetLevels,  0.0),
+        Candidates = [{TweetLevel, Tweet} | maps:get(Emo, TopHits, [])],
+        NewHits = if
+            length(Candidates) > ?MAX_TOP_HITS ->
+                tl(lists:sort(Candidates));
+            true ->
+                lists:sort(Candidates)
+        end,
+        {Emo, NewHits}
+        end,
+    relevel(CmpHits).
+
+
 
 %%--------------------------------------------------------------------
 -spec relevel(Closure :: fun((atom()) -> {atom(), float()})) -> map().
 %
 % @doc  Applies the Closure function to all emotion values in the
 %       (wrapped) input map.
+%
+%       NOTE: Although this function is intended to recalculate emotion
+%             levels for a tweet or a collection of tweets, it can be
+%             used generically to apply all Sila's emotion atoms to any
+%             given function/closure.
 % @end  --
 relevel(Closure) ->
     Levels = lists:map(Closure, ?EMOTIONS),
+    %?debug("LEVELS: ~p", [Levels]),
     maps:from_list(Levels).
 
 
