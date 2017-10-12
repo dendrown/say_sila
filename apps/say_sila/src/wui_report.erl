@@ -50,9 +50,13 @@ out(Arg) ->
                               {th, [], <<"Regular Players">>}]},
                      {tbody, [],
                             [{tr, [],
+                                  [{td, [?RIGHT], <<"<b>Player Count:</b>">>},
+                                   {td, [?LEFT], io_lib:format("~B", [BigRpt#report.num_players])},
+                                   {td, [?LEFT], io_lib:format("~B", [RegRpt#report.num_players])}]},
+                             {tr, [],
                                   [{td, [?RIGHT], <<"<b>Tweet Count:</b>">>},
-                                   {td, [?LEFT], io_lib:format("~B", [BigRpt#report.count])},
-                                   {td, [?LEFT], io_lib:format("~B", [RegRpt#report.count])}]} ]}]}}.
+                                   {td, [?LEFT], io_lib:format("~B", [BigRpt#report.num_tweets])},
+                                   {td, [?LEFT], io_lib:format("~B", [RegRpt#report.num_tweets])}]} ]}]}}.
 
 
 

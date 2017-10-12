@@ -7,11 +7,22 @@ of my Ph.D. studies in _Informatique Cognitive_ at the _Université du Québec �
 Build
 -----
 
+We're not at the point where we're handling releases.  For the time being, build and run the main Erlang
+node from the repo:
+
     $ rebar3 compile
+    $ ERL_LIBS=_build/default/lib  erl -smp -sname sila -config ./say_sila.config
+
+    (sila1@devbox)1> sila:go().
+
+Or for a node that will be collecting the tweet stream, we can shortcut the Twitter authentication
+process:
+
+    (sila1@devbox)1> sila:go(twitter).
+
 
 TODO
 -----
-- Add BIG/REG player counts to WUI reports
 - Reformat WUI as GRAPH:HITS, scrolling vertically for the four emotions
 - In/exclude RTs in runs
 - Check language tag in tweet metadata
@@ -19,3 +30,4 @@ TODO
 - Allow **raven** to handle both hashtags at the same time (or distribute across procs/nodes)
 - Automate track reporting for daily updates
 - Keep track report history
+- Make ecsv behave when it encounters bad CSV data
