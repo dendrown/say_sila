@@ -40,14 +40,14 @@
 -record(tweet_slot, {category :: atom(),
                      players  :: players(),
                      tweets   :: tweets() }).
-%type tweet_slot() :: #tweet_slot{}.
+-type tweet_slot() :: #tweet_slot{}.
 
 
 -record(state, {tracker           :: atom(),
                 big_percent       :: float(),
                 emo_report  = #{} :: map(),
-                tweet_slots = #{} :: map(),
-                tweet_todo  = #{} :: map(),
+                tweet_slots = #{} :: map(),     % Tweets fully handled by emote
+                tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
                 weka_node         :: string() }).
 -type state() :: #state{}.
 
@@ -313,9 +313,9 @@ code_change(OldVsn, State, _Extra) ->
 handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
                                                     big_percent = BigP100,
                                                     tweet_slots = SlotMap}) ->
-    % FIXME: this intial version is coded as a one-shot, but
-    %        we will need to adjust and recalcuate automatically
-    %        every hour...
+    % TODO: this intial version is coded as a one-shot, but
+    %       we will need to adjust and recalcuate automatically
+    %       every day/hour...
     Rpts = lists:map(fun(Size) ->
                          {Size, report(Size, Period, maps:get(Size, SlotMap, []))}
                          end,
@@ -399,12 +399,16 @@ handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{twee
                                                                             tweet_todo  = TodoMap}) ->
     NewState = case maps:take(Ref, TodoMap) of
         {#tweet_slot{category = Category,
+                     players  = Players,
                      tweets   = Tweets},
          NewTodoMap} ->
             ?notice("Received CSV from Weka: pid[~p] cat[~s] csv[~s]",
                     [From, Category, FPathCSV]),
             EmoTweets = emote_tweets(Tweets, FPathCSV),
-            State#state{tweet_slots = maps:put(Category, EmoTweets, SlotMap),
+            TweetSlot = #tweet_slot{category = Category,
+                                    players  = Players,
+                                    tweets   = EmoTweets},
+            State#state{tweet_slots = maps:put(Category, TweetSlot, SlotMap),
                         tweet_todo  = NewTodoMap};
 
         error ->
@@ -565,17 +569,19 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
 
 
 %%--------------------------------------------------------------------
--spec report(Category :: atom(),
-             Period   :: atom(),
-             Tweets   :: tweets()) -> report().
+-spec report(Category  :: atom(),
+             Period    :: atom(),
+             TweetSlot :: tweet_slot()) -> report().
 %%
-% @doc  Runs through the specified `tweet' list and prepares period data
-%       for graph analysis under R.  The tuple returned to the caller
-%       includes the count of tweets processed, and the generated R
-%       source filename.
+% @doc  Runs through `tweets' in the `tweet_slot' and prepares period data
+%       for graph analysis under R.
 % @end  --
-report(Category, Period, Tweets) ->
-    report_aux(Tweets, Period, #report{category = Category}).
+report(Category, Period, #tweet_slot{players = Players,
+                                     tweets  = Tweets}) ->
+    report_aux(Tweets,
+               Period,
+               #report{category    = Category,
+                       num_players = length(Players)}).
 
 
 
@@ -594,11 +600,11 @@ report_aux([], Period, Report) ->
 report_aux([Tweet = #tweet{timestamp_ms = Millis1970,
                            emotions     = TweetEmo} | RestTweets],
             Period,
-            Report = #report{count    = Cnt,
-                             beg_dts  = BegDTS,
-                             end_dts  = EndDTS,
-                             emotions = RptEmos,
-                             top_hits = TopHits}) ->
+            Report = #report{num_tweets = Cnt,
+                             beg_dts    = BegDTS,
+                             end_dts    = EndDTS,
+                             emotions   = RptEmos,
+                             top_hits   = TopHits}) ->
     % Tweet emotion calculations go into buckets representing the period
     DTS = dts:unix_to_datetime(Millis1970, millisecond),
     Key = case Period of
@@ -612,9 +618,9 @@ report_aux([Tweet = #tweet{timestamp_ms = Millis1970,
         undefined -> TweetEmo;
         Emo       -> emo:add(Emo, TweetEmo)
     end,
-    report_aux(RestTweets, Period, Report#report{count    = Cnt + 1,
-                                                 beg_dts  = dts:earlier(BegDTS, Key),
-                                                 end_dts  = dts:later(EndDTS, Key),
-                                                 emotions = maps:put(Key, NewEmo, RptEmos),
-                                                 top_hits = emo:do_top_hits(Tweet, TopHits)}).
+    report_aux(RestTweets, Period, Report#report{num_tweets = Cnt + 1,
+                                                 beg_dts    = dts:earlier(BegDTS, Key),
+                                                 end_dts    = dts:later(EndDTS, Key),
+                                                 emotions   = maps:put(Key, NewEmo, RptEmos),
+                                                 top_hits   = emo:do_top_hits(Tweet, TopHits)}).
 

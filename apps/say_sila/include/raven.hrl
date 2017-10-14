@@ -40,12 +40,13 @@
 %
 % NOTE: `emotions' may be set to `info' if the record instance is informational only,
 %       usually for (WUI) user feedback about the real report
--record(report, {category               :: atom(),
-                 count    = 0           :: integer(),
-                 beg_dts  = ?END_EPOCH  :: tuple(),
-                 end_dts  = ?BEG_EPOCH  :: tuple(),
-                 emotions = #{}         :: map() | info,
-                 top_hits = #{}         :: map() }).        % emo => [level, tweet]
+-record(report, {category                  :: atom(),
+                 num_players = 0           :: integer(),
+                 num_tweets  = 0           :: integer(),
+                 beg_dts     = ?END_EPOCH  :: tuple(),
+                 end_dts     = ?BEG_EPOCH  :: tuple(),
+                 emotions    = #{}         :: map() | info,
+                 top_hits    = #{}         :: map() }).        % emo => [level, tweet]
 -type report() :: #report{}.
 
 
