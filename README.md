@@ -13,12 +13,12 @@ node from the repo:
     $ rebar3 compile
     $ ERL_LIBS=_build/default/lib  erl -smp -sname sila -config ./say_sila.config
 
-    (sila1@devbox)1> sila:go().
+    (sila@devbox)1> sila:go().
 
 Or for a node that will be collecting the tweet stream, we can shortcut the Twitter authentication
 process:
 
-    (sila1@devbox)1> sila:go(twitter).
+    (sila@devbox)1> sila:go(twitter).
 
 
 TODO
