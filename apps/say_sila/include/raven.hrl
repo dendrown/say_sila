@@ -43,11 +43,13 @@
 -record(report, {category                  :: atom(),
                  num_players = 0           :: integer(),
                  num_tweets  = 0           :: integer(),
+                 player_set                :: term(),           % Bookkeeping for subreports
                  beg_dts     = ?END_EPOCH  :: tuple(),
                  end_dts     = ?BEG_EPOCH  :: tuple(),
                  emotions    = #{}         :: map() | info,
-                 top_hits    = #{}         :: map() }).        % emo => [level, tweet]
--type report() :: #report{}.
+                 top_hits    = #{}         :: map() }).         % emo => [level, tweet]
+-type report()  :: #report{}.
+-type reports() :: [{atom(), report()}].                        % proplist of reports
 
 
 -endif.

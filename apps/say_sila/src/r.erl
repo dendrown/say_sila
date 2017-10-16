@@ -116,7 +116,7 @@ eval(Fmt, Args) ->
                       Period  :: atom(),
                       Reports :: map()) -> ok.
 %%
-% @doc  Create reports for hourly or daily (soon) emotion totals.
+% @doc  Create reports for hourly or daily emotion totals.
 % @end  --
 report_emotions(Tag, Period, Reports) ->
     gen_server:cast(?MODULE, {report_emotions, Tag, Period, Reports}).
@@ -202,29 +202,44 @@ handle_cast(connect, State) ->
     {Action, State#state{eri_status = Eri}};
 
 
-handle_cast({report_emotions, Tag, Period, #{big := BigRpt,
-                                             reg := RegRpt}},
+handle_cast({report_emotions, Tag, Period, #{big := BigRpts,
+                                             reg := RegRpts}},
             State) ->
+    % We need to pul a few common values out of the main report
+    BigMain = proplists:get_value(all, BigRpts),
+    RegMain = proplists:get_value(all, RegRpts),
+
     % Start with the earliest data and go to the latest,
     % but drop the last period as it will be a partial
-    BegDTS = dts:earlier(BigRpt#report.beg_dts,
-                         RegRpt#report.beg_dts),
-    EndDTS = dts:later(dts:sub(BigRpt#report.end_dts, 1, Period),
-                       dts:sub(RegRpt#report.end_dts, 1, Period)),
+    BegDTS = dts:earlier(BigMain#report.beg_dts,
+                         RegMain#report.beg_dts),
+    EndDTS = dts:later(dts:sub(BigMain#report.end_dts, 1, Period),
+                       dts:sub(RegMain#report.end_dts, 1, Period)),
     ?info("Running report from ~s to ~s: per[~s]", [dts:str(BegDTS),
                                                     dts:str(EndDTS),
                                                     Period]),
-    plot_emotions(Tag,
-                  Period,
-                  BegDTS,
-                  EndDTS,
-                  BigRpt#report.emotions,
-                  RegRpt#report.emotions),
+    % Use R-bridge to create the graphs
+    lists:foreach(fun(Type) ->
+                      BigRpt = maps:get(Type, BigRpts),
+                      RegRpt = maps:get(Type, RegRpts),
+                      plot_emotions(io_lib:format("~s.~s", [Tag, Type]),
+                                    Period,
+                                    BegDTS,
+                                    EndDTS,
+                                    BigRpt#report.emotions,
+                                    RegRpt#report.emotions)
+                      end,
+                  [all, tweet, retweet]),
 
     % Now that the graphs are there, update the report description data
+    %
+    % NOTE: We want to stub out the emotion data for the to-disk report stats
+    %       data to save space/complexity.
+    EmoStunter = fun({Type, Report}) -> {Type, Report#report{emotions = info}} end,
+
     RptStatsFPath = io_lib:format("~s/~s.report.etf", [wui:get_status_dir(), Tag]),
-    RptStatsMap   = #{big => BigRpt#report{emotions = info},
-                      reg => RegRpt#report{emotions = info}},
+    RptStatsMap   = #{big => lists:map(EmoStunter, BigRpts),
+                      reg => lists:map(EmoStunter, RegRpts)},
     file:write_file(RptStatsFPath, term_to_binary(RptStatsMap)),
 
     {noreply, State};
