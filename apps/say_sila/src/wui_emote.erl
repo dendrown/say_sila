@@ -51,6 +51,8 @@ out(Arg, Emo) when is_atom(Emo) ->
 
 out(Arg, Emo) ->
     %
+    EMO = string:to_upper(Emo),
+
     % TODO: Have raven check for valid emotion (else spock)
     %?debug("EMO: ~p", [Emo]),
     Track = wui:get_track(Arg),
@@ -69,19 +71,55 @@ out(Arg, Emo) ->
     BigRpt = proplists:get_value(all, BigRpts),
     RegRpt = proplists:get_value(all, RegRpts),
 
-    {ehtml, [{h2,    [], string:to_upper(Emo)},
-             {img,   [{src,   ImgSrc},
-                      {class, <<"img-fluid">>},
-                      {alt,   [Emo, <<" analysis">>]}]},
-             {br,    []},
-             {br,    []},
-             {table, [{class, <<"table table-sm">>}],
-                     [{thead, [], {h4, [], <<"Big Player Top Tweets">>}},
-                      {tbody, [], get_top_hit_trs(Emo, BigRpt#report.top_hits)}]},
-             {br,    []},
-             {table, [{class, <<"table table-sm">>}],
-                     [{thead, [], {h4, [], <<"Regular Player Top Tweets">>}},
-                      {tbody, [], get_top_hit_trs(Emo, RegRpt#report.top_hits)}]} ]}.
+    Left = [{h2,    [], EMO},
+            {img,   [{src,   ImgSrc},
+                     {class, <<"img-fluid">>},
+                     {alt,   [Emo, <<" analysis">>]}]}],
+
+    BigTweets = {table, [{class, <<"table table-sm">>}],
+                        [{thead, [], {h5, [], <<"Big Player Top Tweets">>}},
+                         {tbody, [], get_top_hit_trs(Emo, BigRpt#report.top_hits)}]},
+
+    RegTweets = {table, [{class, <<"table table-sm">>}],
+                        [{thead, [], {h5, [], <<"Regular Player Top Tweets">>}},
+                         {tbody, [], get_top_hit_trs(Emo, RegRpt#report.top_hits)}]},
+
+    NavLinks = lists:map(fun(Size) ->
+                             {Active, AriaExp} = case Size of
+                                 big -> {<<" active">>, {'aria-expanded', <<"true">>}};
+                                 _   -> {<<>>,          {dummy,           <<"noop">>}}
+                             end,
+                             {li, [{class, <<"nav-item">>}],
+                                  {a, [{'class',         io_lib:format("nav-link~s",  [Active])},
+                                       {'href',          io_lib:format("#~s-~s-text", [Emo, Size])},
+                                       {'id',            io_lib:format("~s-~s-link",  [Emo, Size])},
+                                       {'aria-controls', io_lib:format("~s-~s-text",  [Emo, Size])},
+                                       AriaExp,
+                                       {'data-toggle',   <<"tab">>},
+                                       {'role',          <<"tab">>}],
+                                      string:to_upper(atom_to_list(Size))}} 
+                             end,
+                         [big, reg]),
+
+    Right = [{ul, [{id,    [Emo, "-tabs"]},
+                   {class, <<"nav nav-tabs">>},
+                   {role,  <<"tablist">>}],
+                  NavLinks},
+             {'div', [{class, <<"tab-content">>},
+                      {id,    [Emo, "-tweets"]}],
+                     [{'div',  [{class,              <<"tab-pane fade show active">>},
+                                {id,                 [Emo, <<"-big-text">>]},
+                                {'aria-labelledby',  [Emo, <<"-big-link">>]},
+                                {role,               <<"tabpanel">>}],
+                               BigTweets},
+                      {'div',  [{class,              <<"tab-pane fade">>},
+                                {id,                 [Emo, <<"-reg-text">>]},
+                                {'aria-labelledby',  [Emo, <<"-reg-link">>]},
+                                {role,               <<"tabpanel">>}],
+                               RegTweets}]}],
+    {ehtml, [{'hr'},
+             {'div', [{class, <<"col">>}], Left},
+             {'div', [{class, <<"col">>}], Right}]}.
 
 
 
