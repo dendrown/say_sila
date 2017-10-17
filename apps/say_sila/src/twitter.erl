@@ -433,7 +433,8 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
     Query = io_lib:format("SELECT status->>'id' AS id, "
                                  "status->'user'->>'screen_name' AS screen_name, "
                                  "status->>'timestamp_ms' AS timestamp_ms, "
-                                 "status->>'text' AS text "
+                                 "status->>'text' AS text, "
+                                 "status->'retweeted_status'->>'id' AS retweeted_id "
                           "FROM tbl_statuses "
                           "WHERE track = '~s' "
                             "AND hash_~s "
@@ -446,7 +447,11 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
         {ok, _, Rows} -> [#tweet{id           = ID,
                                  screen_name  = SN,
                                  timestamp_ms = binary_to_integer(DTS),
-                                 text         = Text} || {ID, SN, DTS, Text} <- Rows];
+                                 text         = Text,
+                                 type         = case RTID of
+                                                    null -> tweet;
+                                                    _    -> retweet
+                                                end} || {ID, SN, DTS, Text, RTID} <- Rows];
         _             -> undefined
     end,
     {reply, Reply, State};

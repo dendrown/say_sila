@@ -327,7 +327,7 @@ handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
     r:report_emotions(wui:get_tag(Tracker, BigP100, Period),
                       Period,
                       RptMap),
-    {reply, {ok, RptMap}, State#state{emo_report = RptMap}};
+    {reply, ok, State#state{emo_report = RptMap}};
 
 
 handle_call(stop, _From, State) ->
@@ -594,15 +594,10 @@ report(Category, Period, #tweet_slot{players = Players,
                                           {tweet,   RptBase},
                                           {retweet, RptBase}]),
     ?info("Report  Tweets: tt[~B] rt[~B] all[~B] tot[~B]",
-          [proplists:get_value(tweet,   Reports#report.num_tweets),
-           proplists:get_value(retweet, Reports#report.num_tweets),
-           proplists:get_value(all,     Reports#report.num_tweets),
-           length(Tweets)]),
+          tt_rt_all(Reports, num_tweets) ++ [length(Tweets)]),
+
     ?info("Report Players: tt[~B] rt[~B] all[~B] tot[~B]",
-          [proplists:get_value(tweet,   Reports#report.num_players),
-           proplists:get_value(retweet, Reports#report.num_players),
-           proplists:get_value(all,     Reports#report.num_players),
-           length(Players)]),
+          tt_rt_all(Reports, num_players) ++ [length(Players)]),
     Reports.
 
 
@@ -651,7 +646,6 @@ report_aux([Tweet = #tweet{timestamp_ms = Millis1970} | RestTweets],
 %%
 % @doc  Handles a single tweet for the specified report type
 % @end  --
-
 report_tweet(Tweet = #tweet{type        = TweetType,
                             screen_name = ScreenName,
                             emotions    = TweetEmo},
@@ -664,9 +658,10 @@ report_tweet(Tweet = #tweet{type        = TweetType,
                               player_set  = PlayerSet,
                               emotions    = RptEmos,
                               top_hits    = TopHits}) ->
-    %
-    if  TweetType =:= all orelse
-        TweetType =:= RptType ->
+
+    %?debug("Type CMP: tt[~p] rpt[~p]", [TweetType, RptType]),
+    if  RptType =:= all orelse
+        RptType =:= TweetType ->
             % Add in this Tweets emotion for the current day/hour
             NewEmo = case maps:get(TimeSlice, RptEmos, undefined) of
                 undefined -> TweetEmo;
@@ -679,6 +674,32 @@ report_tweet(Tweet = #tweet{type        = TweetType,
                           end_dts     = NewEndDTS,
                           emotions    = maps:put(TimeSlice, NewEmo, RptEmos),
                           top_hits    = emo:do_top_hits(Tweet, TopHits)};
-        true -> Report
+
+        TweetType =:= undefined ->
+            error(bad_tweet);
+
+        true ->
+            Report
     end.
 
+
+
+
+%%--------------------------------------------------------------------
+-spec tt_rt_all(Reports :: reports(),
+                Field   :: atom()) -> atom().
+%%
+% @doc  Makes a list of the values for the specfied field for the
+%       `tweet', `retweet' and `all' reports.
+% @end  --
+tt_rt_all(Reports, Field) ->
+    % NOTE: Here's a candidate for parse_trans macros
+    %       https://github.com/uwiger/parse_trans
+    Fields = lists:zip(record_info(fields, report),
+                       lists:seq(2, record_info(size, report))),
+    RecElm = proplists:get_value(Field, Fields),
+    lists:map(fun(Type) ->
+                  Report = proplists:get_value(Type, Reports),
+                  element(RecElm, Report)
+                  end,
+              [tweet, retweet, all]).
