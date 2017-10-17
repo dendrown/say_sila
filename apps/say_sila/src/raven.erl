@@ -511,7 +511,7 @@ emote_tweets(Tweets, FPathCSV) ->
                                                         {0, Tweets, []},
                                                         #ecsv_opts{quote=$'}),
     file:close(InCSV),
-    ?info("Applied emotion: cnt[~B] arff[~s]", [Cnt, FPathCSV]),
+    ?notice("Applied emotion: cnt[~B] arff[~s]", [Cnt, FPathCSV]),
     EmoTweets.
 
 

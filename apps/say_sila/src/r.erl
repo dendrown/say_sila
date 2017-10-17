@@ -220,8 +220,8 @@ handle_cast({report_emotions, Tag, Period, #{big := BigRpts,
                                                     Period]),
     % Use R-bridge to create the graphs
     lists:foreach(fun(Type) ->
-                      BigRpt = maps:get(Type, BigRpts),
-                      RegRpt = maps:get(Type, RegRpts),
+                      BigRpt = proplists:get_value(Type, BigRpts),
+                      RegRpt = proplists:get_value(Type, RegRpts),
                       plot_emotions(io_lib:format("~s.~s", [Tag, Type]),
                                     Period,
                                     BegDTS,
