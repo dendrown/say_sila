@@ -62,7 +62,13 @@ out(Arg, Emo) ->
         true ->
             <<"image/spock.png">>
     end,
-    {BigRpt, RegRpt} = wui:get_reports(Arg),
+    % Big/Reg reports come as proplist triples
+    {BigRpts, RegRpts} = wui:get_reports(Arg),
+
+    %FIXME: Handle ALL reports
+    BigRpt = proplists:get_value(all, BigRpts),
+    RegRpt = proplists:get_value(all, RegRpts),
+
     {ehtml, [{h2,    [], string:to_upper(Emo)},
              {img,   [{src,   ImgSrc},
                       {class, <<"img-fluid">>},
