@@ -27,6 +27,32 @@
                 {ok, "gw"}  -> {"",         " active",  "#globalwarming"};
                 _           -> {"",         "",         "Your highly emotional reaction is most illogical"}
             end,
+            %
+            % Navigation options are set up as list items
+            [NavCC,
+             NavGW] = lists:map(fun({Title, Code, Active}) ->
+                                    {li, [{class, "nav-item" ++ Active}],
+                                         {a, [{class, <<"nav-link">>},
+                                              {href,  [<<"/?track=">>, Code]}],
+                                             [<<"#">>, Title]}}
+                                    end,
+                                [{<<"climatechange">>, <<"cc">>, ActiveCC},
+                                 {<<"globalwarming">>, <<"gw">>, ActiveGW}]),
+            TrackNavs = {ul,  [{class, <<"navbar-nav">>}], [NavCC, NavGW]},
+            %
+            % The Comms dropdown items are <a> links to reload the page
+            CommsBtn = {'div', [{class, <<"col-sm">>},
+                                {style, <<"text-align: right">>}],
+                               [{'div', [{class, <<"dropdown">>},
+                                         {style, <<"text-align: right">>}],
+                                        [{button, [{id,    <<"comms-btn">>},
+                                                   {class, <<"btn btn-secondary dropdown-toggle">>},
+                                                   {type,  <<"button">>},
+                                                   {'data-toggle',   <<"dropdown">>},
+                                                   {'aria-haspopup', <<"true">>},
+                                                   {'aria-expanded', <<"false">>}],
+                                        <<"Twitter Comms">>}] }]},
+
             {ehtml, [{h1,   [], HashTag},
                      % ---- NAVIGATION BAR ------------------------------------
                      {nav,  [{class, <<"navbar navbar-expand-lg navbar-dark">>},
@@ -44,15 +70,7 @@
                                       {span, [{class, <<"navbar-toggler-icon">>}]}},
                              {'div',  [{class, <<"collapse navbar-collapse">>},
                                        {id,    <<"sila-nav">>}],
-                                      {ul,  [{class, <<"navbar-nav">>}],
-                                            [{li, [{class, "nav-item" ++ ActiveCC}],
-                                                  {a, [{class, <<"nav-link">>},
-                                                       {href,  <<"/?track=cc">>}],
-                                                      <<"#climatechange">>}},
-                                             {li, [{class, "nav-item" ++ ActiveGW}],
-                                                  {a, [{class, <<"nav-link">>},
-                                                       {href,  <<"/?track=gw">>}],
-                                                      <<"#globalwarming">>}}]}}]}]}.
+                                      [TrackNavs, CommsBtn]}]}]}.
         </erl>
         <erl> % ---------------------------------------------------------------
         out(Arg) -> wui_report:out(Arg).
