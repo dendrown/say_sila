@@ -125,7 +125,7 @@ get_graph_dir() ->
 %%--------------------------------------------------------------------
 -spec get_reports(Arg :: arg()
                        | atom()
-                       | string()) -> {report(), report()}.
+                       | string()) -> {reports(), reports()}.
 %%
 % @doc  Returns a double tuple with the Big Player Report and the
 %       Regular Player Report as indicated by `raven'.
@@ -137,7 +137,11 @@ get_reports(Arg = #arg{}) ->
 
 
 get_reports(undefined) ->
-    {#report{}, #report{}};
+    EmptyRpt = #report{},
+    EmptySet = [{all,     EmptyRpt},
+                {tweet,   EmptyRpt},
+                {retweet, EmptyRpt}],
+    {EmptySet, EmptySet};
 
 
 get_reports(Track) ->
