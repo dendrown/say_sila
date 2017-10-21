@@ -68,8 +68,8 @@ out(Arg, Emo) ->
     {BigRpts, RegRpts} = wui:get_reports(Arg),
 
     %FIXME: Handle ALL reports
-    BigRpt = proplists:get_value(all, BigRpts),
-    RegRpt = proplists:get_value(all, RegRpts),
+    BigRpt = proplists:get_value(full, BigRpts),
+    RegRpt = proplists:get_value(full, RegRpts),
 
     Left = [{h2,    [], EMO},
             {img,   [{src,   ImgSrc},

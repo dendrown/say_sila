@@ -42,8 +42,8 @@ out(Arg) ->
     {BigRpts, RegRpts} = wui:get_reports(Arg),
 
     %FIXME: Handle ALL reports
-    BigRpt = proplists:get_value(all, BigRpts),
-    RegRpt = proplists:get_value(all, RegRpts),
+    BigRpt = proplists:get_value(full, BigRpts),
+    RegRpt = proplists:get_value(full, RegRpts),
 
     BegDTS  = element(1, dts:earlier(BigRpt#report.beg_dts, RegRpt#report.beg_dts)),
     EndDTS  = element(1, dts:later(BigRpt#report.end_dts, RegRpt#report.end_dts)),

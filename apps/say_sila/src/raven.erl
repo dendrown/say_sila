@@ -314,8 +314,8 @@ handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
                                                     big_percent = BigP100,
                                                     tweet_slots = SlotMap}) ->
     % Create two sets of three reports:
-    %   (1) big-player<all, TT, RT>,
-    %   (2) reg-player<all, TT, RT>
+    %   (1) big-player<full, TT, RT>,
+    %   (2) reg-player<full, TT, RT>
     % TODO: this intial version is coded as a one-shot, but
     %       we will need to adjust and recalcuate automatically
     %       every day/hour...
@@ -590,14 +590,14 @@ report(Category, Period, #tweet_slot{players = Players,
                       player_set  = gb_sets:new()},
     %
     % And turn that into our three reports
-    Reports = report_aux(Tweets, Period, [{all,     RptBase},
+    Reports = report_aux(Tweets, Period, [{full,    RptBase},
                                           {tweet,   RptBase},
                                           {retweet, RptBase}]),
-    ?info("Report  Tweets: tt[~B] rt[~B] all[~B] tot[~B]",
-          tt_rt_all(Reports, num_tweets) ++ [length(Tweets)]),
+    ?info("Report  Tweets: tt[~B] rt[~B] full[~B] tot[~B]",
+          tt_rt_full(Reports, num_tweets) ++ [length(Tweets)]),
 
-    ?info("Report Players: tt[~B] rt[~B] all[~B] tot[~B]",
-          tt_rt_all(Reports, num_players) ++ [length(Players)]),
+    ?info("Report Players: tt[~B] rt[~B] full[~B] tot[~B]",
+          tt_rt_full(Reports, num_players) ++ [length(Players)]),
     Reports.
 
 
@@ -625,7 +625,7 @@ report_aux([Tweet = #tweet{timestamp_ms = Millis1970} | RestTweets],
     end,
     %
     % All reports will have the same begin/end datetimes, so just calculate from the main
-    MainReport = proplists:get_value(all, Reports),
+    MainReport = proplists:get_value(full, Reports),
     NewBegDTS  = dts:earlier(MainReport#report.beg_dts, Key),
     NewEndDTS  = dts:later(MainReport#report.end_dts, Key),
     NewReports = lists:map(fun({Type, Report}) ->
@@ -641,7 +641,7 @@ report_aux([Tweet = #tweet{timestamp_ms = Millis1970} | RestTweets],
                    TimeSlice :: tuple(),
                    NewBegDTS :: tuple(),
                    NewEndDTS :: tuple(),
-                   RptType   :: tweet | retweet | all,
+                   RptType   :: tweet | retweet | full,
                    Report    :: report()) -> report().
 %%
 % @doc  Handles a single tweet for the specified report type
@@ -659,7 +659,7 @@ report_tweet(Tweet = #tweet{type        = TweetType,
                               top_hits    = TopHits}) ->
 
     %?debug("Type CMP: tt[~p] rpt[~p]", [TweetType, RptType]),
-    if  RptType =:= all orelse
+    if  RptType =:= full orelse
         RptType =:= TweetType ->
             % Add in this Tweets emotion for the current day/hour
             NewEmo = case maps:get(TimeSlice, RptEmos, undefined) of
@@ -686,13 +686,13 @@ report_tweet(Tweet = #tweet{type        = TweetType,
 
 
 %%--------------------------------------------------------------------
--spec tt_rt_all(Reports :: reports(),
+-spec tt_rt_full(Reports :: reports(),
                 Field   :: atom()) -> atom().
 %%
 % @doc  Makes a list of the values for the specfied field for the
 %       `tweet', `retweet' and `all' reports.
 % @end  --
-tt_rt_all(Reports, Field) ->
+tt_rt_full(Reports, Field) ->
     % NOTE: Here's a candidate for parse_trans macros
     %       https://github.com/uwiger/parse_trans
     Fields = lists:zip(record_info(fields, report),
@@ -702,4 +702,4 @@ tt_rt_all(Reports, Field) ->
                   Report = proplists:get_value(Type, Reports),
                   element(RecElm, Report)
                   end,
-              [tweet, retweet, all]).
+              [tweet, retweet, full]).

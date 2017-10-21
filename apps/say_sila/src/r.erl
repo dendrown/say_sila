@@ -206,8 +206,8 @@ handle_cast({report_emotions, Tag, Period, #{big := BigRpts,
                                              reg := RegRpts}},
             State) ->
     % We need to pul a few common values out of the main report
-    BigMain = proplists:get_value(all, BigRpts),
-    RegMain = proplists:get_value(all, RegRpts),
+    BigMain = proplists:get_value(full, BigRpts),
+    RegMain = proplists:get_value(full, RegRpts),
 
     % Start with the earliest data and go to the latest,
     % but drop the last period as it will be a partial
@@ -229,7 +229,7 @@ handle_cast({report_emotions, Tag, Period, #{big := BigRpts,
                                     BigRpt#report.emotions,
                                     RegRpt#report.emotions)
                       end,
-                  [all, tweet, retweet]),
+                  [full, tweet, retweet]),
 
     % Now that the graphs are there, update the report description data
     %

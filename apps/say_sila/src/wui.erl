@@ -19,6 +19,7 @@
 -export([start_link/1,
         stop/0,
         configure/0,
+        get_comms/1,
         get_conf/0,
         get_graph_dir/0,
         get_status_dir/0,
@@ -89,6 +90,21 @@ configure() ->
 
 
 %%--------------------------------------------------------------------
+-spec get_comms(Arg :: arg()) -> binary().
+%%
+% @doc  Returns the communications code requested in the YAWS `querydata'.
+% @end  --
+get_comms(Arg) ->
+    case yaws_api:queryvar(Arg, "comms") of
+        {ok, "full"}    -> <<"full">>;
+        {ok, "tweet"}   -> <<"tweet">>;
+        {ok, "retweet"} -> <<"retweet">>;
+        _               -> undefined
+    end.
+
+
+
+%%--------------------------------------------------------------------
 -spec get_conf() -> [tuple()].
 %%
 % @doc  Gets child process run specifications for YAWS processes.
@@ -138,7 +154,7 @@ get_reports(Arg = #arg{}) ->
 
 get_reports(undefined) ->
     EmptyRpt = #report{},
-    EmptySet = [{all,     EmptyRpt},
+    EmptySet = [{full,    EmptyRpt},
                 {tweet,   EmptyRpt},
                 {retweet, EmptyRpt}],
     {EmptySet, EmptySet};
