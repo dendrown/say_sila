@@ -39,18 +39,25 @@
                                     end,
                                 [{<<"climatechange">>, <<"cc">>, ActiveCC},
                                  {<<"globalwarming">>, <<"gw">>, ActiveGW}]),
-            TrackNavs = {ul,  [{class, <<"navbar-nav">>}], [NavCC, NavGW]},
+            TrackNavs = {'div', [{class, <<"col">>}],
+                                [{ul,  [{class, <<"navbar-nav">>}], [NavCC, NavGW]}]},
             %
             % The Comms dropdown items are <a> links to reload the page
-            CommsLinks = {'div', [{class,             <<"dropdown-menu dropdown-menu-right">>},
-                                  {'aria-labelledby', <<"comms-btn">>}],
-                                 [{a, [{class, <<"dropdown-item">>},
-                                       {type,  <<"button">>},
-                                       {href,  io_lib:format("/?track=~s&comms=~s", [Track, full])}],
-                                       <<"Full Comms">>}]
-                                  },
+            CommsLinks = lists:map(fun({Code, Text}) ->
+                                       {a, [{class, <<"dropdown-item">>},
+                                            {type,  <<"button">>},
+                                            {href,  io_lib:format("/?track=~s&comms=~s", [Track, Code])}],
+                                           Text}
+                                       end,
+                                       [{full,    <<"Full Comms">>},
+                                        {tweet,   <<"Tweets Only">>},
+                                        {retweet, <<"Retweets Only">>}]),
 
-            CommsBtn = {'div', [{class, <<"col-sm">>},
+            CommsMenu = {'div', [{class,             <<"dropdown-menu">>},
+                                 {'aria-labelledby', <<"comms-btn">>}],
+                                CommsLinks},
+
+            CommsBtn = {'div', [{class, <<"col-md-auto">>},
                                 {style, <<"text-align: right">>}],
                                [{'div', [{class, <<"dropdown show">>},
                                          {style, <<"text-align: right">>}],
@@ -62,7 +69,7 @@
                                               {'aria-haspopup', <<"true">>},
                                               {'aria-expanded', <<"false">>}],
                                              <<"Twitter Comms">>},
-                                         CommsLinks] }]},
+                                         CommsMenu] }]},
 
             {ehtml, [{h1,   [], HashTag},
                      % ---- NAVIGATION BAR ------------------------------------
@@ -131,14 +138,14 @@
 
         % ---------------------------------------------------------------------
         get_arg_dlist(Arg) ->
-            [<<"<dl>">>,
+            [<<"<table>">>,
              lists:map(fun({Field, Ndx}) ->
-                           io_lib:format("<dt>~p</dt><dd>~p</dd>", [Field,
-                                                                    element(Ndx, Arg)])
+                           io_lib:format("<tr><td><b>~p</b></td><td>~p</td></tr>", [Field,
+                                                                                    element(Ndx, Arg)])
                            end,
                        lists:zip(record_info(fields, arg),
                                  lists:seq(2, record_info(size, arg)))),
-             <<"</dl>">>].
+             <<"</table>">>].
 
         % ---------------------------------------------------------------------
         </erl>
