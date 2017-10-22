@@ -35,7 +35,7 @@
              NavGW] = lists:map(fun({Title, Code, Active}) ->
                                     {li, [{class, "nav-item" ++ Active}],
                                          {a, [{class, <<"nav-link">>},
-                                              {href,  [<<"/?track=">>, Code]}],
+                                              {href,  io_lib:format("/?track=~s&comms=~s", [Code, Comms])}],
                                              [<<"#">>, Title]}}
                                     end,
                                 [{<<"climatechange">>, <<"cc">>, ActiveCC},
@@ -132,8 +132,7 @@
 <!-- ------------------------------------------------------------------- -->
 <div class="row" style="background-color: #AAAAAA">
 <p>
-<erl>
-% ---------------------------------------------------------------------
+<erl> % ---------------------------------------------------------------
     out(Arg) ->
         {html, [<<"<h4>Erlang/YAWS</h4>">>, get_arg_dlist(Arg)]}.
 

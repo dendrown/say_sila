@@ -51,15 +51,16 @@ out(Arg, Emo) when is_atom(Emo) ->
 
 out(Arg, Emo) ->
     %
+    %?debug("EMO: ~p", [Emo]),
     EMO = string:to_upper(Emo),
 
     % TODO: Have raven check for valid emotion (else spock)
-    %?debug("EMO: ~p", [Emo]),
     Track = wui:get_track(Arg),
+    Comms = wui:get_comms_atom(Arg, full),
     ImgSrc = if
         Track =/=  undefined andalso
         Emo   =/= "undefined" ->
-            io_lib:format("graph/~s.~s.png", [wui:get_tag(Track), Emo]);
+            io_lib:format("graph/~s.~s.~s.png", [wui:get_tag(Track), Comms, Emo]);
 
         true ->
             <<"image/spock.png">>
@@ -67,9 +68,9 @@ out(Arg, Emo) ->
     % Big/Reg reports come as proplist triples
     {BigRpts, RegRpts} = wui:get_reports(Arg),
 
-    %FIXME: Handle ALL reports
-    BigRpt = proplists:get_value(full, BigRpts),
-    RegRpt = proplists:get_value(full, RegRpts),
+    % Are we doing the full/tweet/retweet version?
+    BigRpt = proplists:get_value(Comms, BigRpts),
+    RegRpt = proplists:get_value(Comms, RegRpts),
 
     Left = [{h2,    [], EMO},
             {img,   [{src,   ImgSrc},

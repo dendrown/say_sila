@@ -41,9 +41,10 @@ out(Arg) ->
     % Big/Reg reports come as proplist triples
     {BigRpts, RegRpts} = wui:get_reports(Arg),
 
-    %FIXME: Handle ALL reports
-    BigRpt = proplists:get_value(full, BigRpts),
-    RegRpt = proplists:get_value(full, RegRpts),
+    % Are we doing the full/tweet/retweet version?
+    Comms  = wui:get_comms_atom(Arg, full),
+    BigRpt = proplists:get_value(Comms, BigRpts),
+    RegRpt = proplists:get_value(Comms, RegRpts),
 
     BegDTS  = element(1, dts:earlier(BigRpt#report.beg_dts, RegRpt#report.beg_dts)),
     EndDTS  = element(1, dts:later(BigRpt#report.end_dts, RegRpt#report.end_dts)),
