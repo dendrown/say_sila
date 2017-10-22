@@ -13,19 +13,20 @@
 </head>
 <body>
 <div class="container-fluid">
-    <!-- ------------------------------------------------------------------- -->
-    <div class="row" style="background-color: #AAAAAA">
-        <div class="col" style="text-align: center">
-        <br/>
-        <erl> % ---------------------------------------------------------------
-        out(Arg) ->
+<!-- ------------------------------------------------------------------- -->
+<div class="row" style="background-color: #AAAAAA">
+<div class="col" style="text-align: center">
+<br/>
+<erl> % ---------------------------------------------------------------
+    out(Arg) ->
         Track = wui:get_track(Arg),
+        Comms = wui:get_comms(Arg, <<"full">>),
         {ActiveCC,
          ActiveGW,
-         HashTag} = case Track of
-                            %% --- CC ---   --- GW ---  ---- HASHTAG ----
-                <<"cc">> -> {" active",  "",         "#climatechange"};
-                <<"gw">> -> {"",         " active",  "#globalwarming"};
+         RptTitle} = case Track of
+                         %% --- CC ---   --- GW ---  ---- HASHTAG ----
+                <<"cc">> -> {" active",  "",         io_lib:format("#climatechange (~s)", [Comms])};
+                <<"gw">> -> {"",         " active",  io_lib:format("#globalwarming (~s)", [Comms])};
                 _        -> {"",         "",         "Your highly emotional reaction is most illogical"}
             end,
             %
@@ -71,7 +72,7 @@
                                              <<"Twitter Comms">>},
                                          CommsMenu] }]},
 
-            {ehtml, [{h1,   [], HashTag},
+            {ehtml, [{h1,   [], RptTitle},
                      % ---- NAVIGATION BAR ------------------------------------
                      {nav,  [{class, <<"navbar navbar-expand-lg navbar-dark">>},
                              {style, <<"background-color: #606060">>}],
@@ -89,68 +90,66 @@
                              {'div',  [{class, <<"collapse navbar-collapse">>},
                                        {id,    <<"sila-nav">>}],
                                       [TrackNavs, CommsBtn]}]}]}.
-        </erl>
-        <erl> % ---------------------------------------------------------------
-        out(Arg) -> wui_report:out(Arg).
-        </erl>
-        </div>
-    </div>
+</erl>
+<erl> % ---------------------------------------------------------------
+    out(Arg) -> wui_report:out(Arg).
+</erl>
+</div>
+</div>
 
-    <div class="row" style="text-align: center; background-color: #00FF00">
-    <br/>
-    <erl> % ---------------------------------------------------------------
+<div class="row" style="text-align: center; background-color: #00FF00">
+<br/>
+<erl> % ---------------------------------------------------------------
     out(Arg) -> wui_emote:out(Arg, fear).
-    </erl>
-    <p>&nbsp;</p>
-    </div>
+</erl>
+<p>&nbsp;</p>
+</div>
 
-    <div class="row" style="text-align: center; background-color: #FF0000">
-    <br/>
-    <erl> % ---------------------------------------------------------------
+<div class="row" style="text-align: center; background-color: #FF0000">
+<br/>
+<erl> % ---------------------------------------------------------------
     out(Arg) -> wui_emote:out(Arg, anger).
-    </erl>
-    <p>&nbsp;</p>
-    </div>
+</erl>
+<p>&nbsp;</p>
+</div>
 
-    <div class="row" style="text-align: center; background-color: #6666FF">
-    <br/>
-    <erl> % ---------------------------------------------------------------
+<div class="row" style="text-align: center; background-color: #6666FF">
+<br/>
+<erl> % ---------------------------------------------------------------
     out(Arg) -> wui_emote:out(Arg, sadness).
-    </erl>
-    <p>&nbsp;</p>
-    </div>
+</erl>
+<p>&nbsp;</p>
+</div>
 
-    <div class="row" style="text-align: center; background-color: #FFFF33">
-    <br/>
-    <erl> % ---------------------------------------------------------------
+<div class="row" style="text-align: center; background-color: #FFFF33">
+<br/>
+<erl> % ---------------------------------------------------------------
     out(Arg) -> wui_emote:out(Arg, joy).
-    </erl>
-    <p>&nbsp;</p>
-    </div>
+</erl>
+<p>&nbsp;</p>
+</div>
 
-    <!-- ------------------------------------------------------------------- -->
-    <div class="row" style="background-color: #AAAAAA">
-    <p>
-        <erl>
-        % ---------------------------------------------------------------------
-        out(Arg) ->
-            {html, [<<"<h4>Erlang/YAWS</h4>">>, get_arg_dlist(Arg)]}.
+<!-- ------------------------------------------------------------------- -->
+<div class="row" style="background-color: #AAAAAA">
+<p>
+<erl>
+% ---------------------------------------------------------------------
+    out(Arg) ->
+        {html, [<<"<h4>Erlang/YAWS</h4>">>, get_arg_dlist(Arg)]}.
 
-        % ---------------------------------------------------------------------
-        get_arg_dlist(Arg) ->
-            [<<"<table>">>,
-             lists:map(fun({Field, Ndx}) ->
-                           io_lib:format("<tr><td><b>~p</b></td><td>~p</td></tr>", [Field,
-                                                                                    element(Ndx, Arg)])
-                           end,
-                       lists:zip(record_info(fields, arg),
-                                 lists:seq(2, record_info(size, arg)))),
-             <<"</table>">>].
-
-        % ---------------------------------------------------------------------
-        </erl>
-    </p>
-    </div>
+    % -----------------------------------------------------------------
+    get_arg_dlist(Arg) ->
+        [<<"<table>">>,
+         lists:map(fun({Field, Ndx}) ->
+                       io_lib:format("<tr><td><b>~p</b></td><td>~p</td></tr>", [Field,
+                                                                                element(Ndx, Arg)])
+                       end,
+                   lists:zip(record_info(fields, arg),
+                             lists:seq(2, record_info(size, arg)))),
+         <<"</table>">>].
+</erl>
+</p>
+</div>
 </div>
 <!-- ClojureScript goes here -->
 <script>

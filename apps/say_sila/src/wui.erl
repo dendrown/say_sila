@@ -20,6 +20,7 @@
         stop/0,
         configure/0,
         get_comms/1,
+        get_comms/2,
         get_conf/0,
         get_graph_dir/0,
         get_status_dir/0,
@@ -90,16 +91,28 @@ configure() ->
 
 
 %%--------------------------------------------------------------------
--spec get_comms(Arg :: arg()) -> binary().
+-spec get_comms(Arg :: arg()) -> binary() | undefined.
+%%
+% @doc  Returns the communications code requested in the YAWS `querydata';
+%       or `undefined' if the comms code is not available.
+% @end  --
+get_comms(Arg) ->
+    get_comms(Arg, undefined).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_comms(Arg     :: arg(),
+                Default :: term()) -> term().
 %%
 % @doc  Returns the communications code requested in the YAWS `querydata'.
 % @end  --
-get_comms(Arg) ->
+get_comms(Arg, Default) ->
     case yaws_api:queryvar(Arg, "comms") of
         {ok, "full"}    -> <<"full">>;
         {ok, "tweet"}   -> <<"tweet">>;
         {ok, "retweet"} -> <<"retweet">>;
-        _               -> undefined
+        _               -> Default
     end.
 
 
