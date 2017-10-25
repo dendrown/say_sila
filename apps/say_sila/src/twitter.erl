@@ -71,6 +71,8 @@
                       gw => ?HASH_GW}).
 -define(hashtag(Key), maps:get(Key, ?HASHTAGS, undefined)).
 
+% Hard-coding a few values that should remain constant through the preliminary research
+-define(DB_LANG,  <<"en">>).                        % NOTE: language affects who is a player
 -define(DB_TRACK, << ?HASH_CC "," ?HASH_GW >>).
 
 
@@ -379,9 +381,9 @@ handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
 handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) ->
     Query = io_lib:format("SELECT status->>'timestamp_ms' AS timestamp_ms "
                           "FROM tbl_statuses "
-                          "WHERE track = '~s' AND hash_~s "
+                          "WHERE track = '~s' AND hash_~s AND status->>'lang' = '~s'"
                           "ORDER BY status->'timestamp_ms' LIMIT 1",
-                          [?DB_TRACK, Tracker]),
+                          [?DB_TRACK, Tracker, ?DB_LANG]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, [{DTS}]} -> binary_to_integer(DTS);
@@ -401,10 +403,10 @@ handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBC
     Query = io_lib:format("SELECT status->'user'->>'screen_name' AS screen_name, "
                                  "COUNT(1) AS cnt "
                           "FROM tbl_statuses "
-                          "WHERE (track = '~s') AND hash_~s ~s"
+                          "WHERE (track = '~s') AND hash_~s AND status->>'lang' = '~s' ~s"
                           "GROUP BY screen_name ~s"
                           "ORDER BY cnt DESC",
-                          [?DB_TRACK, Tracker, AndWhere, Having]),
+                          [?DB_TRACK, Tracker, ?DB_LANG, AndWhere, Having]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#player{screen_name = SN,
@@ -431,19 +433,25 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
     Query = io_lib:format("SELECT status->>'id' AS id, "
                                  "status->'user'->>'screen_name' AS screen_name, "
                                  "status->>'timestamp_ms' AS timestamp_ms, "
-                                 "status->>'text' AS text "
+                                 "status->>'text' AS text, "
+                                 "status->'retweeted_status'->>'id' AS retweeted_id "
                           "FROM tbl_statuses "
                           "WHERE track = '~s' "
-                            "AND hash_~s ~s"
+                            "AND hash_~s "
+                            "AND status->>'lang' ='~s' ~s"
                             "AND status->'user'->>'screen_name' IN ~s "
                           "ORDER BY timestamp_ms",
-                          [?DB_TRACK, Tracker, get_timestamp_ms_sql("AND", Options), ScreenNameSQL]),
+                          [?DB_TRACK, Tracker, ?DB_LANG, get_timestamp_ms_sql("AND", Options), ScreenNameSQL]),
     %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#tweet{id           = ID,
                                  screen_name  = SN,
                                  timestamp_ms = binary_to_integer(DTS),
-                                 text         = Text} || {ID, SN, DTS, Text} <- Rows];
+                                 text         = Text,
+                                 type         = case RTID of
+                                                    null -> tweet;
+                                                    _    -> retweet
+                                                end} || {ID, SN, DTS, Text, RTID} <- Rows];
         _             -> undefined
     end,
     {reply, Reply, State};

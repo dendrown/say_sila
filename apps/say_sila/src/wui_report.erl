@@ -38,16 +38,23 @@
 %       by the URL `querydata'.
 % @end  --
 out(Arg) ->
-    {BigRpt, RegRpt} = wui:get_reports(Arg),
+    % Big/Reg reports come as proplist triples
+    {BigRpts, RegRpts} = wui:get_reports(Arg),
+
+    % Are we doing the full/tweet/retweet version?
+    Comms  = wui:get_comms_atom(Arg, full),
+    BigRpt = proplists:get_value(Comms, BigRpts),
+    RegRpt = proplists:get_value(Comms, RegRpts),
+
     BegDTS  = element(1, dts:earlier(BigRpt#report.beg_dts, RegRpt#report.beg_dts)),
     EndDTS  = element(1, dts:later(BigRpt#report.end_dts, RegRpt#report.end_dts)),
     RptSpan = io_lib:format("Report Span: ~s &ndash; ~s", [dts:str(BegDTS),
                                                            dts:str(EndDTS)]),
     {ehtml, {table, [{class, <<"table table-sm">>}],
                     [{thead, [],
-                             [{th, [], RptSpan},
-                              {th, [], <<"Big Players">>},
-                              {th, [], <<"Regular Players">>}]},
+                             [{th, [?LEFT], RptSpan},
+                              {th, [?LEFT], <<"Big Players">>},
+                              {th, [?LEFT], <<"Regular Players">>}]},
                      {tbody, [],
                             [{tr, [],
                                   [{td, [?RIGHT], <<"<b>Player Count:</b>">>},

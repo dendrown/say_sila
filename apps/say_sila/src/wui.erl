@@ -19,12 +19,13 @@
 -export([start_link/1,
         stop/0,
         configure/0,
+        get_comms/1,        get_comms/2,
+        get_comms_atom/1,   get_comms_atom/2,
         get_conf/0,
         get_graph_dir/0,
         get_status_dir/0,
         get_reports/1,
-        get_tag/1,
-        get_tag/3,
+        get_tag/1,          get_tag/3,
         get_track/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -89,6 +90,61 @@ configure() ->
 
 
 %%--------------------------------------------------------------------
+-spec get_comms(Arg :: arg()) -> binary() | undefined.
+%%
+% @doc  Returns the communications code requested in the YAWS `querydata';
+%       or `undefined' if the comms code is not available.
+% @end  --
+get_comms(Arg) ->
+    get_comms(Arg, undefined).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_comms(Arg     :: arg(),
+                Default :: term()) -> term().
+%%
+% @doc  Returns the communications code requested in the YAWS `querydata';
+%       or the specified Default if the comms code is not available.
+% @end  --
+get_comms(Arg, Default) ->
+    case yaws_api:queryvar(Arg, "comms") of
+        {ok, "full"}    -> <<"full">>;
+        {ok, "tweet"}   -> <<"tweet">>;
+        {ok, "retweet"} -> <<"retweet">>;
+        _               -> Default
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_comms_atom(Arg :: arg()) -> atom().
+%%
+% @doc  Returns the communications code requested in the YAWS `querydata';
+%       or `undefined' if the comms code is not available.
+% @end  --
+get_comms_atom(Arg) ->
+    get_comms(Arg, undefined).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_comms_atom(Arg     :: arg(),
+                     Default :: term()) -> atom().
+%%
+% @doc  Returns the communications code requested in the YAWS `querydata';
+%       or the specified Default if the comms code is not available.
+% @end  --
+get_comms_atom(Arg, Default) ->
+    Comms = get_comms(Arg, Default),
+    if  is_atom(Comms)   -> Comms;
+        is_binary(Comms) -> binary_to_existing_atom(Comms, utf8);
+        is_list(Comms)   -> list_to_existing_atom(Comms)
+    end.
+
+
+
+%%--------------------------------------------------------------------
 -spec get_conf() -> [tuple()].
 %%
 % @doc  Gets child process run specifications for YAWS processes.
@@ -125,7 +181,7 @@ get_graph_dir() ->
 %%--------------------------------------------------------------------
 -spec get_reports(Arg :: arg()
                        | atom()
-                       | string()) -> {report(), report()}.
+                       | string()) -> {reports(), reports()}.
 %%
 % @doc  Returns a double tuple with the Big Player Report and the
 %       Regular Player Report as indicated by `raven'.
@@ -137,7 +193,11 @@ get_reports(Arg = #arg{}) ->
 
 
 get_reports(undefined) ->
-    {#report{}, #report{}};
+    EmptyRpt = #report{},
+    EmptySet = [{full,    EmptyRpt},
+                {tweet,   EmptyRpt},
+                {retweet, EmptyRpt}],
+    {EmptySet, EmptySet};
 
 
 get_reports(Track) ->

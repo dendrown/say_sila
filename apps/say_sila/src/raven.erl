@@ -313,6 +313,9 @@ code_change(OldVsn, State, _Extra) ->
 handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
                                                     big_percent = BigP100,
                                                     tweet_slots = SlotMap}) ->
+    % Create two sets of three reports:
+    %   (1) big-player<full, TT, RT>,
+    %   (2) reg-player<full, TT, RT>
     % TODO: this intial version is coded as a one-shot, but
     %       we will need to adjust and recalcuate automatically
     %       every day/hour...
@@ -324,7 +327,7 @@ handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
     r:report_emotions(wui:get_tag(Tracker, BigP100, Period),
                       Period,
                       RptMap),
-    {reply, {ok, RptMap}, State#state{emo_report = RptMap}};
+    {reply, ok, State#state{emo_report = RptMap}};
 
 
 handle_call(stop, _From, State) ->
@@ -508,7 +511,7 @@ emote_tweets(Tweets, FPathCSV) ->
                                                         {0, Tweets, []},
                                                         #ecsv_opts{quote=$'}),
     file:close(InCSV),
-    ?info("Applied emotion: cnt[~B] arff[~s]", [Cnt, FPathCSV]),
+    ?notice("Applied emotion: cnt[~B] arff[~s]", [Cnt, FPathCSV]),
     EmoTweets.
 
 
@@ -571,40 +574,49 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
 %%--------------------------------------------------------------------
 -spec report(Category  :: atom(),
              Period    :: atom(),
-             TweetSlot :: tweet_slot()) -> report().
+             TweetSlot :: tweet_slot()) -> [{atom(), report()}].
 %%
-% @doc  Runs through `tweets' in the `tweet_slot' and prepares period data
-%       for graph analysis under R.
+% @doc  Runs through `tweets' in the `tweet_slot' and prepares three
+%       reports of period data for graph analysis under R:
+%           - `all':     All the tweets in the `tweet_slot'
+%           - `tweet':   Subset of original tweets only
+%           - `retweet': Subset of retweets only
 % @end  --
 report(Category, Period, #tweet_slot{players = Players,
                                      tweets  = Tweets}) ->
-    report_aux(Tweets,
-               Period,
-               #report{category    = Category,
-                       num_players = length(Players)}).
+    %
+    % Create a report template as a starting base
+    RptBase = #report{category    = Category,
+                      player_set  = gb_sets:new()},
+    %
+    % And turn that into our three reports
+    Reports = report_aux(Tweets, Period, [{full,    RptBase},
+                                          {tweet,   RptBase},
+                                          {retweet, RptBase}]),
+    ?info("Report  Tweets: tt[~B] rt[~B] full[~B] tot[~B]",
+          tt_rt_full(Reports, num_tweets) ++ [length(Tweets)]),
+
+    ?info("Report Players: tt[~B] rt[~B] full[~B] tot[~B]",
+          tt_rt_full(Reports, num_players) ++ [length(Players)]),
+    Reports.
 
 
 
 %%--------------------------------------------------------------------
--spec report_aux(Tweets :: tweets(),
-                 Period :: atom(),
-                 Report :: report()) -> report().
+-spec report_aux(Tweets  :: tweets(),
+                 Period  :: atom(),
+                 Reports :: [{atom(), report()}]) -> report().
 %%
 % @doc  Workhorse for `report/3'.
 % @end  --
-report_aux([], Period, Report) ->
+report_aux([], Period, Reports) ->
     ?debug("Compiled tweets for reporting: per[~s]", [Period]),
-    Report;
+    Reports;
 
 
-report_aux([Tweet = #tweet{timestamp_ms = Millis1970,
-                           emotions     = TweetEmo} | RestTweets],
+report_aux([Tweet = #tweet{timestamp_ms = Millis1970} | RestTweets],
             Period,
-            Report = #report{num_tweets = Cnt,
-                             beg_dts    = BegDTS,
-                             end_dts    = EndDTS,
-                             emotions   = RptEmos,
-                             top_hits   = TopHits}) ->
+            Reports) ->
     % Tweet emotion calculations go into buckets representing the period
     DTS = dts:unix_to_datetime(Millis1970, millisecond),
     Key = case Period of
@@ -612,15 +624,82 @@ report_aux([Tweet = #tweet{timestamp_ms = Millis1970,
         hour -> dts:hourize(DTS)
     end,
     %
-    % NOTE: The emotion structures are evolving as we test and incorporate
-    %       the various lexicons...
-    NewEmo = case maps:get(Key, RptEmos, undefined) of
-        undefined -> TweetEmo;
-        Emo       -> emo:add(Emo, TweetEmo)
-    end,
-    report_aux(RestTweets, Period, Report#report{num_tweets = Cnt + 1,
-                                                 beg_dts    = dts:earlier(BegDTS, Key),
-                                                 end_dts    = dts:later(EndDTS, Key),
-                                                 emotions   = maps:put(Key, NewEmo, RptEmos),
-                                                 top_hits   = emo:do_top_hits(Tweet, TopHits)}).
+    % All reports will have the same begin/end datetimes, so just calculate from the main
+    MainReport = proplists:get_value(full, Reports),
+    NewBegDTS  = dts:earlier(MainReport#report.beg_dts, Key),
+    NewEndDTS  = dts:later(MainReport#report.end_dts, Key),
+    NewReports = lists:map(fun({Type, Report}) ->
+                               {Type, report_tweet(Tweet, Key, NewBegDTS, NewEndDTS, Type, Report)}
+                               end,
+                           Reports),
+    report_aux(RestTweets, Period, NewReports).
 
+
+
+%%--------------------------------------------------------------------
+-spec report_tweet(Tweet     :: tweet(),
+                   TimeSlice :: tuple(),
+                   NewBegDTS :: tuple(),
+                   NewEndDTS :: tuple(),
+                   RptType   :: tweet | retweet | full,
+                   Report    :: report()) -> report().
+%%
+% @doc  Handles a single tweet for the specified report type
+% @end  --
+report_tweet(Tweet = #tweet{type        = TweetType,
+                            screen_name = ScreenName,
+                            emotions    = TweetEmo},
+             TimeSlice,
+             NewBegDTS,
+             NewEndDTS,
+             RptType,
+             Report = #report{num_tweets  = TweetCnt,
+                              player_set  = PlayerSet,
+                              emotions    = RptEmos,
+                              top_hits    = TopHits}) ->
+
+    %?debug("Type CMP: tt[~p] rpt[~p]", [TweetType, RptType]),
+    if  RptType =:= full orelse
+        RptType =:= TweetType ->
+            % Add in this Tweets emotion for the current day/hour
+            NewEmo = case maps:get(TimeSlice, RptEmos, undefined) of
+                undefined -> TweetEmo;
+                Emo       -> emo:add(Emo, TweetEmo)
+            end,
+            NewPlayerSet = gb_sets:add_element(ScreenName, PlayerSet),
+            Report#report{num_tweets  = TweetCnt  + 1,
+                          num_players = gb_sets:size(NewPlayerSet),
+                          player_set  = NewPlayerSet,
+                          beg_dts     = NewBegDTS,
+                          end_dts     = NewEndDTS,
+                          emotions    = maps:put(TimeSlice, NewEmo, RptEmos),
+                          top_hits    = emo:do_top_hits(Tweet, TopHits)};
+
+        TweetType =:= undefined ->
+            error(bad_tweet);
+
+        true ->
+            Report
+    end.
+
+
+
+
+%%--------------------------------------------------------------------
+-spec tt_rt_full(Reports :: reports(),
+                Field   :: atom()) -> atom().
+%%
+% @doc  Makes a list of the values for the specfied field for the
+%       `tweet', `retweet' and `all' reports.
+% @end  --
+tt_rt_full(Reports, Field) ->
+    % NOTE: Here's a candidate for parse_trans macros
+    %       https://github.com/uwiger/parse_trans
+    Fields = lists:zip(record_info(fields, report),
+                       lists:seq(2, record_info(size, report))),
+    RecElm = proplists:get_value(Field, Fields),
+    lists:map(fun(Type) ->
+                  Report = proplists:get_value(Type, Reports),
+                  element(RecElm, Report)
+                  end,
+              [tweet, retweet, full]).

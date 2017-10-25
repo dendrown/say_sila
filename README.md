@@ -23,11 +23,11 @@ process:
 
 TODO
 -----
-- Reformat WUI as GRAPH:HITS, scrolling vertically for the four emotions
-- In/exclude RTs in runs
-- Check language tag in tweet metadata
 - Compare tracking reports using different lexicons (allow combinatiions)
 - Allow **raven** to handle both hashtags at the same time (or distribute across procs/nodes)
 - Automate track reporting for daily updates
 - Keep track report history
 - Make ecsv behave when it encounters bad CSV data
+- ~~Reformat WUI as GRAPH:HITS, scrolling vertically for the four emotions~~
+- ~~In/exclude RTs in runs~~
+- ~~Check language tag in tweet metadata~~

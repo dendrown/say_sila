@@ -21,6 +21,7 @@
                 timestamp_ms:: pos_integer(),
                 screen_name :: binary(),
                 text        :: binary(),
+                type        :: tweet | retweet | undefined,
                 emotions    :: emotions() }).
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
