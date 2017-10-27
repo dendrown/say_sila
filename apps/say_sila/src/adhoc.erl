@@ -28,14 +28,16 @@ md(Track, Bigs) ->
          100 * length(lists:filter(fun(#tweet{type=Type}) -> Type =:= retweet end, Full)) / FLen}
         end,
     GetMD  = fun(N) ->
-        Player = lists:nth(N, Bigs),
-        Tweets = twitter:get_tweets(Track, Player, ?OPTS),
+        Player  = lists:nth(N, Bigs),
+        ScrName = Player#player.screen_name,
+        Profile = io_lib:format("[~s](https://twitter.com/~s)", [ScrName, ScrName]),
+        Tweets  = twitter:get_tweets(Track, Player, ?OPTS),
         {Count, TT100, RT100} = P100(Tweets),
-        io:format("| ~-16s | ~4B | ~3B | ~3B |~n", [Player#player.screen_name,
+        io:format("| ~-56s | ~4B | ~3B | ~3B |~n", [Profile,
                                                     Count,
                                                     round(TT100),
                                                     round(RT100)])
         end,
-    io:format("| Screen Name      | Total| TT% | RT% |~n"),
-    io:format("| ---------------- | ----:| ---:| ---:|~n"),
+    io:format("| Screen Name                                              | Total| TT% | RT% |~n"),
+    io:format("| -------------------------------------------------------- | ----:| ---:| ---:|~n"),
     lists:foreach(GetMD, lists:seq(1, length(Bigs))).
