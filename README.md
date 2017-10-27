@@ -76,7 +76,7 @@ To Ponder
 
 ### `#globalwarming` Big Player tweet/retweet percentages for Oct. 1-27.
 
-| Screen Name      | Total|  TT |  RT |
+| Screen Name      | Total| TT% | RT% |
 | ---------------- | ----:| ---:| ---:|
 | CreativeCivil    |  479 | 100 |   0 |
 | EHFoundation237  |  441 |   0 | 100 |
