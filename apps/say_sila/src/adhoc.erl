@@ -36,6 +36,6 @@ md(Track, Bigs) ->
                                                     round(TT100),
                                                     round(RT100)])
         end,
-    io:format("| Screen Name      | Total|  TT |  RT |~n"),
-    io:format("| CreativeCivil    | ----:| ---:| ---:|~n"),
+    io:format("| Screen Name      | Total| TT% | RT% |~n"),
+    io:format("| ---------------- | ----:| ---:| ---:|~n"),
     lists:foreach(GetMD, lists:seq(1, length(Bigs))).
