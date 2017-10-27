@@ -6,7 +6,8 @@
   {mod, { say_sila_app, []}},
   {applications, [kernel, stdlib ]},
   {env,[]},
-  {modules, [dts,
+  {modules, [adhoc, %% DEBUG
+             dts,
              emo,
              llog,
              r,
