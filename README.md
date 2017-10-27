@@ -34,40 +34,69 @@ TODO
 
 To Ponder
 ---------
-`#climatechange` Big Player tweet/retweet percentages for Oct. 1-27.
-```
-EHFoundation237: full[5272]  tt[  0]  rt[100]
-TrumpvsScience:  full[2728]  tt[  0]  rt[100]
-NRGrenaissance:  full[2199]  tt[  0]  rt[100]
-eljmkt_daily:    full[2066]  tt[100]  rt[  0]
-Nicolasgwet:     full[1761]  tt[  0]  rt[100]
-eljmkt_climate:  full[1649]  tt[100]  rt[  0]
-green_conc:      full[1442]  tt[  5]  rt[ 95]
-Climate_ch:      full[1374]  tt[  6]  rt[ 94]
-eco_ec:          full[1209]  tt[  7]  rt[ 93]
-natural_sci:     full[1168]  tt[  7]  rt[ 93]
-world_dang:      full[1143]  tt[  7]  rt[ 93]
-MassCreativity:  full[1143]  tt[ 99]  rt[  1]
-annemariayritys: full[1102]  tt[ 94]  rt[  6]
-LeadingWPassion: full[ 954]  tt[100]  rt[  0]
-AroundOMedia:    full[ 923]  tt[100]  rt[  0]
-mabhishek45:     full[ 866]  tt[  0]  rt[100]
-BeingFarhad:     full[ 860]  tt[100]  rt[  0]
-DrCnfzd:         full[ 606]  tt[ 92]  rt[  8]
-latinamerica_ac: full[ 569]  tt[  0]  rt[100]
-GCCThinkActTank: full[ 473]  tt[ 14]  rt[ 86]
-ENCISIN:         full[ 379]  tt[100]  rt[  0]
-KwameGilbert:    full[ 369]  tt[100]  rt[  0]
-Hurshal:         full[ 359]  tt[100]  rt[  0]
-StopAdaniCairns: full[ 326]  tt[ 28]  rt[ 72]
-ZEROCO2_:        full[ 288]  tt[ 98]  rt[  2]
-Jackthelad1947:  full[ 284]  tt[ 30]  rt[ 70]
-CLIME_IT:        full[ 282]  tt[100]  rt[  0]
-rockykistner1:   full[ 277]  tt[ 97]  rt[  3]
-1o5CleanEnergy:  full[ 277]  tt[  3]  rt[ 97]
-ClimateChangeTT: full[ 269]  tt[100]  rt[  0]
-belugasolar:     full[ 259]  tt[  1]  rt[ 99]
-6esm:            full[ 243]  tt[ 96]  rt[  4]
-LetHumanismRing: full[ 243]  tt[100]  rt[  0]
-maggiesmumbles:  full[ 229]  tt[  0]  rt[100]
-```
+### `#climatechange` Big Player tweet/retweet percentages for Oct. 1-27.
+
+| Screen Name      | Total| TT% | RT% |
+| ---------------- | ----:| ---:| ---:|
+| EHFoundation237  | 5290 |   0 | 100 |
+| TrumpvsScience   | 2735 |   0 | 100 |
+| NRGrenaissance   | 2201 |   0 | 100 |
+| eljmkt_daily     | 2079 | 100 |   0 |
+| Nicolasgwet      | 1769 |   0 | 100 |
+| eljmkt_climate   | 1661 | 100 |   0 |
+| green_conc       | 1446 |   5 |  95 |
+| Climate_ch       | 1377 |   6 |  94 |
+| eco_ec           | 1212 |   7 |  93 |
+| natural_sci      | 1172 |   7 |  93 |
+| world_dang       | 1143 |   7 |  93 |
+| MassCreativity   | 1144 |  99 |   1 |
+| annemariayritys  | 1104 |  94 |   6 |
+| LeadingWPassion  |  956 | 100 |   0 |
+| AroundOMedia     |  924 | 100 |   0 |
+| mabhishek45      |  866 |   0 | 100 |
+| BeingFarhad      |  861 | 100 |   0 |
+| DrCnfzd          |  606 |  92 |   8 |
+| latinamerica_ac  |  569 |   0 | 100 |
+| GCCThinkActTank  |  473 |  14 |  86 |
+| ENCISIN          |  380 | 100 |   0 |
+| KwameGilbert     |  370 | 100 |   0 |
+| Hurshal          |  360 | 100 |   0 |
+| StopAdaniCairns  |  326 |  28 |  72 |
+| ZEROCO2_         |  288 |  98 |   2 |
+| Jackthelad1947   |  284 |  30 |  70 |
+| CLIME_IT         |  282 | 100 |   0 |
+| rockykistner1    |  279 |  97 |   3 |
+| 1o5CleanEnergy   |  277 |   3 |  97 |
+| ClimateChangeTT  |  269 | 100 |   0 |
+| belugasolar      |  259 |   1 |  99 |
+| 6esm             |  243 |  96 |   4 |
+| LetHumanismRing  |  243 | 100 |   0 |
+| maggiesmumbles   |  230 |   0 | 100 |
+
+
+### `#globalwarming` Big Player tweet/retweet percentages for Oct. 1-27.
+
+| Screen Name      | Total|  TT |  RT |
+| ---------------- | ----:| ---:| ---:|
+| CreativeCivil    |  479 | 100 |   0 |
+| EHFoundation237  |  441 |   0 | 100 |
+| ErroldMoody      |  414 | 100 |   0 |
+| denybot6000      |  145 | 100 |   0 |
+| Nicolasgwet      |  143 |   0 | 100 |
+| gridpointwx      |  140 | 100 |   0 |
+| JoyfullyECO      |  128 | 100 |   0 |
+| TimMelino        |  121 | 100 |   0 |
+| MassCreativity   |  106 |  98 |   2 |
+| TrumpvsScience   |  106 |   0 | 100 |
+| Bbsoe123Henry    |   91 | 100 |   0 |
+| grisanik         |   70 |  21 |  79 |
+| ruisaldanha      |   66 |  35 |  65 |
+| ILuvCO2          |   61 |  97 |   3 |
+| trend_auditor    |   57 | 100 |   0 |
+| ClimateTreaty    |   56 | 100 |   0 |
+| BreathingDelhi   |   55 |  98 |   2 |
+| davomoelbryn     |   51 |  88 |  12 |
+| petra_bones      |   48 | 100 |   0 |
+| GreenFraud       |   48 |  98 |   2 |
+
+
