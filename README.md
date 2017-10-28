@@ -100,3 +100,7 @@ To Ponder
 | [GreenFraud](https://twitter.com/GreenFraud)             |   48 |  98 |   2 |
 
 
+## Questions
+
+- Who are the RT-100 big players retweeting?
+- Are people retweeting the non TT big players?
