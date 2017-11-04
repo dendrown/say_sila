@@ -25,6 +25,7 @@
          get_big_players/2,
          get_big_players/3,
          report/1,
+         reset/0,
          run_tweet_csv/1]).     %% DEBUG!
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -230,6 +231,16 @@ report(Period) ->
 
 
 %%--------------------------------------------------------------------
+-spec reset() -> ok.
+%%
+% @doc  Reinitializes the state of the `raven' server.
+%%--------------------------------------------------------------------
+reset() ->
+    gen_server:call(?MODULE, reset).
+
+
+
+%%--------------------------------------------------------------------
 -spec run_tweet_csv(FName :: string()) -> {ok, integer()}.
 %%
 % @doc  Formats and prints a Weka output CSV.
@@ -310,6 +321,11 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call(reset, _From, State) ->
+    {reply, ok, #state{big_percent = State#state.big_percent,
+                       weka_node   = State#state.weka_node}};
+
+
 handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
                                                     big_percent = BigP100,
                                                     tweet_slots = SlotMap}) ->

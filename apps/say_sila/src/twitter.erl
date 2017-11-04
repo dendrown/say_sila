@@ -42,7 +42,7 @@
 -include("llog.hrl").
 -include("twitter.hrl").
 
--define(DB_TIMEOUT, (2 * 60 * 1000)).
+-define(DB_TIMEOUT, (5 * 60 * 1000)).
 
 
 
@@ -215,7 +215,8 @@ get_players(Tracker) ->
 %       Options is a property list allowing the following:
 %           - `min_tweets'  Only accounts having at least this many
 %                           status upates (tweets) are included.
-%           - `start'       Begining datetime to start looking for players
+%           - `start'       Beginning datetime to start looking for players
+%           - `stop'        End datetime to start looking for players
 %
 %       The returned list of players is sorted in order of descending
 %       tweet count.
@@ -255,6 +256,7 @@ get_players_R(Tracker, MinTweets) ->
 %
 %       Options is a property list allowing the following:
 %           - `start'       Begining datetime to start looking for tweets
+%           - `stop'        End datetime to start looking for players
 %
 %       NOTE: this pulls only classic 140-char tweets
 % @end  --
@@ -403,7 +405,7 @@ handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBC
     Query = io_lib:format("SELECT status->'user'->>'screen_name' AS screen_name, "
                                  "COUNT(1) AS cnt "
                           "FROM tbl_statuses "
-                          "WHERE (track = '~s') AND hash_~s AND status->>'lang' = '~s' ~s"
+                          "WHERE (track = '~s') AND hash_~s AND status->>'lang' = '~s' ~s "
                           "GROUP BY screen_name ~s"
                           "ORDER BY cnt DESC",
                           [?DB_TRACK, Tracker, ?DB_LANG, AndWhere, Having]),
@@ -813,14 +815,23 @@ is_prefix_in_parts(Lookup, [Part|Rest]) ->
                            Options  :: list()) -> string().
 %%
 % @doc  Returns a timestamp constraint for an SQL query if the Options
-%       proplist calls for one with a `start' element.  Allows for a
-%       Prefix for the expression, usually "AND", "WHERE" or an empty
-%       string.
+%       proplist calls for one with a `start' or `stop' element.  Allows
+%       for a Prefix for the expression, usually "AND", "WHERE" or an
+%       empty string.
 % @end  --
 get_timestamp_ms_sql(Prefix, Options) ->
-    case proplists:get_value(start, Options) of
-        undefined -> "";
-        DateTime  -> io_lib:format(" ~s (status->>'timestamp_ms' > '~B') ",
-                                   [Prefix,
-                                    dts:datetime_to_unix(DateTime, millisecond)])
+    %
+    % Get start/stop date-times
+    GetPeriod = fun({undefined, _})    -> undefined;
+                   ({DateTime, CmpOp}) -> io_lib:format("(status->>'timestamp_ms' ~s '~B')",
+                                                        [CmpOp,
+                                                         dts:datetime_to_unix(DateTime, millisecond)])
+                                          end,
+    Period = lists:map(GetPeriod, [{proplists:get_value(start, Options), <<">=">>},     % Inclusive
+                                   {proplists:get_value(stop,  Options), <<"<">>}]),    % Exclusive
+    %
+    % Build the SQL WHERE clause component
+    case lists:filter(fun(P) -> P =/= undefined end, Period) of
+        [Cut]       -> io_lib:format("~s ~s", [Prefix, Cut]);
+        [Beg, End]  -> io_lib:format("~s (~s AND ~s)", [Prefix, Beg, End])
     end.
