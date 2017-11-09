@@ -74,31 +74,31 @@ To Ponder
 | [maggiesmumbles](https://twitter.com/maggiesmumbles)     |  230 |   0 | 100 |
 
 
-### `#globalwarming` Big Player tweet/retweet percentages for Oct. 1-27.
+### `#globalwarming` Big Player tweet/retweet percentages for Oct. 1-31.
 
-| Screen Name                                              | Total| TT% | RT% |
-| -------------------------------------------------------- | ----:| ---:| ---:|
-| [CreativeCivil](https://twitter.com/CreativeCivil)       |  479 | 100 |   0 |
-| [EHFoundation237](https://twitter.com/EHFoundation237)   |  441 |   0 | 100 |
-| [ErroldMoody](https://twitter.com/ErroldMoody)           |  414 | 100 |   0 |
-| [denybot6000](https://twitter.com/denybot6000)           |  146 | 100 |   0 |
-| [Nicolasgwet](https://twitter.com/Nicolasgwet)           |  143 |   0 | 100 |
-| [gridpointwx](https://twitter.com/gridpointwx)           |  140 | 100 |   0 |
-| [JoyfullyECO](https://twitter.com/JoyfullyECO)           |  128 | 100 |   0 |
-| [TimMelino](https://twitter.com/TimMelino)               |  121 | 100 |   0 |
-| [MassCreativity](https://twitter.com/MassCreativity)     |  106 |  98 |   2 |
-| [TrumpvsScience](https://twitter.com/TrumpvsScience)     |  106 |   0 | 100 |
-| [Bbsoe123Henry](https://twitter.com/Bbsoe123Henry)       |   91 | 100 |   0 |
-| [grisanik](https://twitter.com/grisanik)                 |   70 |  21 |  79 |
-| [ruisaldanha](https://twitter.com/ruisaldanha)           |   66 |  35 |  65 |
-| [ILuvCO2](https://twitter.com/ILuvCO2)                   |   61 |  97 |   3 |
-| [trend_auditor](https://twitter.com/trend_auditor)       |   57 | 100 |   0 |
-| [ClimateTreaty](https://twitter.com/ClimateTreaty)       |   56 | 100 |   0 |
-| [BreathingDelhi](https://twitter.com/BreathingDelhi)     |   55 |  98 |   2 |
-| [davomoelbryn](https://twitter.com/davomoelbryn)         |   51 |  88 |  12 |
-| [petra_bones](https://twitter.com/petra_bones)           |   48 | 100 |   0 |
-| [GreenFraud](https://twitter.com/GreenFraud)             |   48 |  98 |   2 |
-
+| Screen Name                                              | Total| TT% | RT% |RT Accts|
+| -------------------------------------------------------- | ----:| ---:| ---:|-------:|
+| [CreativeCivil](https://twitter.com/CreativeCivil)       |  505 | 100 |   0 |        |
+| [ErroldMoody](https://twitter.com/ErroldMoody)           |  475 | 100 |   0 |        |
+| [EHFoundation237](https://twitter.com/EHFoundation237)   |  473 |   0 | 100 |    313 |
+| [denybot6000](https://twitter.com/denybot6000)           |  169 | 100 |   0 |        |
+| [gridpointwx](https://twitter.com/gridpointwx)           |  159 | 100 |   0 |        |
+| [Nicolasgwet](https://twitter.com/Nicolasgwet)           |  157 |   0 | 100 |    131 |
+| [JoyfullyECO](https://twitter.com/JoyfullyECO)           |  152 | 100 |   0 |        |
+| [TimMelino](https://twitter.com/TimMelino)               |  140 | 100 |   0 |        |
+| [TrumpvsScience](https://twitter.com/TrumpvsScience)     |  120 |   0 | 100 |     89 |
+| [MassCreativity](https://twitter.com/MassCreativity)     |  118 |  98 |   2 |      2 |
+| [Bbsoe123Henry](https://twitter.com/Bbsoe123Henry)       |   97 | 100 |   0 |        |
+| [artyny59](https://twitter.com/artyny59)                 |   81 |   1 |  99 |      2 |
+| [ILuvCO2](https://twitter.com/ILuvCO2)                   |   72 |  97 |   3 |      2 |
+| [grisanik](https://twitter.com/grisanik)                 |   71 |  23 |  77 |      3 |
+| [ClimateTreaty](https://twitter.com/ClimateTreaty)       |   69 | 100 |   0 |        |
+| [ruisaldanha](https://twitter.com/ruisaldanha)           |   67 |  36 |  64 |      9 |
+| [BreathingDelhi](https://twitter.com/BreathingDelhi)     |   65 |  98 |   2 |      1 |
+| [trend_auditor](https://twitter.com/trend_auditor)       |   57 | 100 |   0 |        |
+| [GreenFraud](https://twitter.com/GreenFraud)             |   55 |  98 |   2 |      1 |
+| [NRGrenaissance](https://twitter.com/NRGrenaissance)     |   53 |   0 | 100 |     41 |
+| [davomoelbryn](https://twitter.com/davomoelbryn)         |   51 |  88 |  12 |      2 |
 
 ## Questions
 
