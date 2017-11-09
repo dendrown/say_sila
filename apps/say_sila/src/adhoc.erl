@@ -49,5 +49,5 @@ md(Track, Bigs) ->
                    if RePlayerCnt > 0 -> ?fmt("~4B", [RePlayerCnt]); true -> "    " end])
         end,
     io:format("| Screen Name                                              | Total| TT% | RT% |RT Accts |~n"),
-    io:format("| -------------------------------------------------------- | ----:| ---:| ---:|-- -----:|~n"),
+    io:format("| -------------------------------------------------------- | ----:| ---:| ---:|--------:|~n"),
     lists:foreach(GetMD, lists:seq(1, length(Bigs))).
