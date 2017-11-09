@@ -46,8 +46,8 @@ md(Track, Bigs) ->
                    TweetCnt,
                    round(TT100),
                    round(RT100),
-                   if RePlayerCnt > 0 -> ?fmt("~3B", [RePlayerCnt]); true -> "   " end])
+                   if RePlayerCnt > 0 -> ?fmt("~4B", [RePlayerCnt]); true -> "    " end])
         end,
-    io:format("| Screen Name                                              | Total| TT% | RT% |RT Accts|~n"),
-    io:format("| -------------------------------------------------------- | ----:| ---:| ---:|-------:|~n"),
+    io:format("| Screen Name                                              | Total| TT% | RT% |RT Accts |~n"),
+    io:format("| -------------------------------------------------------- | ----:| ---:| ---:|-- -----:|~n"),
     lists:foreach(GetMD, lists:seq(1, length(Bigs))).
