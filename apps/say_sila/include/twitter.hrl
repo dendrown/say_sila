@@ -17,12 +17,14 @@
 -include("raven.hrl").
 
 
--record(tweet, {id          :: binary(),
-                timestamp_ms:: pos_integer(),
-                screen_name :: binary(),
-                text        :: binary(),
-                type        :: tweet | retweet | undefined,
-                emotions    :: emotions() }).
+-record(tweet, {id              :: binary(),
+                rt_id           :: undefined | binary(),    % rt_ means "retweet"
+                rt_screen_name  :: undefined | binary(),
+                timestamp_ms    :: pos_integer(),
+                screen_name     :: binary(),
+                text            :: binary(),
+                type            :: tweet | retweet | undefined,
+                emotions        :: emotions() }).
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
 

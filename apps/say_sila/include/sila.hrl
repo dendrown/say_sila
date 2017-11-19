@@ -23,5 +23,8 @@
 -define(DEFAULT_BIG_P100, 0.15).
 -define(DEFAULT_PERIOD,   "day").
 
+-define(null_val_not(X, Null, NotNull), case (X) of null -> Null;       _ -> NotNull end).
+-define(null_to_undef(X),               case (X) of null -> undefined;  _ -> X       end).
+
 
 -endif.

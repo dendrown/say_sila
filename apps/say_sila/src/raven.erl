@@ -35,6 +35,7 @@
 -include("twitter.hrl").
 -include_lib("ecsv/include/ecsv.hrl").
 
+-define(REPORT_TIMEOUT, (1 * 60 * 1000)).
 
 
 % Slots are for keeping everything about a player category in one place
@@ -226,7 +227,7 @@ emote(Tracker, Options) ->
 %       for the specified time period: `hour', `day', etc.
 %%--------------------------------------------------------------------
 report(Period) ->
-    gen_server:call(?MODULE, {report, Period}).
+    gen_server:call(?MODULE, {report, Period}, ?REPORT_TIMEOUT).
 
 
 

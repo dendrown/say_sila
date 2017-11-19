@@ -436,7 +436,8 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                                  "status->'user'->>'screen_name' AS screen_name, "
                                  "status->>'timestamp_ms' AS timestamp_ms, "
                                  "status->>'text' AS text, "
-                                 "status->'retweeted_status'->>'id' AS retweeted_id "
+                                 "status->'retweeted_status'->>'id' AS rt_id, "
+                                 "status->'retweeted_status'->'user'->>'screen_name' AS rt_screen_name "
                           "FROM tbl_statuses "
                           "WHERE track = '~s' "
                             "AND hash_~s "
@@ -446,14 +447,13 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                           [?DB_TRACK, Tracker, ?DB_LANG, get_timestamp_ms_sql("AND", Options), ScreenNameSQL]),
     %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
-        {ok, _, Rows} -> [#tweet{id           = ID,
-                                 screen_name  = SN,
-                                 timestamp_ms = binary_to_integer(DTS),
-                                 text         = Text,
-                                 type         = case RTID of
-                                                    null -> tweet;
-                                                    _    -> retweet
-                                                end} || {ID, SN, DTS, Text, RTID} <- Rows];
+        {ok, _, Rows} -> [#tweet{id             = ID,
+                                 screen_name    = SN,
+                                 timestamp_ms   = binary_to_integer(DTS),
+                                 text           = Text,
+                                 type           = ?null_val_not(RTID, tweet, retweet),
+                                 rt_id          = ?null_to_undef(RTID),
+                                 rt_screen_name = ?null_to_undef(RTSN)} || {ID, SN, DTS, Text, RTID, RTSN} <- Rows];
         _             -> undefined
     end,
     {reply, Reply, State};
