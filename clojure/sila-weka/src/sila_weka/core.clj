@@ -31,6 +31,7 @@
 (def +to-sila+ (agent {:cnt 0}))       ; TODO: Serialize responses to Erlang
 
 
+
 ;;; --------------------------------------------------------------------------
 ;;; ┏┳┓┏━┓╻┏ ┏━╸   ┏┓╻┏━┓╺┳┓┏━╸
 ;;; ┃┃┃┣━┫┣┻┓┣╸ ╺━╸┃┗┫┃ ┃ ┃┃┣╸
@@ -112,12 +113,12 @@
 
 (defmethod dispatch "emote" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
-  (log/info "->emote:" fpath)
+  (log/info "->> emote:" fpath)
   (future
     (let [rsp (weka/emote-arff fpath)]
-      (log/info "<-emote:" rsp "[OK]")
+      (log/info "<<- emote:" rsp "[OK]")
+      (println)
       (answer-sila msg :emote (map->otp rsp))))))
-
 
 (defmethod dispatch "embed" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
@@ -187,7 +188,7 @@
 
   ([node mbox quitter]
     (when-not (identical? quitter :quit)
-      (log/info "Waiting on SILA command...")
+      ;(log/info "Waiting on SILA command...")
       (let [tuple ^OtpErlangTuple (.receive ^OtpMbox mbox)
             msg   (parse-msg tuple)]
         (log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
