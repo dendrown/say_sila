@@ -265,21 +265,31 @@
 ;;; --------------------------------------------------------------------------
 (defn prepare-ml
   "
-  This is (for the moment) an ad-hoc function for use in DIC-9305.
+  This is (for the moment) an ad-hoc function for use in DIC-9315.
   "
-  [^String fpath
-   ^String value]
+  [^String big-fpath
+   ^String reg-fpath]
 
-  (let [data-in     (load-arff fpath)
-        tag-fpaths  (tag-filename fpath "ML")
-        adder       (doto (weka.filters.unsupervised.attribute.Add.)
+  (let [big-data    (load-arff big-fpath)
+        reg-data    (load-arff reg-fpath)
+
+        adder       (doto (weka.filters.unsupervised.attribute.Add.)    ; Define filter
                           (.setAttributeIndex "first")
                           (.setNominalLabels  "REG,BIG")
                           (.setAttributeName  "player")
-                          (.setInputFormat    data-in))
-        data-out    (Filter/useFilter data-in adder)]
-    (doseq [d data-out] (.setValue ^Instance d 0 value))
+                          (.setInputFormat    big-data))
 
-    (.setClassIndex data-out 0)
-    (save-file (:arff tag-fpaths) data-out :arff)))
+        convert     (fn [^Instances data                                ; Filter & populate
+                         ^String    value]
+                      (let [fdata (Filter/useFilter data adder)]
+                        (doseq [inst fdata] (.setValue ^Instance inst 0 value))
+                        (.setClassIndex fdata 0)
+                        fdata))
+
+        data-out    (doto ^Instances (convert big-data "BIG")
+                                     (.addAll ^Instances (convert reg-data "REG"))
+                                     (.randomize genie/RNG))]
+
+    {:arff (save-file "/tmp/dic9315.ML.arff" data-out :arff)
+     :csv  (save-file "/tmp/dic9315.ML.csv"  data-out :csv)}))
 

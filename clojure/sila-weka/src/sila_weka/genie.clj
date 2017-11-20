@@ -11,11 +11,12 @@
 ;;;; @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns sila-weka.genie
-  (:require [sila-weka.log  :as log]))
+  (:import  [java.util  Random]))
 
 
 (set! *warn-on-reflection* true)
 
+(def RNG (Random. 1))
 
 
 ;;; --------------------------------------------------------------------------
