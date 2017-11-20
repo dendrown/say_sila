@@ -15,7 +15,8 @@
             [clojure.string  :as str]
             [sila-weka.genie :as genie]
             [sila-weka.log   :as log])
-  (:import  [weka.core Instances]
+  (:import  [weka.core  Instance
+                        Instances]
             [weka.filters Filter]
             [weka.core.converters AbstractSaver
                                   ArffLoader
@@ -259,4 +260,26 @@
   "
   [fpath]
   (filter-arff fpath :senti))
+
+
+;;; --------------------------------------------------------------------------
+(defn prepare-ml
+  "
+  This is (for the moment) an ad-hoc function for use in DIC-9305.
+  "
+  [^String fpath
+   ^String value]
+
+  (let [data-in     (load-arff fpath)
+        tag-fpaths  (tag-filename fpath "ML")
+        adder       (doto (weka.filters.unsupervised.attribute.Add.)
+                          (.setAttributeIndex "first")
+                          (.setNominalLabels  "REG,BIG")
+                          (.setAttributeName  "player")
+                          (.setInputFormat    data-in))
+        data-out    (Filter/useFilter data-in adder)]
+    (doseq [d data-out] (.setValue ^Instance d 0 value))
+
+    (.setClassIndex data-out 0)
+    (save-file (:arff tag-fpaths) data-out :arff)))
 
