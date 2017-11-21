@@ -209,6 +209,8 @@ emote(Tracker) ->
 %           - `min_tweets'  Only accounts having at least this many
 %                           status upates (tweets) are included.
 %           - `start'       Begining datetime to start looking for players
+%           - `stop'        End datetime to start looking for players
+%           - `no_retweet'  Consider original tweets only
 % @end  --
 emote(Tracker, Option) when   is_atom(Option)
                        orelse is_tuple(Option) ->
