@@ -99,6 +99,28 @@
                                  otp-msg))))
 
 
+;;; --------------------------------------------------------------------------
+;;; ╺┳┓┏━┓   ╻ ╻┏━╸╻┏ ┏━┓
+;;;  ┃┃┃ ┃╺━╸┃╻┃┣╸ ┣┻┓┣━┫
+;;; ╺┻┛┗━┛   ┗┻┛┗━╸╹ ╹╹ ╹
+;;; --------------------------------------------------------------------------
+(defmacro do-weka
+  "
+  Template for processing a command with Weka and then sending the result
+  back to sila.
+  "
+  [cmd msg weka-fn weka-arg]
+
+  `(let [fpath# (.stringValue ^OtpErlangString (:arg ~msg))]
+  (log/info "->> weka<" ~cmd ">:" fpath#)
+  (future
+    ; NOTE: At this point the weka call is strict on its form.
+    ;       We probably want to generalize it.
+    (let [rsp# (~weka-fn fpath# ~weka-arg)]
+      (log/info "<<- weka<" ~cmd ">" rsp# "[OK]")
+      (answer-sila ~msg (keyword ~cmd) (map->otp rsp#))))))
+
+
 
 ;;; --------------------------------------------------------------------------
 ;;; ╺┳┓╻┏━┓┏━┓┏━┓╺┳╸┏━╸╻ ╻
@@ -111,14 +133,8 @@
   "
   :cmd)
 
-(defmethod dispatch "emote" [msg]
-  (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
-  (log/info "->> emote:" fpath)
-  (future
-    (let [rsp (weka/emote-arff fpath)]
-      (log/info "<<- emote:" rsp "[OK]")
-      (println)
-      (answer-sila msg :emote (map->otp rsp))))))
+(defmethod dispatch "emote"   [msg] (do-weka "emote"   msg weka/filter-arff weka/+EMOTE-FILTER+))
+(defmethod dispatch "dic9315" [msg] (do-weka "dic9315" msg weka/filter-arff '(:embed :bws)))
 
 (defmethod dispatch "embed" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]

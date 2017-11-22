@@ -211,6 +211,7 @@ emote(Tracker) ->
 %           - `start'       Begining datetime to start looking for players
 %           - `stop'        End datetime to start looking for players
 %           - `no_retweet'  Consider original tweets only
+%           - `context'     Processing for specific context: `dic9315'
 % @end  --
 emote(Tracker, Option) when   is_atom(Option)
                        orelse is_tuple(Option) ->
@@ -382,19 +383,21 @@ handle_cast({emote, Tracker, Options}, State = #state{big_percent = BigP100,
      RegPlayers} = get_big_players(Tracker, BigP100, Options),
     ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
 
-    ActivityPct = round(100 * BigP100),
+    % Usually, we want to call weka (via clojure) with `emote', but allow for an override
+    WekaCmd = proplists:get_value(context, Options, emote),
+    PlayPct = round(100 * BigP100),
     NewTodo = lists:map(fun({Size, Players}) ->
                             % Pull the actual tweets for these players from the DB
                             ?debug("Pulling ~s-player tweets", [Size]),
                             Tweets = twitter:get_tweets(Tracker, Players, Options),
 
                             ?debug("Packaging tweets for Weka"),
-                            FStub  = io_lib:format("tweets.~s.~B.~s", [Tracker, ActivityPct, Size]),
+                            FStub  = io_lib:format("tweets.~s.~B.~s", [Tracker, PlayPct, Size]),
                             {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
 
                             % Send to Weka to apply embedding/emotion filters
                             Lookup = make_ref(),
-                            {weka, WekaNode} ! {self(), Lookup, emote, FPath},
+                            {weka, WekaNode} ! {self(), Lookup, WekaCmd, FPath},
                             {Lookup, #tweet_slot{category = Size,
                                                  players  = Players,
                                                  tweets   = Tweets}}
@@ -435,6 +438,24 @@ handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{twee
 
         error ->
             ?warning("Received unsolicited CSV: ref[~p] arg[~p]", [Ref, ArgMap]),
+            State
+        end,
+    {noreply, NewState};
+
+
+handle_info({From, Ref, Cmd, ArgMap = #{arff := FPathARFF,
+                                        csv  := FPathCSV}}, State = #state{tweet_todo = TodoMap}) ->
+
+    NewState = case maps:take(Ref, TodoMap) of
+        {#tweet_slot{category = Category},
+         NewTodoMap} ->
+            ?notice("Received ARFF from Weka: pid[~p] cat[~s] arff[~s]", [From, Category, FPathARFF]),
+            ?notice("Received CSV  from Weka: pid[~p] cat[~s]  csv[~s]", [From, Category, FPathCSV]),
+            ?warning("No further processing: cmd[~s]", [Cmd]),
+            State#state{tweet_todo  = NewTodoMap};
+
+        error ->
+            ?warning("Received unsolicited ARFF: ref[~p] arg[~p]", [Ref, ArgMap]),
             State
         end,
     {noreply, NewState};

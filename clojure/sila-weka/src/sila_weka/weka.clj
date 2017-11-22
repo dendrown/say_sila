@@ -82,6 +82,8 @@
                                            "-R" (str "1-" (dec +ARFF-TEXT-ATTR-NUM+)
                                                      ","  (inc +ARFF-TEXT-ATTR-NUM+) "-last")]}})
 
+(def ^:const +EMOTE-FILTER+ :bws)
+
 
 ;;; --------------------------------------------------------------------------
 ;;; ╻  ┏━┓┏━┓╺┳┓   ┏━┓┏━┓┏━╸┏━╸
@@ -262,10 +264,15 @@
   (filter-arff fpath :senti))
 
 
+
+;;; --------------------------------------------------------------------------
+;;; ┏━┓┏━┓┏━╸┏━┓┏━┓┏━┓┏━╸   ┏┳┓╻
+;;; ┣━┛┣┳┛┣╸ ┣━┛┣━┫┣┳┛┣╸ ╺━╸┃┃┃┃
+;;; ╹  ╹┗╸┗━╸╹  ╹ ╹╹┗╸┗━╸   ╹ ╹┗━╸
 ;;; --------------------------------------------------------------------------
 (defn prepare-ml
   "
-  This is (for the moment) an ad-hoc function for use in DIC-9315.
+  This is (for the moment) an ad-hoc function for use in DIC9315.
   "
   [^String big-fpath
    ^String reg-fpath]
