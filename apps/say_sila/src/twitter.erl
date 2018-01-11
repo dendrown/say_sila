@@ -257,6 +257,7 @@ get_players_R(Tracker, MinTweets) ->
 %       Options is a property list allowing the following:
 %           - `start'       Begining datetime to start looking for tweets
 %           - `stop'        End datetime to start looking for players
+%           - `no_retweet'  Collect original tweets only
 %
 %       NOTE: this pulls only classic 140-char tweets
 % @end  --
@@ -426,12 +427,20 @@ handle_call({get_tweets, Tracker, Players = [#player{} | _], Options}, From, Sta
 
 
 handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{db_conn = DBConn}) ->
-    % Note: This pulls only classic 140-char tweets
+    %
+    % Note: This pulls only classic 140|280-char tweets and does not consider the extended_text field.
     %       Also, we're going to want to move the list_to_sql line to a DB module
     %?debug("Screenames: ~p", [ScreenNames]),
     ScreenNameSQL = lists:flatten(["('", hd(ScreenNames), "'",
                                    [io_lib:format(",'~s'", [SN]) || SN <- tl(ScreenNames)],
                                    ")"]),
+    TimestampCond = get_timestamp_ms_sql("AND", Options),
+    %
+    % Have they asked to exclude retweets?
+    RetweetCond = case proplists:get_bool(no_retweet, Options) of
+        true  -> <<"AND status->'retweeted_status'->>'id' is NULL">>;
+        false -> <<"">>
+    end,
     Query = io_lib:format("SELECT status->>'id' AS id, "
                                  "status->'user'->>'screen_name' AS screen_name, "
                                  "status->>'timestamp_ms' AS timestamp_ms, "
@@ -441,10 +450,10 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                           "FROM tbl_statuses "
                           "WHERE track = '~s' "
                             "AND hash_~s "
-                            "AND status->>'lang' ='~s' ~s"
+                            "AND status->>'lang' ='~s' ~s ~s "
                             "AND status->'user'->>'screen_name' IN ~s "
                           "ORDER BY timestamp_ms",
-                          [?DB_TRACK, Tracker, ?DB_LANG, get_timestamp_ms_sql("AND", Options), ScreenNameSQL]),
+                          [?DB_TRACK, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNameSQL]),
     %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#tweet{id             = ID,
