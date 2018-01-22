@@ -42,7 +42,7 @@
 -include("llog.hrl").
 -include("twitter.hrl").
 
--define(DB_TIMEOUT, (5 * 60 * 1000)).
+-define(DB_TIMEOUT, (10 * 60 * 1000)).      % FIXME: Rework the DB-pull logic
 
 
 
