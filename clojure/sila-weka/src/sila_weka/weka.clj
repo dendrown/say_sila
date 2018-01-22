@@ -13,8 +13,10 @@
 (ns sila-weka.weka
   (:require [clojure.java.io :as io]
             [clojure.string  :as str]
+            [sila-weka.genie :as genie]
             [sila-weka.log   :as log])
-  (:import  [weka.core Instances]
+  (:import  [weka.core  Instance
+                        Instances]
             [weka.filters Filter]
             [weka.core.converters AbstractSaver
                                   ArffLoader
@@ -80,13 +82,15 @@
                                            "-R" (str "1-" (dec +ARFF-TEXT-ATTR-NUM+)
                                                      ","  (inc +ARFF-TEXT-ATTR-NUM+) "-last")]}})
 
+(def ^:const +EMOTE-FILTER+ :bws)
+
 
 ;;; --------------------------------------------------------------------------
 ;;; ╻  ┏━┓┏━┓╺┳┓   ┏━┓┏━┓┏━╸┏━╸
 ;;; ┃  ┃ ┃┣━┫ ┃┃╺━╸┣━┫┣┳┛┣╸ ┣╸
 ;;; ┗━╸┗━┛╹ ╹╺┻┛   ╹ ╹╹┗╸╹  ╹
 ;;; --------------------------------------------------------------------------
-(defn load-arff
+(defn ^Instances load-arff
   "
   Reads in and returns the Instances from the specified ARFF file
   "
@@ -152,10 +156,11 @@
   "
   Applies a filter to the specified data Instances
   "
-  [data flt-key]
+  [^Instances data flt-key]
   (let [flt-map (flt-key  +FILTERS+)
         opts    (:options flt-map)
-        sieve   ^Filter (eval (:filter  flt-map))]
+        sieve   ^Filter (eval (:filter  flt-map))
+        tag     (name flt-key)]
   (doto sieve
     (.setOptions     (into-array String opts))
     (.setInputFormat data))
@@ -171,20 +176,22 @@
 (defn filter-arff
   "
   Reads in an ARFF file with tweets and writes it back out after applying:
-   (1) the specified filter.
+   (1) the specified list of filters
    (2) the Reorder filter to remove the tweet text
 
   Returns a vector of the output filenames.
   "
-  [fpath flt-key]
-    (let [data-in   (load-arff fpath)
-          data-mid  (filter-instances data-in  flt-key)
-          data-out  (filter-instances data-mid :attrs)   ; Remove text attr
-          tag        (name flt-key)
-          tag-fpaths (tag-filename fpath tag)]
-      (log/debug "Filter<" tag ">: " fpath)
-      {:arff (save-file (:arff tag-fpaths) data-out :arff)
-       :csv  (save-file (:csv  tag-fpaths) data-out :csv)}))
+  [fpath flt-keys]
+  (let [filters    (genie/listify flt-keys)
+        data-in    (load-arff fpath)
+        data-mid   (reduce #(filter-instances %1 %2) data-in filters)   ; Apply filter(s)
+        data-out   (filter-instances data-mid :attrs)                   ; Remove text attr
+        tag        (str/join "." (map #(str (name %)) filters))
+        tag-fpaths (tag-filename fpath tag)]
+    (log/debug "Filter<" tag ">:" (.numAttributes data-in)  "x" (.size data-in)
+               "==>"              (.numAttributes data-out) "x" (.size data-out))
+    {:arff (save-file (:arff tag-fpaths) data-out :arff)
+     :csv  (save-file (:csv  tag-fpaths) data-out :csv)}))
 
 
 
@@ -203,7 +210,7 @@
         until such time as it starts sending us its specific configurations.
 	"
   [fpath]
-  (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
+  ;(log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
   (filter-arff fpath :bws))
 
 
@@ -255,4 +262,41 @@
   "
   [fpath]
   (filter-arff fpath :senti))
+
+
+
+;;; --------------------------------------------------------------------------
+;;; ┏━┓┏━┓┏━╸┏━┓┏━┓┏━┓┏━╸   ┏┳┓╻
+;;; ┣━┛┣┳┛┣╸ ┣━┛┣━┫┣┳┛┣╸ ╺━╸┃┃┃┃
+;;; ╹  ╹┗╸┗━╸╹  ╹ ╹╹┗╸┗━╸   ╹ ╹┗━╸
+;;; --------------------------------------------------------------------------
+(defn prepare-ml
+  "
+  This is (for the moment) an ad-hoc function for use in DIC9315.
+  "
+  [^String big-fpath
+   ^String reg-fpath]
+
+  (let [big-data    (load-arff big-fpath)
+        reg-data    (load-arff reg-fpath)
+
+        adder       (doto (weka.filters.unsupervised.attribute.Add.)    ; Define filter
+                          (.setAttributeIndex "first")
+                          (.setNominalLabels  "REG,BIG")
+                          (.setAttributeName  "player")
+                          (.setInputFormat    big-data))
+
+        convert     (fn [^Instances data                                ; Filter & populate
+                         ^String    value]
+                      (let [fdata (Filter/useFilter data adder)]
+                        (doseq [inst fdata] (.setValue ^Instance inst 0 value))
+                        (.setClassIndex fdata 0)
+                        fdata))
+
+        data-out    (doto ^Instances (convert big-data "BIG")
+                                     (.addAll ^Instances (convert reg-data "REG"))
+                                     (.randomize genie/RNG))]
+
+    {:arff (save-file "/tmp/dic9315.ML.arff" data-out :arff)
+     :csv  (save-file "/tmp/dic9315.ML.csv"  data-out :csv)}))
 
