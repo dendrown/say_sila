@@ -8,40 +8,41 @@
 %%
 %% @doc Say-Sila Tweet Emotion Analyzer for Climate Change
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(sila).
+-author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([go/0, go/1, stop/0]).
+-export([start/0, start/1, stop/0]).
 
 
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec go() -> ok
+-spec start() -> ok
             | {error, term()}.
 %
-% @doc  Easy startup for Say Sila
+% @doc  Easy startup for `say_sila` application.
 % @end  --
-go() ->
-    go([]).
+start() ->
+    start([]).
 
 
 
 %%--------------------------------------------------------------------
--spec go(Options :: atom | list()) -> ok
-                                    | {error, term()}.
+-spec start(Options :: atom | list()) -> ok
+                                       | {error, term()}.
 %
-% @doc  Easy startup for Say Sila with `Options'.  Currently, the only
-%       supported option is `twitter', which will start the authorization
-%       process to track Twitter tweets.
+% @doc  Easy startup for `say_sila` application with `Options'.
+%       Currently, the only supported option is `twitter', which will
+%       start the authorization process to track Twitter tweets.
 % @end  --
-go(Option) when is_atom(Option) ->
-    go([Option]);
+start(Option) when is_atom(Option) ->
+    start([Option]);
 
 
-go(Options) ->
+start(Options) ->
     case application:start(say_sila) of
         ok ->
             % We're currently handling only semi-auto-login

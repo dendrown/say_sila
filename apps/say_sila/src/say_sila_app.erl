@@ -8,11 +8,13 @@
 %%
 %% @doc Say-Sila Tweet Emotion Analyzer for Climate Change
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(say_sila_app).
 -behaviour(application).
+
+-author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start/2, stop/1]).
 
@@ -40,15 +42,18 @@ start(_StartType, _StartArgs) ->
                    asn1,
                    public_key,
                    ssl,
-                   oauth,
+                   oauth    %,
                   %----------
-                   unicode_util_compat,
-                   idna,
-                   mimerl,
-                   certifi,
-                   ssl_verify_fun,
-                   metrics,
-                   hackney]),
+                  % Prepping for hackey...
+                  %----------
+                  %unicode_util_compat,
+                  %idna,
+                  %mimerl,
+                  %certifi,
+                  %ssl_verify_fun,
+                  %metrics,
+                  %hackney
+                  ]),
     Return = say_sila_sup:start_link(),
     case Return of
         {ok, _} -> wui:configure();
