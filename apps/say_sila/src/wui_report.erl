@@ -17,9 +17,9 @@
 -export([out/1]).
 
 -include("sila.hrl").
--include("llog.hrl").
 -include("raven.hrl").
 -include("wui.hrl").
+-include_lib("llog/include/llog.hrl").
 
 
 -define(CENTER, {style,   <<"text-align: center">>}).

@@ -21,9 +21,9 @@
          relevel/1,
          stoic/0]).
 
--include("llog.hrl").
 -include("raven.hrl").
 -include("twitter.hrl").
+-include_lib("llog/include/llog.hrl").
 
 
 %%====================================================================

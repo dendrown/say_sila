@@ -39,8 +39,8 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
--include("llog.hrl").
 -include("twitter.hrl").
+-include_lib("llog/include/llog.hrl").
 
 -define(DB_TIMEOUT, (10 * 60 * 1000)).      % FIXME: Rework the DB-pull logic
 

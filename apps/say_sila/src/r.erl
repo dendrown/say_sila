@@ -25,8 +25,8 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
--include("llog.hrl").
 -include("raven.hrl").
+-include_lib("llog/include/llog.hrl").
 
 
 -define(BIG_TAG,    <<"BIG">>).

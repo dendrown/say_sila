@@ -27,8 +27,8 @@
 -export([tweets_to_arff/2]).
 
 -include("sila.hrl").
--include("llog.hrl").
 -include("twitter.hrl").
+-include_lib("llog/include/llog.hrl").
 
 
 

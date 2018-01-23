@@ -16,7 +16,7 @@
 
 -export([start/2, stop/1]).
 
--include("llog.hrl").
+-include_lib("llog/include/llog.hrl").
 
 %%====================================================================
 %% API
@@ -45,7 +45,7 @@ start(_StartType, _StartArgs) ->
                    unicode_util_compat,
                    idna,
                    mimerl,
-                   certfi,
+                   certifi,
                    ssl_verify_fun,
                    metrics,
                    hackney]),
