@@ -5,6 +5,7 @@
   {registered, []},
   {mod, { say_sila_app, []}},
   {applications, [kernel, stdlib ]},
+  %applications, [kernel, stdlib, oauth, hackney ]},
   {env,[]},
   {modules, [adhoc, %% DEBUG
              dts,

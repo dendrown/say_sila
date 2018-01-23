@@ -13,7 +13,7 @@
                 {twitter_access_token,      "accesstoken"},
                 {twitter_access_secret,     "accesssecret"},
                 {twitter_owner,             "screen_name"},
-                {twitter_ownser_id,         12345},
+                {twitter_owner_id,          12345},
                 {db_config,                 [{host,     "localhost"},
                                              {port,     5432},
                                              {user,     "dbuser"},

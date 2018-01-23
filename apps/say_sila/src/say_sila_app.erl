@@ -40,7 +40,15 @@ start(_StartType, _StartArgs) ->
                    asn1,
                    public_key,
                    ssl,
-                   oauth]),
+                   oauth,
+                  %----------
+                   unicode_util_compat,
+                   idna,
+                   mimerl,
+                   certfi,
+                   ssl_verify_fun,
+                   metrics,
+                   hackney]),
     Return = say_sila_sup:start_link(),
     case Return of
         {ok, _} -> wui:configure();
