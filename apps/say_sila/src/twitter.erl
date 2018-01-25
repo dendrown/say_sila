@@ -274,7 +274,10 @@ get_tweets(Tracker, ScreenNames) ->
                  Options     :: list()) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
-%       take the form "denDrown" or ["denDrown", "someOneElse"]
+%       take one of the following forms:
+%           - <<"denDrown">>                : for one account
+%           - ["denDrown", "someOneElse"]   : for multiple accounts
+%           - `all'                         : all available tweets (careful!)
 %
 %       NOTE: this pulls only classic 140-char tweets
 % @end  --
@@ -430,15 +433,19 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
     %
     % Note: This pulls only classic 140|280-char tweets and does not consider the extended_text field.
     %       Also, we're going to want to move the list_to_sql line to a DB module
-    %?debug("Screenames: ~p", [ScreenNames]),
-    ScreenNameSQL = lists:flatten(["('", hd(ScreenNames), "'",
-                                   [io_lib:format(",'~s'", [SN]) || SN <- tl(ScreenNames)],
-                                   ")"]),
     TimestampCond = get_timestamp_ms_sql("AND", Options),
     %
     % Have they asked to exclude retweets?
     RetweetCond = case proplists:get_bool(no_retweet, Options) of
         true  -> <<"AND status->'retweeted_status'->>'id' is NULL">>;
+        false -> <<"">>
+    end,
+    %
+    %?debug("Screenames: ~p", [ScreenNames]),
+    ScreenNamesCond = case ScreenNames =/= all of
+        true  -> io_lib:format("AND status->'user'->>'screen_name' IN ('~s'~s) ",
+                               [hd(ScreenNames),
+                                lists:flatten([io_lib:format(",'~s'", [SN]) || SN <- tl(ScreenNames)])]);
         false -> <<"">>
     end,
     Query = io_lib:format("SELECT status->>'id' AS id, "
@@ -450,10 +457,9 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                           "FROM tbl_statuses "
                           "WHERE track = '~s' "
                             "AND hash_~s "
-                            "AND status->>'lang' ='~s' ~s ~s "
-                            "AND status->'user'->>'screen_name' IN ~s "
+                            "AND status->>'lang' ='~s' ~s ~s ~s "
                           "ORDER BY timestamp_ms",
-                          [?DB_TRACK, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNameSQL]),
+                          [?DB_TRACK, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNamesCond]),
     %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#tweet{id             = ID,
