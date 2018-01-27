@@ -8,7 +8,7 @@
 %%
 %% @doc Web User Interface (WUI) server for Say-Sila
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -ifndef(_wui_included).

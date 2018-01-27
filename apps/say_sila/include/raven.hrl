@@ -14,6 +14,7 @@
 -ifndef(_raven_included).
 -define(_raven_included, ack).
 
+-define(RAVEN_WUI_CODE, "A01").                             % Raven-to-WUI data version code
 -define(EMOTIONS,       [anger, fear, sadness, joy]).
 -define(MAX_TOP_HITS,   5).
 

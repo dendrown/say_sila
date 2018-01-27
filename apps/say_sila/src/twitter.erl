@@ -42,8 +42,6 @@
 -include("twitter.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(DB_TIMEOUT, (10 * 60 * 1000)).      % FIXME: Rework the DB-pull logic
-
 
 
 %%====================================================================
@@ -227,7 +225,7 @@ get_players(Tracker, Option) when   is_atom(Option)
 
 
 get_players(Tracker, Options) ->
-    gen_server:call(?MODULE, {get_players, Tracker, Options}, ?DB_TIMEOUT).
+    gen_server:call(?MODULE, {get_players, Tracker, Options}, ?TWITTER_DB_TIMEOUT).
 
 
 
@@ -299,7 +297,7 @@ get_tweets(Tracker, ScreenNames, Options) ->
         true  -> [ScreenNames];                         % ["justOne"]
         false -> ScreenNames
     end,
-    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList, Options}, ?DB_TIMEOUT).
+    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList, Options}, ?TWITTER_DB_TIMEOUT).
 
 
 
@@ -844,7 +842,7 @@ get_timestamp_ms_sql(Prefix, Options) ->
                                           end,
     Period = lists:map(GetPeriod, [{proplists:get_value(start, Options), <<">=">>},     % Inclusive
                                    {proplists:get_value(stop,  Options), <<"<">>}]),    % Exclusive
-    %
+
     % Build the SQL WHERE clause component
     case lists:filter(fun(P) -> P =/= undefined end, Period) of
         [Cut]       -> io_lib:format("~s ~s", [Prefix, Cut]);

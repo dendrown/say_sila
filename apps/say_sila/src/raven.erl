@@ -22,6 +22,7 @@
          connect/0,
          emote/1,
          emote/2,
+         get_big_percent/0,
          get_big_players/2,
          get_big_players/3,
          report/1,
@@ -30,12 +31,13 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
+-include("dts.hrl").
 -include("raven.hrl").
 -include("twitter.hrl").
 -include_lib("ecsv/include/ecsv.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(REPORT_TIMEOUT, (1 * 60 * 1000)).
+-define(REPORT_TIMEOUT,     (1 * 60 * 1000)).
 
 
 % Slots are for keeping everything about a player category in one place
@@ -66,8 +68,8 @@
 % @end  --
 start_link() ->
     {ok, App} = application:get_application(),
-    WekaNode = application:get_env(App, weka_node,   undefined),
-    BigP100  = application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
+    WekaNode  = application:get_env(App, weka_node,   undefined),
+    BigP100   = application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
     gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [BigP100, WekaNode], []).
 
 
@@ -89,6 +91,16 @@ stop() ->
 % @end  --
 connect() ->
     gen_server:cast(?MODULE, authenticate).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_percent() -> float().
+%%
+% @doc  Gets the cutoff percentage for deciding who is a big player.
+%%--------------------------------------------------------------------
+get_big_percent() ->
+    gen_server:call(?MODULE, get_big_percent).
 
 
 
@@ -219,7 +231,19 @@ emote(Tracker, Option) when   is_atom(Option)
 
 
 emote(Tracker, Options) ->
-    gen_server:cast(?MODULE, {emote, Tracker, Options}).
+    %
+    % We're probably going to write a bunch of files, set up the stub one time
+    StatsStub = io_lib:format("~s/~s", [wui:get_status_dir(),
+                                        wui:get_tag(Tracker,
+                                                    get_big_percent(),
+                                                    day)]),
+    % Get the full period and a version of Options without start/stop properties
+    {PeriodStart,
+     PeriodStop,
+     RunOptions} = extract_period(Tracker, Options),
+
+    % The AUX function will make the gen_server call multiple times
+    emote_aux(Tracker, PeriodStart, PeriodStop, StatsStub, RunOptions).
 
 
 
@@ -325,6 +349,25 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call({emote_day, Tracker, StatsStub, Options}, _From, State) ->
+    %
+    DayTxt = dts:date_str(proplists:get_value(start, Options)),
+    ?debug("Emote day: ~s", [DayTxt]),
+
+    % TODO: Save daily emos to mnesia rather that status/file.etf
+    Tweets = twitter:get_tweets(Tracker, all, Options),
+
+    % TODO: Send to Weka
+    StatsFPath = io_lib:format("~s.~s.etf", [StatsStub, DayTxt]),
+    file:write_file(StatsFPath, term_to_binary(Tweets)),
+
+    {reply, {ok, length(Tweets)}, State};
+
+
+handle_call(get_big_percent, _From, State) ->
+    {reply, State#state.big_percent, State};
+
+
 handle_call(reset, _From, State) ->
     {reply, ok, #state{big_percent = State#state.big_percent,
                        weka_node   = State#state.weka_node}};
@@ -375,6 +418,8 @@ handle_cast(authenticate, State) ->
     {noreply, State};
 
 
+% FIXME: deprecated/reference version of emote
+%        DELETE VERY SOON...
 handle_cast({emote, Tracker, Options}, State = #state{big_percent = BigP100,
                                                       tweet_todo  = TodoMap,
                                                       weka_node   = WekaNode}) ->
@@ -482,6 +527,40 @@ string_to_float(Value) ->
 
 
 %%--------------------------------------------------------------------
+-spec extract_period(Tracker :: atom(),
+                     Options :: list()) -> {date() | datetime(),
+                                            date() | datetime(),
+                                            list()}.
+%%
+% @doc  Creates the start/stop period for tweet analysis from an `Options'
+%       proplist.  The period defaults are:
+%           - `start'   the DTS of the earliest tweet for the `Tracker' code
+%           - `stop'    the DTS for midnight tomorrow morning
+%                       (so that we pull up to the end of today)
+%
+%       The caller gets back a tuple with the period start and stop dates
+%       and the `Options' proplists with the start/stop elements removed.
+% @end  --
+extract_period(Tracker, Options) ->
+    %
+    PeriodStart = case proplists:get_value(start, Options) of
+        undefined -> twitter:get_first_dts(Tracker, [calendar]);
+        StartDTS  -> StartDTS
+    end,
+
+    PeriodStop = case proplists:get_value(stop, Options) of
+        undefined -> dts:add(calendar:local_time(), 1, day);    % Tomorrow for today
+        StopDTS   -> StopDTS
+    end,
+
+    % For a clean day-to-day progression, start/end everything at midnight
+    {dts:dayize(PeriodStart),
+     dts:dayize(PeriodStop),
+     proplists:delete(start, proplists:delete(stop, Options))}.
+
+
+
+%%--------------------------------------------------------------------
 -spec get_big_players_aux(BigP100  :: float(),
                           TotalCnt :: players(),
                           Players  :: players()) -> {float(), big_players(), players()}.
@@ -531,6 +610,31 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
     case AdjBigP100 >= BigP100 of
         true  -> {AdjBigP100, lists:reverse(NewBigPlayers), Rest};
         false -> get_big_players_aux(BigP100, TotalCnt, Rest, NewBigCnt, NewBigPlayers)
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec emote_aux(Tracker     :: atom(),
+                 Today      :: date(),
+                 StopDay    :: date(),
+                 StatsStub  :: string(),
+                 Options    :: list()) -> tweets().
+%%
+% @doc  Called from the export `emote/2' function.  Here we recurse to
+%       make a gen_server call for each day in the period.
+% @end  --
+emote_aux(Tracker, Today, StopDay, StatsStub, Options) ->
+    %
+    case Today < StopDay of
+        true ->
+            Tomorrow = dts:add(Today, 1, day),
+            FullOpts = [{start, Today},
+                        {stop,  Tomorrow} | Options],
+            gen_server:call(?MODULE, {emote_day, Tracker, StatsStub, FullOpts}, ?TWITTER_DB_TIMEOUT),
+            emote_aux(Tracker, Tomorrow, StopDay, StatsStub, Options);
+
+        false -> ok
     end.
 
 
@@ -727,7 +831,7 @@ report_tweet(Tweet = #tweet{type        = TweetType,
 
 %%--------------------------------------------------------------------
 -spec tt_rt_full(Reports :: reports(),
-                Field   :: atom()) -> atom().
+                 Field   :: atom()) -> atom().
 %%
 % @doc  Makes a list of the values for the specfied field for the
 %       `tweet', `retweet' and `all' reports.
