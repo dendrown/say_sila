@@ -31,29 +31,16 @@
 % @end  --
 start(_StartType, _StartArgs) ->
     llog:start(),
+    {ok, App} = application:get_application(),
+
     ?notice("Say hello to Say Sila"),
     %?debug("Type: ~p", [_StartType]),
     %?debug("Args: ~p", [_StartArgs]),
 
+    init_mnesia(App),
+    init_dependencies(),
+
     % Setup for Twitter
-    lists:foreach(fun(App) -> ok = application:ensure_started(App) end,
-                  [inets,
-                   crypto,
-                   asn1,
-                   public_key,
-                   ssl,
-                   oauth    %,
-                  %----------
-                  % Prepping for hackey...
-                  %----------
-                  %unicode_util_compat,
-                  %idna,
-                  %mimerl,
-                  %certifi,
-                  %ssl_verify_fun,
-                  %metrics,
-                  %hackney
-                  ]),
     Return = say_sila_sup:start_link(),
     case Return of
         {ok, _} -> wui:configure();
@@ -77,4 +64,48 @@ stop(_State) ->
 
 %%====================================================================
 %% Internal functions
-%%====================================================================
+%%--------------------------------------------------------------------
+-spec init_mnesia(App :: atom()) -> boolean().
+%
+% @doc  Launch Mnesia and create the schema if necessary
+% @end  --
+init_mnesia(App) ->
+    mnesia:start(),
+    case mnesia:system_info(tables) of
+        [schema] ->
+            % New node initialization
+            Nodes = application:get_env(App, mnesia_nodes, [node()]),
+            mnesia:create_schema(Nodes);
+
+        Schema -> Schema
+        end,
+    Active = mnesia:system_info(use_dir),
+    ?info("Mnesia initialized: run[~s] act[~s]", [mnesia:system_info(is_running), Active]),
+    Active.
+
+
+
+%%--------------------------------------------------------------------
+-spec init_dependencies() -> ok.
+%
+% @doc  Launch Mnesia and create the schema if necessary
+% @end  --
+init_dependencies() ->
+    lists:foreach(fun(Dep) -> ok = application:ensure_started(Dep) end,
+                  [inets,
+                   crypto,
+                   asn1,
+                   public_key,
+                   ssl,
+                   oauth    %,
+                  %----------
+                  % TODO: decide httpc vs. hackey for auto-auth on Twitter
+                  %----------
+                  %unicode_util_compat,
+                  %idna,
+                  %mimerl,
+                  %certifi,
+                  %ssl_verify_fun,
+                  %metrics,
+                  %hackney
+                  ]).
