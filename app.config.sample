@@ -19,7 +19,7 @@
                                              {user,     "dbuser"},
                                              {password, "dbpass"},
                                              {database, "sila_tweets"}]},
-                {mnesia_nodes,               [gw]},
+                {mnesia_nodes,               [gw@nonode]},
                 {big_percent,                0.20},
-                {weka_node,                  jvm@localhost} ]}
+                {weka_node,                  jvm@nonode} ]}
 ].

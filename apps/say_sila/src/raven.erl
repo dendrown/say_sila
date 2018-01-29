@@ -47,6 +47,14 @@
 -type tweet_slot() :: #tweet_slot{}.
 
 
+% FIXME: Merge tweet_slot functionality into tweet_coll
+%        This is the current Mnesia-based design (in process)
+-record(tweet_coll, {dts      :: string(),
+                    %players  :: players(),
+                     tweets   :: tweets() }).
+%type tweet_coll() :: #tweet_coll{}.
+
+
 -record(state, {tracker           :: atom(),
                 big_percent       :: float(),
                 emo_report  = #{} :: map(),
@@ -70,6 +78,18 @@ start_link() ->
     {ok, App} = application:get_application(),
     WekaNode  = application:get_env(App, weka_node,   undefined),
     BigP100   = application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
+
+    % Initialize Mnesia
+    DistNodes = application:get_env(App, mnesia_nodes, [node()]),
+    case mnesia:create_table(tweet_colls,
+                             [{attributes,  record_info(fields, tweet_coll)},
+                              {disc_copies, DistNodes}]) of
+    {atomic, ok} ->
+            ?debug("Mnesia remembering tweet_colls");
+
+    {aborted, Why} ->
+            ?debug("Mnesia error on tweet_colls table: why[~p]", [Why])
+    end,
     gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [BigP100, WekaNode], []).
 
 
