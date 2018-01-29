@@ -18,6 +18,7 @@
 
 -export([start/2, stop/1]).
 
+-include("sila.hrl").
 -include_lib("llog/include/llog.hrl").
 
 %%====================================================================
@@ -69,19 +70,21 @@ stop(_State) ->
 %
 % @doc  Launch Mnesia and create the schema if necessary
 % @end  --
-init_mnesia(App) ->
-    mnesia:start(),
-    case mnesia:system_info(tables) of
-        [schema] ->
-            % New node initialization
-            Nodes = application:get_env(App, mnesia_nodes, [node()]),
-            mnesia:create_schema(Nodes);
+init_mnesia(_App) ->
+    %
+    % NOTE: We'll be sharing nodes between [gw, cc, ui]
+    Node = node(),
+    application:set_env(mnesia, dir, [?WORK_DIR, "/Mnesia.", Node]),
+    case mnesia:create_schema([Node]) of
+        ok ->
+            ?debug("Mnesia schema created");
 
-        Schema -> Schema
-        end,
-    Active = mnesia:system_info(use_dir),
-    ?info("Mnesia initialized: run[~s] act[~s]", [mnesia:system_info(is_running), Active]),
-    Active.
+        {error, {_, {already_exists, _}}} ->
+            ?debug("Using existing Mnesia schema")
+    end,
+    mnesia:start(),
+    ?debug("Mnesia initialized: run[~s] dir[~s]", [mnesia:system_info(is_running),
+                                                   mnesia:system_info(directory)]).
 
 
 
