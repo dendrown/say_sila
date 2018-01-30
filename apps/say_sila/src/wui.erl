@@ -160,10 +160,10 @@ get_conf() ->
                       sConfs = SConfs,
                       childSpecs = ChildSpecs},
 
-    ?debug("YAWS: id[~p]",   [Conf#yaws_conf.id]),
-    ?debug("YAWS: glob[~p]", [Conf#yaws_conf.gConf]),
-    ?debug("YAWS: srvs[~p]", [Conf#yaws_conf.sConfs]),
-    ?debug("YAWS: chSp[~p]", [Conf#yaws_conf.childSpecs]),
+    ?debug("YAWS: id[~s]",   [Conf#yaws_conf.id]),
+    %debug("YAWS: glob[~p]", [Conf#yaws_conf.gConf]),
+    %debug("YAWS: srvs[~p]", [Conf#yaws_conf.sConfs]),
+    %debug("YAWS: chSp[~p]", [Conf#yaws_conf.childSpecs]),
     Conf.
 
 
