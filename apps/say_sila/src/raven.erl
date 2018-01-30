@@ -47,18 +47,18 @@
 -type tweet_slot() :: #tweet_slot{}.
 
 
-% FIXME: Merge tweet_slot functionality into tweet_coll
+% FIXME: Merge tweet_slot functionality into tweet_lot
 %        This is the current Mnesia-based design (in process)
--record(tweet_coll, {dts      :: string(),
-                    %players  :: players(),
-                     tweets   :: tweets() }).
-%type tweet_coll() :: #tweet_coll{}.
+-record(tweet_lot, {dts      :: string(),
+                    tweets   :: tweets() }).
+%type tweet_lot() :: #tweet_lot{}.
 
 
--record(state, {tracker           :: atom(),
+-record(state, {tracker           :: atom(),    % TODO: Set this on init for dist-model
                 big_percent       :: float(),
                 emo_report  = #{} :: map(),
-                tweet_slots = #{} :: map(),     % Tweets fully handled by emote
+                tweet_slots = #{} :: map(),     % TODO: deprecated...remove soon
+                tweet_lots  = #{} :: map(),     % TODO: Keep emoted tweets in mnesia
                 tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
                 weka_node         :: string() }).
 -type state() :: #state{}.
@@ -81,14 +81,14 @@ start_link() ->
 
     % Initialize Mnesia
     DistNodes = application:get_env(App, mnesia_nodes, [node()]),
-    case mnesia:create_table(tweet_colls,
-                             [{attributes,  record_info(fields, tweet_coll)},
+    case mnesia:create_table(tweet_lots,
+                             [{attributes,  record_info(fields, tweet_lot)},
                               {disc_copies, DistNodes}]) of
     {atomic, ok} ->
-            ?debug("Mnesia remembering tweet_colls");
+            ?debug("Mnesia remembering tweet_lot");
 
     {aborted, Why} ->
-            ?debug("Mnesia error on tweet_colls table: why[~p]", [Why])
+            ?debug("Mnesia error on tweet_lot table: why[~p]", [Why])
     end,
     gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [BigP100, WekaNode], []).
 
@@ -369,19 +369,37 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call({emote_day, Tracker, StatsStub, Options}, _From, State) ->
+handle_call({emote_day, Tracker, StatsStub, Options},
+            _From,
+            State = #state{tweet_todo = Todo,
+                           weka_node  = WekaNode}) ->
     %
-    DayTxt = dts:date_str(proplists:get_value(start, Options)),
-    ?debug("Emote day: ~s", [DayTxt]),
+    LotDay = proplists:get_value(start, Options),
+    DayTxt = dts:date_str(LotDay),
+    ?debug("Pulling tweet lot from DB: day[~s]", [DayTxt]),
 
     % TODO: Save daily emos to mnesia rather that status/file.etf
     Tweets = twitter:get_tweets(Tracker, all, Options),
 
-    % TODO: Send to Weka
+    % FIXME: We want Mnesia, not ETF files
     StatsFPath = io_lib:format("~s.~s.etf", [StatsStub, DayTxt]),
     file:write_file(StatsFPath, term_to_binary(Tweets)),
 
-    {reply, {ok, length(Tweets)}, State};
+    % Send to Weka
+    ?debug("Packaging tweets for Weka: day[~s]", [DayTxt]),
+    FStub  = io_lib:format("tweets.~s.~s", [Tracker, DayTxt]),
+    {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
+
+    % Send to Weka to apply embedding/emotion filters
+    WekaCmd = proplists:get_value(context, Options, emote),     % Allow a command override
+    Lookup  = make_ref(),
+    NewTodo = maps:put(Lookup,
+                       #tweet_lot{dts = LotDay, tweets = Tweets},
+                       Todo),
+    {weka, WekaNode} ! {self(), Lookup, WekaCmd, FPath},
+
+    {reply, ok, State#state{tracker    = Tracker,               % TODO: Set on init & keep
+                            tweet_todo = NewTodo}};
 
 
 handle_call(get_big_percent, _From, State) ->
@@ -485,21 +503,18 @@ handle_cast(Msg, State) ->
 %%
 % @doc  Process out-of-band messages
 % @end  --
-handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{tweet_slots = SlotMap,
-                                                                            tweet_todo  = TodoMap}) ->
+handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{tweet_lots = LotMap,
+                                                                            tweet_todo = TodoMap}) ->
     NewState = case maps:take(Ref, TodoMap) of
-        {#tweet_slot{category = Category,
-                     players  = Players,
-                     tweets   = Tweets},
+        {PreLot = #tweet_lot{dts    = LotDTS,
+                             tweets = Tweets},
          NewTodoMap} ->
-            ?notice("Received CSV from Weka: pid[~p] cat[~s] csv[~s]",
-                    [From, Category, FPathCSV]),
+            ?notice("Received CSV from Weka: pid[~p] dts[~s] csv[~s]",
+                    [From, LotDTS, FPathCSV]),
             EmoTweets = emote_tweets(Tweets, FPathCSV),
-            TweetSlot = #tweet_slot{category = Category,
-                                    players  = Players,
-                                    tweets   = EmoTweets},
-            State#state{tweet_slots = maps:put(Category, TweetSlot, SlotMap),
-                        tweet_todo  = NewTodoMap};
+            TweetLot = PreLot#tweet_lot{tweets = EmoTweets},
+            State#state{tweet_lots = maps:put(LotDTS, TweetLot, LotMap),
+                        tweet_todo = NewTodoMap};
 
         error ->
             ?warning("Received unsolicited CSV: ref[~p] arg[~p]", [Ref, ArgMap]),
