@@ -18,12 +18,15 @@
 -export([add/2,
          average/1,
          do_top_hits/2,
+         is_stoic/1,
          relevel/1,
          stoic/0]).
 
 -include("raven.hrl").
 -include("twitter.hrl").
 -include_lib("llog/include/llog.hrl").
+
+-define(EPSILON, 0.00000001).
 
 
 %%====================================================================
@@ -82,6 +85,27 @@ do_top_hits(Tweet = #tweet{emotions = TweetEmos}, TopHits) ->
         {Emo, NewHits}
         end,
     relevel(CmpHits).
+
+
+
+%%--------------------------------------------------------------------
+-spec is_stoic(Emos :: tweet()
+                     | emotions()) -> boolean().
+%
+% @doc  Returns an true if the entity has no emotion, false otherwise.
+% @end  --
+is_stoic(#tweet{emotions = Emos}) ->
+    is_stoic(Emos);
+
+
+is_stoic(#emotions{levels = Levels}) ->
+    Fn = fun Recur([]) ->
+                 true;
+             Recur([{_, Level} | RestLevels]) ->
+                 if Level > ?EPSILON -> false;
+                    true             -> Recur(RestLevels)
+                 end end,
+    Fn(maps:to_list(Levels)).
 
 
 

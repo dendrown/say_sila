@@ -16,10 +16,12 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([start_link/1, stop/1]).
+-export([start_link/1, stop/1,
+         tweet/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
+-include("twitter.hrl").
 -include_lib("llog/include/llog.hrl").
 
 -define(MODULES,    #{cc => player_cc,
@@ -27,7 +29,10 @@
 -define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
 
 
--record(state, {tracker :: atom() }).
+-record(state, {tracker         :: atom(),
+                players,
+                tweet_cnt = 0   :: integer(),
+                ordering  = []  :: list() }).
 -type state() :: #state{}.
 
 
@@ -53,6 +58,17 @@ start_link(Tracker) ->
 % @end  --
 stop(Tracker) ->
     gen_server:call(?reg(Tracker), stop).
+
+
+
+%%--------------------------------------------------------------------
+-spec tweet(Tracker :: atom(),
+            Tweet   :: tweet()) -> ok.
+%%
+% @doc  Shutdown function for account services
+% @end  --
+tweet(Tracker, Tweet) ->
+    gen_server:cast(?reg(Tracker), {tweet, Tweet}).
 
 
 
@@ -115,6 +131,18 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
+handle_cast({tweet, Tweet = #tweet{screen_name = Name,
+                                   emotions    = Emos}}, State) ->
+    % To save memory, don't keep the text of the stoic guys
+    StoredTweet = case emo:is_stoic(Emos) of
+        true  -> Tweet#tweet{text = ignored};
+        false -> Tweet
+    end,
+    ?debug("Storing tweet: acct[~s] txt[~s]", [Name,
+                                               StoredTweet#tweet.text]),
+    {noreply, State};
+
+
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.

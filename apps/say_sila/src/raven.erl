@@ -58,7 +58,6 @@
                 big_percent       :: float(),
                 emo_report  = #{} :: map(),
                 tweet_slots = #{} :: map(),     % TODO: deprecated...remove soon
-                tweet_lots  = #{} :: map(),     % TODO: Keep emoted tweets in mnesia
                 tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
                 weka_node         :: string() }).
 -type state() :: #state{}.
@@ -503,18 +502,20 @@ handle_cast(Msg, State) ->
 %%
 % @doc  Process out-of-band messages
 % @end  --
-handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{tweet_lots = LotMap,
+handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{tracker    = Tracker,
                                                                             tweet_todo = TodoMap}) ->
     NewState = case maps:take(Ref, TodoMap) of
-        {PreLot = #tweet_lot{dts    = LotDTS,
-                             tweets = Tweets},
+        {_PreLot = #tweet_lot{dts    = LotDTS,
+                              tweets = Tweets},
          NewTodoMap} ->
             ?notice("Received CSV from Weka: pid[~p] dts[~s] csv[~s]",
-                    [From, LotDTS, FPathCSV]),
-            EmoTweets = emote_tweets(Tweets, FPathCSV),
-            TweetLot = PreLot#tweet_lot{tweets = EmoTweets},
-            State#state{tweet_lots = maps:put(LotDTS, TweetLot, LotMap),
-                        tweet_todo = NewTodoMap};
+                    [From, dts:date_str(LotDTS), FPathCSV]),
+            _EmoTweets = emote_tweets(Tracker, Tweets, FPathCSV),
+            %TweetLot  = PreLot#tweet_lot{tweets = EmoTweets},
+
+            % TODO: Save lot to mnesia
+
+            State#state{tweet_todo = NewTodoMap};
 
         error ->
             ?warning("Received unsolicited CSV: ref[~p] arg[~p]", [Ref, ArgMap]),
@@ -675,7 +676,8 @@ emote_aux(Tracker, Today, StopDay, StatsStub, Options) ->
 
 
 %%--------------------------------------------------------------------
--spec emote_tweets(Tweets   :: tweets(),
+-spec emote_tweets(Tracker  :: atom(),
+                   Tweets   :: tweets(),
                    FPathCSV :: string()) -> tweets().
 %%
 % @doc  Applies the emotion levels from the specified CSV file (filtered
@@ -683,11 +685,11 @@ emote_aux(Tracker, Today, StopDay, StatsStub, Options) ->
 %
 %       NOTE: Yes, I know "emote" is intransitive.
 % @end  --
-emote_tweets(Tweets, FPathCSV) ->
+emote_tweets(Tracker, Tweets, FPathCSV) ->
     {ok, InCSV} = file:open(FPathCSV, [read]),
     {ok, {Cnt, EmoTweets}} = ecsv:process_csv_file_with(InCSV,
                                                         fun emote_tweets_csv/2,
-                                                        {0, Tweets, []},
+                                                        {Tracker, 0, Tweets, []},
                                                         #ecsv_opts{quote=$'}),
     file:close(InCSV),
     ?notice("Applied emotion: cnt[~B] arff[~s]", [Cnt, FPathCSV]),
@@ -708,23 +710,23 @@ emote_tweets_csv({newline,
                    "NRC-Affect-Intensity-fear_Score",
                    "NRC-Affect-Intensity-sadness_Score",
                    "NRC-Affect-Intensity-joy_Score"]},
-                 Acc = {0, _, _}) ->
+                 Acc = {_, 0, _, _}) ->
     %
     % This clause checks that the first line is correct
     ?debug("CSV file is correct for emote"),
     Acc;
 
 
-emote_tweets_csv({eof}, {Cnt, Unprocessed, EmoTweets}) ->
+emote_tweets_csv({eof}, {Tracker, Cnt, Unprocessed, EmoTweets}) ->
     case length(Unprocessed) of
         0     -> ok;
-        UnCnt -> ?warning("Unprocessed tweets after emote: cnt[~B]", [UnCnt])
+        UnCnt -> ?warning("Unprocessed tweets after emote: trk[~s] cnt[~B]", [Tracker, UnCnt])
     end,
     {Cnt, EmoTweets};
 
 
 emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
-                 {Cnt, [Tweet | RestTweets], EmoTweets}) ->
+                 {Tracker, Cnt, [Tweet | RestTweets], EmoTweets}) ->
     %
     ?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),
     %
@@ -738,10 +740,11 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
                                              sadness => string_to_float(Sadness),
                                              joy     => string_to_float(Joy)}},
             EmoTweet = Tweet#tweet{emotions = Emotions},
-            {Cnt + 1, RestTweets, [EmoTweet | EmoTweets]};
+            player:tweet(Tracker, EmoTweet),
+            {Tracker, Cnt + 1, RestTweets, [EmoTweet | EmoTweets]};
 
         false ->
-            ?warning("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
+            ?error("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
             %debug("tweet id   : ~p : ~p~n", [Tweet#tweet.id, ID]),
             %debug("screen name: ~s~n", [ScreenName]),
             %debug("tweet text : ~s~n", [Tweet#tweet.text]),
@@ -846,7 +849,7 @@ report_tweet(Tweet = #tweet{type        = TweetType,
                 Emo       -> emo:add(Emo, TweetEmo)
             end,
             NewPlayerSet = gb_sets:add_element(ScreenName, PlayerSet),
-            Report#report{num_tweets  = TweetCnt  + 1,
+            Report#report{num_tweets  = TweetCnt + 1,
                           num_players = gb_sets:size(NewPlayerSet),
                           player_set  = NewPlayerSet,
                           beg_dts     = NewBegDTS,
