@@ -15,7 +15,7 @@
 -define(_sila_included, ack).
 
 -define(REG_DIST, local).
--define(WORK_DIR, "/srv/say-sila").
+-define(WORK_DIR, "/srv/say_sila").
 
 -type property()    :: atom() | {term(), term()}.
 -type proplist()    :: [property()].

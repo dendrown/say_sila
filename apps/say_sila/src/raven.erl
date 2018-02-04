@@ -727,7 +727,7 @@ report_tweet(Tweet = #tweet{type        = TweetType,
 
 %%--------------------------------------------------------------------
 -spec tt_rt_full(Reports :: reports(),
-                Field   :: atom()) -> atom().
+                 Field   :: atom()) -> atom().
 %%
 % @doc  Makes a list of the values for the specfied field for the
 %       `tweet', `retweet' and `all' reports.
