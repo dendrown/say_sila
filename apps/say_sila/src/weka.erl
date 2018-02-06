@@ -25,6 +25,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([report_to_arff/2,
+         report_to_arff/3,
          tweets_to_arff/2]).
 
 -include("sila.hrl").
@@ -36,27 +37,47 @@
 -define(put_attr(FOut, A0, A1, Type),   io:format(FOut, "@ATTRIBUTE ~s_~s ~s\n", [A0, A1, Type])).
 -define(put_nl(FOut),                   io:put_chars(FOut, "\n")).
 
+% TODO: Move to llog
+-define(fmt(Fmt, Args), io_lib:format(Fmt, Args)).
+
 
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
 -spec report_to_arff(Name   :: string(),
+                     RptMap :: map()) -> [{ok, string()}]
+                                       | [{{error, term()}, string()}].
+%%
+% @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
+%       for a Big/Regular player `raven' report.
+% @end  --
+report_to_arff(Name, RptMap = #{big := BigRptPack}) ->
+    %
+    % Run each of the big report types (the reg reports should match)
+    lists:map(fun(Type) -> report_to_arff(?fmt("~s.~s", [Name, Type]), Type, RptMap) end,
+              proplists:get_keys(BigRptPack)).
+
+
+
+%%--------------------------------------------------------------------
+-spec report_to_arff(Name   :: string(),
+                     Type   :: atom(),
                      RptMap :: map()) -> {ok, string()}
                                        | {{error, term()}, string()}.
 %%
 % @doc  Generate an ARFF (Attribute-Relation File Format) relation for
 %       a Big/Regular player `raven' report.
 % @end  --
-report_to_arff(Name, #{big := BigRptPack,
-                       reg := RegRptPack}) ->
+report_to_arff(Name, Type, #{big := BigRptPack,
+                             reg := RegRptPack}) ->
     %
-    % TODO: (1) We need to handle full & tweet & retweet
-    %       (2) We'll want an ARFF per emotion
-    BigRpt = proplists:get_value(full, BigRptPack),
-    RegRpt = proplists:get_value(full, RegRptPack),
+    % TODO: We'll want an ARFF per emotion
+    BigRpt = proplists:get_value(Type, BigRptPack),
+    RegRpt = proplists:get_value(Type, RegRptPack),
 
-    ?info("Converting report: rel[~s] cat[~s:~s] acct[~B:~B] tt[~B:~B]",
-          [Name,
+    ?info("Converting ~s report: rel[~s] cat[~s:~s] acct[~B:~B] tt[~B:~B]",
+          [Type,
+           Name,
            BigRpt#report.category,      RegRpt#report.category,
            BigRpt#report.num_players,   RegRpt#report.num_players,
            BigRpt#report.num_tweets,    RegRpt#report.num_tweets]),
@@ -84,8 +105,8 @@ report_to_arff(Name, #{big := BigRptPack,
                 BigLotCnt = BigLot#emotions.count,
                 RegLotCnt = RegLot#emotions.count,
                 io:format(FOut, "~s, ~B, ~B", [DTS, BigLotCnt, RegLotCnt]),
-                ?debug("BIG: ~p", [BigLot]),
-                ?debug("REG: ~p", [RegLot]),
+                %?debug("BIG: ~p", [BigLot]),
+                %?debug("REG: ~p", [RegLot]),
                 lists:foreach(fun(Emo) ->
                                   io:format(FOut, ", ~f, ~f",
                                             [maps:get(Emo, BigLot#emotions.levels),
