@@ -251,14 +251,13 @@ get_players_R(Tracker, MinTweets) ->
                               | list()) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
-%       take the form "denDrown" or ["denDrown", "someOneElse"]
+%       take one of the following forms:
+%           - <<"denDrown">>                : for one account
+%           - ["denDrown", "someOneElse"]   : for multiple accounts
+%           - `all'                         : all available tweets (careful!)
 %
-%       Options is a property list allowing the following:
-%           - `start'       Begining datetime to start looking for tweets
-%           - `stop'        End datetime to start looking for players
-%           - `no_retweet'  Collect original tweets only
-%
-%       NOTE: this pulls only classic 140-char tweets
+%       NOTE: this pulls only classic 140 and 280 char tweets (no
+%             extended tweets)
 % @end  --
 get_tweets(Tracker, ScreenNames) ->
     get_tweets(Tracker, ScreenNames, []).
@@ -270,7 +269,7 @@ get_tweets(Tracker, ScreenNames) ->
                  ScreenNames :: binary()
                               | string()
                               | list(),
-                 Options     :: list()) -> list().
+                 Options     :: list()) -> list() | pid().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
 %       take one of the following forms:
@@ -278,7 +277,16 @@ get_tweets(Tracker, ScreenNames) ->
 %           - ["denDrown", "someOneElse"]   : for multiple accounts
 %           - `all'                         : all available tweets (careful!)
 %
-%       NOTE: this pulls only classic 140-char tweets
+%       Options is a property list allowing the following:
+%           - `start'       Begining datetime to start looking for tweets
+%           - `stop'        End datetime to start looking for players
+%           - `no_retweet'  Collect original tweets only
+%           - `mn_emo'      Call weka for an emotion analysis on the tweets
+%                           and store the results in mnesia.  For this option
+%                           we return the pid of the process handling the request.
+%
+%       NOTE: this pulls only classic 140 and 280 char tweets (no
+%             extended tweets)
 % @end  --
 get_tweets(_, [], _) ->
     [];
@@ -293,12 +301,7 @@ get_tweets(Tracker, ScreenName, Options) when is_binary(ScreenName) ->
 
 
 get_tweets(Tracker, ScreenNames, Options) ->
-    % Convert a singleton ScreenName to a list of one
-    ScreenNameList = case io_lib:printable_unicode_list(ScreenNames) of
-        true  -> [ScreenNames];                         % ["justOne"]
-        false -> ScreenNames
-    end,
-    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList, Options}, ?TWITTER_DB_TIMEOUT).
+    gen_server:call(?MODULE, {get_tweets, Tracker, listify_string(ScreenNames), Options}, ?TWITTER_DB_TIMEOUT).
 
 
 
@@ -578,6 +581,23 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
+%%--------------------------------------------------------------------
+-spec listify_string(S :: binary()
+                        | string()
+                        | list()) -> list().
+%%
+% @doc  Turn a single string or printable binary into a one-item list
+%       of that item.  If the input is already a normal list, we return
+%       it as is.
+% @end  --
+listify_string(S) ->
+    case io_lib:printable_unicode_list(S) of
+        true  -> [S];                         % ["justOne"]
+        false -> S
+    end.
+
+
+
 %%--------------------------------------------------------------------
 -spec track(KeyWords :: binary()
                       | string(),

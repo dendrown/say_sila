@@ -659,10 +659,10 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
 
 %%--------------------------------------------------------------------
 -spec emote_aux(Tracker     :: atom(),
-                 Today      :: date(),
-                 StopDay    :: date(),
-                 StatsStub  :: string(),
-                 Options    :: list()) -> tweets().
+                Today       :: date(),
+                StopDay     :: date(),
+                StatsStub   :: string(),
+                Options     :: list()) -> tweets().
 %%
 % @doc  Called from the export `emote/2' function.  Here we recurse to
 %       make a gen_server call for each day in the period.
