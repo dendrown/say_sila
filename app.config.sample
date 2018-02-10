@@ -17,7 +17,7 @@
                 {db_config,                 [{host,         "localhost"},
                                              {port,         5432},
                                              {user,         "dbuser"},
-                                             {password,     "dbpass"},
+                                             {pass,         "dbpass"},
                                              {database,     "sila_tweets"},
                                              {status_tbl,   "tbl_statuses"}]},
                 {big_percent,                0.20},
