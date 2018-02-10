@@ -56,7 +56,7 @@
 
 -record(state, {tracker           :: atom(),    % TODO: Set this on init for dist-model
                 big_percent       :: float(),
-                emo_report  = #{} :: map(),
+                emo_report        :: map(),
                 tweet_slots = #{} :: map(),     % TODO: deprecated...remove soon
                 tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
                 weka_node         :: string() }).
@@ -410,7 +410,8 @@ handle_call(reset, _From, State) ->
                        weka_node   = State#state.weka_node}};
 
 
-handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
+handle_call({report, Period}, _From, State = #state{emo_report  = undefined,
+                                                    tracker     = Tracker,
                                                     big_percent = BigP100,
                                                     tweet_slots = SlotMap}) ->
     % Create two sets of three reports:
@@ -427,7 +428,13 @@ handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
     r:report_emotions(wui:get_tag(Tracker, BigP100, Period),
                       Period,
                       RptMap),
-    {reply, ok, State#state{emo_report = RptMap}};
+    {reply, RptMap, State#state{emo_report = RptMap}};
+
+
+handle_call({report, _Period}, _From, State = #state{emo_report = RptMap}) ->
+    %
+    % FIXME: No check that this Period matches the last
+    {reply, RptMap, State};
 
 
 handle_call(stop, _From, State) ->

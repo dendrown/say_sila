@@ -14,7 +14,7 @@
 -module(adhoc).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([md/2]).
+-export([md/2, q4/0]).
 
 -include("twitter.hrl").
 
@@ -51,3 +51,9 @@ md(Track, Bigs) ->
     io:format("| Screen Name                                              | Total| TT% | RT% |RT Accts |~n"),
     io:format("| -------------------------------------------------------- | ----:| ---:| ---:|--------:|~n"),
     lists:foreach(GetMD, lists:seq(1, length(Bigs))).
+
+
+
+%%--------------------------------------------------------------------
+q4() -> [{start, {2017, 10, 1}}, {stop, {2018, 1, 1}}].
+

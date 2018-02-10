@@ -78,7 +78,8 @@
                 oauth_token  :: string(),
                 oauth_secret :: string(),
                 track        :: string() | binary(),
-                db_conn      :: pid() }).
+                db_conn      :: pid(),
+                status_tbl   :: string() }).
 -type state() :: #state{}.
 
 
@@ -310,13 +311,19 @@ get_tweets(Tracker, ScreenNames, Options) ->
 % @doc  Initialization for the Twitter access server.
 % @end  --
 init([DBConfig, ConsKey, ConsSecret, AccessKey, AccessSecret]) ->
-    ?notice("Initializing access to Twitter"),
+    %
+    % IMPORTANT: Note that we pull results from the twitter<gen_server> state variable,
+    %            but for now we always write new tweets to the main statuses table.
+    StatusTbl = proplists:get_value(status_tbl, DBConfig, <<"tbl_statuses">>),
+    ?notice("Initializing access to Twitter: push[tbl_statuses] pull[~s]",
+            [StatusTbl]),
     process_flag(trap_exit, true),
 
     gen_server:cast(self(), {request_token, AccessKey, AccessSecret}),
     gen_server:cast(self(), {db_connect, DBConfig}),
 
-    {ok, #state{consumer = {ConsKey, ConsSecret, hmac_sha1}}}.
+    {ok, #state{consumer   = {ConsKey, ConsSecret, hmac_sha1},
+                status_tbl = StatusTbl}}.
 
 
 
@@ -382,12 +389,13 @@ handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
     {reply, ok, NewState};
 
 
-handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) ->
+handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn    = DBConn,
+                                                            status_tbl = StatusTbl}) ->
     Query = io_lib:format("SELECT status->>'timestamp_ms' AS timestamp_ms "
-                          "FROM tbl_statuses "
+                          "FROM ~s "
                           "WHERE track = '~s' AND hash_~s AND status->>'lang' = '~s'"
                           "ORDER BY status->'timestamp_ms' LIMIT 1",
-                          [?DB_TRACK, Tracker, ?DB_LANG]),
+                          [StatusTbl, ?DB_TRACK, Tracker, ?DB_LANG]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, [{DTS}]} -> binary_to_integer(DTS);
@@ -396,7 +404,8 @@ handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) -
     {reply, Reply, State};
 
 
-handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBConn}) ->
+handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn    = DBConn,
+                                                                   status_tbl = StatusTbl}) ->
     %
     % Prepare additions to the query according to the specified Options
     AndWhere = get_timestamp_ms_sql("AND", Options),
@@ -406,11 +415,11 @@ handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBC
     end,
     Query = io_lib:format("SELECT status->'user'->>'screen_name' AS screen_name, "
                                  "COUNT(1) AS cnt "
-                          "FROM tbl_statuses "
+                          "FROM ~s "
                           "WHERE (track = '~s') AND hash_~s AND status->>'lang' = '~s' ~s "
                           "GROUP BY screen_name ~s"
                           "ORDER BY cnt DESC",
-                          [?DB_TRACK, Tracker, ?DB_LANG, AndWhere, Having]),
+                          [StatusTbl, ?DB_TRACK, Tracker, ?DB_LANG, AndWhere, Having]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#player{screen_name = SN,
@@ -427,7 +436,8 @@ handle_call({get_tweets, Tracker, Players = [#player{} | _], Options}, From, Sta
     handle_call({get_tweets, Tracker, ScreenNames, Options}, From, State);
 
 
-handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{db_conn = DBConn}) ->
+handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{db_conn    = DBConn,
+                                                                               status_tbl = StatusTbl}) ->
     %
     % Note: This pulls only classic 140|280-char tweets and does not consider the extended_text field.
     %       Also, we're going to want to move the list_to_sql line to a DB module
@@ -452,12 +462,13 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                                  "status->>'text' AS text, "
                                  "status->'retweeted_status'->>'id' AS rt_id, "
                                  "status->'retweeted_status'->'user'->>'screen_name' AS rt_screen_name "
-                          "FROM tbl_statuses "
+                          "FROM ~s "
                           "WHERE track = '~s' "
                             "AND hash_~s "
                             "AND status->>'lang' ='~s' ~s ~s ~s "
                           "ORDER BY timestamp_ms",
-                          [?DB_TRACK, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNamesCond]),
+                          [StatusTbl, ?DB_TRACK, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNamesCond]),
+
     %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#tweet{id             = ID,
@@ -747,6 +758,9 @@ store_tweet(_, _, _, #state{db_conn = undefined}) ->
 
 store_tweet(RawTweet, IsCC, IsGW, #state{db_conn = DBConn,
                                          track   = Track}) ->
+    %
+    % IMPORTANT: Note that we pull results from the twitter<gen_server> state variable,
+    %            but for now we always write new tweets to the main statuses table.
     DBResult = epgsql:equery(DBConn,
                              "INSERT INTO tbl_statuses (status, track, hash_cc, hash_gw) "
                              "VALUES  ($1, $2, $3, $4)",

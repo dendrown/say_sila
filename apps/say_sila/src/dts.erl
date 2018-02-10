@@ -159,15 +159,14 @@ minutize({{Year, Month, Day}, {Hour, Min, _}}) ->
 %%--------------------------------------------------------------------
 -spec str(DTS :: tuple()) -> string().
 %
-%     Creates something printable from a datetime tuple.
-%     from DTS.
+%     Creates an ISO 8601 printable string from a datetime tuple.
 % @end  --
 str({Year, Mon, Day}) ->
     io_lib:format("~4..0B-~2..0B-~2..0B", [Year, Mon, Day]);
 
 
 str({{Year, Mon, Day}, {Hour, Min, Sec}}) ->
-    io_lib:format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B", [Year, Mon, Day, Hour, Min, Sec]).
+    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B", [Year, Mon, Day, Hour, Min, Sec]).
 
 
 
