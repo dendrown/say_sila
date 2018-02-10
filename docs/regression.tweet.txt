@@ -1,0 +1,84 @@
+>> #globalwarming
+__________________________________________________
+reg_fear =
+
+      3.4759 * big_sadness +
+      1.4815 * big_joy +
+     10.5935
+
+Correlation coefficient                  0.2726
+
+__________________________________________________
+reg_anger =
+
+     -1.0508 * big_fear +
+      3.8625 * big_sadness +
+      2.0387 * big_joy +
+      6.8918
+
+Correlation coefficient                  0.3336
+
+__________________________________________________
+reg_sadness =
+
+      0.1764 * big_cnt +
+     -1.5463 * big_fear +
+      4.1585 * big_sadness +
+      1.5648 * big_joy +
+      2.1977
+
+Correlation coefficient                  0.2824
+
+__________________________________________________
+reg_joy =
+
+     -1.7932 * big_fear +
+      4.2843 * big_sadness +
+      3.4849 * big_joy +
+     10.9579
+
+Correlation coefficient                  0.4627
+
+
+
+>> #climatechange
+__________________________________________________
+reg_fear =
+
+     -0.6617 * big_cnt +
+      5.8174 * big_sadness +
+      2.2607 * big_joy +
+    295.2779
+
+Correlation coefficient                  0.1937
+
+__________________________________________________
+
+reg_anger =
+
+     -0.4275 * big_cnt +
+      3.8777 * big_sadness +
+      1.5294 * big_joy +
+    176.1196
+
+Correlation coefficient                  0.2418
+
+__________________________________________________
+reg_sadness =
+
+     -0.4038 * big_cnt +
+      3.2908 * big_sadness +
+      1.3231 * big_joy +
+    173.9981
+
+Correlation coefficient                  0.1786
+
+__________________________________________________
+reg_joy =
+
+     -0.5259 * big_cnt +
+      4.7248 * big_sadness +
+      1.9869 * big_joy +
+    219.4307
+
+Correlation coefficient                  0.1916

@@ -47,7 +47,7 @@
 
 -record(state, {tracker           :: atom(),
                 big_percent       :: float(),
-                emo_report  = #{} :: map(),
+                emo_report        :: map(),
                 tweet_slots = #{} :: map(),     % Tweets fully handled by emote
                 tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
                 weka_node         :: string() }).
@@ -330,7 +330,8 @@ handle_call(reset, _From, State) ->
                        weka_node   = State#state.weka_node}};
 
 
-handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
+handle_call({report, Period}, _From, State = #state{emo_report  = undefined,
+                                                    tracker     = Tracker,
                                                     big_percent = BigP100,
                                                     tweet_slots = SlotMap}) ->
     % Create two sets of three reports:
@@ -347,7 +348,13 @@ handle_call({report, Period}, _From, State = #state{tracker     = Tracker,
     r:report_emotions(wui:get_tag(Tracker, BigP100, Period),
                       Period,
                       RptMap),
-    {reply, ok, State#state{emo_report = RptMap}};
+    {reply, RptMap, State#state{emo_report = RptMap}};
+
+
+handle_call({report, _Period}, _From, State = #state{emo_report = RptMap}) ->
+    %
+    % FIXME: No check that this Period matches the last
+    {reply, RptMap, State};
 
 
 handle_call(stop, _From, State) ->
@@ -727,7 +734,7 @@ report_tweet(Tweet = #tweet{type        = TweetType,
 
 %%--------------------------------------------------------------------
 -spec tt_rt_full(Reports :: reports(),
-                Field   :: atom()) -> atom().
+                 Field   :: atom()) -> atom().
 %%
 % @doc  Makes a list of the values for the specfied field for the
 %       `tweet', `retweet' and `all' reports.
