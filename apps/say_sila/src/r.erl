@@ -57,7 +57,7 @@ start_link() ->
 
 
 %%--------------------------------------------------------------------
--spec reset() -> ok.
+-spec reset() -> true.
 %%
 % @doc  The R/Erlang Bridge can get stuck easily.  This function
 %       kills the process, which will trigger the supervisor to restart
@@ -127,7 +127,7 @@ report_emotions(Tag, Period, Reports) ->
 %%====================================================================
 %% Server Implementation
 %%--------------------------------------------------------------------
--spec init(list()) -> any().
+%% init:
 %%
 % @doc  Initiates connection with R environment
 % @end  --
@@ -159,9 +159,7 @@ terminate(Why, _State) ->
 
 
 %%--------------------------------------------------------------------
--spec code_change(OldVsn :: term(),
-                  State  :: state(),
-                  Extra  :: term()) -> {atom(), term()}.
+%% code_change:
 %%
 % @doc  Hot code update processing: a placeholder.
 % @end  --
@@ -336,7 +334,7 @@ fill_emotion_files(Period, CurrDTS, EndDTS, BigMap, RegMap, EmoOuts) ->
 %%--------------------------------------------------------------------
 -spec graph_emotion(Period  :: atom(),
                     Emotion :: atom(),
-                    EmoFile :: {atom(), emo_file()}) -> ok.
+                    EmoFile :: emo_file()) -> term().
 %%
 % @doc  Plot the emotion data in R and collect the image file.
 % @end  --

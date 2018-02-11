@@ -128,7 +128,7 @@ relevel(Closure) ->
 
 
 %%--------------------------------------------------------------------
--spec stoic() -> map().
+-spec stoic() -> emotions().
 %
 % @doc  Returns an `emotion' record representing "no emotion".
 % @end  --

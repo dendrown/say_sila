@@ -75,7 +75,7 @@ tweet(Tracker, Tweet) ->
 %%====================================================================
 %% Server Implementation
 %%--------------------------------------------------------------------
--spec init(list()) -> any().
+%% init:
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
@@ -98,9 +98,7 @@ terminate(Why, #state{tracker = Tracker}) ->
 
 
 %%--------------------------------------------------------------------
--spec code_change(OldVsn :: term(),
-                  State  :: state(),
-                  Extra  :: term()) -> {atom(), term()}.
+%% code_change:
 %%
 % @doc  Hot code update processing: a placeholder.
 % @end  --
@@ -126,8 +124,7 @@ handle_call(Msg, _From, State) ->
 
 
 %%--------------------------------------------------------------------
--spec handle_cast(Msg   :: term(),
-                  State :: state()) -> any().
+%% handle_cast:
 %%
 % @doc  Process async messages
 % @end  --
@@ -150,8 +147,7 @@ handle_cast(Msg, State) ->
 
 
 %%--------------------------------------------------------------------
--spec handle_info(Msg   :: term(),
-                  State :: term()) -> any().
+%% handle_info:
 %%
 % @doc  Process out-of-band messages
 % @end  --

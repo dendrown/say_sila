@@ -39,6 +39,7 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
+-include("types.hrl").
 -include("twitter.hrl").
 -include_lib("llog/include/llog.hrl").
 
@@ -248,7 +249,8 @@ get_players_R(Tracker, MinTweets) ->
 -spec get_tweets(Tracker     :: atom(),
                  ScreenNames :: binary()
                               | string()
-                              | list()) -> list().
+                              | player()
+                              | all) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
 %       take one of the following forms:
@@ -268,8 +270,10 @@ get_tweets(Tracker, ScreenNames) ->
 -spec get_tweets(Tracker     :: atom(),
                  ScreenNames :: binary()
                               | string()
-                              | list(),
-                 Options     :: list()) -> list() | pid().
+                              | list()
+                              | player()
+                              | all,
+                 Options     :: list()) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
 %       take one of the following forms:

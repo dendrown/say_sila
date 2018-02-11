@@ -33,6 +33,7 @@
 -include("sila.hrl").
 -include("dts.hrl").
 -include("raven.hrl").
+-include("types.hrl").
 -include("twitter.hrl").
 -include_lib("ecsv/include/ecsv.hrl").
 -include_lib("llog/include/llog.hrl").
@@ -56,7 +57,7 @@
 
 -record(state, {tracker           :: atom(),    % TODO: Set this on init for dist-model
                 big_percent       :: float(),
-                emo_report        :: map(),
+                emo_report        :: rec_map(),
                 tweet_slots = #{} :: map(),     % TODO: deprecated...remove soon
                 tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
                 weka_node         :: string() }).
@@ -317,7 +318,7 @@ run_tweet_csv(FName) ->
 %%====================================================================
 %% Server Implementation
 %%--------------------------------------------------------------------
--spec init(list()) -> any().
+%% init:
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
@@ -352,9 +353,7 @@ terminate(Why, _State) ->
 
 
 %%--------------------------------------------------------------------
--spec code_change(OldVsn :: term(),
-                  State  :: state(),
-                  Extra  :: term()) -> {atom(), term()}.
+%% code_change:
 %%
 % @doc  Hot code update processing: a placeholder.
 % @end  --

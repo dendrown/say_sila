@@ -75,8 +75,9 @@ date_str(Date) ->
 
 
 %%--------------------------------------------------------------------
--spec datetime_to_unix(DateTime :: datetime() | date(),
-                       Unit     :: atom()) -> tuple().
+-spec datetime_to_unix(DateTime :: datetime()
+                                 | date(),
+                       Unit     :: atom()) -> non_neg_integer().
 %
 %     Returns the Epoch timestamp (specify `second' or `millisecond')
 %     corresponding to Erlang datetime tuple: `{{year,mon,day},{hour,min,sec}}'
