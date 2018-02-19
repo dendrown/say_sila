@@ -81,17 +81,7 @@ start_link(Tracker) ->
     WekaNode  = application:get_env(App, weka_node,   undefined),
     BigP100   = application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
 
-    % Initialize Mnesia
-    DistNodes = application:get_env(App, mnesia_nodes, [node()]),
-    case mnesia:create_table(tweet_lots,
-                             [{attributes,  record_info(fields, tweet_lot)},
-                              {disc_copies, DistNodes}]) of
-    {atomic, ok} ->
-            ?debug("Mnesia remembering tweet_lot");
-
-    {aborted, Why} ->
-            ?debug("Mnesia error on tweet_lot table: why[~p]", [Why])
-    end,
+    init_mnesia(Tracker, App),
     gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Tracker, BigP100, WekaNode], []).
 
 
@@ -535,6 +525,42 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
+%%--------------------------------------------------------------------
+-spec init_mnesia(Tracker :: atom(),
+                  App     :: atom()) -> ok.
+%
+% @doc  Create Mnesia tables if necessary
+% @end  --
+init_mnesia(Tracker, App) ->
+    %
+    case application:get_env(App, mnesia, undefined) of
+        undefined ->
+            ?warning("Missing mnesia configuration");
+
+        Mnesia ->
+            % NOTE: We assume this `raven' node is a Mnesia node
+            Nodes = proplists:get_value(nodes, Mnesia),
+            Table = list_to_atom(lists:flatten(io_lib:format("tweet_lots_~s", [Tracker]))),
+
+            % Is the table already in msesia?
+            case lists:member(Table, mnesia:system_info(tables)) of
+
+                true ->
+                    ?debug("Mnesia remembers ~s", [Table]);
+
+                false ->
+                    case mnesia:create_table(Table,
+                                             [{attributes,  record_info(fields, tweet_lot)},
+                                              {disc_copies, Nodes}]) of
+
+                        {atomic,  ok}  -> ?debug("Mnesia remembering ~s", [Table]);
+                        {aborted, Why} -> ?debug("Mnesia error on ~s table: why[~p]", [Table, Why])
+                    end
+            end
+        end.
+
+
+
 %%--------------------------------------------------------------------
 -spec string_to_float(Value :: string()) -> float().
 %%
