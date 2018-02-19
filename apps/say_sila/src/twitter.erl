@@ -335,9 +335,7 @@ terminate(Why, #state{db_conn = DBConn}) ->
 
 
 %%--------------------------------------------------------------------
--spec code_change(OldVsn :: term(),
-                  State  :: state(),
-                  Extra  :: term()) -> {atom(), term()}.
+%% code_change:
 %%
 % @doc  Hot code update processing: a placeholder.
 % @end  --
@@ -678,7 +676,7 @@ process_track([Packet | Rest]) ->
 
 
 %%--------------------------------------------------------------------
--spec log_tweet(map()) -> ok.
+-spec log_tweet(Tweet :: map()) -> ok.
 %%
 % @doc  Pretty-prints the information contained in a tweet over
 %       multiple log lines.
@@ -690,7 +688,8 @@ log_tweet(Tweet) ->
 
 %%--------------------------------------------------------------------
 -spec log_tweet(Indent :: string(),
-                Pair   :: {binary(), term()}) -> ok.
+                MapKV  :: map()
+                        | {binary(), term()}) -> ok.
 %%
 % @doc  Recursively logs the information contained in a tweet
 % @end  --
@@ -780,8 +779,7 @@ store_tweet(RawTweet, IsCC, IsGW, #state{db_conn = DBConn,
 
 %%--------------------------------------------------------------------
 -spec has_hashtag(Hash :: string() | atom(),
-                  Text :: string() | binary()) -> undefined
-                                                | string().
+                  Text :: string() | binary()) -> boolean().
 %%
 % @doc  Returns `true' if the specified tweet text contains the requested
 %       hashtag; and `false' otherwise.
@@ -799,8 +797,7 @@ has_hashtag(Hash, Text) ->
 
 %%--------------------------------------------------------------------
 -spec has_lookup(Look :: string() | atom(),
-                 Text :: string() | binary()) -> undefined
-                                               | string().
+                 Text :: string() | binary()) -> boolean().
 %%
 % @doc  Returns `true' if the specified tweet text contains the requested
 %       lookup keyword (hashtag without the hash); and `false' otherwise.

@@ -25,7 +25,8 @@
 % Emotions for analysis
 -record(emotions, {count   = 0   :: integer(),
                    levels  = #{} :: map() }).
--type emotions() :: #emotions{}.
+-type emotions()     :: #emotions{}.
+-type rec_emotions() :: undefined | #emotions{}.
 
 
 

@@ -25,7 +25,7 @@
                 screen_name     :: binary(),
                 text            :: ignored | binary(),
                 type            :: tweet | retweet | undefined,
-                emotions        :: emotions() }).
+                emotions        :: rec_emotions() }).
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
 

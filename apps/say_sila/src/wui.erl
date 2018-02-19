@@ -145,7 +145,7 @@ get_comms_atom(Arg, Default) ->
 
 
 %%--------------------------------------------------------------------
--spec get_conf() -> [tuple()].
+-spec get_conf() -> yaws_conf().
 %%
 % @doc  Gets child process run specifications for YAWS processes.
 %       A supervisor should call this function.
@@ -224,7 +224,7 @@ get_status_dir() ->
 %%--------------------------------------------------------------------
 -spec get_tag(Arg :: arg()
                    | atom()
-                   | string()) -> binary().
+                   | string()) -> string().
 %%
 % @doc  Returns the naming tag as track.percent.period.
 % @end  --
@@ -250,7 +250,8 @@ get_tag(Track, BigP100, Period) ->
 
 
 %%--------------------------------------------------------------------
--spec get_track(Arg :: arg()) -> binary().
+-spec get_track(Arg :: arg()) -> binary()
+                               | undefined.
 %%
 % @doc  Returns the tracking code requested in the URL `querydata'.
 % @end  --
@@ -290,9 +291,7 @@ terminate(Why, _State) ->
 
 
 %%--------------------------------------------------------------------
--spec code_change(OldVsn :: term(),
-                  State  :: term(),
-                  Extra  :: term()) -> {atom(), term()}.
+%% code_change:
 %%
 % @doc  Hot code update processing: a placeholder.
 % @end  --

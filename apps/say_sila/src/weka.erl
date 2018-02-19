@@ -196,8 +196,8 @@ open_arff(Name) ->
 
 %%--------------------------------------------------------------------
 -spec close_arff(FPath  :: string(),
-                 FOut   :: term()) -> ok
-                                  | {error, term()}.
+                 FOut   :: pid()) -> {ok, string()}
+                                   | {{error, atom()}, string()}.
 %%
 % @doc  Closes an ARFF file, previously opened with `open_arff'.
 % @end  --
