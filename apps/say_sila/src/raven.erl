@@ -18,15 +18,14 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([start_link/0, stop/0,
-         connect/0,
+-export([start_link/1, stop/1,
          emote/1,
          emote/2,
-         get_big_percent/0,
+         get_big_percent/1,
          get_big_players/2,
          get_big_players/3,
-         report/1,
-         reset/0,
+         report/2,
+         reset/1,
          run_tweet_csv/1]).     %% DEBUG!
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -38,6 +37,9 @@
 -include_lib("ecsv/include/ecsv.hrl").
 -include_lib("llog/include/llog.hrl").
 
+-define(MODULES,    #{cc => raven_cc,
+                      gw => raven_gw}).
+-define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
 -define(REPORT_TIMEOUT,     (1 * 60 * 1000)).
 
 
@@ -55,7 +57,7 @@
 %type tweet_lot() :: #tweet_lot{}.
 
 
--record(state, {tracker           :: atom(),    % TODO: Set this on init for dist-model
+-record(state, {tracker           :: atom(),
                 big_percent       :: float(),
                 emo_report        :: rec_map(),
                 tweet_slots = #{} :: map(),     % TODO: deprecated...remove soon
@@ -68,13 +70,13 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec start_link() -> {ok, pid()}
-                    |  ignore
-                    |  {error, term()}.
+-spec start_link(Tracker :: atom()) -> {ok, pid()}
+                                     |  ignore
+                                     |  {error, term()}.
 %%
 % @doc  Startup function for Twitter services
 % @end  --
-start_link() ->
+start_link(Tracker) ->
     {ok, App} = application:get_application(),
     WekaNode  = application:get_env(App, weka_node,   undefined),
     BigP100   = application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
@@ -90,37 +92,85 @@ start_link() ->
     {aborted, Why} ->
             ?debug("Mnesia error on tweet_lot table: why[~p]", [Why])
     end,
-    gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, [BigP100, WekaNode], []).
+    gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Tracker, BigP100, WekaNode], []).
 
 
 
 %%--------------------------------------------------------------------
--spec stop() -> ok.
+-spec stop(Tracker :: atom()) -> ok.
 %%
 % @doc  Shutdown function for Twitter services
 % @end  --
-stop() ->
-    gen_server:call(?MODULE, stop).
+stop(Tracker) ->
+    gen_server:call(?reg(Tracker), stop).
 
 
 
 %%--------------------------------------------------------------------
--spec connect() -> ok.
+-spec emote(Tracker :: atom()) -> ok.
 %%
-% @doc  Higher level connection functionality for Twitter
+% @doc  Process the tweets for the Twitter tracking code (`cc' or `gw').
+%       We send the compiled tweets to Weka to generate word embeddings
+%       and sentiment/emotion ratings per our selected lexicons.  Weka
+%       will notify that it has finished its processing via a message,
+%       which this module will pick up in handle_info.
+%
+%       This function is the current "do what we want" function for the
+%       `raven' module and the `say_sila' application...but take heed:
+%       we are evolving...
 % @end  --
-connect() ->
-    gen_server:cast(?MODULE, authenticate).
+emote(Tracker) ->
+    emote(Tracker, []).
 
 
 
 %%--------------------------------------------------------------------
--spec get_big_percent() -> float().
+-spec emote(Tracker :: atom(),
+            Options :: property() | proplist()) -> ok.
+%%
+% @doc  Process the tweets for the Twitter tracking code (`cc' or `gw').
+%       We send the compiled tweets to Weka to generate word embeddings
+%       and sentiment/emotion ratings per our selected lexicons.  Weka
+%       will notify that it has finished its processing via a message,
+%       which this module will pick up in handle_info.
+%
+%       Options is a property list allowing the following:
+%           - `min_tweets'  Only accounts having at least this many
+%                           status upates (tweets) are included.
+%           - `start'       Begining datetime to start looking for players
+%           - `stop'        End datetime to start looking for players
+%           - `no_retweet'  Consider original tweets only
+%           - `context'     Processing for specific context: `dic9315'
+% @end  --
+emote(Tracker, Option) when   is_atom(Option)
+                       orelse is_tuple(Option) ->
+    emote(Tracker, [Option]);
+
+
+emote(Tracker, Options) ->
+    %
+    % We're probably going to write a bunch of files, set up the stub one time
+    StatsStub = io_lib:format("~s/~s", [wui:get_status_dir(),
+                                        wui:get_tag(Tracker,
+                                                    get_big_percent(Tracker),
+                                                    day)]),
+    % Get the full period and a version of Options without start/stop properties
+    {PeriodStart,
+     PeriodStop,
+     RunOptions} = extract_period(Tracker, Options),
+
+    % The AUX function will make the gen_server call multiple times
+    emote_aux(?reg(Tracker), PeriodStart, PeriodStop, StatsStub, RunOptions).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_percent(Tracker :: atom()) -> float().
 %%
 % @doc  Gets the cutoff percentage for deciding who is a big player.
 %%--------------------------------------------------------------------
-get_big_percent() ->
-    gen_server:call(?MODULE, get_big_percent).
+get_big_percent(Tracker) ->
+    gen_server:call(?reg(Tracker), get_big_percent).
 
 
 
@@ -210,81 +260,24 @@ get_big_players(Players, BigP100, _) ->
 
 
 %%--------------------------------------------------------------------
--spec emote(Tracker :: atom()) -> ok.
-%%
-% @doc  Process the tweets for the Twitter tracking code (`cc' or `gw').
-%       We send the compiled tweets to Weka to generate word embeddings
-%       and sentiment/emotion ratings per our selected lexicons.  Weka
-%       will notify that it has finished its processing via a message,
-%       which this module will pick up in handle_info.
-%
-%       This function is the current "do what we want" function for the
-%       `raven' module and the `say_sila' application...but take heed:
-%       we are evolving...
-% @end  --
-emote(Tracker) ->
-    emote(Tracker, []).
-
-
-
-%%--------------------------------------------------------------------
--spec emote(Tracker :: atom(),
-            Options :: property() | proplist()) -> ok.
-%%
-% @doc  Process the tweets for the Twitter tracking code (`cc' or `gw').
-%       We send the compiled tweets to Weka to generate word embeddings
-%       and sentiment/emotion ratings per our selected lexicons.  Weka
-%       will notify that it has finished its processing via a message,
-%       which this module will pick up in handle_info.
-%
-%       Options is a property list allowing the following:
-%           - `min_tweets'  Only accounts having at least this many
-%                           status upates (tweets) are included.
-%           - `start'       Begining datetime to start looking for players
-%           - `stop'        End datetime to start looking for players
-%           - `no_retweet'  Consider original tweets only
-%           - `context'     Processing for specific context: `dic9315'
-% @end  --
-emote(Tracker, Option) when   is_atom(Option)
-                       orelse is_tuple(Option) ->
-    emote(Tracker, [Option]);
-
-
-emote(Tracker, Options) ->
-    %
-    % We're probably going to write a bunch of files, set up the stub one time
-    StatsStub = io_lib:format("~s/~s", [wui:get_status_dir(),
-                                        wui:get_tag(Tracker,
-                                                    get_big_percent(),
-                                                    day)]),
-    % Get the full period and a version of Options without start/stop properties
-    {PeriodStart,
-     PeriodStop,
-     RunOptions} = extract_period(Tracker, Options),
-
-    % The AUX function will make the gen_server call multiple times
-    emote_aux(Tracker, PeriodStart, PeriodStop, StatsStub, RunOptions).
-
-
-
-%%--------------------------------------------------------------------
--spec report(Period :: atom()) -> {ok, integer()}.
+-spec report(Tracker :: atom(),
+             Period  :: atom()) -> {ok, integer()}.
 %%
 % @doc  Prepares a report on tweet data (already processed by `emote')
 %       for the specified time period: `hour', `day', etc.
 %%--------------------------------------------------------------------
-report(Period) ->
-    gen_server:call(?MODULE, {report, Period}, ?REPORT_TIMEOUT).
+report(Tracker, Period) ->
+    gen_server:call(?reg(Tracker), {report, Period}, ?REPORT_TIMEOUT).
 
 
 
 %%--------------------------------------------------------------------
--spec reset() -> ok.
+-spec reset(Tracker :: atom()) -> ok.
 %%
 % @doc  Reinitializes the state of the `raven' server.
 %%--------------------------------------------------------------------
-reset() ->
-    gen_server:call(?MODULE, reset).
+reset(Tracker) ->
+    gen_server:call(?reg(Tracker), reset).
 
 
 
@@ -322,17 +315,18 @@ run_tweet_csv(FName) ->
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
-init([BigP100, WekaNode]) ->
-    ?notice("The raven is taking flight: big[~6.3f%] weka[~s]",
-            [100 * BigP100,
-             WekaNode]),
+init([Tracker, BigP100, WekaNode]) ->
+    ?notice("The raven is taking flight: track[~s] big[~6.3f%] weka[~s]", [Tracker,
+                                                                           BigP100 * 100,
+                                                                           WekaNode]),
     process_flag(trap_exit, true),
 
     % The big-player percentage range is: 0.0 (inclusive) to 1.0 (inclusive).
     if
         BigP100 >= 0.0 andalso
         BigP100 =< 1.0 ->
-            {ok, #state{big_percent = BigP100,
+            {ok, #state{tracker     = Tracker,
+                        big_percent = BigP100,
                         weka_node   = WekaNode}};
         true ->
             ?error("Big player percentage must be between 0 and 1"),
@@ -367,11 +361,9 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call({emote_day, Tracker, StatsStub, Options},
-            _From,
-            State = #state{tweet_todo = Todo,
-                           weka_node  = WekaNode}) ->
-    %
+handle_call({emote_day, StatsStub, Options}, _From, State = #state{tracker    = Tracker,
+                                                                   tweet_todo = Todo,
+                                                                   weka_node  = WekaNode}) ->
     LotDay = proplists:get_value(start, Options),
     DayTxt = dts:date_str(LotDay),
     ?debug("Pulling tweet lot from DB: day[~s]", [DayTxt]),
@@ -396,8 +388,7 @@ handle_call({emote_day, Tracker, StatsStub, Options},
                        Todo),
     {weka, WekaNode} ! {self(), Lookup, WekaCmd, FPath},
 
-    {reply, ok, State#state{tracker    = Tracker,               % TODO: Set on init & keep
-                            tweet_todo = NewTodo}};
+    {reply, ok, State#state{tweet_todo = NewTodo}};
 
 
 handle_call(get_big_percent, _From, State) ->
@@ -409,7 +400,8 @@ handle_call(reset, _From, State) ->
                        weka_node   = State#state.weka_node}};
 
 
-handle_call({report, Period}, _From, State = #state{emo_report  = undefined,
+handle_call({report, Period}, _From, State = #state{
+                                                    emo_report  = undefined,
                                                     tracker     = Tracker,
                                                     big_percent = BigP100,
                                                     tweet_slots = SlotMap}) ->
@@ -450,16 +442,6 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast(authenticate, State) ->
-    URL = twitter:get_pin(),
-    ?notice("Please retrieve your PIN from ~s~n", [URL]),
-
-    % TODO: We need a proper UI for PIN entry
-    %{ok, PIN} = io:fread("PIN> ", "~s"),
-    %twitter:authenticate(PIN),
-    {noreply, State};
-
-
 % FIXME: deprecated/reference version of emote
 %        DELETE VERY SOON...
 handle_cast({emote, Tracker, Options}, State = #state{big_percent = BigP100,
@@ -655,7 +637,7 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
 
 
 %%--------------------------------------------------------------------
--spec emote_aux(Tracker     :: atom(),
+-spec emote_aux(RavenSrv    :: atom(),
                 Today       :: datetime(),
                 StopDay     :: datetime(),
                 StatsStub   :: string(),
@@ -664,15 +646,17 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
 % @doc  Called from the export `emote/2' function.  Here we recurse to
 %       make a gen_server call for each day in the period.
 % @end  --
-emote_aux(Tracker, Today, StopDay, StatsStub, Options) ->
+emote_aux(RavenSrv, Today, StopDay, StatsStub, Options) ->
     %
     case Today < StopDay of
         true ->
             Tomorrow = dts:add(Today, 1, day),
             FullOpts = [{start, Today},
                         {stop,  Tomorrow} | Options],
-            gen_server:call(?MODULE, {emote_day, Tracker, StatsStub, FullOpts}, ?TWITTER_DB_TIMEOUT),
-            emote_aux(Tracker, Tomorrow, StopDay, StatsStub, Options);
+            gen_server:call(RavenSrv,
+                            {emote_day, StatsStub, FullOpts},
+                            ?TWITTER_DB_TIMEOUT),
+            emote_aux(RavenSrv, Tomorrow, StopDay, StatsStub, Options);
 
         false -> ok
     end.

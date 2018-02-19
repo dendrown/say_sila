@@ -25,16 +25,17 @@
 
 -export([start_link/0,
          stop/0,
-         has_hashtag/2,     % DEBUG: REMOVE
-         get_pin/0,
          authenticate/1,
+         get_pin/0,
+         login/0,
          track/1,
          get_first_dts/1,
          get_first_dts/2,
          get_players/1,
          get_players/2,
          get_tweets/2,
-         get_tweets/3]).
+         get_tweets/3,
+         has_hashtag/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -125,6 +126,16 @@ stop() ->
 
 
 %%--------------------------------------------------------------------
+-spec authenticate(PIN :: string() | binary()) -> ok.
+%%
+% @doc  Returns the Twitter URL for the access PIN.
+% @end  --
+authenticate(PIN) ->
+    gen_server:call(?MODULE, {authenticate, PIN}).
+
+
+
+%%--------------------------------------------------------------------
 -spec get_pin() -> string()
                  | undefined.
 %%
@@ -136,12 +147,15 @@ get_pin() ->
 
 
 %%--------------------------------------------------------------------
--spec authenticate(PIN :: string() | binary()) -> ok.
+-spec login() -> ok.
 %%
-% @doc  Returns the Twitter URL for the access PIN.
+% @doc  Logs the application into twitter.
+%
+%       NOTE: Currently, we just announce a PIN authentication URL and 
+%             prompt the sysadmin to complete the login procedure.
 % @end  --
-authenticate(PIN) ->
-    gen_server:call(?MODULE, {authenticate, PIN}).
+login() ->
+    gen_server:cast(?MODULE, login).
 
 
 
@@ -292,6 +306,23 @@ get_tweets(Tracker, ScreenName, Options) when is_binary(ScreenName) ->
 get_tweets(Tracker, ScreenNames, Options) ->
     gen_server:call(?MODULE, {get_tweets, Tracker, listify_string(ScreenNames), Options}, ?TWITTER_DB_TIMEOUT).
 
+
+
+%%--------------------------------------------------------------------
+-spec has_hashtag(Hash :: string() | atom(),
+                  Text :: string() | binary()) -> boolean().
+%%
+% @doc  Returns `true' if the specified tweet text contains the requested
+%       hashtag; and `false' otherwise.
+% @end  --
+has_hashtag(Hash, Text) when is_binary(Text) ->
+    has_hashtag(Hash, binary_to_list(Text));
+
+has_hashtag([$#|Hash], Text) ->
+    has_lookup(Hash, Text);
+
+has_hashtag(Hash, Text) ->
+    has_lookup(Hash, Text).
 
 
 
@@ -488,6 +519,16 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
+handle_cast(login, State) ->
+    URL = get_pin(),
+    ?notice("Please retrieve your PIN from ~s~n", [URL]),
+
+    % TODO: We need a proper UI for PIN entry
+    % {ok, PIN} = io:fread("PIN> ", "~s"),
+    % authenticate(PIN),
+    {noreply, State};
+
+
 handle_cast({request_token, AccessKey, AccessSecret}, State = #state{consumer = Consumer}) ->
     {ok, Resp} = oauth:post(?twitter_oauth_url("request_token"),
                             [{oauth_callback, oob}],
@@ -774,24 +815,6 @@ store_tweet(RawTweet, IsCC, IsGW, #state{db_conn = DBConn,
                              [RawTweet, Track, IsCC, IsGW]),
     ?info("Tweet stored: ~p", [DBResult]).
 
-
-
-
-%%--------------------------------------------------------------------
--spec has_hashtag(Hash :: string() | atom(),
-                  Text :: string() | binary()) -> boolean().
-%%
-% @doc  Returns `true' if the specified tweet text contains the requested
-%       hashtag; and `false' otherwise.
-% @end  --
-has_hashtag(Hash, Text) when is_binary(Text) ->
-    has_hashtag(Hash, binary_to_list(Text));
-
-has_hashtag([$#|Hash], Text) ->
-    has_lookup(Hash, Text);
-
-has_hashtag(Hash, Text) ->
-    has_lookup(Hash, Text).
 
 
 

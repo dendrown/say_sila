@@ -47,7 +47,7 @@ start(Options) ->
         ok ->
             % We're currently handling only semi-auto-login
             case proplists:get_value(twitter, Options) of
-                true      -> raven:connect();
+                true      -> twitter:login();
                 undefined -> ok
             end,
             ok;
