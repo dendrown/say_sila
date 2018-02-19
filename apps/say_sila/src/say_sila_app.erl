@@ -64,25 +64,41 @@ stop(_State) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec init_mnesia(App :: atom()) -> boolean().
+-spec init_mnesia(App :: atom()) -> ok.
 %
 % @doc  Launch Mnesia and create the schema if necessary
 % @end  --
-init_mnesia(_App) ->
+init_mnesia(App) ->
     %
-    % NOTE: We'll be sharing nodes between [gw, cc, ui]
-    Node = node(),
-    application:set_env(mnesia, dir, [?WORK_DIR, "/Mnesia.", Node]),
-    case mnesia:create_schema([Node]) of
-        ok ->
-            ?debug("Mnesia schema created");
+    case application:get_env(App, mnesia, undefined) of
+        undefined ->
+            ?warning("Missing mnesia configuration");
 
-        {error, {_, {already_exists, _}}} ->
-            ?debug("Using existing Mnesia schema")
-    end,
-    mnesia:start(),
-    ?debug("Mnesia initialized: run[~s] dir[~s]", [mnesia:system_info(is_running),
-                                                   mnesia:system_info(directory)]).
+        Mnesia ->
+            % Check that node is in the distributed DB group
+            %
+            % NOTE: We'll be sharing nodes between [gw, cc, ui]
+            Nodes = proplists:get_value(nodes, Mnesia),
+            Node  = node(),
+            case lists:member(node(), Nodes) of
+
+                false ->
+                    ?info("Node ~s is not in the mnesia distributed node group", [Node]);
+
+                true ->
+                    application:set_env(mnesia, dir, [?WORK_DIR, "/Mnesia.", Node]),
+                    case mnesia:create_schema(Nodes) of
+                        ok ->
+                            ?debug("Mnesia schema created: dist~p", [Nodes]);
+
+                        {error, {_, {already_exists, _}}} ->
+                            ?debug("Using existing Mnesia schema: dist~p", [Nodes])
+                    end,
+                    ok = mnesia:start(),
+                    ?info("Mnesia initialized: run[~s] dir[~s]", [mnesia:system_info(is_running),
+                                                                  mnesia:system_info(directory)])
+            end
+        end.
 
 
 
