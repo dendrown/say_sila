@@ -68,7 +68,7 @@ stop(Tracker) ->
 % @doc  Shutdown function for account services
 % @end  --
 tweet(Tracker, Tweet) ->
-    gen_server:cast(?reg(Tracker), {tweet, Tweet}).
+    gen_server:call(?reg(Tracker), {tweet, Tweet}).
 
 
 
@@ -113,6 +113,20 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call({tweet, Tweet = #tweet{screen_name = Name,
+                                   emotions    = Emos}},
+            _From,
+            State) ->
+    % To save memory, don't keep the text of the stoic guys
+    StoredTweet = case emo:is_stoic(Emos) of
+        true  -> Tweet#tweet{text = ignored};
+        false -> Tweet
+    end,
+    ?debug("Storing tweet: acct[~s] txt[~s]", [Name,
+                                               StoredTweet#tweet.text]),
+    {reply, StoredTweet, State};
+
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
@@ -128,18 +142,6 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast({tweet, Tweet = #tweet{screen_name = Name,
-                                   emotions    = Emos}}, State) ->
-    % To save memory, don't keep the text of the stoic guys
-    StoredTweet = case emo:is_stoic(Emos) of
-        true  -> Tweet#tweet{text = ignored};
-        false -> Tweet
-    end,
-    ?debug("Storing tweet: acct[~s] txt[~s]", [Name,
-                                               StoredTweet#tweet.text]),
-    {noreply, State};
-
-
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.

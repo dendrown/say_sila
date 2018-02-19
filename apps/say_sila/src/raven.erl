@@ -37,10 +37,14 @@
 -include_lib("ecsv/include/ecsv.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(MODULES,    #{cc => raven_cc,
-                      gw => raven_gw}).
--define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
--define(REPORT_TIMEOUT,     (1 * 60 * 1000)).
+-define(MOD_CONFIG, #{cc => #{reg => raven_cc, lot => tweet_lot_cc},
+                      gw => #{reg => raven_gw, lot => tweet_lot_gw}}).
+-define(mod(Key), maps:get(Key, ?MOD_CONFIG)).
+-define(reg(Key), maps:get(reg, ?mod(Key), undefined)).
+-define(lot(Key), maps:get(lot, ?mod(Key), undefined)).
+
+
+-define(REPORT_TIMEOUT, (1 * 60 * 1000)).
 
 
 % Slots are for keeping everything about a player category in one place
@@ -55,7 +59,6 @@
 -record(tweet_lot, {dts      :: datetime(),
                     tweets   :: tweets() }).
 %type tweet_lot() :: #tweet_lot{}.
-
 
 -record(state, {tracker           :: atom(),
                 big_percent       :: float(),
@@ -481,15 +484,18 @@ handle_cast(Msg, State) ->
 handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{tracker    = Tracker,
                                                                             tweet_todo = TodoMap}) ->
     NewState = case maps:take(Ref, TodoMap) of
-        {_PreLot = #tweet_lot{dts    = LotDTS,
-                              tweets = Tweets},
+        {PreLot = #tweet_lot{dts    = LotDTS,
+                             tweets = Tweets},
          NewTodoMap} ->
-            ?notice("Received CSV from Weka: pid[~p] dts[~s] csv[~s]",
-                    [From, dts:date_str(LotDTS), FPathCSV]),
-            _EmoTweets = emote_tweets(Tracker, Tweets, FPathCSV),
-            %TweetLot  = PreLot#tweet_lot{tweets = EmoTweets},
 
-            % TODO: Save lot to mnesia
+            ?notice("Received CSV from Weka: pid[~p] dts[~s] csv[~s]", [From,
+                                                                        dts:date_str(LotDTS),
+                                                                        FPathCSV]),
+            EmoTweets = emote_tweets(Tracker, Tweets, FPathCSV),
+            TweetLot  = PreLot#tweet_lot{tweets = EmoTweets},
+
+            % Save lot to mnesia
+            mnesia:transaction(fun()-> mnesia:write(?lot(Tracker), TweetLot, sticky_write) end),
 
             State#state{tweet_todo = NewTodoMap};
 
@@ -502,7 +508,7 @@ handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{trac
 
 handle_info({From, Ref, Cmd, ArgMap = #{arff := FPathARFF,
                                         csv  := FPathCSV}}, State = #state{tweet_todo = TodoMap}) ->
-
+    % NOTE: This clause handles special-purpose DIC functionality
     NewState = case maps:take(Ref, TodoMap) of
         {#tweet_slot{category = Category},
          NewTodoMap} ->
@@ -540,7 +546,7 @@ init_mnesia(Tracker, App) ->
         Mnesia ->
             % NOTE: We assume this `raven' node is a Mnesia node
             Nodes = proplists:get_value(nodes, Mnesia),
-            Table = list_to_atom(lists:flatten(io_lib:format("tweet_lots_~s", [Tracker]))),
+            Table = ?lot(Tracker),
 
             % Is the table already in msesia?
             case lists:member(Table, mnesia:system_info(tables)) of
@@ -551,6 +557,7 @@ init_mnesia(Tracker, App) ->
                 false ->
                     case mnesia:create_table(Table,
                                              [{attributes,  record_info(fields, tweet_lot)},
+                                              {record_name, tweet_lot},
                                               {disc_copies, Nodes}]) of
 
                         {atomic,  ok}  -> ?debug("Mnesia remembering ~s", [Table]);
@@ -754,8 +761,9 @@ emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
                                              fear    => string_to_float(Fear),
                                              sadness => string_to_float(Sadness),
                                              joy     => string_to_float(Joy)}},
-            EmoTweet = Tweet#tweet{emotions = Emotions},
-            player:tweet(Tracker, EmoTweet),
+
+            % Keep track of who's tweeting what!
+            EmoTweet = player:tweet(Tracker, Tweet#tweet{emotions = Emotions}),
             {Tracker, Cnt + 1, RestTweets, [EmoTweet | EmoTweets]};
 
         false ->
