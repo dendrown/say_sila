@@ -18,5 +18,7 @@
 -type proplist()    :: [property()].
 
 -type rec_map()     :: undefined | map().
+-type rec_pid()     :: undefined | pid().
+-type rec_string()  :: undefined | string().
 
 -endif.

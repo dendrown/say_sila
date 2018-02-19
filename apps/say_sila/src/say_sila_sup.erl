@@ -40,7 +40,7 @@ start_link() ->
 %%====================================================================
 %% Supervisor callbacks
 %%--------------------------------------------------------------------
--spec init([atom()]) -> any().
+%% init:
 %
 % @doc  Returns the top level supervision tree
 % @end  --

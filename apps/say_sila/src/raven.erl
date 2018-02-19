@@ -50,7 +50,7 @@
 
 % FIXME: Merge tweet_slot functionality into tweet_lot
 %        This is the current Mnesia-based design (in process)
--record(tweet_lot, {dts      :: string(),
+-record(tweet_lot, {dts      :: datetime(),
                     tweets   :: tweets() }).
 %type tweet_lot() :: #tweet_lot{}.
 
@@ -60,7 +60,7 @@
                 emo_report        :: rec_map(),
                 tweet_slots = #{} :: map(),     % TODO: deprecated...remove soon
                 tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
-                weka_node         :: string() }).
+                weka_node         :: atom() }).
 -type state() :: #state{}.
 
 
@@ -446,8 +446,7 @@ handle_call(Msg, _From, State) ->
 
 
 %%--------------------------------------------------------------------
--spec handle_cast(Msg   :: term(),
-                  State :: state()) -> any().
+%% handle_cast:
 %%
 % @doc  Process async messages
 % @end  --
@@ -503,8 +502,7 @@ handle_cast(Msg, State) ->
 
 
 %%--------------------------------------------------------------------
--spec handle_info(Msg   :: term(),
-                  State :: term()) -> any().
+%% handle_info:
 %%
 % @doc  Process out-of-band messages
 % @end  --
@@ -604,7 +602,7 @@ extract_period(Tracker, Options) ->
 
 %%--------------------------------------------------------------------
 -spec get_big_players_aux(BigP100  :: float(),
-                          TotalCnt :: players(),
+                          TotalCnt :: integer(),
                           Players  :: players()) -> {float(), big_players(), players()}.
 %%
 % @doc  Partitions the into two lists: the "big players", who
@@ -621,7 +619,7 @@ get_big_players_aux(BigP100, TotalCnt, Players) ->
 
 %%--------------------------------------------------------------------
 -spec get_big_players_aux(BigP100    :: float(),
-                          TotalCnt   :: players(),
+                          TotalCnt   :: integer(),
                           Players    :: players(),
                           BigCntAcc  :: integer(),
                           BigPlayers :: players()) -> {float(), big_players(), players()}.
@@ -658,10 +656,10 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
 
 %%--------------------------------------------------------------------
 -spec emote_aux(Tracker     :: atom(),
-                Today       :: date(),
-                StopDay     :: date(),
+                Today       :: datetime(),
+                StopDay     :: datetime(),
                 StatsStub   :: string(),
-                Options     :: list()) -> tweets().
+                Options     :: list()) -> ok.
 %%
 % @doc  Called from the export `emote/2' function.  Here we recurse to
 %       make a gen_server call for each day in the period.
@@ -704,8 +702,9 @@ emote_tweets(Tracker, Tweets, FPathCSV) ->
 
 
 %%--------------------------------------------------------------------
--spec emote_tweets_csv(Fields  :: {newline, list()},
-                       Acc     :: {integer(), tweets(), tweets()}) -> {integer(), tweets()}.
+-spec emote_tweets_csv(Fields  :: {newline, list()}
+                                | {eof},
+                       Acc     :: {atom(), integer(), tweets(), tweets()}) -> {integer(), tweets()}.
 %%
 % @doc  Callback function for the ecsv parser.
 % @end  --
@@ -793,7 +792,7 @@ report(Category, Period, #tweet_slot{players = Players,
 %%--------------------------------------------------------------------
 -spec report_aux(Tweets  :: tweets(),
                  Period  :: atom(),
-                 Reports :: [{atom(), report()}]) -> report().
+                 Reports :: [{atom(), report()}]) -> [{atom(), report()}].
 %%
 % @doc  Workhorse for `report/3'.
 % @end  --
@@ -875,7 +874,7 @@ report_tweet(Tweet = #tweet{type        = TweetType,
 
 %%--------------------------------------------------------------------
 -spec tt_rt_full(Reports :: reports(),
-                 Field   :: atom()) -> atom().
+                 Field   :: atom()) -> list().
 %%
 % @doc  Makes a list of the values for the specfied field for the
 %       `tweet', `retweet' and `all' reports.

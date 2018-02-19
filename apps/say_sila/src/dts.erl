@@ -39,9 +39,9 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec add(DTS  :: tuple(),
+-spec add(DTS  :: datetime(),
           Amt  :: integer(),
-          Unit :: atom()) -> tuple().
+          Unit :: atom()) -> datetime().
 %
 %     Adds the specified amout of `second', `minute', `hour' or `day'
 %     to DTS.

@@ -16,6 +16,7 @@
 
 -type date()     :: {integer(), integer(), integer()}.
 -type time()     :: {integer(), integer(), integer()}.
--type datetime() :: {date(), time()}.
+-type datetime() :: date() %|time()
+                  | {date(), time()}.
 
 -endif.

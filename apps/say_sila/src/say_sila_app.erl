@@ -24,9 +24,7 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec start(StartType :: permanent | transient | temporary,
-            StartArgs :: term()) -> ok
-                                  | {error, term()}.
+%% start:
 %
 % @doc  Say Sila startup
 % @end  --

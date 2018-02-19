@@ -33,7 +33,6 @@
          get_first_dts/2,
          get_players/1,
          get_players/2,
-         get_players_R/2,   % TODO: Move to raven
          get_tweets/2,
          get_tweets/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
@@ -76,11 +75,11 @@
 
 
 -record(state, {consumer     :: tuple(),
-                oauth_token  :: string(),
-                oauth_secret :: string(),
-                track        :: string() | binary(),
-                db_conn      :: pid(),
-                status_tbl   :: string() }).
+                oauth_token  :: rec_string(),
+                oauth_secret :: rec_string(),
+                track        :: rec_string() | binary(),
+                db_conn      :: rec_pid(),
+                status_tbl   :: rec_string() }).
 -type state() :: #state{}.
 
 
@@ -232,20 +231,6 @@ get_players(Tracker, Options) ->
 
 
 %%--------------------------------------------------------------------
--spec get_players_R(Tracker   :: atom(),
-                    MinTweets :: pos_integer()) -> string().
-%
-% @doc  DEBUG: Prepares a player list for processing by R.
-%
-%       TODO: R-module: eri:eval("barplot(gw, main='#globalwarming', ylab='tweets', xlab='account')").
-% @end  --
-get_players_R(Tracker, MinTweets) ->
-    Players = get_players(Tracker, MinTweets),
-    Counts  = [binary_to_list(Cnt) || {_, Cnt} <- Players],
-    lists:flatten([atom_to_list(Tracker), " <- c(", lists:join($,, Counts), ")"]).
-
-
-%%--------------------------------------------------------------------
 -spec get_tweets(Tracker     :: atom(),
                  ScreenNames :: binary()
                               | string()
@@ -313,7 +298,7 @@ get_tweets(Tracker, ScreenNames, Options) ->
 %%====================================================================
 %% Server Implementation
 %%--------------------------------------------------------------------
--spec init(list()) -> any().
+%% init:
 %%
 % @doc  Initialization for the Twitter access server.
 % @end  --
@@ -586,13 +571,12 @@ handle_info(Msg, State) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec listify_string(S :: binary()
-                        | string()
-                        | list()) -> list().
+-spec listify_string(S :: string()
+                        | term()) -> list() | term().
 %%
 % @doc  Turn a single string or printable binary into a one-item list
-%       of that item.  If the input is already a normal list, we return
-%       it as is.
+%       of that item.  If the input is already a normal list (or really,
+%       anything other than a singleton string), the we return it as is.
 % @end  --
 listify_string(S) ->
     case io_lib:printable_unicode_list(S) of
