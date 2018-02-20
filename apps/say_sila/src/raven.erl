@@ -142,18 +142,13 @@ emote(Tracker, Option) when   is_atom(Option)
 
 emote(Tracker, Options) ->
     %
-    % We're probably going to write a bunch of files, set up the stub one time
-    StatsStub = io_lib:format("~s/~s", [wui:get_status_dir(),
-                                        wui:get_tag(Tracker,
-                                                    get_big_percent(Tracker),
-                                                    day)]),
     % Get the full period and a version of Options without start/stop properties
     {PeriodStart,
      PeriodStop,
      RunOptions} = extract_period(Tracker, Options),
 
     % The AUX function will make the gen_server call multiple times
-    emote_aux(?reg(Tracker), PeriodStart, PeriodStop, StatsStub, RunOptions).
+    emote_aux(?reg(Tracker), PeriodStart, PeriodStop, RunOptions).
 
 
 
@@ -354,19 +349,20 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call({emote_day, StatsStub, Options}, _From, State = #state{tracker    = Tracker,
-                                                                   tweet_todo = Todo,
-                                                                   weka_node  = WekaNode}) ->
+handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
+                                                        tweet_todo = Todo,
+                                                        weka_node  = WekaNode}) ->
     LotDay = proplists:get_value(start, Options),
     DayTxt = dts:date_str(LotDay),
     ?debug("Pulling tweet lot from DB: day[~s]", [DayTxt]),
 
-    % TODO: Save daily emos to mnesia rather that status/file.etf
+    % FIXME: don't pull tweets if we already have this day's lot (except current day)
+    %
+    % TODO: We're copying a lot of tweets between processes.
+    %       Consider sending a function for the `twitter' server to spawn.
+    %       CAREFUL: We're saving tweets here to check `id's when we get
+    %                the emotion results from Weka.
     Tweets = twitter:get_tweets(Tracker, all, Options),
-
-    % FIXME: We want Mnesia, not ETF files
-    StatsFPath = io_lib:format("~s.~s.etf", [StatsStub, DayTxt]),
-    file:write_file(StatsFPath, term_to_binary(Tweets)),
 
     % Send to Weka
     ?debug("Packaging tweets for Weka: day[~s]", [DayTxt]),
@@ -673,13 +669,12 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
 -spec emote_aux(RavenSrv    :: atom(),
                 Today       :: datetime(),
                 StopDay     :: datetime(),
-                StatsStub   :: string(),
                 Options     :: list()) -> ok.
 %%
 % @doc  Called from the export `emote/2' function.  Here we recurse to
 %       make a gen_server call for each day in the period.
 % @end  --
-emote_aux(RavenSrv, Today, StopDay, StatsStub, Options) ->
+emote_aux(RavenSrv, Today, StopDay, Options) ->
     %
     case Today < StopDay of
         true ->
@@ -687,9 +682,9 @@ emote_aux(RavenSrv, Today, StopDay, StatsStub, Options) ->
             FullOpts = [{start, Today},
                         {stop,  Tomorrow} | Options],
             gen_server:call(RavenSrv,
-                            {emote_day, StatsStub, FullOpts},
+                            {emote_day, FullOpts},
                             ?TWITTER_DB_TIMEOUT),
-            emote_aux(RavenSrv, Tomorrow, StopDay, StatsStub, Options);
+            emote_aux(RavenSrv, Tomorrow, StopDay, Options);
 
         false -> ok
     end.
@@ -747,10 +742,10 @@ emote_tweets_csv({eof}, {Tracker, Cnt, Unprocessed, EmoTweets}) ->
     {Cnt, EmoTweets};
 
 
-emote_tweets_csv({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]},
+emote_tweets_csv({newline, [ID, _ScreenName, Anger, Fear, Sadness, Joy]},
                  {Tracker, Cnt, [Tweet | RestTweets], EmoTweets}) ->
     %
-    ?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),
+    %?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),
     %
     % Do a sanity check on the IDs
     case (Tweet#tweet.id =:= list_to_binary(ID)) of

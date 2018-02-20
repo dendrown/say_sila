@@ -122,8 +122,8 @@ handle_call({tweet, Tweet = #tweet{screen_name = Name,
         true  -> Tweet#tweet{text = ignored};
         false -> Tweet
     end,
-    ?debug("Storing tweet: acct[~s] txt[~s]", [Name,
-                                               StoredTweet#tweet.text]),
+    %?debug("Storing tweet: acct[~s] txt[~s]", [Name,
+    %                                           StoredTweet#tweet.text]),
     {reply, StoredTweet, State};
 
 
