@@ -561,7 +561,7 @@ init_mnesia(Tracker, App) ->
                         {aborted, Why} -> ?debug("Mnesia error on ~s table: why[~p]", [Table, Why])
                     end
             end
-        end.
+    end.
 
 
 
