@@ -6,7 +6,7 @@
   :main sila-weka.core
   :plugins [[lein-localrepo "0.5.4"]]
   :dependencies [[org.clojure/clojure                "1.8.0" ]
-                 [clj-time                           "0.14.0"]
+                 [clj-time                           "0.14.0"]  ; avail: 0.14.2
                  [edu.cmu.cs/ark-tweet-nlp           "0.3.2" ]
                  [it.unimi.dsi/fastutil              "7.0.13"]
                  [uk.ac.wlv/sentistrength            "0.1.0" ]
