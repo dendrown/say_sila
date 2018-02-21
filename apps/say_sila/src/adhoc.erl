@@ -14,7 +14,7 @@
 -module(adhoc).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([md/2, q4/0]).
+-export([md/2, one/0, two/0, q4/0, today/0]).
 
 -include("twitter.hrl").
 
@@ -55,5 +55,11 @@ md(Track, Bigs) ->
 
 
 %%--------------------------------------------------------------------
-q4() -> [{start, {2017, 10, 1}}, {stop, {2018, 1, 1}}].
+one() -> [{start, {2017, 12, 31}}, {stop, {2018, 1, 1}}].
+two() -> [{start, {2017, 12, 30}}, {stop, {2018, 1, 1}}].
+q4()  -> [{start, {2017, 10,  1}}, {stop, {2018, 1, 1}}].
+
+today() ->
+    Today = dts:dayize(calendar:local_time()),
+    [{start, Today}, {stop, dts:add(Today, 1, day)}].
 

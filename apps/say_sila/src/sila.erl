@@ -14,7 +14,7 @@
 -module(sila).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([start/0, start/1, stop/0]).
+-export([start/0, start/1,stop/0, reset/0]).
 
 
 %%====================================================================
@@ -66,6 +66,19 @@ start(Options) ->
 % @end  --
 stop() ->
     application:stop(say_sila).
+
+
+
+%%--------------------------------------------------------------------
+-spec reset() -> list({atom(), list()}).
+%%
+% @doc  Reinitializes the state of the `say_sila' application.
+%%--------------------------------------------------------------------
+reset() ->
+    Modules  = [raven, player],
+    Trackers = [cc, gw],
+    ResetTrk = fun(Trk) -> {Trk, [{Mod, Mod:reset(Trk)} || Mod <- Modules]} end,
+    lists:map(ResetTrk, Trackers).
 
 
 

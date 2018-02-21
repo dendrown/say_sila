@@ -17,6 +17,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1, stop/1,
+         reset/1,
          tweet/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -29,7 +30,7 @@
                       gw => player_gw}).
 -define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
 
--define(MIN_COUNT,  2).                             % Minimum user activity for processing
+-define(MIN_COUNT,  3).                             % Minimum user activity for processing
 
 
 -record(state, {tracker           :: atom(),
@@ -65,6 +66,16 @@ stop(Tracker) ->
 
 
 %%--------------------------------------------------------------------
+-spec reset(Tracker :: atom()) -> ok.
+%%
+% @doc  Reinitializes the state of the specified `player' server.
+%%--------------------------------------------------------------------
+reset(Tracker) ->
+    gen_server:call(?reg(Tracker), reset).
+
+
+
+%%--------------------------------------------------------------------
 -spec tweet(Tracker :: atom(),
             Tweet   :: tweet()) -> ok.
 %%
@@ -85,11 +96,7 @@ tweet(Tracker, Tweet) ->
 init([Tracker]) ->
     ?notice("Initializing player services: ~s", [Tracker]),
     process_flag(trap_exit, true),
-
-    % Start the tweet tree with a node for singleton players
-    CntTree = gb_tree:insert(?MIN_COUNT, gb_tree:empty()),
-    {ok, #state{tracker    = Tracker,
-                count_tree = CntTree}}.
+    {ok, reset_state(Tracker)}.
 
 
 
@@ -120,6 +127,10 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call(reset, _From, #state{tracker = Tracker}) ->
+    {reply, ok, reset_state(Tracker)};
+
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
@@ -141,8 +152,7 @@ handle_cast({tweet, Tweet = #tweet{screen_name = Acct}},
             State = #state{player_map  = Players,
                            count_tree  = CntTree,
                            tweet_total = Total}) ->
-    %
-    ?debug("Tweet: acct[~s] txt[~s]", [Acct, Tweet#tweet.text]),
+    %?debug("Tweet: acct[~s] txt[~s]", [Acct, Tweet#tweet.text]),
 
     {NewPlayerMap,
      NewCountTree} = case maps:get(Acct, Players, none) of
@@ -208,4 +218,14 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
-%%====================================================================
+%%--------------------------------------------------------------------
+-spec reset_state(Tracker :: atom()) -> state().
+%%
+% @doc  Process out-of-band messages
+% @end  --
+reset_state(Tracker) ->
+    %
+    % Start the tweet tree with a node for minimum-activity players
+    CntTree = gb_trees:insert(?MIN_COUNT, [], gb_trees:empty()),
+    #state{tracker = Tracker,
+           count_tree = CntTree}.

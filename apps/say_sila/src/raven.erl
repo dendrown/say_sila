@@ -385,7 +385,8 @@ handle_call(get_big_percent, _From, State) ->
 
 
 handle_call(reset, _From, State) ->
-    {reply, ok, #state{big_percent = State#state.big_percent,
+    {reply, ok, #state{tracker     = State#state.tracker,
+                       big_percent = State#state.big_percent,
                        weka_node   = State#state.weka_node}};
 
 
