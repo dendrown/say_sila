@@ -22,17 +22,20 @@
 
 -include("sila.hrl").
 -include("twitter.hrl").
+-include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
 -define(MODULES,    #{cc => player_cc,
                       gw => player_gw}).
 -define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
 
+-define(MIN_COUNT,  2).                             % Minimum user activity for processing
 
--record(state, {tracker         :: atom(),
-                players,
-                tweet_cnt = 0   :: integer(),
-                ordering  = []  :: list() }).
+
+-record(state, {tracker           :: atom(),
+                player_map  = #{} :: map(),
+                count_tree        :: gb_trees:tree(integer(), list()),
+                tweet_total = 0   :: integer() }).   % count
 -type state() :: #state{}.
 
 
@@ -65,10 +68,10 @@ stop(Tracker) ->
 -spec tweet(Tracker :: atom(),
             Tweet   :: tweet()) -> ok.
 %%
-% @doc  Shutdown function for account services
+% @doc  Process a tweet, adjusting player roles as appropriate.
 % @end  --
 tweet(Tracker, Tweet) ->
-    gen_server:call(?reg(Tracker), {tweet, Tweet}).
+    gen_server:cast(?reg(Tracker), {tweet, Tweet}).
 
 
 
@@ -82,7 +85,11 @@ tweet(Tracker, Tweet) ->
 init([Tracker]) ->
     ?notice("Initializing player services: ~s", [Tracker]),
     process_flag(trap_exit, true),
-    {ok, #state{tracker = Tracker}}.
+
+    % Start the tweet tree with a node for singleton players
+    CntTree = gb_tree:insert(?MIN_COUNT, gb_tree:empty()),
+    {ok, #state{tracker    = Tracker,
+                count_tree = CntTree}}.
 
 
 
@@ -113,20 +120,6 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call({tweet, Tweet = #tweet{screen_name = Name,
-                                   emotions    = Emos}},
-            _From,
-            State) ->
-    % To save memory, don't keep the text of the stoic guys
-    StoredTweet = case emo:is_stoic(Emos) of
-        true  -> Tweet#tweet{text = ignored};
-        false -> Tweet
-    end,
-    %?debug("Storing tweet: acct[~s] txt[~s]", [Name,
-    %                                           StoredTweet#tweet.text]),
-    {reply, StoredTweet, State};
-
-
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
@@ -142,6 +135,61 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
+handle_cast({tweet, Tweet = #tweet{screen_name = Acct}},
+                                 % rt_screen_name
+                                 % type
+            State = #state{player_map  = Players,
+                           count_tree  = CntTree,
+                           tweet_total = Total}) ->
+    %
+    ?debug("Tweet: acct[~s] txt[~s]", [Acct, Tweet#tweet.text]),
+
+    {NewPlayerMap,
+     NewCountTree} = case maps:get(Acct, Players, none) of
+
+        none ->
+            % First tweet from this player, add him to the (existing) singleton node
+            {maps:put(Acct, 1, Players),
+             CntTree};
+
+        AcctCnt when AcctCnt < (?MIN_COUNT-1) ->
+            % Player continues tweeting, but hasn't hit our processing threshold
+            {maps:put(Acct, AcctCnt + 1, Players),
+             CntTree};
+
+        AcctCnt when AcctCnt =:= (?MIN_COUNT-1) ->
+            % Passing activity threshold: add user to min-count node
+            % NOTE: handling this special case is faster
+            %       because we know the node exists
+            MinAccts = gb_trees:get(?MIN_COUNT, CntTree),
+            {maps:put(Acct, ?MIN_COUNT, Players),
+             gb_trees:update(?MIN_COUNT, [Acct | MinAccts], CntTree)};
+
+        AcctCnt ->
+            % Remove the account from the old count-node
+            OldCntNode = gb_trees:get(AcctCnt, CntTree),
+            MidCntTree = gb_trees:update(AcctCnt, lists:delete(Acct, OldCntNode), CntTree),
+
+            % Add the account to the new count-node
+            NewAcctCnt = AcctCnt + 1,
+            NewPlayers = maps:put(Acct, NewAcctCnt, Players),
+            NewCntTree = case gb_trees:lookup(NewAcctCnt, MidCntTree) of
+
+                {value, CntAccts} ->
+                    % Node already exists for this count
+                     gb_trees:update(NewAcctCnt, [Acct | CntAccts], MidCntTree);
+
+                none ->
+                    % New node for this count
+                     gb_trees:insert(NewAcctCnt, [Acct], MidCntTree)
+            end,
+            {NewPlayers, NewCntTree}
+    end,
+    {noreply, State#state{player_map  = NewPlayerMap,
+                          count_tree  = NewCountTree,
+                          tweet_total = Total + 1}};
+
+
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.

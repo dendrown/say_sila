@@ -757,8 +757,11 @@ emote_tweets_csv({newline, [ID, _ScreenName, Anger, Fear, Sadness, Joy]},
                                              sadness => string_to_float(Sadness),
                                              joy     => string_to_float(Joy)}},
 
+            % Add emotions, but clip text from emotionless tweets (saves memory)
+            EmoTweet = emo:clip_stoic(Tweet#tweet{emotions = Emotions}),
+
             % Keep track of who's tweeting what!
-            EmoTweet = player:tweet(Tracker, Tweet#tweet{emotions = Emotions}),
+            player:tweet(Tracker, EmoTweet),
             {Tracker, Cnt + 1, RestTweets, [EmoTweet | EmoTweets]};
 
         false ->

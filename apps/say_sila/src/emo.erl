@@ -17,6 +17,7 @@
 
 -export([add/2,
          average/1,
+         clip_stoic/1,
          do_top_hits/2,
          is_stoic/1,
          relevel/1,
@@ -58,6 +59,22 @@ average(Emos = #emotions{count = Cnt}) ->
         Cnt > 1 ->
             #emotions{count  = 1,
                       levels = relevel(fun(Emo) -> {Emo, maps:get(Emo, Emos#emotions.levels) / Cnt} end)}
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec clip_stoic(Tweet :: tweet()) -> tweet().
+%
+% @doc  Returns the specified tweet, changing the text field field to
+%       `ignored' if all tweet levels are zero.
+%       levels per tweet.
+% @end  --
+clip_stoic(Tweet) ->
+    %
+    case emo:is_stoic(Tweet) of
+        true  -> Tweet#tweet{text = ignored};
+        false -> Tweet
     end.
 
 
