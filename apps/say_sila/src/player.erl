@@ -146,19 +146,25 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast({tweet, Tweet = #tweet{screen_name = Acct}},
+handle_cast({tweet, Tweet = #tweet{screen_name = Acct,
+                                   text        = Text,
+                                   type        = _Type}},
                                  % rt_screen_name
-                                 % type
             State = #state{player_map  = Players,
                            count_tree  = CntTree,
                            tweet_total = Total}) ->
-    %?debug("Tweet: acct[~s] txt[~s]", [Acct, Tweet#tweet.text]),
+
+    Words = string:split(Text, " ", all),
+    %?debug("Tweet: acct[~s] type[~s] words[~B]", [Acct, _Type, length(Words)]),
+
+    % TODO: Add retweet information to player maps
+    check_retweet(Tweet, Words),
 
     {NewPlayerMap,
      NewCountTree} = case maps:get(Acct, Players, none) of
 
         none ->
-            % First tweet from this player, add him to the (existing) singleton node
+            % First tweet from this player
             {maps:put(Acct, 1, Players),
              CntTree};
 
@@ -229,3 +235,42 @@ reset_state(Tracker) ->
     CntTree = gb_trees:insert(?MIN_COUNT, [], gb_trees:empty()),
     #state{tracker = Tracker,
            count_tree = CntTree}.
+
+
+
+%%--------------------------------------------------------------------
+%% TODO: -spec
+%%
+% @doc  
+% @end  --
+check_retweet(#tweet{type           = retweet,
+                     id             = ID,
+                     rt_screen_name = Author,
+                     screen_name    = Acct},
+              [<<"RT">>, <<$@, AuthRef/binary>> | Words]) ->
+    %
+    % Pull off the colon from the author reference to verify the retweeted author
+    case binary:split(AuthRef, <<":">>, [trim]) of
+        [Author] ->
+            ?debug("Reweet: acct[~s] auth[~s] msg~p", [Acct, Author, Words]);
+
+        [Who] ->
+            ?warning("Cannot verify retweet: id[~s] acct[~s] auth[~p =/= ~p]",
+                     [ID, Acct, Author, Who])
+    end,
+    retweet;
+
+
+check_retweet(#tweet{type           = retweet,
+                     id             = ID,
+                     rt_screen_name = Author,
+                     screen_name    = Acct}, _ ) ->
+    %
+    ?warning("Nonstandard retweet text: id[~p] acct[~s] auth[~s]", [ID, Acct, Author]),
+    unknown;
+
+
+check_retweet(#tweet{type = Type}, _ ) ->
+    %
+    % Ignore non-retweets
+    Type.
