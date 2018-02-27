@@ -177,14 +177,12 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast({tweet, Tweet = #tweet{screen_name = Acct,
-                                   type        = _Type}},
-            State = #state{players     = Players,
-                           rankings    = Rankings,
-                           tweet_total = Total}) ->
+handle_cast({tweet, Tweet = #tweet{screen_name = Acct}}, State = #state{players     = Players,
+                                                                        rankings    = Rankings,
+                                                                        tweet_total = Total}) ->
+    ?info("TWEET: acct[~s] type[~s] id[~s]",
+          [Acct, Tweet#tweet.type, Tweet#tweet.id]),
 
-    %?debug("Tweet: acct[~s] type[~s]", [Acct, _Type]),
-    %
     % Update the tweeter's counter for this tweet
     % TODO: differentiate between original and retweets
     Counts = maps:get(Acct, Players, #counts{}),
@@ -382,13 +380,15 @@ check_mentions(Acct, [ _ | RestWords], Players, Ranking) ->
 % @end  --
 update_ranking(Acct, Counter, Players, Ranking) ->
     %
+    % NOTE: The players map  has the NEW count, while
+    %       the ranking tree has the OLD count (NEW - 1)
     case maps:get(Acct, Players) of
 
-        Counts when element(Counter, Counts) < (?MIN_COMMS_COUNT-1) ->
+        Counts when element(Counter, Counts) < (?MIN_COMMS_COUNT) ->
             % Player activity continues, but hasn't hit our processing threshold
              Ranking;
 
-        Counts when element(Counter, Counts) =:= (?MIN_COMMS_COUNT-1) ->
+        Counts when element(Counter, Counts) =:= (?MIN_COMMS_COUNT) ->
             % Passing activity threshold: add user to min-count node
             % NOTE: handling this special case is faster
             %       because we already know the node exists
@@ -398,8 +398,9 @@ update_ranking(Acct, Counter, Players, Ranking) ->
         Counts ->
             % Remove the account from the old count-node
             AcctCnt    = element(Counter, Counts),
-            OldNode    = gb_trees:get(AcctCnt, Ranking),
-            MidRanking = gb_trees:update(AcctCnt, lists:delete(Acct, OldNode), Ranking),
+            OldCnt     = AcctCnt - 1,
+            OldNode    = gb_trees:get(OldCnt, Ranking),
+            MidRanking = gb_trees:update(OldCnt, lists:delete(Acct, OldNode), Ranking),
 
             % Add the account to the new count-node
             case gb_trees:lookup(AcctCnt, MidRanking) of

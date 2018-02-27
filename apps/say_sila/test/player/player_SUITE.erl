@@ -19,12 +19,17 @@
          get_rankings_01/1,
          tweet_01/1,
          tweet_02/1,
-         tweet_03/1]).
+         tweet_03/1,
+         tweet_04/1]).
 
 -include("player.hrl").
 -include("twitter.hrl").
 
--define(TRACKER, gw).
+-define(TRACKER,    gw).
+-define(MANY_COMMS, (10 * ?MIN_COMMS_COUNT)).
+
+
+%%%-------------------------------------------------------------------
 -define(TWEET,   #tweet{id              = <<"947256553513549824">>,
                         screen_name     = <<"TestUser85">>,
                         timestamp_ms    = 1514678536190,
@@ -60,7 +65,7 @@
 all() ->
     [get_players_01,
      get_rankings_01,
-     tweet_01, tweet_02, tweet_03].
+     tweet_01, tweet_02, tweet_03, tweet_04].
 
 
 %%--------------------------------------------------------------------
@@ -113,9 +118,9 @@ tweet_02(_Config) ->
     Players  = #{Account => #counts{tt = ?MIN_COMMS_COUNT, rt = 0,                tm = 0},
                 Author   => #counts{tt = 0,                rt = ?MIN_COMMS_COUNT, tm = 0}},
     Rankings = player:get_rankings(?TRACKER),
-    Rankings = #counts{tt = {1,{?MIN_COMMS_COUNT,[<<"realghess1">>], nil, nil}},
-                       rt = {1,{?MIN_COMMS_COUNT,[<<"_CFJ_">>],      nil, nil}},
-                       tm = {1,{?MIN_COMMS_COUNT,[],                 nil, nil}}}.
+    Rankings = #counts{tt = {1,{?MIN_COMMS_COUNT,[Account],     nil, nil}},
+                       rt = {1,{?MIN_COMMS_COUNT,[<<"_CFJ_">>], nil, nil}},
+                       tm = {1,{?MIN_COMMS_COUNT,[],            nil, nil}}}.
 
 
 %%--------------------------------------------------------------------
@@ -126,9 +131,23 @@ tweet_03(_Config) ->
     Players = #{Account  => #counts{tt = ?MIN_COMMS_COUNT, rt = 0, tm = 0},
                <<"CNN">> => #counts{tt = 0,                rt = 0, tm = ?MIN_COMMS_COUNT}},
     Rankings = player:get_rankings(?TRACKER),
-    Rankings = #counts{tt = {1, {?MIN_COMMS_COUNT, [<<"AndyOz2">>], nil, nil}},
-                       rt = {1, {?MIN_COMMS_COUNT, [],              nil, nil}},
-                       tm = {1, {?MIN_COMMS_COUNT, [<<"CNN">>],     nil, nil}}}.
+    Rankings = #counts{tt = {1, {?MIN_COMMS_COUNT, [Account],   nil, nil}},
+                       rt = {1, {?MIN_COMMS_COUNT, [],          nil, nil}},
+                       tm = {1, {?MIN_COMMS_COUNT, [<<"CNN">>], nil, nil}}}.
+
+
+
+%%--------------------------------------------------------------------
+tweet_04(_Config) ->
+    %
+    ok = tweet_N_times(?MANY_COMMS, ?TWEET),
+    Account = ?TWEET#tweet.screen_name,
+    Players = player:get_players(?TRACKER),
+    Players = #{Account => #counts{tt = ?MANY_COMMS,
+                                   rt = 0,
+                                   tm = 0}},
+    Rankings  = player:get_rankings(?TRACKER),
+    [Account] = gb_trees:get(?MANY_COMMS, Rankings#counts.tt).
 
 
 
