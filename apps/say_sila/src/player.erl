@@ -237,7 +237,7 @@ handle_info(Msg, State) ->
 reset_state(Tracker) ->
     %
     % Start the tweet tree with a node for minimum-activity players
-    ReRanker = gb_trees:insert(?MIN_COUNT, [], gb_trees:empty()),
+    ReRanker = gb_trees:insert(?MIN_COMMS_COUNT, [], gb_trees:empty()),
     Rankings = #counts{tt = ReRanker,
                        rt = ReRanker,
                        tm = ReRanker},
@@ -384,16 +384,16 @@ update_ranking(Acct, Counter, Players, Ranking) ->
     %
     case maps:get(Acct, Players) of
 
-        Counts when element(Counter, Counts) < (?MIN_COUNT-1) ->
+        Counts when element(Counter, Counts) < (?MIN_COMMS_COUNT-1) ->
             % Player activity continues, but hasn't hit our processing threshold
              Ranking;
 
-        Counts when element(Counter, Counts) =:= (?MIN_COUNT-1) ->
+        Counts when element(Counter, Counts) =:= (?MIN_COMMS_COUNT-1) ->
             % Passing activity threshold: add user to min-count node
             % NOTE: handling this special case is faster
             %       because we already know the node exists
-            MinAccts = gb_trees:get(?MIN_COUNT, Ranking),
-            gb_trees:update(?MIN_COUNT, [Acct | MinAccts], Ranking);
+            MinAccts = gb_trees:get(?MIN_COMMS_COUNT, Ranking),
+            gb_trees:update(?MIN_COMMS_COUNT, [Acct | MinAccts], Ranking);
 
         Counts ->
             % Remove the account from the old count-node

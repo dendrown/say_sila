@@ -16,6 +16,7 @@
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).
 -export([get_players_01/1,
+         get_rankings_01/1,
          tweet_01/1,
          tweet_02/1,
          tweet_03/1]).
@@ -57,7 +58,9 @@
 
 %%--------------------------------------------------------------------
 all() ->
-    [get_players_01, tweet_01, tweet_02, tweet_03].
+    [get_players_01,
+     get_rankings_01,
+     tweet_01, tweet_02, tweet_03].
 
 
 %%--------------------------------------------------------------------
@@ -77,29 +80,62 @@ get_players_01(_Config) ->
 
 
 %%--------------------------------------------------------------------
+get_rankings_01(_Config) ->
+     Rankings = player:get_rankings(?TRACKER),
+     Rankings = #counts{tt = {1,{3,[],nil,nil}},
+                        rt = {1,{3,[],nil,nil}},
+                        tm = {1,{3,[],nil,nil}}}.
+
+
+%%--------------------------------------------------------------------
 tweet_01(_Config) ->
-    ok = player:tweet(?TRACKER, ?TWEET),
-    Account = ?TWEET#tweet.screen_name,
-    Players = player:get_players(?TRACKER),
-    Players = #{Account => #counts{tt = 1, rt = 0, tm = 0}}.
+    %
+    ok = tweet_N_times(?MIN_COMMS_COUNT, ?TWEET),
+    Account  = ?TWEET#tweet.screen_name,
+    Players  = player:get_players(?TRACKER),
+    Players  = #{Account => #counts{tt = ?MIN_COMMS_COUNT,
+                                    rt = 0,
+                                    tm = 0}},
+    Rankings = player:get_rankings(?TRACKER),
+    Rankings = #counts{tt = {1,{?MIN_COMMS_COUNT, [Account],nil, nil}},
+                       rt = {1,{?MIN_COMMS_COUNT, [],       nil, nil}},
+                       tm = {1,{?MIN_COMMS_COUNT, [],       nil, nil}}}.
+
 
 
 %%--------------------------------------------------------------------
 tweet_02(_Config) ->
-    ok = player:tweet(?TRACKER, ?RETWEET),
-    Account = ?RETWEET#tweet.screen_name,
-    Author  = ?RETWEET#tweet.rt_screen_name,
-    Players = player:get_players(?TRACKER),
-    Players = #{Account => #counts{tt = 1, rt = 0, tm = 0},
-                Author  => #counts{tt = 0, rt = 1, tm = 0}}.
+    %
+    ok = tweet_N_times(?MIN_COMMS_COUNT, ?RETWEET),
+    Account  = ?RETWEET#tweet.screen_name,
+    Author   = ?RETWEET#tweet.rt_screen_name,
+    Players  = player:get_players(?TRACKER),
+    Players  = #{Account => #counts{tt = ?MIN_COMMS_COUNT, rt = 0,                tm = 0},
+                Author   => #counts{tt = 0,                rt = ?MIN_COMMS_COUNT, tm = 0}},
+    Rankings = player:get_rankings(?TRACKER),
+    Rankings = #counts{tt = {1,{?MIN_COMMS_COUNT,[<<"realghess1">>], nil, nil}},
+                       rt = {1,{?MIN_COMMS_COUNT,[<<"_CFJ_">>],      nil, nil}},
+                       tm = {1,{?MIN_COMMS_COUNT,[],                 nil, nil}}}.
 
 
 %%--------------------------------------------------------------------
 tweet_03(_Config) ->
-    ok = player:tweet(?TRACKER, ?MENTION),
+    ok = tweet_N_times(?MIN_COMMS_COUNT, ?MENTION),
     Account = ?MENTION#tweet.screen_name,
     Players = player:get_players(?TRACKER),
-    Players = #{Account  => #counts{tt = 1, rt = 0, tm = 0},
-               <<"CNN">> => #counts{tt = 0, rt = 0, tm = 1}}.
+    Players = #{Account  => #counts{tt = ?MIN_COMMS_COUNT, rt = 0, tm = 0},
+               <<"CNN">> => #counts{tt = 0,                rt = 0, tm = ?MIN_COMMS_COUNT}},
+    Rankings = player:get_rankings(?TRACKER),
+    Rankings = #counts{tt = {1, {?MIN_COMMS_COUNT, [<<"AndyOz2">>], nil, nil}},
+                       rt = {1, {?MIN_COMMS_COUNT, [],              nil, nil}},
+                       tm = {1, {?MIN_COMMS_COUNT, [<<"CNN">>],     nil, nil}}}.
 
 
+
+%%====================================================================
+%% Internal functions
+%%--------------------------------------------------------------------
+tweet_N_times(N, Tweet) ->
+    %
+    ok = lists:foreach(fun(_) -> player:tweet(?TRACKER, Tweet) end,
+                       lists:seq(1, N, 1)).

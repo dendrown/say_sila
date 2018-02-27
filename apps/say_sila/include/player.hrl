@@ -14,7 +14,8 @@
 -ifndef(_player_included).
 -define(_player_included, ack).
 
--define(MIN_COUNT,  3).                             % Minimum user activity for processing
+-define(MIN_COMMS_COUNT,    3).                 % Minimum user activity for processing
+
 
 %%--------------------------------------------------------------------
 -type count_tree()  :: gb_trees:tree(integer(), list()).
