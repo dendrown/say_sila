@@ -17,11 +17,14 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1, stop/1,
+         get_players/1,
+         get_rankings/1,
          reset/1,
          tweet/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
+-include("player.hrl").
 -include("twitter.hrl").
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
@@ -30,20 +33,6 @@
                       gw => player_gw}).
 -define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
 
--define(MIN_COUNT,  3).                             % Minimum user activity for processing
-
-%%--------------------------------------------------------------------
--type words()       :: [binary()].
--type count_tree()  :: gb_trees:tree(integer(), list()).
-%type count_trees() :: [{atom(), count_tree()}].    % proplist[tt, rt, tm]  % FIXME: <<DELETE!
-
-
-%%--------------------------------------------------------------------
--record(counts, {tt = 0 :: non_neg_integer() | count_tree(),    % Num original tweets
-                 rt = 0 :: non_neg_integer() | count_tree(),    % Num times retweeted
-                 tm = 0 :: non_neg_integer() | count_tree()}).  % Num times mentioned
--type counts() :: #counts{}.
-
 
 %%--------------------------------------------------------------------
 -record(state, {tracker     :: atom(),
@@ -51,6 +40,7 @@
                 rankings    :: counts(),
                 tweet_total :: integer() }).   % number of tweets processed
 -type state() :: #state{}.
+-type words() :: [binary()].
 
 
 
@@ -61,7 +51,7 @@
                                      |  ignore
                                      |  {error, term()}.
 %%
-% @doc  Startup function for Twitter account services
+% @doc  Startup function for Twitter account services.
 % @end  --
 start_link(Tracker) ->
     gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Tracker], []).
@@ -71,10 +61,30 @@ start_link(Tracker) ->
 %%--------------------------------------------------------------------
 -spec stop(Tracker :: atom()) -> ok.
 %%
-% @doc  Shutdown function for account services
+% @doc  Shutdown function for account services.
 % @end  --
 stop(Tracker) ->
     gen_server:call(?reg(Tracker), stop).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_players(Tracker :: atom()) -> map().
+%%
+% @doc  Returns the server's internal players map.
+%%--------------------------------------------------------------------
+get_players(Tracker) ->
+    gen_server:call(?reg(Tracker), get_players).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_rankings(Tracker :: atom()) -> counts().
+%%
+% @doc  Returns the server's internal count rankings.
+%%--------------------------------------------------------------------
+get_rankings(Tracker) ->
+    gen_server:call(?reg(Tracker), get_rankings).
 
 
 
@@ -140,6 +150,14 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call(get_players, _From, State = #state{players = Players}) ->
+    {reply, Players, State};
+
+
+handle_call(get_rankings, _From, State = #state{rankings = Rankings}) ->
+    {reply, Rankings, State};
+
+
 handle_call(reset, _From, #state{tracker = Tracker}) ->
     {reply, ok, reset_state(Tracker)};
 
