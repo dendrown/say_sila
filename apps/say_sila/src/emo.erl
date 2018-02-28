@@ -16,6 +16,7 @@
 
 -export([add/2,
          average/1,
+         average/2,
          clip_stoic/1,
          do_top_hits/2,
          is_stoic/1,
@@ -52,14 +53,39 @@ add(Emos1, Emos2) ->
 %
 % @doc  Returns an `emotions' record representing the average emotion
 %       levels per tweet.
+%
+%       CAUTION: Currently nothing is stopping us from whittling away
+%                emotional levels by calling this function repeatedly
+%                for the same group!
 % @end  --
 average(Emos = #emotions{count = Cnt}) ->
     if  0 =:= Cnt -> #emotions{};
         1 =:= Cnt -> Emos;
         Cnt > 1 ->
-            #emotions{count  = 1,
+            #emotions{count  = Cnt,
                       levels = relevel(fun(Emo) -> {Emo, maps:get(Emo, Emos#emotions.levels) / Cnt} end)}
     end.
+
+
+
+%%--------------------------------------------------------------------
+-spec average(Running  :: emotions(),
+              Incoming :: emotions()) -> emotions().
+%
+% @doc  Updates a running average `emotions' record with new (incoming)
+%       levels of emotion.
+% @end  --
+average(Running  = #emotions{count = RunCnt},
+        Incoming = #emotions{count = IncCnt}) ->
+    %
+    TotalCnt = RunCnt + IncCnt,
+    Averager = fun(Emo) ->
+                      Run = maps:get(Emo, Running#emotions.levels),
+                      Inc = maps:get(Emo, Incoming#emotions.levels),
+                      {Emo, (RunCnt * Run + IncCnt * Inc) / TotalCnt}
+                      end,
+    #emotions{count  = TotalCnt,
+              levels = relevel(Averager)}.
 
 
 

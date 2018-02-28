@@ -16,7 +16,7 @@
 
 -export([all/0]).
 -export([add_01/1,
-         average_01/1,
+         average_01/1, average_02/1,
          emote_01/1]).
 
 -include("emo.hrl").
@@ -50,6 +50,7 @@
 %%--------------------------------------------------------------------
 all() ->
     [add_01,
+     average_01, average_02,
      emote_01].
 
 
@@ -64,8 +65,25 @@ add_01(_Config) ->
 average_01(_Config) ->
     AFJS = all_emos(),
     Avg  = emo:average(AFJS),
-    1 = AFJS#emotions.count,
+    4 = AFJS#emotions.count,
     [0.25, 0.25, 0.25, 0.25] = to_emo_list(Avg).
+
+
+%%--------------------------------------------------------------------
+average_02(_Config) ->
+    A2 = emo:average(?ANGER, ?FEAR),
+    2  = A2#emotions.count,
+    [0.50, 0.50, 0.00, 0.00] = to_emo_list(A2),
+
+    A3 = emo:average(A2, ?JOY),
+    A4 = emo:average(A3, ?SADNESS),
+    4  = A4#emotions.count,
+    [0.25, 0.25, 0.25, 0.25] = to_emo_list(A4),
+
+    M4 = emo:average(all_emos()),
+    A8 = emo:average(A4, M4),
+    8  = A8#emotions.count,
+    [0.25, 0.25, 0.25, 0.25] = to_emo_list(A8).
 
 
 %%--------------------------------------------------------------------
