@@ -752,17 +752,14 @@ emote_tweets_csv({newline, [ID, _ScreenName, Anger, Fear, Sadness, Joy]},
     case (Tweet#tweet.id =:= list_to_binary(ID)) of
 
         true ->
-            Emotions = #emotions{count   = 1,
-                                 levels  = #{anger   => string_to_float(Anger),
-                                             fear    => string_to_float(Fear),
-                                             sadness => string_to_float(Sadness),
-                                             joy     => string_to_float(Joy)}},
-
             % Add emotions, but clip text from emotionless tweets (saves memory)
             %
             % FIXME: `player' processing needs the text!
             %        Do we just forget this idea...or what?
-            EmoTweet = Tweet#tweet{emotions = Emotions},
+            EmoTweet = Tweet#tweet{emotions = emo:emote(string_to_float(Anger),
+                                                        string_to_float(Fear),
+                                                        string_to_float(Sadness),
+                                                        string_to_float(Joy))},
            %EmoTweet = emo:clip_stoic(Tweet#tweet{emotions = Emotions}),
 
             % Keep track of who's tweeting what!

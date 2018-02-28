@@ -8,11 +8,10 @@
 %%
 %% @doc Say-Sila Emotion Utilities
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(emo).
-
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([add/2,
@@ -21,9 +20,10 @@
          do_top_hits/2,
          is_stoic/1,
          relevel/1,
-         stoic/0]).
+         stoic/0,
+         emote/4]).
 
--include("raven.hrl").
+-include("emo.hrl").
 -include("twitter.hrl").
 -include_lib("llog/include/llog.hrl").
 
@@ -150,11 +150,25 @@ relevel(Closure) ->
 % @doc  Returns an `emotion' record representing "no emotion".
 % @end  --
 stoic() ->
+    emote(0.0, 0.0, 0.0, 0.0).
+
+
+
+%%--------------------------------------------------------------------
+-spec emote(Anger   :: float(),
+            Fear    :: float(),
+            Sadness :: float(),
+            Joy     :: float()) -> emotions().
+%
+% @doc  Returns an `emotion' record representing the specifed levels
+%       of emotion.
+% @end  --
+emote(Anger, Fear, Sadness, Joy) ->
     #emotions{count   = 1,
-              levels  = #{anger   => 0.0,
-                          fear    => 0.0,
-                          sadness => 0.0,
-                          joy     => 0.0}}.
+              levels  = #{anger   => Anger,
+                          fear    => Fear,
+                          sadness => Sadness,
+                          joy     => Joy}}.
 
 
 

@@ -25,4 +25,10 @@
                  tm = 0 :: non_neg_integer() | count_tree()}).  % Num times mentioned
 -type counts() :: #counts{}.
 
+
+%%--------------------------------------------------------------------
+-record(profile, {cnts :: counts(),
+                  emos :: emotions() }).
+-type profile() :: #profile{}.
+
 -endif.
