@@ -18,7 +18,7 @@
 
 -define(TWITTER_DB_TIMEOUT, (10 * 60 * 1000)).              % FIXME: Rework the DB-pull logic
 -define(COMMS_TYPES,        [tweet, retweet, mention]).
--define(COMMS_CODES,        [tt,    rt,    , tm     ]).
+-define(COMMS_CODES,        [tt,    rt,      tm     ]).
 
 -record(tweet, {id              :: binary(),
                 rt_id           :: binary(),    % rt_ means "retweet"

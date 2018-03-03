@@ -17,6 +17,8 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1, stop/1,
+         get_top/1,                     % DEBUG!!!
+         get_big_p100/2,
          get_players/1,
          get_rankings/1,
          get_totals/1,
@@ -68,6 +70,34 @@ start_link(Tracker) ->
 % @end  --
 stop(Tracker) ->
     gen_server:call(?reg(Tracker), stop).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_p100(Tracker :: atom(),
+                   BigP100 :: float()) -> proplist().
+%%
+% @doc  Returns top P100 percent
+%%--------------------------------------------------------------------
+get_big_p100(_, BigP100) when   BigP100 =< 0.0
+                         orelse BigP100 >= 1.0 ->
+    % before telling them what we want a percentage value to look like.
+    ?error("Specify percentage between 0 and 1"),
+    error(badarg);
+
+
+get_big_p100(Tracker, BigP100) ->
+    %
+    [counts | Totals] = tuple_to_list(get_totals(Tracker)),
+    [counts | Ranks ] = tuple_to_list(get_rankings(Tracker)),
+
+    GoalFlds = record_info(fields, counts),
+    GoalCnts = [round(BigP100 * Tot) || Tot <- Totals],
+    ?info("Big P100 goals: pct[~.1f%] cnts~p", [100 * BigP100,
+                                                lists:zip(GoalFlds, GoalCnts)]),
+
+    Results = lists:map(fun get_top/1, lists:zip(GoalCnts, Ranks)),
+    lists:zip(GoalFlds,  Results).
 
 
 
@@ -257,6 +287,56 @@ reset_state(Tracker) ->
            players  = #{},
            rankings = Rankings,
            totals   = #counts{}}.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_top({GoalCnt :: non_neg_integer(),
+               Ranking :: count_tree()}) -> {non_neg_integer(), list()}.
+%%
+% @doc  Attempts to get the accounts with a total as close to the goal
+%       as possible.
+% @end  --
+get_top({GoalCnt, Ranking}) ->
+    get_top(GoalCnt, Ranking, 0, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_top(GoalCnt :: non_neg_integer(),
+              Ranking :: count_tree(),
+              Cmt     :: non_neg_integer(),
+              Accts   :: list()) -> {non_neg_integer(), list()}.
+%%
+% @doc  Attempts to get the accounts with a total as close to the goal
+%       as possible.  This is the helper function for get_top/2.
+% @end  --
+get_top(GoalCnt, Ranking, Cnt, Accts) ->
+    %
+    case gb_trees:is_empty(Ranking) of
+
+        true ->
+            % Nothing more we can do, return what we've got
+            {Cnt, Accts};
+
+        false ->
+            % Pull the (next) biggest group
+            {TopCnt,
+             TopAccts,
+             NewRanking} = gb_trees:take_largest(Ranking),
+
+            NewCnt   = Cnt + (TopCnt * length(TopAccts)),
+            NewAccts = Accts ++ TopAccts,
+
+            %?debug("Getting top accounts: goal[~B] cnt[~B => ~B] tree[~B => ~B]",
+            %       [GoalCnt, Cnt, NewCnt, gb_trees:size(Ranking), gb_trees:size(NewRanking)]),
+
+             % Have we found enough?
+             case NewCnt >= GoalCnt of
+                true  -> {NewCnt, NewAccts};
+                false -> get_top(GoalCnt, NewRanking, NewCnt, NewAccts)
+            end
+        end.
 
 
 
