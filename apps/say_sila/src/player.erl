@@ -17,7 +17,6 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1, stop/1,
-         get_top/1,                     % DEBUG!!!
          get_big_p100/2,
          get_players/1,
          get_rankings/1,
@@ -91,13 +90,18 @@ get_big_p100(Tracker, BigP100) ->
     [counts | Totals] = tuple_to_list(get_totals(Tracker)),
     [counts | Ranks ] = tuple_to_list(get_rankings(Tracker)),
 
+    % Figure out the counts which represent the desired percentage
     GoalFlds = record_info(fields, counts),
     GoalCnts = [round(BigP100 * Tot) || Tot <- Totals],
     ?info("Big P100 goals: pct[~.1f%] cnts~p", [100 * BigP100,
                                                 lists:zip(GoalFlds, GoalCnts)]),
 
-    Results = lists:map(fun get_top/1, lists:zip(GoalCnts, Ranks)),
-    lists:zip(GoalFlds,  Results).
+    % Pull the accounts which get us as close as we can to our goal counts
+    BigActivity  = lists:map(fun get_top/1, lists:zip(GoalCnts, Ranks)),
+    ActivityP100 = [erlang:insert_element(1, Act, Cnt/Tot) || {Act = {Cnt, _ }, Tot} <- lists:zip(BigActivity,
+                                                                                                  Totals)],
+    % Return the results as a proplist of the count types
+    lists:zip(GoalFlds,  ActivityP100).
 
 
 
