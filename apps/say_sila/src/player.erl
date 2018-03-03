@@ -19,6 +19,7 @@
 -export([start_link/1, stop/1,
          get_players/1,
          get_rankings/1,
+         get_totals/1,
          reset/1,
          tweet/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
@@ -40,7 +41,7 @@
 -record(state, {tracker     :: atom(),
                 players     :: map(),
                 rankings    :: counts(),
-                tweet_total :: integer() }).   % number of tweets processed
+                totals      :: counts() }).   % number of tt|rt|tm processed
 -type state() :: #state{}.
 -type words() :: [binary()].
 
@@ -87,6 +88,19 @@ get_players(Tracker) ->
 %%--------------------------------------------------------------------
 get_rankings(Tracker) ->
     gen_server:call(?reg(Tracker), get_rankings).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_totals(Tracker :: atom()) -> counts().
+%%
+% @doc  Returns the server totals in a `counts' record:
+%           - `tt'  total count of all tweets sent
+%           - `tt'  number of retweeted messages
+%           - `tm'  number of times users are mentioned
+%%--------------------------------------------------------------------
+get_totals(Tracker) ->
+    gen_server:call(?reg(Tracker), get_totals).
 
 
 
@@ -160,6 +174,10 @@ handle_call(get_rankings, _From, State = #state{rankings = Rankings}) ->
     {reply, Rankings, State};
 
 
+handle_call(get_totals, _From, State = #state{totals = Totals}) ->
+    {reply, Totals, State};
+
+
 handle_call(reset, _From, #state{tracker = Tracker}) ->
     {reply, ok, reset_state(Tracker)};
 
@@ -179,31 +197,28 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast({tweet, Tweet = #tweet{screen_name = Acct}}, State = #state{players     = Players,
-                                                                        rankings    = Rankings,
-                                                                        tweet_total = Total}) ->
+handle_cast({tweet, Tweet = #tweet{screen_name = Acct}}, State = #state{players  = Players,
+                                                                        rankings = Rankings,
+                                                                        totals   = Totals}) ->
     ?info("TWEET: acct[~s] type[~s] id[~s]",
           [Acct, Tweet#tweet.type, Tweet#tweet.id]),
 
     % Update the tweeter's counter/emotions for this tweet
     MidPlayers = update_players(Acct, Tweet, Players),
     NewRanksTT = update_ranking(Acct, #counts.tt, MidPlayers, Rankings#counts.tt),
+    NewTotalTT = 1 + Totals#counts.tt,
 
     % And update the social network counts/rankings
     {NewPlayers,
-     NewRanksRT,
-     NewRanksTM} = check_network(Tweet,
-                                 MidPlayers,
-                                 Rankings#counts.rt,
-                                 Rankings#counts.tm),
+     NewRankings,
+     NewTotals} = check_network(Tweet,
+                                MidPlayers,
+                                Rankings#counts{tt = NewRanksTT},
+                                Totals  #counts{tt = NewTotalTT}),
 
-     NewRankings = #counts{tt = NewRanksTT,
-                           rt = NewRanksRT,
-                           tm = NewRanksTM},
-
-    {noreply, State#state{players     = NewPlayers,
-                          rankings    = NewRankings,
-                          tweet_total = Total + 1}};
+    {noreply, State#state{players   = NewPlayers,
+                          rankings  = NewRankings,
+                          totals    = NewTotals}};
 
 
 handle_cast(Msg, State) ->
@@ -238,10 +253,10 @@ reset_state(Tracker) ->
                        rt = ReRanker,
                        tm = ReRanker},
 
-    #state{tracker     = Tracker,
-           players     = #{},
-           rankings    = Rankings,
-           tweet_total = 0}.
+    #state{tracker  = Tracker,
+           players  = #{},
+           rankings = Rankings,
+           totals   = #counts{}}.
 
 
 
@@ -309,10 +324,10 @@ update_players(Profile, Account, CntType, CntElm, Players) ->
 
 
 %%--------------------------------------------------------------------
--spec check_network(Tweet   :: tweet(),
-                    Players :: map(),
-                    RanksRT :: count_tree(),
-                    RanksTM :: count_tree()) -> {map(), count_tree(), count_tree()}.
+-spec check_network(Tweet    :: tweet(),
+                    Players  :: map(),
+                    Rankings :: counts(),
+                    Totals   :: counts()) -> {map(), counts(), counts()}.
 %%
 % @doc  Updates a `Players' map according to the retweet/mention counts
 %       in the specified `Tweet'.
@@ -320,18 +335,23 @@ update_players(Profile, Account, CntType, CntElm, Players) ->
 check_network(Tweet = #tweet{screen_name = Acct,
                              text        = Text},
               Players,
-              RanksRT,
-              RanksTM) ->
+              Rankings = #counts{rt = RanksRT, tm = RanksTM},
+              Totals   = #counts{rt = TotalRT, tm = TotalTM}) ->
+
     Words = string:split(Text, " ", all),
 
     {MidWords,
      MidPlayers,
-     NewRanksRT} = check_retweet(Tweet, Words, Players, RanksRT),
+     NewRanksRT,
+     NewTotalRT} = check_retweet(Tweet, Words, Players, RanksRT, TotalRT),
 
     {NewPlayers,
-     NewRanksTM} = check_mentions(Acct, MidWords, MidPlayers, RanksTM),
+     NewRanksTM,
+     NewTotalTM} = check_mentions(Acct, MidWords, MidPlayers, RanksTM, TotalTM),
 
-    {NewPlayers, NewRanksRT, NewRanksTM}.
+    {NewPlayers,
+     Rankings#counts{rt = NewRanksRT, tm = NewRanksTM},
+     Totals  #counts{rt = NewTotalRT, tm = NewTotalTM}}.
 
 
 
@@ -339,7 +359,8 @@ check_network(Tweet = #tweet{screen_name = Acct,
 -spec check_retweet(Tweet   :: tweet(),
                     Words   :: words(),
                     Players :: map(),
-                    Ranking :: count_tree()) -> {words(), map(), count_tree()}.
+                    Ranking :: count_tree(),
+                    Total   :: non_neg_integer()) -> {words(), map(), count_tree(), non_neg_integer()}.
 
 %%
 % @doc  Updates the `Players' map with respect to a retweeted author
@@ -352,41 +373,42 @@ check_retweet(#tweet{type           = retweet,
                      screen_name    = Acct},
               [<<"RT">>, <<$@, AuthRef/binary>> | RestWords],
               Players,
-              Ranking) ->
+              Ranking,
+              Total) ->
     %
     % Pull off the colon from the author reference to verify the retweeted author
     {NewPlayers,
-     NewRanking} = case binary:split(AuthRef, <<":">>, [trim]) of
+     NewRanking,
+     NewTotal} = case binary:split(AuthRef, <<":">>, [trim]) of
 
         [Author] ->
             % Updates the retweeted author's (NOT the tweeter's) counts/ranking
             MidPlayers = update_players(Author, rt, #counts.rt, Players),
 
             {MidPlayers,
-             update_ranking(Author, #counts.rt, MidPlayers, Ranking)};
+             update_ranking(Author, #counts.rt, MidPlayers, Ranking),
+             1 + Total};
 
         [Who] ->
             ?warning("Cannot verify retweet: id[~s] acct[~s] auth[~p =/= ~p]",
                      [ID, Acct, Author, Who]),
-            {Players, Ranking}
+            {Players, Ranking, Total}
     end,
-    {RestWords, NewPlayers, NewRanking};
+    {RestWords, NewPlayers, NewRanking, NewTotal};
 
 
 check_retweet(#tweet{type           = retweet,
                      id             = ID,
                      rt_screen_name = Author,
-                     screen_name    = Acct},
-              Words,
-              Players,
-              Ranking) ->
+                     screen_name    = Acct}, Words, Players, Ranking, Total) ->
+    %
     ?warning("Non-standard retweet text: id[~p] acct[~s] auth[~s]", [ID, Acct, Author]),
-    {Words, Players, Ranking};
+    {Words, Players, Ranking, Total};
 
 
-check_retweet(_, Words, Players, Ranking) ->
+check_retweet(_, Words, Players, Ranking, Total) ->
     % Ignore non-retweets
-    {Words, Players, Ranking}.
+    {Words, Players, Ranking, Total}.
 
 
 
@@ -394,17 +416,18 @@ check_retweet(_, Words, Players, Ranking) ->
 -spec check_mentions(Acct    :: binary(),
                      Words   :: words(),
                      Players :: map(),
-                     Ranking :: count_tree()) -> {map(), count_tree()}.
+                     Ranking :: count_tree(),
+                     Total   :: non_neg_integer()) -> {map(), count_tree(), non_neg_integer()}.
 %%
 % @doc  Updates the `Players' map and the mentions (`tm') `Rankings'
 %       with respect to the accounts mentioned in the word list from
 %       the tweet text.
 % @end  --
-check_mentions(_, [], Players, Ranking) ->
-    {Players, Ranking};
+check_mentions(_, [], Players, Ranking, Total) ->
+    {Players, Ranking, Total};
 
 
-check_mentions(Acct, [<<$@, Mention/binary>> | RestWords], Players, Ranking) ->
+check_mentions(Acct, [<<$@, Mention/binary>> | RestWords], Players, Ranking, Total) ->
     %
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
     NewPlayers = update_players(Mention, tm, #counts.tm, Players),
@@ -412,12 +435,13 @@ check_mentions(Acct, [<<$@, Mention/binary>> | RestWords], Players, Ranking) ->
     check_mentions(Acct,
                    RestWords,
                    NewPlayers,
-                   update_ranking(Mention, #counts.tm, NewPlayers, Ranking));
+                   update_ranking(Mention, #counts.tm, NewPlayers, Ranking),
+                   1 + Total);
 
 
-check_mentions(Acct, [ _ | RestWords], Players, Ranking) ->
+check_mentions(Acct, [ _ | RestWords], Players, Ranking, Total) ->
     % Normal word
-    check_mentions(Acct, RestWords, Players, Ranking).
+    check_mentions(Acct, RestWords, Players, Ranking, Total).
 
 
 

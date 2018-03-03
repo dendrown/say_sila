@@ -97,14 +97,20 @@ tweet_01(_Config) ->
     %
     ok = tweet_N_times(?MIN_COMMS_COUNT, ?TWEET),
     Account = ?TWEET#tweet.screen_name,
+
     Players = player:get_players(?TRACKER),
     #profile{cnts = #counts{tt = ?MIN_COMMS_COUNT,
                             rt = 0,
                             tm = 0}} = maps:get(Account, Players),
+
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #counts{tt = {1,{?MIN_COMMS_COUNT, [Account],nil, nil}},
                        rt = {1,{?MIN_COMMS_COUNT, [],       nil, nil}},
-                       tm = {1,{?MIN_COMMS_COUNT, [],       nil, nil}}}.
+                       tm = {1,{?MIN_COMMS_COUNT, [],       nil, nil}}},
+
+    #counts{tt = ?MIN_COMMS_COUNT,
+            rt = 0,
+            tm = 0} = player:get_totals(?TRACKER).
 
 
 
@@ -114,6 +120,7 @@ tweet_02(_Config) ->
     ok = tweet_N_times(?MIN_COMMS_COUNT, ?RETWEET),
     Account = ?RETWEET#tweet.screen_name,
     Author  = ?RETWEET#tweet.rt_screen_name,
+
     Players = player:get_players(?TRACKER),
     #profile{cnts = #counts{tt = ?MIN_COMMS_COUNT,
                             rt = 0,
@@ -121,16 +128,23 @@ tweet_02(_Config) ->
     #profile{cnts = #counts{tt = 0,
                             rt = ?MIN_COMMS_COUNT,
                             tm = 0}} = maps:get(Author, Players),
+
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #counts{tt = {1,{?MIN_COMMS_COUNT,[Account],     nil, nil}},
                        rt = {1,{?MIN_COMMS_COUNT,[<<"_CFJ_">>], nil, nil}},
-                       tm = {1,{?MIN_COMMS_COUNT,[],            nil, nil}}}.
+                       tm = {1,{?MIN_COMMS_COUNT,[],            nil, nil}}},
+
+    #counts{tt = ?MIN_COMMS_COUNT,
+            rt = ?MIN_COMMS_COUNT,
+            tm = 0} = player:get_totals(?TRACKER).
 
 
 %%--------------------------------------------------------------------
 tweet_03(_Config) ->
+    %
     ok = tweet_N_times(?MIN_COMMS_COUNT, ?MENTION),
     Account = ?MENTION#tweet.screen_name,
+
     Players = player:get_players(?TRACKER),
     #profile{cnts = #counts{tt = ?MIN_COMMS_COUNT,
                             rt = 0,
@@ -138,11 +152,15 @@ tweet_03(_Config) ->
     #profile{cnts = #counts{tt = 0,
                             rt = 0,
                             tm = ?MIN_COMMS_COUNT}} = maps:get(<<"CNN">>, Players),
+
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #counts{tt = {1, {?MIN_COMMS_COUNT, [Account],   nil, nil}},
                        rt = {1, {?MIN_COMMS_COUNT, [],          nil, nil}},
-                       tm = {1, {?MIN_COMMS_COUNT, [<<"CNN">>], nil, nil}}}.
+                       tm = {1, {?MIN_COMMS_COUNT, [<<"CNN">>], nil, nil}}},
 
+    #counts{tt = ?MIN_COMMS_COUNT,
+            rt = 0,
+            tm = ?MIN_COMMS_COUNT} = player:get_totals(?TRACKER).
 
 
 %%--------------------------------------------------------------------
@@ -155,7 +173,11 @@ tweet_04(_Config) ->
                             rt = 0,
                             tm = 0}} = maps:get(Account, Players),
     Rankings  = player:get_rankings(?TRACKER),
-    [Account] = gb_trees:get(?MANY_COMMS, Rankings#counts.tt).
+    [Account] = gb_trees:get(?MANY_COMMS, Rankings#counts.tt),
+
+    #counts{tt = ?MANY_COMMS,
+            rt = 0,
+            tm = 0} = player:get_totals(?TRACKER).
 
 
 
