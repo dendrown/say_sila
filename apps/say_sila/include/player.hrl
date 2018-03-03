@@ -31,4 +31,8 @@
                   emos :: emotions() }).
 -type profile() :: #profile{}.
 
+-define(profile_cnts(Rec, Fld),  Rec#profile.cnts#counts.Fld).
+-define(profile_emos(Rec, Fld),  Rec#profile.emos#emotions.Fld).
+
+
 -endif.

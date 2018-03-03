@@ -19,10 +19,12 @@
          average/2,
          clip_stoic/1,
          do_top_hits/2,
+         emote/4,
+         emote/5,
          is_stoic/1,
          relevel/1,
          stoic/0,
-         emote/4]).
+         stoic/1]).
 
 -include("emo.hrl").
 -include("twitter.hrl").
@@ -132,6 +134,41 @@ do_top_hits(Tweet = #tweet{emotions = TweetEmos}, TopHits) ->
 
 
 %%--------------------------------------------------------------------
+-spec emote(Anger   :: float(),
+            Fear    :: float(),
+            Sadness :: float(),
+            Joy     :: float()) -> emotions().
+%
+% @doc  Returns an `emotion' record representing a single communication
+%       at the specifed levels of emotion.
+%
+%       Equivalent to emote(1, Anger, Fear, Sadness, Joy).
+% @end  --
+emote(Anger, Fear, Sadness, Joy) ->
+    emote(1, Anger, Fear, Sadness, Joy).
+
+
+
+%%--------------------------------------------------------------------
+-spec emote(Count   :: non_neg_integer(),
+            Anger   :: float(),
+            Fear    :: float(),
+            Sadness :: float(),
+            Joy     :: float()) -> emotions().
+%
+% @doc  Returns an `emotion' record representing `Count' communications
+%       of the specifed levels of emotion.
+% @end  --
+emote(Count, Anger, Fear, Sadness, Joy) ->
+    #emotions{count   = Count,
+              levels  = #{anger   => Anger,
+                          fear    => Fear,
+                          sadness => Sadness,
+                          joy     => Joy}}.
+
+
+
+%%--------------------------------------------------------------------
 -spec is_stoic(Emos :: tweet()
                      | emotions()) -> boolean().
 %
@@ -174,27 +211,21 @@ relevel(Closure) ->
 -spec stoic() -> emotions().
 %
 % @doc  Returns an `emotion' record representing "no emotion".
+%
+%       Equivalent to stoic(1).
 % @end  --
 stoic() ->
-    emote(0.0, 0.0, 0.0, 0.0).
-
+    stoic(1).
 
 
 %%--------------------------------------------------------------------
--spec emote(Anger   :: float(),
-            Fear    :: float(),
-            Sadness :: float(),
-            Joy     :: float()) -> emotions().
+-spec stoic(Count :: non_neg_integer()) -> emotions().
 %
-% @doc  Returns an `emotion' record representing the specifed levels
-%       of emotion.
+% @doc  Returns an `emotion' record representing "no emotion" for the
+%       specified communication count.
 % @end  --
-emote(Anger, Fear, Sadness, Joy) ->
-    #emotions{count   = 1,
-              levels  = #{anger   => Anger,
-                          fear    => Fear,
-                          sadness => Sadness,
-                          joy     => Joy}}.
+stoic(Count) ->
+    emote(Count, 0.0, 0.0, 0.0, 0.0).
 
 
 

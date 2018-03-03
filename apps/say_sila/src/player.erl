@@ -33,6 +33,8 @@
                       gw => player_gw}).
 -define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
 
+-define(NEW_PROFILE,    #profile{cnts = #counts{},
+                                 emos = emo:stoic(0)}).
 
 %%--------------------------------------------------------------------
 -record(state, {tracker     :: atom(),
@@ -183,12 +185,8 @@ handle_cast({tweet, Tweet = #tweet{screen_name = Acct}}, State = #state{players 
     ?info("TWEET: acct[~s] type[~s] id[~s]",
           [Acct, Tweet#tweet.type, Tweet#tweet.id]),
 
-    % Update the tweeter's counter for this tweet
-    % TODO: differentiate between original and retweets
-    Counts = maps:get(Acct, Players, #counts{}),
-    NumTTs = 1 + Counts#counts.tt,
-
-    MidPlayers = maps:put(Acct, Counts#counts{tt = NumTTs}, Players),
+    % Update the tweeter's counter/emotions for this tweet
+    MidPlayers = update_players(Acct, Tweet, Players),
     NewRanksTT = update_ranking(Acct, #counts.tt, MidPlayers, Rankings#counts.tt),
 
     % And update the social network counts/rankings
@@ -248,6 +246,69 @@ reset_state(Tracker) ->
 
 
 %%--------------------------------------------------------------------
+-spec update_players(Account :: binary(),
+                     Tweet   :: tweet(),
+                     Players :: map()) -> map().
+%%
+% @doc  Retrieves a player's `profile' from the `Players' map, updates it
+%       with respect to the specified `Tweet', and returns the new map.
+%
+%       TODO: differentiate between original and retweets (authored by someone else)
+% @end  --
+update_players(Account, #tweet{emotions = TweetEmos}, Players) ->
+    %
+    Profile  = maps:get(Account, Players, ?NEW_PROFILE),
+    AcctEmos = Profile#profile.emos,
+
+    %?debug("Player EMOS: ~p", [AcctEmos]),
+    %?debug("Tweet  EMOS: ~p", [TweetEmos]),
+
+    NewEmos = emo:average(AcctEmos, TweetEmos),
+
+    % Update the tweet counter
+    update_players(Profile#profile{emos = NewEmos}, Account, tt, #counts.tt, Players).
+
+
+
+%%--------------------------------------------------------------------
+-spec update_players(Account :: binary(),
+                     CntType :: tt | rt | tm,
+                     CntElm  :: pos_integer(),
+                     Players :: map()) -> map().
+%%
+% @doc  Retrieves a player's `profile' from the `Players' map, updates it
+%       for the specified communication type, and returns the new map.
+% @end  --
+update_players(Account, CntType, CntElm, Players) ->
+    %
+    update_players(maps:get(Account, Players, ?NEW_PROFILE),
+                   Account, CntType, CntElm, Players).
+
+
+
+%%--------------------------------------------------------------------
+-spec update_players(Profile :: profile(),
+                     Account :: binary(),
+                     CntType :: tt | rt | tm,
+                     CntElm  :: pos_integer(),
+                     Players :: map()) -> map().
+%%
+% @doc  Updates the player's `profile' om the `Players' map for the
+%       specified communication type and returns a new map.
+% @end  --
+update_players(Profile, Account, CntType, CntElm, Players) ->
+    %
+    Counts    = Profile#profile.cnts,
+    NewValue  = 1 + element(CntElm, Counts),
+    NewCounts = setelement(CntElm, Counts, NewValue),
+
+    ?debug("Update: ~s[~B] acct[~s]", [CntType, NewValue, Account]),
+
+    maps:put(Account, Profile#profile{cnts = NewCounts}, Players).
+
+
+
+%%--------------------------------------------------------------------
 -spec check_network(Tweet   :: tweet(),
                     Players :: map(),
                     RanksRT :: count_tree(),
@@ -298,12 +359,9 @@ check_retweet(#tweet{type           = retweet,
      NewRanking} = case binary:split(AuthRef, <<":">>, [trim]) of
 
         [Author] ->
-            AuthCnts = maps:get(Author, Players, #counts{}),
-            NumRTs   = 1 + AuthCnts#counts.rt,
-            ?debug("Reweet: auth[~s] cnt[~B] acct[~s]", [Author, NumRTs, Acct]),
-
             % Updates the retweeted author's (NOT the tweeter's) counts/ranking
-            MidPlayers = maps:put(Author, AuthCnts#counts{rt = NumRTs}, Players),
+            MidPlayers = update_players(Author, rt, #counts.rt, Players),
+
             {MidPlayers,
              update_ranking(Author, #counts.rt, MidPlayers, Ranking)};
 
@@ -348,13 +406,9 @@ check_mentions(_, [], Players, Ranking) ->
 
 check_mentions(Acct, [<<$@, Mention/binary>> | RestWords], Players, Ranking) ->
     %
-    % Someone was mentioned, update her count
-    Counts = maps:get(Mention, Players, #counts{}),
-    NumTMs = 1 + Counts#counts.tm,
-    ?debug("Mention: tm[~s] cnt[~B] acct[~s]", [Mention, NumTMs, Acct]),
-
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
-    NewPlayers = maps:put(Mention, Counts#counts{tm = NumTMs}, Players),
+    NewPlayers = update_players(Mention, tm, #counts.tm, Players),
+
     check_mentions(Acct,
                    RestWords,
                    NewPlayers,
@@ -380,24 +434,26 @@ check_mentions(Acct, [ _ | RestWords], Players, Ranking) ->
 % @end  --
 update_ranking(Acct, Counter, Players, Ranking) ->
     %
+    %?debug("Ranking counter: ~B", [Counter]),
+
     % NOTE: The players map  has the NEW count, while
     %       the ranking tree has the OLD count (NEW - 1)
     case maps:get(Acct, Players) of
 
-        Counts when element(Counter, Counts) < (?MIN_COMMS_COUNT) ->
+        #profile{cnts = Counts} when element(Counter, Counts) < (?MIN_COMMS_COUNT) ->
             % Player activity continues, but hasn't hit our processing threshold
              Ranking;
 
-        Counts when element(Counter, Counts) =:= (?MIN_COMMS_COUNT) ->
+        #profile{cnts = Counts} when element(Counter, Counts) =:= (?MIN_COMMS_COUNT) ->
             % Passing activity threshold: add user to min-count node
             % NOTE: handling this special case is faster
             %       because we already know the node exists
             MinAccts = gb_trees:get(?MIN_COMMS_COUNT, Ranking),
             gb_trees:update(?MIN_COMMS_COUNT, [Acct | MinAccts], Ranking);
 
-        Counts ->
+        Profile ->
             % Remove the account from the old count-node
-            AcctCnt    = element(Counter, Counts),
+            AcctCnt    = element(Counter, Profile#profile.cnts),
             OldCnt     = AcctCnt - 1,
             OldNode    = gb_trees:get(OldCnt, Ranking),
             MidRanking = gb_trees:update(OldCnt, lists:delete(Acct, OldNode), Ranking),

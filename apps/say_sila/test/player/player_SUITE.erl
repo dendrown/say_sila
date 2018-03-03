@@ -34,9 +34,9 @@
                         screen_name     = <<"TestUser85">>,
                         timestamp_ms    = 1514678536190,
                         type            = tweet,
-                        emotions        = undefined,
                         rt_id           = undefined,
                         rt_screen_name  = undefined,
+                        emotions        = emo:stoic(),
                         text = <<"Looks like a wind chill of -35 for #NewYearsEve. Must be all that "
                                  "#climatechange and #globalwarming at work. https://t.co/XD1z9HA40e">>}).
 
@@ -44,9 +44,9 @@
                         screen_name     = <<"realghess1">>,
                         timestamp_ms    = 1514678434523,
                         type            = retweet,
-                        emotions        = undefined,
                         rt_id           = <<"945426445006004224">>,
                         rt_screen_name  = <<"_CFJ_">>,
+                        emotions        = emo:stoic(),
                         text = <<"RT @_CFJ_: This Day In #GlobalWarming History\n\n"
                                  "COLDEST #Christmas Day EVER in Kelowna TODAY https://t.co/7zkEe1KASS">>}).
 
@@ -54,9 +54,9 @@
                         screen_name     = <<"AndyOz2">>,
                         timestamp_ms    = 1514678492187,
                         type            = tweet,
-                        emotions        = undefined,
                         rt_id           = undefined,
                         rt_screen_name  = undefined,
+                        emotions        = emo:stoic(),
                         text = <<"#fakenews @CNN says there is record cold &amp; snow. \n"
                                  "I guess some #GlobalWarming would be welcome.">>}).
 
@@ -96,11 +96,11 @@ get_rankings_01(_Config) ->
 tweet_01(_Config) ->
     %
     ok = tweet_N_times(?MIN_COMMS_COUNT, ?TWEET),
-    Account  = ?TWEET#tweet.screen_name,
-    Players  = player:get_players(?TRACKER),
-    Players  = #{Account => #counts{tt = ?MIN_COMMS_COUNT,
-                                    rt = 0,
-                                    tm = 0}},
+    Account = ?TWEET#tweet.screen_name,
+    Players = player:get_players(?TRACKER),
+    #profile{cnts = #counts{tt = ?MIN_COMMS_COUNT,
+                            rt = 0,
+                            tm = 0}} = maps:get(Account, Players),
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #counts{tt = {1,{?MIN_COMMS_COUNT, [Account],nil, nil}},
                        rt = {1,{?MIN_COMMS_COUNT, [],       nil, nil}},
@@ -112,11 +112,15 @@ tweet_01(_Config) ->
 tweet_02(_Config) ->
     %
     ok = tweet_N_times(?MIN_COMMS_COUNT, ?RETWEET),
-    Account  = ?RETWEET#tweet.screen_name,
-    Author   = ?RETWEET#tweet.rt_screen_name,
-    Players  = player:get_players(?TRACKER),
-    Players  = #{Account => #counts{tt = ?MIN_COMMS_COUNT, rt = 0,                tm = 0},
-                Author   => #counts{tt = 0,                rt = ?MIN_COMMS_COUNT, tm = 0}},
+    Account = ?RETWEET#tweet.screen_name,
+    Author  = ?RETWEET#tweet.rt_screen_name,
+    Players = player:get_players(?TRACKER),
+    #profile{cnts = #counts{tt = ?MIN_COMMS_COUNT,
+                            rt = 0,
+                            tm = 0}} = maps:get(Account, Players),
+    #profile{cnts = #counts{tt = 0,
+                            rt = ?MIN_COMMS_COUNT,
+                            tm = 0}} = maps:get(Author, Players),
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #counts{tt = {1,{?MIN_COMMS_COUNT,[Account],     nil, nil}},
                        rt = {1,{?MIN_COMMS_COUNT,[<<"_CFJ_">>], nil, nil}},
@@ -128,8 +132,12 @@ tweet_03(_Config) ->
     ok = tweet_N_times(?MIN_COMMS_COUNT, ?MENTION),
     Account = ?MENTION#tweet.screen_name,
     Players = player:get_players(?TRACKER),
-    Players = #{Account  => #counts{tt = ?MIN_COMMS_COUNT, rt = 0, tm = 0},
-               <<"CNN">> => #counts{tt = 0,                rt = 0, tm = ?MIN_COMMS_COUNT}},
+    #profile{cnts = #counts{tt = ?MIN_COMMS_COUNT,
+                            rt = 0,
+                            tm = 0}} = maps:get(Account, Players),
+    #profile{cnts = #counts{tt = 0,
+                            rt = 0,
+                            tm = ?MIN_COMMS_COUNT}} = maps:get(<<"CNN">>, Players),
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #counts{tt = {1, {?MIN_COMMS_COUNT, [Account],   nil, nil}},
                        rt = {1, {?MIN_COMMS_COUNT, [],          nil, nil}},
@@ -143,9 +151,9 @@ tweet_04(_Config) ->
     ok = tweet_N_times(?MANY_COMMS, ?TWEET),
     Account = ?TWEET#tweet.screen_name,
     Players = player:get_players(?TRACKER),
-    Players = #{Account => #counts{tt = ?MANY_COMMS,
-                                   rt = 0,
-                                   tm = 0}},
+    #profile{cnts = #counts{tt = ?MANY_COMMS,
+                            rt = 0,
+                            tm = 0}} = maps:get(Account, Players),
     Rankings  = player:get_rankings(?TRACKER),
     [Account] = gb_trees:get(?MANY_COMMS, Rankings#counts.tt).
 
