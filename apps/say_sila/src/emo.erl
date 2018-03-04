@@ -170,7 +170,8 @@ emote(Count, Anger, Fear, Sadness, Joy) ->
 
 %%--------------------------------------------------------------------
 -spec is_stoic(Emos :: tweet()
-                     | emotions()) -> boolean().
+                     | emotions()
+                     | float()) -> boolean().
 %
 % @doc  Returns an true if the entity has no emotion, false otherwise.
 % @end  --
@@ -185,7 +186,11 @@ is_stoic(#emotions{levels = Levels}) ->
                  if Level > ?EPSILON -> false;
                     true             -> Recur(RestLevels)
                  end end,
-    Fn(maps:to_list(Levels)).
+    Fn(maps:to_list(Levels));
+
+
+is_stoic(Level) when is_float(Level) ->
+    (Level < ?EPSILON).
 
 
 

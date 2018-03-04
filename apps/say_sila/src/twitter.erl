@@ -35,7 +35,8 @@
          get_players/2,
          get_tweets/2,
          get_tweets/3,
-         has_hashtag/2]).
+         has_hashtag/2,
+         to_hashtag/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -323,6 +324,18 @@ has_hashtag([$#|Hash], Text) ->
 
 has_hashtag(Hash, Text) ->
     has_lookup(Hash, Text).
+
+
+
+%%--------------------------------------------------------------------
+-spec to_hashtag(Tracker :: atom()) -> string()
+                                     | undefined.
+%%
+% @doc  Returns the complete hashtag (prepended with `#') for the
+%       specified `Tracker' code.
+% @end  --
+to_hashtag(Tracker) ->
+    ?hashtag(Tracker).
 
 
 

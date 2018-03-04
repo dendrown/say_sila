@@ -511,6 +511,12 @@ check_mentions(_, [], Players, Ranking, Total) ->
     {Players, Ranking, Total};
 
 
+check_mentions(Acct, [<<$@>> | RestWords], Players, Ranking, Total) ->
+    %
+    % Skip lone @-sign
+    check_mentions(Acct, RestWords, Players, Ranking, Total);
+
+
 check_mentions(Acct, [<<$@, Mention/binary>> | RestWords], Players, Ranking, Total) ->
     %
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking

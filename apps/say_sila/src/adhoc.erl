@@ -16,12 +16,14 @@
 
 -export([md/2, md/3, one/0, two/0, q4/0, today/0]).
 
+-include("emo.hrl").
 -include("player.hrl").
 -include("twitter.hrl").
 
 -define(fmt(Fmt, Args), io_lib:format(Fmt, Args)).
 -define(out(Fmt, Args), io:format(Fmt, Args)).
 -define(terpri(),       io:put_chars("\n")).
+-define(twitter(Acct),  io_lib:format("[~s](https://twitter.com/~s)", [Acct, Acct])).
 
 -define(OPTS, [{start, {2017, 10, 1}},
                {stop,  {2017, 11, 1}}]).
@@ -29,25 +31,51 @@
 
 %%--------------------------------------------------------------------
 md(Track, P100) ->
-    Counts = player:get_big_p100(Track, P100),
+    % Default `md' report
+    md(rpt_comms, Track, P100).
+
+
+%%--------------------------------------------------------------------
+md(rpt_comms, Track, P100) ->
+    %
+    % NOTE: raven:emote/2 must have been called at this point...
+    Players = player:get_players(Track),
+    BigTalk = player:get_big_p100(Track, P100),
+    LineOut = fun(Acct) ->
+                 #profile{cnts = Cnts,
+                          emos = Emos} = maps:get(Acct, Players),
+                 % Sanity check
+                 Note = case (Cnts#counts.tt =:= Emos#emotions.count) of
+                    true  -> <<>>;
+                    false -> ?fmt("COUNT MISMATCH (tt[~B] =/= emo[~B])",
+                                  [Cnts#counts.tt,
+                                   Emos#emotions.count])
+                 end,
+                 ?out("| ~-56s | ~s |~s |~s | ~s | ~s | ~s | ~s |~s~n", [?twitter(Acct)]
+                                                                         ++ cnts_str(Cnts) 
+                                                                         ++ emos_str(Emos)
+                                                                         ++ [Note])
+                 end,
     Report = fun(Ndx) ->
                  Type = lists:nth(Ndx, ?COMMS_TYPES),
                  Code = lists:nth(Ndx, ?COMMS_CODES),
                  {Pct,
                   Cnt,
-                  Accts} = proplists:get_value(Code, Counts),
-
-                 ?out("Comms<~s>: pct[~.2f%] cnt[~B]~n", [Type,
-                                                          Pct * 100.0,
-                                                          Cnt]),
-                 lists:foreach(fun(Acct) -> ?out("  ~s~n", [Acct]) end, Accts),
+                  Accts} = proplists:get_value(Code, BigTalk),
+                 ?terpri(),
+                 ?out("### `~s` communications (~s): pct[~.2f%] cnt[~B]~n", [twitter:to_hashtag(Track),
+                                                                             Type,
+                                                                             Pct * 100.0,
+                                                                             Cnt]),
+                 ?terpri(),
+                 ?out("| ~-56.. s |   TT |  RT |  TM  |  ANGR |  FEAR |  SAD  |  JOY  |~n", [<<"SCREEN NAME">>]),
+                 ?out("| ~-56..-s | ----:|----:| ----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
+                 lists:foreach(LineOut, Accts),
                  ?terpri()
                  end,
-    lists:foreach(Report, lists:seq(1, length(?COMMS_CODES), 1)).
+    lists:foreach(Report, lists:seq(1, length(?COMMS_CODES), 1));
 
 
-
-%%--------------------------------------------------------------------
 md(rpt_tt_rt, Track, Bigs) ->
     P100 = fun(Full) ->
         Tweets    = lists:filter(fun(#tweet{type=Type}) -> Type =/= retweet end, Full),
@@ -64,11 +92,10 @@ md(rpt_tt_rt, Track, Bigs) ->
     GetMD  = fun(N) ->
         Player  = lists:nth(N, Bigs),
         ScrName = Player#player.screen_name,
-        Profile = io_lib:format("[~s](https://twitter.com/~s)", [ScrName, ScrName]),
         Tweets  = twitter:get_tweets(Track, Player, ?OPTS),
         {TweetCnt, RePlayerCnt, TT100, RT100} = P100(Tweets),
         io:format("| ~-56s | ~4B | ~3B | ~3B |    ~s |~n",
-                  [Profile,
+                  [?twitter(ScrName),
                    TweetCnt,
                    round(TT100),
                    round(RT100),
@@ -77,6 +104,31 @@ md(rpt_tt_rt, Track, Bigs) ->
     io:format("| Screen Name                                              | Total| TT% | RT% |RT Accts |~n"),
     io:format("| -------------------------------------------------------- | ----:| ---:| ---:|--------:|~n"),
     lists:foreach(GetMD, lists:seq(1, length(Bigs))).
+
+
+
+%%--------------------------------------------------------------------
+cnts_str(Counts) ->
+    [counts | CntList] = tuple_to_list(Counts),
+    lists:map(fun({Val, Fmt}) ->
+                  case {0 =:= Val, Fmt} of
+                      {true, "~4B"} -> <<"    ">>;
+                      {true, "~5B"} -> <<"     ">>;
+                      {false, Fmt}  -> ?fmt(Fmt, [Val])
+                  end end,
+              lists:zip(CntList, ["~4B", "~4B", "~5B"])).
+
+
+emos_str(Emos) ->
+    lists:map(fun(Key) -> emo_str(Key, Emos) end, ?EMOTIONS).
+
+
+emo_str(Key, Emos) ->
+    Level = ?emo_level(Key, Emos),
+    case emo:is_stoic(Level) of
+        true  -> <<"     ">>;
+        false -> ?fmt("~5.2f", [Level])
+    end.
 
 
 

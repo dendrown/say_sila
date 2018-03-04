@@ -23,4 +23,6 @@
 -type emotions()     :: #emotions{}.
 -type rec_emotions() :: undefined | #emotions{}.
 
+-define(emo_level(Emo, Rec),    maps:get(Emo, Rec#emotions.levels)).
+
 -endif.
