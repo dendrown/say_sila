@@ -68,8 +68,8 @@ md(rpt_comms, Track, P100) ->
                                                                              Pct * 100.0,
                                                                              Cnt]),
                  ?terpri(),
-                 ?out("| ~-56.. s |   TT |  RT |  TM  |  ANGR |  FEAR |  SAD  |  JOY  |~n", [<<"SCREEN NAME">>]),
-                 ?out("| ~-56..-s | ----:|----:| ----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
+                 ?out("| ~-56.. s |   TT  |  RT  |  TM  |  ANGR |  FEAR |  SAD  |  JOY  |~n", [<<"SCREEN NAME">>]),
+                 ?out("| ~-56..-s | -----:|-----:| ----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
                  lists:foreach(LineOut, Accts),
                  ?terpri()
                  end,
@@ -110,13 +110,12 @@ md(rpt_tt_rt, Track, Bigs) ->
 %%--------------------------------------------------------------------
 cnts_str(Counts) ->
     [counts | CntList] = tuple_to_list(Counts),
-    lists:map(fun({Val, Fmt}) ->
-                  case {0 =:= Val, Fmt} of
-                      {true, "~4B"} -> <<"    ">>;
-                      {true, "~5B"} -> <<"     ">>;
-                      {false, Fmt}  -> ?fmt(Fmt, [Val])
+    lists:map(fun(Val) ->
+                  case 0 =:= Val of
+                      true  -> <<"     ">>;
+                      false -> ?fmt("~5B", [Val])
                   end end,
-              lists:zip(CntList, ["~4B", "~4B", "~5B"])).
+              CntList).
 
 
 emos_str(Emos) ->
