@@ -33,8 +33,87 @@ TODO
 - ~~In/exclude RTs in runs~~
 - ~~Check language tag in tweet metadata~~
 
-To Ponder
----------
+# GW Q4 2017: pct[15%] cnts[{tt,10149}, {rt,5345}, {tm,3154}]
+
+### `#globalwarming` communications (TT : tweet): pct[15.08%] cnt[10200]
+
+| SCREEN NAME                                              |   TT |  RT |  TM  |  ANGR |  FEAR |  SAD  |  JOY  |
+| -------------------------------------------------------- | ----:|----:| ----:| -----:| -----:| -----:| -----:|
+| [EHFoundation237](https://twitter.com/EHFoundation237)   | 1421 |     |   17 |  0.11 |  0.15 |  0.10 |  0.11 |
+| [ErroldMoody](https://twitter.com/ErroldMoody)           | 1384 |  38 |    2 |  0.11 |  0.17 |  0.09 |  0.10 |
+| [CreativeCivil](https://twitter.com/CreativeCivil)       |  665 |  29 |    1 |  0.13 |  0.16 |  0.11 |  0.12 |
+| [gridpointwx](https://twitter.com/gridpointwx)           |  540 |  24 |      |  0.12 |  0.28 |  0.09 |  0.10 |
+| [denybot6000](https://twitter.com/denybot6000)           |  520 |  40 |    2 |  0.07 |  0.21 |  0.08 |  0.21 |
+| [JoyfullyECO](https://twitter.com/JoyfullyECO)           |  502 |1370 |    2 |  0.07 |  0.18 |  0.07 |  0.14 |
+| [TimMelino](https://twitter.com/TimMelino)               |  489 | 219 |      |  0.12 |  0.28 |  0.09 |  0.10 |
+| [TrumpvsScience](https://twitter.com/TrumpvsScience)     |  253 |     |      |  0.10 |  0.17 |  0.07 |  0.08 |
+| [SandorGerendasK](https://twitter.com/SandorGerendasK)   |  248 | 107 |      |       |  0.03 |  0.01 |  0.03 |
+| [arnabch01](https://twitter.com/arnabch01)               |  243 | 345 |      |  0.37 |  0.69 |  0.29 |  0.07 |
+| [MassCreativity](https://twitter.com/MassCreativity)     |  243 | 153 |      |       |  0.11 |  0.00 |       |
+| [ILuvCO2](https://twitter.com/ILuvCO2)                   |  226 |  85 |    1 |  0.09 |  0.10 |  0.12 |  0.05 |
+| [BreathingDelhi](https://twitter.com/BreathingDelhi)     |  210 |  43 |      |  0.09 |  0.14 |  0.08 |  0.13 |
+| [artyny59](https://twitter.com/artyny59)                 |  188 | 263 |      |       |  0.23 |  0.08 |  0.01 |
+| [Nicolasgwet](https://twitter.com/Nicolasgwet)           |  183 |  16 |      |  0.11 |  0.20 |  0.14 |  0.12 |
+| [GreenFraud](https://twitter.com/GreenFraud)             |  162 | 674 |      |  0.00 |  0.01 |  0.01 |       |
+| [ClimateTreaty](https://twitter.com/ClimateTreaty)       |  156 |  91 |    7 |  0.12 |  0.22 |  0.10 |  0.11 |
+| [julianluna7009](https://twitter.com/julianluna7009)     |  154 |   8 |      |       |       |       |       |
+| [2pollution](https://twitter.com/2pollution)             |  150 |   8 |      |  0.07 |  0.23 |  0.09 |       |
+| [gbibuildingco](https://twitter.com/gbibuildingco)       |  146 |  94 |      |  0.65 |  0.70 |       |       |
+| [Bbsoe123Henry](https://twitter.com/Bbsoe123Henry)       |  140 |   4 |      |       |  0.30 |       |       |
+| [ruisaldanha](https://twitter.com/ruisaldanha)           |  124 |  76 |   32 |  0.09 |  0.12 |  0.10 |  0.01 |
+| [NikolovScience](https://twitter.com/NikolovScience)     |  123 | 331 |  152 |  0.07 |       |       |  0.36 |
+| [SavePl21174455](https://twitter.com/SavePl21174455)     |  113 |  28 |      |  0.24 |  0.44 |  0.29 |  0.15 |
+| [green_conc](https://twitter.com/green_conc)             |  110 |     |      |  0.06 |  0.11 |  0.08 |  0.09 |
+| [Climate_ch](https://twitter.com/Climate_ch)             |  108 |     |      |  0.09 |  0.17 |  0.09 |  0.09 |
+| [Coffeewarblers](https://twitter.com/Coffeewarblers)     |  106 |  39 |      |  0.00 |  0.03 |  0.11 |  0.02 |
+| [SERAPHIM003](https://twitter.com/SERAPHIM003)           |  102 | 276 |      |  0.03 |  0.05 |  0.12 |  0.06 |
+| [world_dang](https://twitter.com/world_dang)             |   94 |     |      |  0.06 |  0.13 |  0.06 |  0.12 |
+| [grisanik](https://twitter.com/grisanik)                 |   91 | 188 |    2 |  0.04 |  0.06 |  0.07 |  0.09 |
+| [nasowasaberooch](https://twitter.com/nasowasaberooch)   |   90 |  19 |      |       |       |       |       |
+| [alevergara78](https://twitter.com/alevergara78)         |   86 |     |      |  0.01 |  0.02 |       |  0.08 |
+| [Greentechsystem](https://twitter.com/Greentechsystem)   |   82 |  24 |      |       |  0.12 |       |  0.08 |
+| [Piers_Corbyn](https://twitter.com/Piers_Corbyn)         |   82 | 165 |    4 |  0.69 |  0.35 |  0.43 |  0.02 |
+| [KathleenConnell](https://twitter.com/KathleenConnell)   |   78 |   3 |      |       |       |       |       |
+| [Carbongate](https://twitter.com/Carbongate)             |   76 |     |   54 |  0.04 |  0.05 |  0.05 |  0.04 |
+| [fabveggievegan](https://twitter.com/fabveggievegan)     |   75 |  82 |      |       |       |       |       |
+| [natural_sci](https://twitter.com/natural_sci)           |   74 |     |      |  0.07 |  0.12 |  0.07 |  0.08 |
+| [eco_ec](https://twitter.com/eco_ec)                     |   74 |     |      |  0.07 |  0.11 |  0.07 |  0.08 |
+| [WeCareFarming](https://twitter.com/WeCareFarming)       |   73 |  34 |      |       |  0.42 |       |       |
+| [KatherynHale15](https://twitter.com/KatherynHale15)     |   73 |   1 |      |  0.07 |  0.04 |  0.03 |  0.39 |
+| [FCalciu](https://twitter.com/FCalciu)                   |   72 |   6 |    1 |  0.11 |  0.15 |  0.06 |  0.13 |
+| [NRGrenaissance](https://twitter.com/NRGrenaissance)     |   71 |     |    2 |  0.10 |  0.21 |  0.10 |  0.10 |
+
+
+### `#globalwarming` communications (RT : retweet): pct[15.12%] cnt[5387]
+
+| SCREEN NAME                                              |   TT |  RT |  TM  |  ANGR |  FEAR |  SAD  |  JOY  |
+| -------------------------------------------------------- | ----:|----:| ----:| -----:| -----:| -----:| -----:|
+| [JoyfullyECO](https://twitter.com/JoyfullyECO)           |  502 |1370 |    2 |  0.07 |  0.18 |  0.07 |  0.14 |
+| [anttilip](https://twitter.com/anttilip)                 |    1 |1149 |    5 |       |       |       |  0.44 |
+| [belugasolar](https://twitter.com/belugasolar)           |    9 |1057 |      |  0.07 |  0.27 |  0.13 |  0.17 |
+| [NASAClimate](https://twitter.com/NASAClimate)           |    4 | 949 |    3 |       |       |  0.12 |       |
+| [HealthRanger](https://twitter.com/HealthRanger)         |   23 | 862 |    2 |  0.10 |  0.08 |  0.06 |  0.02 |
+
+
+### `#globalwarming` communications (TM : mention): pct[15.48%] cnt[3256]
+
+| SCREEN NAME                                              |   TT |  RT |  TM  |  ANGR |  FEAR |  SAD  |  JOY  |
+| -------------------------------------------------------- | ----:|----:| ----:| -----:| -----:| -----:| -----:|
+| [realDonaldTrump](https://twitter.com/realDonaldTrump)   |      |     | 1153 |       |       |       |       |
+| [algore](https://twitter.com/algore)                     |      |     |  369 |       |       |       |       |
+| [BerkeleyEarth](https://twitter.com/BerkeleyEarth)       |      |     |  322 |       |       |       |       |
+| [CarbonBrief](https://twitter.com/CarbonBrief)           |    5 | 163 |  286 |       |       |  0.30 |       |
+| [POTUS](https://twitter.com/POTUS)                       |      |     |  227 |       |       |       |       |
+| [potus](https://twitter.com/potus)                       |      |     |  181 |       |       |       |       |
+| [epascottpruitt](https://twitter.com/epascottpruitt)     |      |     |  156 |       |       |       |       |
+| [NikolovScience](https://twitter.com/NikolovScience)     |  123 | 331 |  152 |  0.07 |       |       |  0.36 |
+| [JWSpry](https://twitter.com/JWSpry)                     |   50 | 220 |  145 |  0.29 |  0.30 |  0.23 |  0.06 |
+| [CNN](https://twitter.com/CNN)                           |      |     |  136 |       |       |       |       |
+| [acc_grannot](https://twitter.com/acc_grannot)           |      |     |  129 |       |       |       |       |
+
+
+
+
 ### `#climatechange` Big Player tweet/retweet percentages for Oct. 1-31
 
 | Screen Name                                              | Total| TT% | RT% |RT Accts|
