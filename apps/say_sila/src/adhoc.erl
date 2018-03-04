@@ -14,15 +14,41 @@
 -module(adhoc).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([md/2, one/0, two/0, q4/0, today/0]).
+-export([md/2, md/3, one/0, two/0, q4/0, today/0]).
 
+-include("player.hrl").
 -include("twitter.hrl").
 
 -define(fmt(Fmt, Args), io_lib:format(Fmt, Args)).
+-define(out(Fmt, Args), io:format(Fmt, Args)).
+-define(terpri(),       io:put_chars("\n")).
+
 -define(OPTS, [{start, {2017, 10, 1}},
                {stop,  {2017, 11, 1}}]).
 
-md(Track, Bigs) ->
+
+%%--------------------------------------------------------------------
+md(Track, P100) ->
+    Counts = player:get_big_p100(Track, P100),
+    Report = fun(Ndx) ->
+                 Type = lists:nth(Ndx, ?COMMS_TYPES),
+                 Code = lists:nth(Ndx, ?COMMS_CODES),
+                 {Pct,
+                  Cnt,
+                  Accts} = proplists:get_value(Code, Counts),
+
+                 ?out("Comms<~s>: pct[~.2f%] cnt[~B]~n", [Type,
+                                                          Pct * 100.0,
+                                                          Cnt]),
+                 lists:foreach(fun(Acct) -> ?out("  ~s~n", [Acct]) end, Accts),
+                 ?terpri()
+                 end,
+    lists:foreach(Report, lists:seq(1, length(?COMMS_CODES), 1)).
+
+
+
+%%--------------------------------------------------------------------
+md(rpt_tt_rt, Track, Bigs) ->
     P100 = fun(Full) ->
         Tweets    = lists:filter(fun(#tweet{type=Type}) -> Type =/= retweet end, Full),
         Retweets  = lists:filter(fun(#tweet{type=Type}) -> Type =:= retweet end, Full),
