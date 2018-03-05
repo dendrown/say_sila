@@ -16,14 +16,20 @@
 
 -define(MIN_COMMS_COUNT,    3).                 % Minimum user activity for processing
 
+-define(COMMS_TYPES,        [tweet, original, retweet, mention]).
+-define(COMMS_CODES,        [tt,    ot,       rt,      tm     ]).
+
 
 %%--------------------------------------------------------------------
 -type count_tree()  :: gb_trees:tree(integer(), list()).
 
--record(counts, {tt = 0 :: non_neg_integer() | count_tree(),    % Num original tweets
-                 rt = 0 :: non_neg_integer() | count_tree(),    % Num times retweeted
-                 tm = 0 :: non_neg_integer() | count_tree()}).  % Num times mentioned
+-record(counts, {tt = 0 :: non_neg_integer() | count_tree(),    % Tweets sent from a user
+                 ot = 0 :: non_neg_integer() | count_tree(),    % Original tweets sent (not retweets)
+                 rt = 0 :: non_neg_integer() | count_tree(),    % Times retweeted be another user
+                 tm = 0 :: non_neg_integer() | count_tree()}).  % Times mentioned by another user
 -type counts() :: #counts{}.
+
+-define(prop_counts(Fld), {Fld, #counts.Fld}).
 
 
 %%--------------------------------------------------------------------
@@ -31,8 +37,8 @@
                   emos :: emotions() }).
 -type profile() :: #profile{}.
 
--define(profile_cnts(Rec, Fld),  Rec#profile.cnts#counts.Fld).
--define(profile_emos(Rec, Fld),  Rec#profile.emos#emotions.Fld).
+-define(profile_cnts(Rec, Fld), Rec#profile.cnts#counts.Fld).
+-define(profile_emos(Rec, Fld), Rec#profile.emos#emotions.Fld).
 
 
 -endif.

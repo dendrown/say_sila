@@ -231,24 +231,39 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast({tweet, Tweet = #tweet{screen_name = Acct}}, State = #state{players  = Players,
+handle_cast({tweet, Tweet = #tweet{screen_name = Acct,
+                                   emotions    = Emos,
+                                   type        = Type}}, State = #state{players  = Players,
                                                                         rankings = Rankings,
                                                                         totals   = Totals}) ->
-    ?info("TWEET: acct[~s] type[~s] id[~s]",
-          [Acct, Tweet#tweet.type, Tweet#tweet.id]),
 
-    % Update the tweeter's counter/emotions for this tweet
-    MidPlayers = update_players(Acct, Tweet, Players),
-    NewRanksTT = update_ranking(Acct, #counts.tt, MidPlayers, Rankings#counts.tt),
-    NewTotalTT = 1 + Totals#counts.tt,
+    ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
+
+    % Update the tweet counter(s) and rank(s) for this tweet
+    {MidPlayers,
+     MidRankings,
+     MidTotals} = case Type of
+        % An original tweet ( `ot' ) implies a tweet sent ( `tt' )
+        tweet ->
+            MidProfMap = update_players(Acct, [?prop_counts(tt), ?prop_counts(ot)], Emos, Players),
+            {MidProfMap,
+             Rankings#counts{tt = update_ranking(Acct, #counts.tt, MidProfMap, Rankings#counts.tt),
+                             ot = update_ranking(Acct, #counts.ot, MidProfMap, Rankings#counts.ot)},
+             Totals  #counts{tt = 1 + Totals#counts.tt,
+                             ot = 1 + Totals#counts.tt}};
+
+        % Retweets are not original, just do the send ( `tt' )
+        retweet ->
+            MidProfMap = update_players(Acct, ?prop_counts(tt), Emos, Players),
+            {MidProfMap,
+             Rankings#counts{tt = update_ranking(Acct, #counts.tt, MidProfMap, Rankings#counts.tt)},
+             Totals  #counts{tt = 1 + Totals#counts.tt}}
+    end,
 
     % And update the social network counts/rankings
     {NewPlayers,
      NewRankings,
-     NewTotals} = check_network(Tweet,
-                                MidPlayers,
-                                Rankings#counts{tt = NewRanksTT},
-                                Totals  #counts{tt = NewTotalTT}),
+     NewTotals} = check_network(Tweet, MidPlayers, MidRankings, MidTotals),
 
     {noreply, State#state{players   = NewPlayers,
                           rankings  = NewRankings,
@@ -284,6 +299,7 @@ reset_state(Tracker) ->
     % Start the tweet tree with a node for minimum-activity players
     ReRanker = gb_trees:insert(?MIN_COMMS_COUNT, [], gb_trees:empty()),
     Rankings = #counts{tt = ReRanker,
+                       ot = ReRanker,
                        rt = ReRanker,
                        tm = ReRanker},
 
@@ -345,16 +361,20 @@ get_top(GoalCnt, Ranking, Cnt, Accts) ->
 
 
 %%--------------------------------------------------------------------
--spec update_players(Account :: binary(),
-                     Tweet   :: tweet(),
-                     Players :: map()) -> map().
+-spec update_players(Account   :: binary(),
+                     CommCodes :: proplist() | property(),
+                     TweetEmos :: emotions(),
+                     Players   :: map()) -> map().
 %%
 % @doc  Retrieves a player's `profile' from the `Players' map, updates it
 %       with respect to the specified `Tweet', and returns the new map.
-%
-%       TODO: differentiate between original and retweets (authored by someone else)
 % @end  --
-update_players(Account, #tweet{emotions = TweetEmos}, Players) ->
+update_players(Account, CommCode, TweetEmos, Players) when is_tuple(CommCode) ->
+    %
+    update_players(Account, [CommCode], TweetEmos, Players);
+
+
+update_players(Account, CommCodes, TweetEmos, Players) ->
     %
     Profile  = maps:get(Account, Players, ?NEW_PROFILE),
     AcctEmos = Profile#profile.emos,
@@ -364,44 +384,51 @@ update_players(Account, #tweet{emotions = TweetEmos}, Players) ->
 
     NewEmos = emo:average(AcctEmos, TweetEmos),
 
-    % Update the tweet counter
-    update_players(Profile#profile{emos = NewEmos}, Account, tt, #counts.tt, Players).
+
+    update_players_aux(Profile#profile{emos = NewEmos}, Account, CommCodes, Players).
 
 
 
 %%--------------------------------------------------------------------
--spec update_players(Account :: binary(),
-                     CntType :: tt | rt | tm,
-                     CntElm  :: pos_integer(),
-                     Players :: map()) -> map().
+-spec update_players(Account   :: binary(),
+                     CommCodes :: proplist() | property(),
+                     Players   :: map()) -> map().
 %%
 % @doc  Retrieves a player's `profile' from the `Players' map, updates it
 %       for the specified communication type, and returns the new map.
 % @end  --
-update_players(Account, CntType, CntElm, Players) ->
+update_players(Account, CommCode, Players) when is_tuple(CommCode) ->
     %
-    update_players(maps:get(Account, Players, ?NEW_PROFILE),
-                   Account, CntType, CntElm, Players).
+    update_players(Account, [CommCode], Players);
+
+
+update_players(Account, CommCodes, Players) ->
+    %
+    update_players_aux(maps:get(Account, Players, ?NEW_PROFILE),
+                       Account, CommCodes, Players).
 
 
 
 %%--------------------------------------------------------------------
--spec update_players(Profile :: profile(),
-                     Account :: binary(),
-                     CntType :: tt | rt | tm,
-                     CntElm  :: pos_integer(),
-                     Players :: map()) -> map().
+-spec update_players_aux(Profile   :: profile(),
+                         Account   :: binary(),
+                         CommCodes :: pos_integer()
+                                    | proplist(),
+                         Players   :: map()) -> map().
 %%
 % @doc  Updates the player's `profile' om the `Players' map for the
 %       specified communication type and returns a new map.
 % @end  --
-update_players(Profile, Account, CntType, CntElm, Players) ->
+update_players_aux(Profile, Account, CommCodes, Players) ->
     %
-    Counts    = Profile#profile.cnts,
-    NewValue  = 1 + element(CntElm, Counts),
-    NewCounts = setelement(CntElm, Counts, NewValue),
+    ReCounter = fun({Comm, Elm}, Counts) ->
+                    NewVal = 1 + element(Elm, Counts),
+                    ?debug("Update: ~s[~B] acct[~s]", [Comm, NewVal, Account]),
 
-    ?debug("Update: ~s[~B] acct[~s]", [CntType, NewValue, Account]),
+                    setelement(Elm, Counts, NewVal)
+                    end,
+
+    NewCounts = lists:foldl(ReCounter, Profile#profile.cnts, CommCodes),
 
     maps:put(Account, Profile#profile{cnts = NewCounts}, Players).
 
@@ -467,7 +494,7 @@ check_retweet(#tweet{type           = retweet,
 
         [Author] ->
             % Updates the retweeted author's (NOT the tweeter's) counts/ranking
-            MidPlayers = update_players(Author, rt, #counts.rt, Players),
+            MidPlayers = update_players(Author, ?prop_counts(rt), Players),
 
             {MidPlayers,
              update_ranking(Author, #counts.rt, MidPlayers, Ranking),
@@ -520,7 +547,7 @@ check_mentions(Acct, [<<$@>> | RestWords], Players, Ranking, Total) ->
 check_mentions(Acct, [<<$@, Mention/binary>> | RestWords], Players, Ranking, Total) ->
     %
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
-    NewPlayers = update_players(Mention, tm, #counts.tm, Players),
+    NewPlayers = update_players(Mention, ?prop_counts(tm), Players),
 
     check_mentions(Acct,
                    RestWords,
