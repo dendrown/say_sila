@@ -52,10 +52,10 @@ md(rpt_comms, Track, P100) ->
                                   [Cnts#counts.tt,
                                    Emos#emotions.count])
                  end,
-                 ?out("| ~-56s | ~s ~s | ~s | ~s | ~s | ~s | ~s | ~s |~s~n", [?twitter(Acct)]
-                                                                                  ++ cnts_str(Cnts)
-                                                                                  ++ emos_str(Emos)
-                                                                                  ++ [Note])
+                 ?out("| ~-56s | ~s | ~s | ~s | ~s | ~s | ~s | ~s | ~s |~s~n", [?twitter(Acct)]
+                                                                               ++ cnts_str(Cnts)
+                                                                               ++ emos_str(Emos)
+                                                                               ++ [Note])
                  end,
     Report = fun(Ndx) ->
                  Type = lists:nth(Ndx, ?COMMS_TYPES),
@@ -69,8 +69,8 @@ md(rpt_comms, Track, P100) ->
                                                                              Pct * 100.0,
                                                                              Cnt]),
                  ?terpri(),
-                 ?out("| ~-56.. s | TWEETS: OT% |  RT   |  TM   |  ANGR |  FEAR |  SAD  |  JOY  |~n", [?SN]),
-                 ?out("| ~-56..-s | -----------:|------:| -----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
+                 ?out("| ~-56.. s |   TT  |  OT% |  RT   |  TM   |  ANGR |  FEAR |  SAD  |  JOY  |~n", [?SN]),
+                 ?out("| ~-56..-s | -----:| ----:|------:| -----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
                  lists:foreach(LineOut, Accts),
                  ?terpri()
                  end,
@@ -114,10 +114,10 @@ cnts_str(Counts = #counts{tt = TT}) ->
     [counts | CntList] = tuple_to_list(Counts),
     lists:map(fun({Key, Val}) ->
                   case {Key, 0 =:= Val} of
-                      {ot, true} when TT > 0 -> <<":  0%">>;
-                      {ot, true}             -> <<"     ">>;
-                      {ot, false}            -> ?fmt(":~3B%", [round(100.0 * Val / TT)]);
-                      { _, false}            -> ?fmt("~5B",   [Val]);
+                      {ot, true} when TT > 0 -> <<"  0%">>;
+                      {ot, true}             -> <<"    ">>;
+                      {ot, false}            -> ?fmt("~3B%", [round(100.0 * Val / TT)]);
+                      { _, false}            -> ?fmt("~5B",  [Val]);
                       { _, true}             -> <<"     ">>
                   end end,
               lists:zip(record_info(fields, counts), CntList)).
