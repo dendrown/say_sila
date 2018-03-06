@@ -25,6 +25,7 @@
 -define(terpri(),       io:put_chars("\n")).
 -define(twitter(Acct),  io_lib:format("[~s](https://twitter.com/~s)", [Acct, Acct])).
 
+-define(SN,   <<"SCREEN NAME">>).
 -define(OPTS, [{start, {2017, 10, 1}},
                {stop,  {2017, 11, 1}}]).
 
@@ -51,10 +52,10 @@ md(rpt_comms, Track, P100) ->
                                   [Cnts#counts.tt,
                                    Emos#emotions.count])
                  end,
-                 ?out("| ~-56s | ~s |~s |~s | ~s | ~s | ~s | ~s |~s~n", [?twitter(Acct)]
-                                                                         ++ cnts_str(Cnts) 
-                                                                         ++ emos_str(Emos)
-                                                                         ++ [Note])
+                 ?out("| ~-56s | ~s ~s | ~s | ~s | ~s | ~s | ~s | ~s |~s~n", [?twitter(Acct)]
+                                                                                  ++ cnts_str(Cnts)
+                                                                                  ++ emos_str(Emos)
+                                                                                  ++ [Note])
                  end,
     Report = fun(Ndx) ->
                  Type = lists:nth(Ndx, ?COMMS_TYPES),
@@ -68,8 +69,8 @@ md(rpt_comms, Track, P100) ->
                                                                              Pct * 100.0,
                                                                              Cnt]),
                  ?terpri(),
-                 ?out("| ~-56.. s |   TT  |  RT  |  TM  |  ANGR |  FEAR |  SAD  |  JOY  |~n", [<<"SCREEN NAME">>]),
-                 ?out("| ~-56..-s | -----:|-----:| ----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
+                 ?out("| ~-56.. s | TWEETS: OT% |  RT   |  TM   |  ANGR |  FEAR |  SAD  |  JOY  |~n", [?SN]),
+                 ?out("| ~-56..-s | -----------:|------:| -----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
                  lists:foreach(LineOut, Accts),
                  ?terpri()
                  end,
@@ -107,17 +108,23 @@ md(rpt_tt_rt, Track, Bigs) ->
 
 
 
-%%--------------------------------------------------------------------
-cnts_str(Counts) ->
+ %%--------------------------------------------------------------------
+cnts_str(Counts = #counts{tt = TT}) ->
+    %
     [counts | CntList] = tuple_to_list(Counts),
-    lists:map(fun(Val) ->
-                  case 0 =:= Val of
-                      true  -> <<"     ">>;
-                      false -> ?fmt("~5B", [Val])
+    lists:map(fun({Key, Val}) ->
+                  case {Key, 0 =:= Val} of
+                      {ot, true} when TT > 0 -> <<":  0%">>;
+                      {ot, true}             -> <<"     ">>;
+                      {ot, false}            -> ?fmt(":~3B%", [round(100.0 * Val / TT)]);
+                      { _, false}            -> ?fmt("~5B",   [Val]);
+                      { _, true}             -> <<"     ">>
                   end end,
-              CntList).
+              lists:zip(record_info(fields, counts), CntList)).
 
 
+
+%%--------------------------------------------------------------------
 emos_str(Emos) ->
     lists:map(fun(Key) -> emo_str(Key, Emos) end, ?EMOTIONS).
 
