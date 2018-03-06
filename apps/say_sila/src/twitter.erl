@@ -283,7 +283,7 @@ get_tweets(Tracker, ScreenNames) ->
 %
 %       Options is a property list allowing the following:
 %           - `start'       Begining datetime to start looking for tweets
-%           - `stop'        End datetime to start looking for players
+%           - `stop'        End datetime to stop looking for players
 %           - `no_retweet'  Collect original tweets only
 %           - `mn_emo'      Call weka for an emotion analysis on the tweets
 %                           and store the results in mnesia.  For this option
