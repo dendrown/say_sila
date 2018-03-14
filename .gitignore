@@ -2,6 +2,7 @@ say_sila.config
 yaws.conf
 apps/say_sila/www/graph/*.png
 apps/say_sila/www/status/*.etf
+apps/say_sila/priv/plot/*.dat
 
 rebar.lock
 .rebar3
@@ -9,7 +10,7 @@ _*
 .eunit
 *.o
 *.beam
-*.plt
+*.*_plt
 *.swp
 *.swo
 .erlang.cookie

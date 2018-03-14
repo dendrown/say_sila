@@ -21,6 +21,7 @@
          get_players/1,
          get_rankings/1,
          get_totals/1,
+         plot/1,
          reset/1,
          tweet/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
@@ -135,6 +136,39 @@ get_rankings(Tracker) ->
 %%--------------------------------------------------------------------
 get_totals(Tracker) ->
     gen_server:call(?reg(Tracker), get_totals).
+
+
+
+%%--------------------------------------------------------------------
+-spec plot(Tracker :: atom()) -> ok
+                               | {error, term()}.
+%%
+% @doc  Creates gnuplot scripts, data files and images.
+%%--------------------------------------------------------------------
+plot(Tracker) ->
+    Rankings = get_rankings(Tracker),
+
+
+    % TODO: Formalize file names and locations
+    FPath = lists:flatten(io_lib:format("/tmp/sila/player.~s.dat", [Tracker])),
+    filelib:ensure_dir(FPath),
+    {ok, FOut} = file:open(FPath, [write]),
+
+    % TODO: the rest, eh?
+    RanksTT = Rankings#counts.tt,
+    Ranker  = fun Recur(Ranks) ->
+                  case gb_trees:is_empty(Ranks) of
+                      true  -> ok;
+                      false ->
+                          {Cnt, BPs, NewRanks} = gb_trees:take_largest(Ranks),
+
+                          lists:foreach(fun(_) -> io:format(FOut, "~B~n", [Cnt]) end, BPs),
+                          Recur(NewRanks)
+                  end end,
+
+    io:format(FOut, "# players: trk[~s] comm[tt]~n#~n", [Tracker]),
+    Ranker(RanksTT),
+    file:close(FOut).
 
 
 
