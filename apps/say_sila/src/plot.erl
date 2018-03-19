@@ -21,6 +21,7 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(PLOT_DIR, "/tmp/sila/plot").
+-define(TERM_DIR, ?str_fmt("~s/plot", [code:priv_dir(say_sila)])).
 
 -define(fmt(Fmt, Args), io_lib:format(Fmt, Args)).
 
@@ -63,7 +64,7 @@ plot(Parms = #{name := Name,
     lists:foreach(Marker, maps:get(markers, Parms, [])),
 
     ?io_put(FOut, "set terminal png size 800,600 enhanced font 'Helvetica,14'\n"),
-    ?io_fmt(FOut, "set output '~s.png'~n", [FPath]),
+    ?io_fmt(FOut, "set output '~s/~s.png'~n", [?TERM_DIR, Name]),
     ?io_nl(FOut),
     ?io_fmt(FOut, "plot '~s' using 1 title '~s'~n", [Data, maps:get(dtitle, Parms, <<"Data">>)]),
 

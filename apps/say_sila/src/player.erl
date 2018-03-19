@@ -40,7 +40,7 @@
 -define(counts(),           lists:zip(?COUNTS, lists:seq(2, record_info(size, counts)))).
 -define(PLOT_NUM_PLAYERS,   300).
 -define(PLOT_NUM_TWEETS,    1500).
--define(PLOT_MARKERS,       [0.05, 0.10, 0.15, 0.20, 0.25]).
+-define(PLOT_MARKERS,       [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
 -define(NEW_PROFILE,        #profile{cnts = #counts{},
                                      emos = emo:stoic(0)}).
 
@@ -664,18 +664,19 @@ plot(Tracker, CommType, AcctCnt, Rankings, Markers) ->
     {ok, FOut} = file:open(FPath, [write]),
 
     % Write out the tweet counts for each player
-    Ranker  = fun Recur(Ranks) ->
-                  case gb_trees:is_empty(Ranks) of
-                      true  -> ok;
-                      false ->
-                          {Cnt, BPs, NewRanks} = gb_trees:take_largest(Ranks),
+    Ranker = fun Recur(_, ToGo) when ToGo =< 0 -> ok;
+                 Recur(Ranks, ToGo) ->
+                 case gb_trees:is_empty(Ranks) of
+                     true  -> ok;
+                     false ->
+                         {Cnt, BPs, NewRanks} = gb_trees:take_largest(Ranks),
 
-                          lists:foreach(fun(_) -> io:format(FOut, "~B~n", [Cnt]) end, BPs),
-                          Recur(NewRanks)
-                  end end,
+                         lists:foreach(fun(_) -> io:format(FOut, "~B~n", [Cnt]) end, BPs),
+                         Recur(NewRanks, ToGo - length(BPs))
+                 end end,
 
     io:format(FOut, "# players: trk[~s] comm[~s]~n#~n", [Tracker, CommType]),
-    Ranker(Rankings),
+    Ranker(Rankings, ?PLOT_NUM_PLAYERS),
     file:close(FOut),
 
     CommCode = string:uppercase(atom_to_list(CommType)),
