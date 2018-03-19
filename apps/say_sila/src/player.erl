@@ -140,17 +140,18 @@ get_totals(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec plot(Tracker :: atom()) -> ok
-                               | {error, term()}.
+%spec plot(Tracker :: atom()) -> ok
+%                              | {error, term()}.
 %%
 % @doc  Creates gnuplot scripts, data files and images.
 %%--------------------------------------------------------------------
 plot(Tracker) ->
+
+    Players  = get_players(Tracker),
     Rankings = get_rankings(Tracker),
 
-
     % TODO: Formalize file names and locations
-    FPath = lists:flatten(io_lib:format("/tmp/sila/player.~s.dat", [Tracker])),
+    FPath = lists:flatten(io_lib:format("/tmp/sila/plot/player.~s.dat", [Tracker])),
     filelib:ensure_dir(FPath),
     {ok, FOut} = file:open(FPath, [write]),
 
@@ -168,7 +169,26 @@ plot(Tracker) ->
 
     io:format(FOut, "# players: trk[~s] comm[tt]~n#~n", [Tracker]),
     Ranker(RanksTT),
-    file:close(FOut).
+    file:close(FOut),
+
+    % TODO: again, the rest...
+    MaxX = 300,
+    Marker = fun(Pct) ->
+                 Bigs = get_big_p100(Tracker, Pct),
+                 {_,_,BPs} = proplists:get_value(tt, Bigs),
+                 length(BPs)
+                 end,
+    Markers = lists:map(Marker, [0.05, 0.10, 0.15, 0.20]),
+
+    plot:plot(#{name    => "player",
+                data    => FPath,
+                title   => ?str_fmt("Big Players by Tweets (~s: ~s)", [tt, twitter:to_hashtag(Tracker)]),
+                dtitle  => ?str_fmt("~s tweets", [Tracker]),
+                xlabel  => ?str_fmt("Players (~B of ~B)", [MaxX, maps:size(Players)]),
+                ylabel  => "Tweets",
+                xrange  => {0, MaxX},
+                yrange  => {0, 1500},
+                markers => Markers}).
 
 
 
