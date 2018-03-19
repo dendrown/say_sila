@@ -36,11 +36,20 @@
                       gw => player_gw}).
 -define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
 
+%% Plotting definitions
+-define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
+-define(PLOT_NUM_PLAYERS,       #{cc => 300,
+                                  gw => 300}).
+-define(plot_num_players(Trk),  maps:get(Trk, ?PLOT_NUM_PLAYERS)).
+
+-define(PLOT_NUM_TWEETS,        #{cc => 16000,
+                                  gw =>  1500}).
+-define(plot_num_tweets(Trk),   maps:get(Trk, ?PLOT_NUM_TWEETS)).
+
+%% Record handling
 -define(COUNTS,             record_info(fields, counts)).
 -define(counts(),           lists:zip(?COUNTS, lists:seq(2, record_info(size, counts)))).
--define(PLOT_NUM_PLAYERS,   300).
--define(PLOT_NUM_TWEETS,    1500).
--define(PLOT_MARKERS,       [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
+
 -define(NEW_PROFILE,        #profile{cnts = #counts{},
                                      emos = emo:stoic(0)}).
 
@@ -669,6 +678,8 @@ plot(Tracker, CommType, AcctCnt, Rankings, Markers) ->
     {ok, FOut} = file:open(FPath, [write]),
 
     % Write out the tweet counts for each player
+    io:format(FOut, "# players: trk[~s] comm[~s]~n#~n", [Tracker, CommType]),
+
     Ranker = fun Recur(_, ToGo) when ToGo =< 0 -> ok;
                  Recur(Ranks, ToGo) ->
                  case gb_trees:is_empty(Ranks) of
@@ -680,8 +691,8 @@ plot(Tracker, CommType, AcctCnt, Rankings, Markers) ->
                          Recur(NewRanks, ToGo - length(BPs))
                  end end,
 
-    io:format(FOut, "# players: trk[~s] comm[~s]~n#~n", [Tracker, CommType]),
-    Ranker(Rankings, ?PLOT_NUM_PLAYERS),
+    MaxAccts = ?plot_num_players(Tracker),
+    Ranker(Rankings, MaxAccts),
     file:close(FOut),
 
     CommCode = string:uppercase(atom_to_list(CommType)),
@@ -690,9 +701,9 @@ plot(Tracker, CommType, AcctCnt, Rankings, Markers) ->
                 title   => ?str_fmt("Big Players by Tweets (~s: ~s)", [CommCode,
                                                                        twitter:to_hashtag(Tracker)]),
                 dtitle  => ?str_fmt("~s tweets", [Tracker]),
-                xlabel  => ?str_fmt("Players (~B of ~B)", [?PLOT_NUM_PLAYERS, AcctCnt]),
+                xlabel  => ?str_fmt("Players (~B of ~B)", [MaxAccts, AcctCnt]),
                 ylabel  => ?str_fmt("~s Tweets", [CommCode]),
-                xrange  => {0, ?PLOT_NUM_PLAYERS},
-                yrange  => {0, ?PLOT_NUM_TWEETS},
+                xrange  => {0, MaxAccts},
+                yrange  => {0, ?plot_num_tweets(Tracker)},
                 markers => Markers}).
 
