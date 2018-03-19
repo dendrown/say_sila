@@ -16,7 +16,7 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([start_link/1, stop/1, dbg/0,
+-export([start_link/1, stop/1,
          get_big_p100/2,
          get_players/1,
          get_rankings/1,
@@ -54,8 +54,6 @@
 -type words() :: [binary()].
 
 
-% FIXME: delete me
-dbg() -> ?counts().
 
 %%====================================================================
 %% API
@@ -155,7 +153,6 @@ get_totals(Tracker) ->
 plot(Tracker) ->
 
     Players  = get_players(Tracker),
-    AcctCnt  = maps:size(Players),
     Rankings = get_rankings(Tracker),
     BigP100s = [get_big_p100(Tracker, Pct) || Pct <- ?PLOT_MARKERS],
 
@@ -166,6 +163,14 @@ plot(Tracker) ->
                  end,
 
     Plotter  = fun({Comm, Ndx}) ->
+                   % How many accounts participated in the current communication mode?
+                   Accounter = fun(_, #profile{cnts = Cnts}, Acc) ->
+                                   Cnt = element(Ndx, Cnts),
+                                   case  Cnt > 0 of
+                                       true  -> Acc + 1;
+                                       false -> Acc
+                                    end end,
+                   AcctCnt = maps:fold(Accounter, 0, Players),
                    Ranks   = element(Ndx, Rankings),
                    Markers = Marker(Comm),
                    plot(Tracker, Comm, AcctCnt, Ranks, Markers)
