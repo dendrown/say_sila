@@ -102,7 +102,7 @@ get_big_p100(Tracker, BigP100) ->
     % Figure out the counts which represent the desired percentage
     GoalFlds = ?COUNTS,
     GoalCnts = [round(BigP100 * Tot) || Tot <- Totals],
-    ?info("Big P100 goals: pct[~.1f%] cnts~p", [100 * BigP100,
+    ?info("Big P100 goals: pct[~4.1f%] cnts~p", [100 * BigP100,
                                                 lists:zip(GoalFlds, GoalCnts)]),
 
     % Pull the accounts which get us as close as we can to our goal counts

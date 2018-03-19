@@ -30,11 +30,12 @@
 -spec plot(Parms :: map()) -> {ok, string()}
                             | {{error, term()}, string()}.
 %%
-% @doc  Creates an image file for a gnuplot created from the 
+% @doc  Creates an image file for a gnuplot created from the parameter
+%       map.
 % @end  --
 plot(Parms = #{name := Name,
                data := Data}) ->
-    
+
     {FPath, FOut} = open(Name),
 
     ?io_fmt(FOut, "set title  '~s'~n",    [maps:get(title,  Parms, <<"Say Sila">>)]),
@@ -131,7 +132,7 @@ close(FPath, FOut) ->
 % @end  --
 exec(ScriptPath) ->
     case os:find_executable("gnuplot") of
-        false    -> bad_cmd; 
+        false    -> bad_cmd;
         ExecPath ->
             _ExecOut = os:cmd(?str_fmt("~s ~s", [ExecPath, ScriptPath]))
             %?debug("GNUPLOT: ~s", [_ExecOut])
