@@ -16,7 +16,7 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([start_link/1, stop/1,
+-export([start_link/1, stop/1, dbg/0,
          get_big_p100/2,
          get_players/1,
          get_rankings/1,
@@ -36,18 +36,26 @@
                       gw => player_gw}).
 -define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
 
--define(NEW_PROFILE,    #profile{cnts = #counts{},
-                                 emos = emo:stoic(0)}).
+-define(COUNTS,             record_info(fields, counts)).
+-define(counts(),           lists:zip(?COUNTS, lists:seq(2, record_info(size, counts)))).
+-define(PLOT_NUM_PLAYERS,   300).
+-define(PLOT_NUM_TWEETS,    1500).
+-define(PLOT_MARKERS,       [0.05, 0.10, 0.15, 0.20, 0.25]).
+-define(NEW_PROFILE,        #profile{cnts = #counts{},
+                                     emos = emo:stoic(0)}).
+
 
 %%--------------------------------------------------------------------
 -record(state, {tracker     :: atom(),
                 players     :: map(),
                 rankings    :: counts(),
-                totals      :: counts() }).   % number of tt|rt|tm processed
+                totals      :: counts() }).   % number of tt|ot|rt|tm processed
 -type state() :: #state{}.
 -type words() :: [binary()].
 
 
+% FIXME: delete me
+dbg() -> ?counts().
 
 %%====================================================================
 %% API
@@ -92,7 +100,7 @@ get_big_p100(Tracker, BigP100) ->
     [counts | Ranks ] = tuple_to_list(get_rankings(Tracker)),
 
     % Figure out the counts which represent the desired percentage
-    GoalFlds = record_info(fields, counts),
+    GoalFlds = ?COUNTS,
     GoalCnts = [round(BigP100 * Tot) || Tot <- Totals],
     ?info("Big P100 goals: pct[~.1f%] cnts~p", [100 * BigP100,
                                                 lists:zip(GoalFlds, GoalCnts)]),
@@ -140,55 +148,29 @@ get_totals(Tracker) ->
 
 
 %%--------------------------------------------------------------------
-%spec plot(Tracker :: atom()) -> ok
-%                              | {error, term()}.
+-spec plot(Tracker :: atom()) -> ok.
 %%
 % @doc  Creates gnuplot scripts, data files and images.
 %%--------------------------------------------------------------------
 plot(Tracker) ->
 
     Players  = get_players(Tracker),
+    AcctCnt  = maps:size(Players),
     Rankings = get_rankings(Tracker),
+    BigP100s = [get_big_p100(Tracker, Pct) || Pct <- ?PLOT_MARKERS],
 
-    % TODO: Formalize file names and locations
-    FPath = lists:flatten(io_lib:format("/tmp/sila/plot/player.~s.dat", [Tracker])),
-    filelib:ensure_dir(FPath),
-    {ok, FOut} = file:open(FPath, [write]),
-
-    % TODO: the rest, eh?
-    RanksTT = Rankings#counts.tt,
-    Ranker  = fun Recur(Ranks) ->
-                  case gb_trees:is_empty(Ranks) of
-                      true  -> ok;
-                      false ->
-                          {Cnt, BPs, NewRanks} = gb_trees:take_largest(Ranks),
-
-                          lists:foreach(fun(_) -> io:format(FOut, "~B~n", [Cnt]) end, BPs),
-                          Recur(NewRanks)
-                  end end,
-
-    io:format(FOut, "# players: trk[~s] comm[tt]~n#~n", [Tracker]),
-    Ranker(RanksTT),
-    file:close(FOut),
-
-    % TODO: again, the rest...
-    MaxX = 300,
-    Marker = fun(Pct) ->
-                 Bigs = get_big_p100(Tracker, Pct),
-                 {_,_,BPs} = proplists:get_value(tt, Bigs),
-                 length(BPs)
+    % Draw lines on the plot at certain percentile points
+    Marker = fun(Comm) ->
+                 Bigs = [proplists:get_value(Comm, Pct) || Pct <- BigP100s],
+                 [length(BPs) || {_,_,BPs} <- Bigs]
                  end,
-    Markers = lists:map(Marker, [0.05, 0.10, 0.15, 0.20]),
 
-    plot:plot(#{name    => "player",
-                data    => FPath,
-                title   => ?str_fmt("Big Players by Tweets (~s: ~s)", [tt, twitter:to_hashtag(Tracker)]),
-                dtitle  => ?str_fmt("~s tweets", [Tracker]),
-                xlabel  => ?str_fmt("Players (~B of ~B)", [MaxX, maps:size(Players)]),
-                ylabel  => "Tweets",
-                xrange  => {0, MaxX},
-                yrange  => {0, 1500},
-                markers => Markers}).
+    Plotter  = fun({Comm, Ndx}) ->
+                   Ranks   = element(Ndx, Rankings),
+                   Markers = Marker(Comm),
+                   plot(Tracker, Comm, AcctCnt, Ranks, Markers)
+                   end,
+    lists:foreach(Plotter, ?counts()).
 
 
 
@@ -660,3 +642,51 @@ update_ranking(Acct, Counter, Players, Ranking) ->
                 none              -> gb_trees:insert(AcctCnt, [Acct], MidRanking)               % Newbie
             end
     end.
+
+
+
+%%--------------------------------------------------------------------
+-spec plot(Tracker  :: atom(),
+           CommType :: tt | ot | rt | tm,
+           AcctCnt  :: non_neg_integer(),
+           Rankings :: count_tree(),
+           Markers  :: [non_neg_integer()]) -> {ok, string()}
+                                             | {{error, term()}, string()}.
+%%
+% @doc  Creates gnuplot scripts, data files and images.
+%%--------------------------------------------------------------------
+plot(Tracker, CommType, AcctCnt, Rankings, Markers) ->
+
+    % TODO: Formalize file names and locations
+    Name  = ?str_fmt("~s.~s.~s", [?MODULE, Tracker, CommType]),
+    FPath = lists:flatten(io_lib:format("/tmp/sila/plot/~s.dat", [Name])),
+    filelib:ensure_dir(FPath),
+    {ok, FOut} = file:open(FPath, [write]),
+
+    % Write out the tweet counts for each player
+    Ranker  = fun Recur(Ranks) ->
+                  case gb_trees:is_empty(Ranks) of
+                      true  -> ok;
+                      false ->
+                          {Cnt, BPs, NewRanks} = gb_trees:take_largest(Ranks),
+
+                          lists:foreach(fun(_) -> io:format(FOut, "~B~n", [Cnt]) end, BPs),
+                          Recur(NewRanks)
+                  end end,
+
+    io:format(FOut, "# players: trk[~s] comm[~s]~n#~n", [Tracker, CommType]),
+    Ranker(Rankings),
+    file:close(FOut),
+
+    CommCode = string:uppercase(atom_to_list(CommType)),
+    plot:plot(#{name    => Name,
+                data    => FPath,
+                title   => ?str_fmt("Big Players by Tweets (~s: ~s)", [CommCode,
+                                                                       twitter:to_hashtag(Tracker)]),
+                dtitle  => ?str_fmt("~s tweets", [Tracker]),
+                xlabel  => ?str_fmt("Players (~B of ~B)", [?PLOT_NUM_PLAYERS, AcctCnt]),
+                ylabel  => ?str_fmt("~s Tweets", [CommCode]),
+                xrange  => {0, ?PLOT_NUM_PLAYERS},
+                yrange  => {0, ?PLOT_NUM_TWEETS},
+                markers => Markers}).
+
