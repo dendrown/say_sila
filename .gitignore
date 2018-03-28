@@ -21,6 +21,7 @@ erl_crash.dump
 .rebar
 logs
 _build
+.DS_Store
 .idea
 rebar3.crashdump
 compile_commands.json
