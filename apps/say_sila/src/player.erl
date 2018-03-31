@@ -18,6 +18,7 @@
 
 -export([start_link/1, stop/1,
          get_big_p100/2,
+         get_big_venn/2,
          get_players/1,
          get_rankings/1,
          get_totals/1,
@@ -185,6 +186,35 @@ plot(Tracker) ->
                    plot(Tracker, Comm, AcctCnt, Ranks, Markers)
                    end,
     lists:foreach(Plotter, ?counts()).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_venn(Tracker :: atom(),
+                   BigP100 :: float()) -> proplist().
+%%
+% @doc  Generate data for a Venn diagram for the WUI.
+%
+%       FIXME: Verbize the function name
+%%--------------------------------------------------------------------
+get_big_venn(Tracker, BigP100) ->
+    %
+    % TODO: Trial first on TT, then generalize...
+    BigP100s  = get_big_p100(Tracker, BigP100),
+    Intersect = fun(Comm1, Comm2) ->
+                    %
+                    ?debug("Checking: '~p' inter '~p'", [Comm1, Comm2]),
+
+                    {_,_, Accts1} = proplists:get_value(Comm1, BigP100s),
+                    {_,_, Accts2} = proplists:get_value(Comm2, BigP100s),
+                    ISet = sets:intersection(sets:from_list(Accts1),
+                                             sets:from_list(Accts2)),
+                    {{Comm1, Comm2}, sets:to_list(ISet)}
+                    end,
+    [Intersect(C1, C2) || {C1, C2} <- [{tt, ot}, {tt, rt}, {tt, tm},
+                                                 {ot, rt}, {ot, tm},
+                                                           {rt, tm}]].
+
 
 
 
