@@ -281,12 +281,13 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast({tweet, Tweet = #tweet{screen_name = Acct,
+handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
                                    emotions    = Emos,
                                    type        = Type}}, State = #state{players  = Players,
                                                                         rankings = Rankings,
                                                                         totals   = Totals}) ->
 
+    Acct = string:lowercase(ScreenName),
     ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
 
     % Update the tweet counter(s) and rank(s) for this tweet
