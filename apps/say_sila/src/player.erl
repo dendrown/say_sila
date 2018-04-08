@@ -19,6 +19,9 @@
 -export([start_link/1, stop/1,
          get_big_p100/2,
          get_big_venn/2,
+         get_comm_codes/0,
+         get_comm_codes/1,
+         get_comm_combos/0,
          get_players/1,
          get_rankings/1,
          get_totals/1,
@@ -123,6 +126,38 @@ get_big_p100(Tracker, BigP100) ->
 
 
 %%--------------------------------------------------------------------
+-spec get_comm_codes() -> [comm_code()].
+%%
+% @doc  Returns a list of defined communication codes.
+% @end  --
+get_comm_codes() ->
+    ?COMM_CODES.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_comm_codes(N :: integer()) -> [list()].
+%%
+% @doc  Returns communication codes in tuple-groups of N.
+% @end  --
+get_comm_codes(N) ->
+    get_comm_combos(N, ?COMM_CODES).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_comm_combos() -> [list()].
+%%
+% @doc  Returns a list of combinations defined communication codes.
+% @end  --
+get_comm_combos() ->
+    Combiner = fun Recur(0) -> [];
+                   Recur(N) -> Recur(N-1) ++ get_comm_codes(N) end,
+    Combiner(length(?COMM_CODES)).
+
+
+
+%%--------------------------------------------------------------------
 -spec get_players(Tracker :: atom()) -> map().
 %%
 % @doc  Returns the server's internal players map.
@@ -199,22 +234,25 @@ plot(Tracker) ->
 %%--------------------------------------------------------------------
 get_big_venn(Tracker, BigP100) ->
     %
-    % TODO: Trial first on TT, then generalize...
-    BigP100s  = get_big_p100(Tracker, BigP100),
-    Intersect = fun(Comm1, Comm2) ->
-                    %
-                    ?debug("Checking: '~p' inter '~p'", [Comm1, Comm2]),
+    BigP100s = get_big_p100(Tracker, BigP100),
 
-                    {_,_, Accts1} = proplists:get_value(Comm1, BigP100s),
-                    {_,_, Accts2} = proplists:get_value(Comm2, BigP100s),
-                    ISet = sets:intersection(sets:from_list(Accts1),
-                                             sets:from_list(Accts2)),
-                    {{Comm1, Comm2}, sets:to_list(ISet)}
+    % Create account sets for each of the communication codes
+    AcctSets = lists:map(fun(Comm) ->
+                             {_,_, Accts} = proplists:get_value(Comm, BigP100s),
+                             {Comm, sets:from_list(Accts)}
+                             end,
+                         ?COMM_CODES),
+
+    % Function to create counts for a list of one or more codes
+    Intersect = fun(Comms) ->
+                    Accts = lists:map(fun(C) -> proplists:get_value(C, AcctSets) end, Comms),
+                    ISet  = sets:intersection(Accts),
+                    %?debug("Intersection: ~s and ~s: ~p", [Comm1, Comm2, sets:to_list(ISet)]),
+                    {Comms, sets:size(ISet)}
                     end,
-    [Intersect(C1, C2) || {C1, C2} <- [{tt, ot}, {tt, rt}, {tt, tm},
-                                                 {ot, rt}, {ot, tm},
-                                                           {rt, tm}]].
 
+    % Make it so...
+    [Intersect(Comms) || Comms <- get_comm_combos()].
 
 
 
@@ -370,6 +408,32 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
+%%--------------------------------------------------------------------
+-spec get_comm_combos(N     :: integer(),
+                      Comms :: [comm_code()]) -> [list()].
+%%
+% @doc  Returns all defined pairs of communication codes
+%
+%       REF: https://stackoverflow.com/questions/47114104/
+%       REF: https://panduwana.wordpress.com/2010/04/21/combination-in-erlang/
+% @end  --
+get_comm_combos(_, []) ->
+    [];
+
+
+get_comm_combos(1, Comms) ->
+    [[C] || C <- Comms];
+
+
+get_comm_combos(2, [Comm | Rest]) ->
+    [[Comm, C] || C <- Rest] ++ get_comm_combos(2, Rest);
+
+
+get_comm_combos(N, [Comm | Rest]) ->
+    [[Comm | Subs] || Subs <- get_comm_combos(N-1, Rest)] ++ get_comm_combos(N, Rest).
+
+
+
 %%--------------------------------------------------------------------
 -spec reset_state(Tracker :: atom()) -> state().
 %%

@@ -16,8 +16,9 @@
 
 -define(MIN_COMMS_COUNT,    3).                 % Minimum user activity for processing
 
--define(COMMS_TYPES,        [tweet, original, retweet, mention]).
--define(COMMS_CODES,        [tt,    ot,       rt,      tm     ]).
+-define(COMM_TYPES,     [tweet, original, retweet, mention]).
+-define(COMM_CODES,     [tt,    ot,       rt,      tm     ]).
+-type comm_code() ::     tt|    ot|       rt|      tm.
 
 
 %%--------------------------------------------------------------------

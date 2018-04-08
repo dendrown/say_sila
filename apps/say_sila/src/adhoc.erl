@@ -58,8 +58,8 @@ md(rpt_comms, Track, P100) ->
                                                                                ++ [Note])
                  end,
     Report = fun(Ndx) ->
-                 Type = lists:nth(Ndx, ?COMMS_TYPES),
-                 Code = lists:nth(Ndx, ?COMMS_CODES),
+                 Type = lists:nth(Ndx, ?COMM_TYPES),
+                 Code = lists:nth(Ndx, ?COMM_CODES),
                  {Pct,
                   Cnt,
                   Accts} = proplists:get_value(Code, BigTalk),
@@ -74,7 +74,7 @@ md(rpt_comms, Track, P100) ->
                  lists:foreach(LineOut, Accts),
                  ?terpri()
                  end,
-    lists:foreach(Report, lists:seq(1, length(?COMMS_CODES), 1));
+    lists:foreach(Report, lists:seq(1, length(?COMM_CODES), 1));
 
 
 md(rpt_tt_rt, Track, Bigs) ->
