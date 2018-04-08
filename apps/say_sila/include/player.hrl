@@ -14,6 +14,8 @@
 -ifndef(_player_included).
 -define(_player_included, ack).
 
+-include("emo.hrl").
+
 -define(MIN_COMMS_COUNT,    3).                 % Minimum user activity for processing
 
 -define(COMM_TYPES,     [tweet, original, retweet, mention]).

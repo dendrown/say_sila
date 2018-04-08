@@ -247,7 +247,7 @@ get_big_venn(Tracker, BigP100) ->
     Intersect = fun(Comms) ->
                     Accts = lists:map(fun(C) -> proplists:get_value(C, AcctSets) end, Comms),
                     ISet  = sets:intersection(Accts),
-                    %?debug("Intersection: ~s and ~s: ~p", [Comm1, Comm2, sets:to_list(ISet)]),
+                    %?debug("INTERSECTION~p => ~p", [Comms, sets:to_list(ISet)]),
                     {Comms, sets:size(ISet)}
                     end,
 

@@ -59,7 +59,11 @@
 ;;; --------------------------------------------------------------------------
 (let [csets [{:sets ["A"]     :size 12}
              {:sets ["B"]     :size 12}
-             {:sets ["A" "B"] :size  4}]
+             {:sets ["C"]     :size 24}
+             {:sets ["A" "B"] :size  4}
+             {:sets ["A" "C"] :size  4}
+             {:sets ["B" "C"] :size  2}
+             {:sets ["A" "B" "C"] :size  2}]
       jsets (clj->js csets)
       chart (js/venn.VennDiagram)]
 
