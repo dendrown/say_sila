@@ -13,7 +13,8 @@
 ;;;; -------------------------------------------------------------------------
 (ns sila.core
  (:require [clojure.string :as str]
-           [clojure.pprint :as prt]))
+           [clojure.pprint :as prt]
+           [clojure.math.combinatorics :as combo]))
 
 (enable-console-print!)
 
@@ -57,16 +58,52 @@
 
 
 ;;; --------------------------------------------------------------------------
-(let [csets [{:sets ["A"]     :size 12}
-             {:sets ["B"]     :size 12}
-             {:sets ["C"]     :size 24}
-             {:sets ["A" "B"] :size  4}
-             {:sets ["A" "C"] :size  4}
-             {:sets ["B" "C"] :size  2}
-             {:sets ["A" "B" "C"] :size  2}]
+(defn- combine-comms
+  "
+  Creates a sequence of all defined communications
+  "
+  [comms]
+  (let [N  (count comms)
+        Ns (range 1 (inc N))]
+
+    (letfn [(combine [n]
+              ;(println n)
+              (cond
+                 (= n 1) (map list comms)
+                 (= n N) (list comms)
+                 :else   (combo/combinations comms n)))]
+
+      (apply concat (map combine Ns)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- make-venn-map
+  "
+  Creates a mapping for use with the Venn library.  The comms input is a
+  sequence of one or more communication codes.
+  "
+  [comms]
+  (letfn [(->id [c]
+            (str "cnt_" (str/join "_" comms)))]
+
+    (let [base {:sets comms
+                :size (get-html (->id comms))}]
+
+      ; Identify the singleton sets
+      (if (next comms)
+          base
+          (assoc base :label (first comms))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(let [comms ["TT" "OT" "RT" "TM"]
+      csets (map make-venn-map (combine-comms comms))
       jsets (clj->js csets)
       chart (js/venn.VennDiagram)]
 
+  ;(println (combine-comms comms))
   ; Venn Demo
   (-> (.select js/d3 "#venn")
       (.datum jsets)
