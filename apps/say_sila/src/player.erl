@@ -126,6 +126,38 @@ get_big_p100(Tracker, BigP100) ->
 
 
 %%--------------------------------------------------------------------
+-spec get_big_venn(Tracker :: atom(),
+                   BigP100 :: float()) -> proplist().
+%%
+% @doc  Generate data for a Venn diagram for the WUI.
+%
+%       FIXME: Verbize the function name
+% @end  --
+get_big_venn(Tracker, BigP100) ->
+    %
+    BigP100s = get_big_p100(Tracker, BigP100),
+
+    % Create account sets for each of the communication codes
+    AcctSets = lists:map(fun(Comm) ->
+                             {_,_, Accts} = proplists:get_value(Comm, BigP100s),
+                             {Comm, sets:from_list(Accts)}
+                             end,
+                         ?COMM_CODES),
+
+    % Function to create counts for a list of one or more codes
+    Intersect = fun(Comms) ->
+                    Accts = lists:map(fun(C) -> proplists:get_value(C, AcctSets) end, Comms),
+                    ISet  = sets:intersection(Accts),
+                    %?debug("INTERSECTION~p => ~p", [Comms, sets:to_list(ISet)]),
+                    {Comms, sets:size(ISet)}
+                    end,
+
+    % Make it so...
+    [Intersect(Comms) || Comms <- get_comm_combos()].
+
+
+
+%%--------------------------------------------------------------------
 -spec get_comm_codes() -> [comm_code()].
 %%
 % @doc  Returns a list of defined communication codes.
@@ -194,7 +226,7 @@ get_totals(Tracker) ->
 -spec plot(Tracker :: atom()) -> ok.
 %%
 % @doc  Creates gnuplot scripts, data files and images.
-%%--------------------------------------------------------------------
+% @end  --
 plot(Tracker) ->
 
     Players  = get_players(Tracker),
@@ -221,38 +253,6 @@ plot(Tracker) ->
                    plot(Tracker, Comm, AcctCnt, Ranks, Markers)
                    end,
     lists:foreach(Plotter, ?counts()).
-
-
-
-%%--------------------------------------------------------------------
--spec get_big_venn(Tracker :: atom(),
-                   BigP100 :: float()) -> proplist().
-%%
-% @doc  Generate data for a Venn diagram for the WUI.
-%
-%       FIXME: Verbize the function name
-%%--------------------------------------------------------------------
-get_big_venn(Tracker, BigP100) ->
-    %
-    BigP100s = get_big_p100(Tracker, BigP100),
-
-    % Create account sets for each of the communication codes
-    AcctSets = lists:map(fun(Comm) ->
-                             {_,_, Accts} = proplists:get_value(Comm, BigP100s),
-                             {Comm, sets:from_list(Accts)}
-                             end,
-                         ?COMM_CODES),
-
-    % Function to create counts for a list of one or more codes
-    Intersect = fun(Comms) ->
-                    Accts = lists:map(fun(C) -> proplists:get_value(C, AcctSets) end, Comms),
-                    ISet  = sets:intersection(Accts),
-                    %?debug("INTERSECTION~p => ~p", [Comms, sets:to_list(ISet)]),
-                    {Comms, sets:size(ISet)}
-                    end,
-
-    % Make it so...
-    [Intersect(Comms) || Comms <- get_comm_combos()].
 
 
 

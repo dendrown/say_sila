@@ -49,6 +49,8 @@
                      {docroot,    ?DOC_ROOT},
                      {appmods,    [{"/emote", wui_emote}]} ]).
 
+-define(GOOD_TRACKS, ["cc", "gw"]).     % TODO: Link to `twitter' definitions
+
 
 -record(state, {yaws :: yaws_conf()}).
 %type state() :: #state{}.
@@ -272,10 +274,12 @@ get_track(Arg, Type) ->
         {ok, Text} ->
 
             % Yaws gives us the value as a string (list); convert as needed
-            case Type of
-                atom   -> list_to_existing_atom(Text);
-                binary -> list_to_binary(Text);
-                string -> Text
+            case {lists:member(Text, ?GOOD_TRACKS), Type} of
+
+                {false, _}  -> undefined;
+                {_, atom}   -> list_to_existing_atom(Text);
+                {_, binary} -> list_to_binary(Text);
+                {_, string} -> Text
             end;
 
         _ -> undefined

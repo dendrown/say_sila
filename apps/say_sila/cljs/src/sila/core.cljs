@@ -89,9 +89,9 @@
   Creates a mapping for use with the Venn library.  The comms input is a
   sequence of one or more communication codes.
   "
-  [comms]
+  [pct comms]
   (letfn [(->id [c]
-            (str "cnt_40_" (str/join "_" comms)))]
+            (str "cnt_" pct "_" (str/join "_" comms)))]
 
     (let [base {:sets comms
                 :size (get-html (->id comms))}]
@@ -110,7 +110,7 @@
   sequence of one or more communication codes.
   "
   [pct]
-  (let [csets (map make-venn-map (combine-comms COMM-CODES))
+  (let [csets (map #(make-venn-map pct %) (combine-comms COMM-CODES))
         jsets (clj->js csets)
         chart (js/venn.VennDiagram)]
 
@@ -122,8 +122,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(set-html! :status "Everyone say Sila!")
+(set-html! :status "Big players say Sila!")
 
 (doseq [pct (range MIN-P100 (inc MAX-P100) 10)]
-  (println "Venn for" pct "%")
   (do-venn pct))
