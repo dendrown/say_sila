@@ -21,6 +21,8 @@
 -include("wui.hrl").
 -include_lib("llog/include/llog.hrl").
 
+-define(BIG_P100s, [0.1, 0.2, 0.3, 0.4, 0.5]).
+
 
 %%====================================================================
 %% API
@@ -32,12 +34,23 @@
 %       by the URL `querydata'.
 % @end  --
 out(Arg) ->
-    P100   = 0.4,                           % TODO: Do [10..50]
-    Track  = case wui:get_track(Arg) of     % TODO: Handled returned binary
-        _ -> gw
-    end,
+    case wui:get_track(Arg, atom) of
 
-    {ehtml, make_comms_venn(Track, P100)}.
+        undefined ->
+            % No valid track requested, give a quick menu
+            Linker = fun(Trk) ->
+                     {li, [],
+                          {a, [{href, ?str_fmt("venn.yaws?track=~s", [Trk])}],
+                              ?str_fmt("Communications for ~s", [twitter:to_hashtag(Trk)])}}
+                         end,
+            {ehtml, {ul, [], lists:map(Linker, [gw, cc])}};
+
+        Track ->
+            ?debug("Player track: ~p", [Track]),
+            % Show me the Venns!
+            Venns = lists:map(fun(P100) -> make_comms_venn(Track, P100) end, ?BIG_P100s),
+            {ehtml, Venns}
+    end.
 
 
 
@@ -53,9 +66,10 @@ out(Arg) ->
 make_comms_venn(Track, P100) ->
     %
     Counts = player:get_big_venn(Track, P100),
+    BigPct = round(100 * P100),
     Rower  = fun({Comms, Cnt}) ->
                  CommsUp  = lists:map(fun(X) -> string:uppercase(atom_to_list(X)) end, Comms),
-                 CommsID  = lists:join("_", ["cnt" | CommsUp]),
+                 CommsID  = lists:join("_", ["cnt", integer_to_binary(BigPct) | CommsUp]),
                  CommsTxt = lists:join(", ", CommsUp),
                  {tr, [],
                       [{td, [?WUI_LEFT],                 CommsTxt},
@@ -67,15 +81,14 @@ make_comms_venn(Track, P100) ->
             [{thead, [{class, <<"thead-dark">>}],
                      [{th, [?WUI_CENTER,
                             ?wui_cspan(4)],
-                           ?str_fmt("<big>~s @ ~B%</big>", [twitter:to_hashtag(Track),
-                                                            round(100 * P100)])}]},
+                           ?str_fmt("<big>~s @ ~B%</big>", [twitter:to_hashtag(Track), BigPct])}]},
              {thead, [],
                      [{th, [?WUI_CENTER], <<"Venn">>},
                       {th, [?WUI_LEFT],   <<"Comm(s)">>},
                       {th, [?WUI_RIGHT],  <<"Count">>},
                       {th, [],            <<"&nbsp;">>}]},
              {tbody, [],
-                     [{td, [{id,      venn},
+                     [{td, [{id,      ?str_fmt("venn_~B", [BigPct])},
                             {width,   650},
                             {rowspan, integer_to_binary(1 + length(Counts))}],
                            <<"&nbsp;">>}

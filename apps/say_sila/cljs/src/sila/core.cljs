@@ -18,6 +18,12 @@
 
 (enable-console-print!)
 
+; TODO: Pull configuration details dynamically from the web page,
+;       so we don't have to worry about server/client mismatches
+(def ^:const COMM-CODES ["TT" "OT" "RT" "TM"])
+(def ^:const MIN-P100   10)
+(def ^:const MAX-P100   50)
+
 
 ;;; --------------------------------------------------------------------------
 (defn- get-doc-elm
@@ -85,7 +91,7 @@
   "
   [comms]
   (letfn [(->id [c]
-            (str "cnt_" (str/join "_" comms)))]
+            (str "cnt_40_" (str/join "_" comms)))]
 
     (let [base {:sets comms
                 :size (get-html (->id comms))}]
@@ -98,15 +104,26 @@
 
 
 ;;; --------------------------------------------------------------------------
-(let [comms ["TT" "OT" "RT" "TM"]
-      csets (map make-venn-map (combine-comms comms))
-      jsets (clj->js csets)
-      chart (js/venn.VennDiagram)]
+(defn- do-venn
+  "
+  Creates a mapping for use with the Venn library.  The comms input is a
+  sequence of one or more communication codes.
+  "
+  [pct]
+  (let [csets (map make-venn-map (combine-comms COMM-CODES))
+        jsets (clj->js csets)
+        chart (js/venn.VennDiagram)]
 
-  ;(println (combine-comms comms))
-  ; Venn Demo
-  (-> (.select js/d3 "#venn")
-      (.datum jsets)
-      (.call chart)))
+    ;(println (combine-comms comms))
+    ; Venn Demo
+    (-> (.select js/d3 (str "#venn_" pct))
+        (.datum jsets)
+        (.call chart))))
 
+
+;;; --------------------------------------------------------------------------
 (set-html! :status "Everyone say Sila!")
+
+(doseq [pct (range MIN-P100 (inc MAX-P100) 10)]
+  (println "Venn for" pct "%")
+  (do-venn pct))

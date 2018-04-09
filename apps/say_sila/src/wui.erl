@@ -26,7 +26,7 @@
         get_status_dir/0,
         get_reports/1,
         get_tag/1,          get_tag/3,
-        get_track/1]).
+        get_track/1,        get_track/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -256,10 +256,29 @@ get_tag(Track, BigP100, Period) ->
 % @doc  Returns the tracking code requested in the URL `querydata'.
 % @end  --
 get_track(Arg) ->
+    get_track(Arg, binary).
+
+
+%%--------------------------------------------------------------------
+-spec get_track(Arg  :: arg(),
+                Type :: atom | binary | atom | string) -> atom()
+                                                        | string().
+%%
+% @doc  Returns the tracking code requested in the URL `querydata'
+%       in the form of the specified data type.
+% @end  --
+get_track(Arg, Type) ->
     case yaws_api:queryvar(Arg, "track") of
-        {ok, "cc"}  -> <<"cc">>;
-        {ok, "gw"}  -> <<"gw">>;
-        _           -> undefined
+        {ok, Text} ->
+
+            % Yaws gives us the value as a string (list); convert as needed
+            case Type of
+                atom   -> list_to_existing_atom(Text);
+                binary -> list_to_binary(Text);
+                string -> Text
+            end;
+
+        _ -> undefined
     end.
 
 
