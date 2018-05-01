@@ -19,28 +19,37 @@
         <Literal xml:lang="en" datatypeIRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral">Ontology for analyzing climate change communications on Twitter.</Literal>
     </Annotation>
     <Declaration>
-        <Class IRI="#Influencer"/>
+        <Class IRI="#RegularPlayer"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#RegularPlayer"/>
+        <Class IRI="#Influencer"/>
     </Declaration>
     <Declaration>
         <Class abbreviatedIRI="foaf:Document"/>
     </Declaration>
     <Declaration>
+        <Class IRI="#RetweetedAuthor"/>
+    </Declaration>
+    <Declaration>
         <Class IRI="#OriginalTweeter"/>
     </Declaration>
     <Declaration>
-        <Class IRI="#RetweetedAuthor"/>
+        <Class IRI="#OriginalTweet"/>
     </Declaration>
     <Declaration>
         <Class IRI="#Player"/>
     </Declaration>
     <Declaration>
-        <Class abbreviatedIRI="sioc:Post"/>
+        <ObjectProperty IRI="#mentionedBy"/>
     </Declaration>
     <Declaration>
         <Class IRI="#Tweet"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Retweet"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="sioc:Post"/>
     </Declaration>
     <Declaration>
         <Class IRI="#OriginalAuthor"/>
@@ -55,7 +64,16 @@
         <Class IRI="#Retweeter"/>
     </Declaration>
     <Declaration>
+        <ObjectProperty IRI="#soic:mentions"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#posts"/>
+    </Declaration>
+    <Declaration>
         <Class abbreviatedIRI="sioc:UserAccount"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tweets"/>
     </Declaration>
     <Declaration>
         <Class IRI="#TwitterAccount"/>
@@ -67,11 +85,17 @@
         <Class IRI="#Author"/>
     </Declaration>
     <Declaration>
+        <ObjectProperty IRI="#retweets"/>
+    </Declaration>
+    <Declaration>
         <Class abbreviatedIRI="sioc:Role"/>
     </Declaration>
     <EquivalentClasses>
-        <Class IRI="#OriginalAuthor"/>
-        <Class IRI="#OriginalTweeter"/>
+        <Class IRI="#MentionedAuthor"/>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="#mentionedBy"/>
+            <Class IRI="#Tweeter"/>
+        </ObjectSomeValuesFrom>
     </EquivalentClasses>
     <SubClassOf>
         <Class abbreviatedIRI="sioc:Post"/>
@@ -98,6 +122,10 @@
         <Class IRI="#Author"/>
     </SubClassOf>
     <SubClassOf>
+        <Class IRI="#OriginalTweet"/>
+        <Class IRI="#Tweet"/>
+    </SubClassOf>
+    <SubClassOf>
         <Class IRI="#OriginalTweeter"/>
         <Class IRI="#Tweeter"/>
     </SubClassOf>
@@ -108,6 +136,10 @@
     <SubClassOf>
         <Class IRI="#RegularPlayer"/>
         <Class IRI="#Player"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Retweet"/>
+        <Class IRI="#Tweet"/>
     </SubClassOf>
     <SubClassOf>
         <Class IRI="#RetweetedAuthor"/>
@@ -129,6 +161,38 @@
         <Class IRI="#TwitterAccount"/>
         <Class abbreviatedIRI="sioc:UserAccount"/>
     </SubClassOf>
+    <DisjointClasses>
+        <Class IRI="#BigPlayer"/>
+        <Class IRI="#RegularPlayer"/>
+    </DisjointClasses>
+    <DisjointClasses>
+        <Class IRI="#OriginalTweet"/>
+        <Class IRI="#Retweet"/>
+    </DisjointClasses>
+    <SubObjectPropertyOf>
+        <ObjectProperty IRI="#retweets"/>
+        <ObjectProperty IRI="#tweets"/>
+    </SubObjectPropertyOf>
+    <SubObjectPropertyOf>
+        <ObjectProperty IRI="#tweets"/>
+        <ObjectProperty IRI="#posts"/>
+    </SubObjectPropertyOf>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#posts"/>
+        <Class abbreviatedIRI="sioc:UserAccount"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#retweets"/>
+        <Class IRI="#Tweeter"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#posts"/>
+        <Class abbreviatedIRI="sioc:Post"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#retweets"/>
+        <Class IRI="#OriginalTweet"/>
+    </ObjectPropertyRange>
     <AnnotationAssertion>
         <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
         <IRI>#Tweet</IRI>
