@@ -6,12 +6,129 @@
      xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
      xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
      ontologyIRI="http://www.semanticweb.org/dend/ontologies/uqam/say-sila">
+    <Prefix name="" IRI="http://www.semanticweb.org/dend/ontologies/uqam/say-sila"/>
     <Prefix name="owl" IRI="http://www.w3.org/2002/07/owl#"/>
     <Prefix name="rdf" IRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#"/>
     <Prefix name="xml" IRI="http://www.w3.org/XML/1998/namespace"/>
     <Prefix name="xsd" IRI="http://www.w3.org/2001/XMLSchema#"/>
+    <Prefix name="foaf" IRI="http://xmlns.com/foaf/0.1/"/>
     <Prefix name="rdfs" IRI="http://www.w3.org/2000/01/rdf-schema#"/>
-    <Import>http://rdfs.org/sioc/ns#</Import>
+    <Prefix name="sioc" IRI="http://rdfs.org/sioc/ns#"/>
+    <Annotation>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <Literal xml:lang="en" datatypeIRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral">Ontology for analyzing climate change communications on Twitter.</Literal>
+    </Annotation>
+    <Declaration>
+        <Class IRI="#Influencer"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RegularPlayer"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="foaf:Document"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#OriginalTweeter"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RetweetedAuthor"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Player"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="sioc:Post"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Tweet"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#OriginalAuthor"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#BigPlayer"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Tweeter"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Retweeter"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="sioc:UserAccount"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#TwitterAccount"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#MentionedAuthor"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Author"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="sioc:Role"/>
+    </Declaration>
+    <EquivalentClasses>
+        <Class IRI="#OriginalAuthor"/>
+        <Class IRI="#OriginalTweeter"/>
+    </EquivalentClasses>
+    <SubClassOf>
+        <Class abbreviatedIRI="sioc:Post"/>
+        <Class abbreviatedIRI="foaf:Document"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Author"/>
+        <Class IRI="#TwitterAccount"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#BigPlayer"/>
+        <Class IRI="#Player"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Influencer"/>
+        <Class abbreviatedIRI="sioc:Role"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#MentionedAuthor"/>
+        <Class IRI="#Author"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#OriginalAuthor"/>
+        <Class IRI="#Author"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#OriginalTweeter"/>
+        <Class IRI="#Tweeter"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Player"/>
+        <Class abbreviatedIRI="sioc:Role"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RegularPlayer"/>
+        <Class IRI="#Player"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RetweetedAuthor"/>
+        <Class IRI="#Author"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Retweeter"/>
+        <Class IRI="#Tweeter"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Tweet"/>
+        <Class abbreviatedIRI="sioc:Post"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Tweeter"/>
+        <Class IRI="#TwitterAccount"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#TwitterAccount"/>
+        <Class abbreviatedIRI="sioc:UserAccount"/>
+    </SubClassOf>
 </Ontology>
 
 
