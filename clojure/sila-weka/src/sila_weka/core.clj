@@ -11,8 +11,9 @@
 ;;;; @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns sila-weka.core
-  (:require [sila-weka.weka :as weka])
-  (:require [sila-weka.log  :as log])
+  (:require [sila-weka.weka :as weka]
+            [sila-weka.log  :as log]
+            [sila-weka.owl  :as owl])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
                                      OtpErlangList
                                      OtpErlangMap

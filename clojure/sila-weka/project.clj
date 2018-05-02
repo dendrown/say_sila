@@ -7,12 +7,16 @@
   :plugins [[lein-localrepo "0.5.4"]]
   :dependencies [[org.clojure/clojure                "1.8.0" ]
                  [clj-time                           "0.14.0"]  ; avail: 0.14.2
+                 [com.ericsson.otp.erlang/jinterface "1.7.1" ]
+                 ; Weka + libs
+                 [weka/weka                          "3.8.2" ]
                  [edu.cmu.cs/ark-tweet-nlp           "0.3.2" ]
                  [it.unimi.dsi/fastutil              "7.0.13"]
                  [uk.ac.wlv/sentistrength            "0.1.0" ]
-                 [com.ericsson.otp.erlang/jinterface "1.7.1" ]
-                 [weka/weka                          "3.8.1" ]
-                 [affective/affectivetweets          "1.0.1" ]])
+                 [affective/affectivetweets          "1.0.1" ]
+                 ; Ontologies
+                 [uk.org.russet/tawny-owl            "1.6.0" ]
+                 [com.google.guava/guava             "25.0-jre"]])
 
 ; NOTE for external JARs:
 ;  lein localrepo install /usr/lib/erlang/lib/jinterface-1.7.1/priv/OtpErlang.jar com.ericsson.otp.erlang/jinterface 1.7.1
