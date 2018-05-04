@@ -11,8 +11,11 @@
 ;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.foaf
-  (:require [say.ontology :as ont]
-            [tawny.owl    :refer [defontology]]))
+  (:require [say.ontology     :as ont]
+            [clojure.java.io  :as io]
+            [tawny.read       :as rd]
+            [tawny.owl :refer :all])
+  (:import  [org.semanticweb.owlapi.model IRI]))
 
 
 (set! *warn-on-reflection* true)
@@ -28,17 +31,18 @@
 
 (def Document (ont/get-class ONT-IRI "Document"))
 
-;(ns say.foaf
-;  (:require [say.ontology    :as ont])
-;            [clojure.java.io :as io]
-;            [tawny.read      :as rd])
-;  (:import  [org.semanticweb.owlapi.model IRI]))
-;
-;(rd/defread foaf
-;  :prefix   "foaf"
-;  :iri      ONT-IRI
-;  :location (IRI/create (io/as-file ONT-FPATH))
-;  :filter   (partial rd/iri-starts-with-filter ONT-IRI)
-;  :transform
-;    (comp rd/stop-characters-transform
-;          rd/exception-nil-label-transform))
+;;; --------------------------------------------------------------------------
+(defn load-fully
+  "
+  Loads the foaf ontology and (theoretically) makes it available via
+  normal tawny.owl functionality.
+  "
+  []
+  (rd/defread foaf
+    :prefix   "foaf"
+    :iri      ONT-IRI
+    :location (IRI/create (io/as-file ONT-FPATH))
+    :filter   (partial rd/iri-starts-with-filter ONT-IRI)
+    :transform
+      (comp rd/stop-characters-transform
+            rd/exception-nil-label-transform)))

@@ -11,11 +11,11 @@
 ;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
-  (:require [say.foaf        :as foaf]
-            [say.sioc        :as sioc]
-            [clojure.java.io :as io]
-            [tawny.english   :as dl]
-            [tawny.reasoner  :as rsn]
+  (:require [say.foaf         :as foaf]
+            [say.sioc         :as sioc]
+            [clojure.java.io  :as io]
+            [tawny.english    :as dl]
+            [tawny.reasoner   :as rsn]
             [tawny.owl :refer :all])
     (:import  [org.semanticweb.owlapi.model IRI
                                           OWLOntologyID]))
@@ -63,9 +63,12 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn save [& args]
+(defn save
   "
-  TODO: Re-sibylize the new project structure
+  Saves the say-sila ontology in OWL format.
   "
-  (save-ontology say-sila ONT-FPATH :owl))
+  ([] (save ONT-FPATH))
+
+  ([^String fpath]
+  (save-ontology say-sila fpath :owl)))
 
