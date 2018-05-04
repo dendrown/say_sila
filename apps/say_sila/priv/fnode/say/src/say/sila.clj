@@ -33,6 +33,8 @@
   :iri    ONT-IRI
   :prefix "sila")
 
+(rsn/reasoner-factory :hermit)
+
 ; Top level:
 ;
 ; Building on sioc:Post ⊑ foaf:Document
@@ -66,12 +68,13 @@
 (as-subclasses Tweet
   :cover
   :disjoint
-  (defclass OriginalTweet
-    :label   "Original Tweet"
-    :comment "A twitter communication, posted by its original author")
   (defclass Retweet
-    :label   "Retweet"
-    :comment "A reposted twitter communication, originally written by someone else"))
+    :label      "Retweet"
+    :comment    "A reposted twitter communication, originally written by someone else")
+  (defclass OriginalTweet
+    :equivalent (dl/not Retweet)    ; Seems backwards, but retweeted posts are tagged as such
+    :label      "Original Tweet"
+    :comment    "A twitter communication, posted by its original author"))
 
 
 ; Building on sioc:Role==>sila:Player
