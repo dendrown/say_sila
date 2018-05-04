@@ -26,5 +26,6 @@
   :iri    ONT-IRI
   :prefix "sioc")
 
+(def Post (ont/get-class ONT-IRI "Post"))
 (def Role (ont/get-class ONT-IRI "Role"))
 
