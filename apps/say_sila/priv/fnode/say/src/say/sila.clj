@@ -21,6 +21,7 @@
                                           OWLOntologyID]))
 
 
+;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-sila")

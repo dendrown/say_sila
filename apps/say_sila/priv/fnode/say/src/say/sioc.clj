@@ -12,20 +12,21 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.sioc
   (:require [say.ontology :as ont]
-            [tawny.owl    :refer [defontology]]))
+            [tawny.owl    :as owl]))
 
 
+;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
 (def ^:const ONT-IRI    "http://rdfs.org/sioc/ns#")
 (def ^:const ONT-FPATH  "resources/KB/sioc.owl")
+(def ^:const ONTOLOGY   (ont/load-ontology ONT-IRI ONT-FPATH))
 
-(def ONTOLOGY (ont/load-ontology ONT-IRI ONT-FPATH))
-
-(defontology sioc
+(owl/defontology sioc
   :iri    ONT-IRI
   :prefix "sioc")
 
-(def Post (ont/get-class ONT-IRI "Post"))
-(def Role (ont/get-class ONT-IRI "Role"))
+; Create access variables only for the sioc classes we need
+(ont/redefclass Post ONT-IRI)
+(ont/redefclass Role ONT-IRI)
 

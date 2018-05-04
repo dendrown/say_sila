@@ -22,6 +22,21 @@
 (set! *warn-on-reflection* true)
 
 ;;; --------------------------------------------------------------------------
+(defmacro redefclass
+  "
+  Creates a Clojure variable which corresponds to an existing class in the
+  current ontology.
+
+    iri : IRI of the ontology, assumed to be a prefix to the IRI of the class
+    var : Symbolic name of the variable, and the short name of the class
+  "
+  [var iri]
+  `(def ~var (get-class ~iri (str '~var))))
+
+
+
+
+;;; --------------------------------------------------------------------------
 (defn load-ontology
   "
   Reads an ontology from the file system
