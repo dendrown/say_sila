@@ -27,6 +27,7 @@
   :prefix "sioc")
 
 ; Create access variables only for the sioc classes we need
-(ont/redefclass Post ONT-IRI)
-(ont/redefclass Role ONT-IRI)
+(ont/redefclass Post        ONT-IRI)
+(ont/redefclass Role        ONT-IRI)
+(ont/redefclass UserAccount ONT-IRI)
 
