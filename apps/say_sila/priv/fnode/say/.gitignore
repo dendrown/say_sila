@@ -13,4 +13,5 @@ pom.xml.asc
 .project
 .settings/
 bin/
-resources/KB/*owl
+resources/KB/*.owl
+resources/KB/catalog-*.xml

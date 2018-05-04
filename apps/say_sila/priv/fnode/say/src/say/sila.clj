@@ -11,42 +11,61 @@
 ;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
-  (:require [tawny.owl :refer :all]
+  (:require [say.foaf        :as foaf]
+            [say.sioc        :as sioc]
+            [clojure.java.io :as io]
             [tawny.english   :as dl]
             [tawny.reasoner  :as rsn]
-            [clojure.java.io :as io])
+            [tawny.owl :refer :all])
     (:import  [org.semanticweb.owlapi.model IRI
                                           OWLOntologyID]))
 
 
 (set! *warn-on-reflection* true)
 
-; Protégé-crafted ontology
-(def ^:const SAY-SILA-IRI   "http://www.dendrown.net/uqam/say-sila")
-(def ^:const SAY-SILA-FPATH "resources/KB/say-sila.owl")
+(def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-sila")
+(def ^:const ONT-FPATH  "resources/KB/say-sila.owl")
 
 
 ;;; --------------------------------------------------------------------------
 (defontology say-sila
-  :iri    SAY-SILA-IRI
+  :iri    ONT-IRI
   :prefix "sila")
+
+(defclass Player
+  :super    sioc/Role
+  :label    "Player"
+  :comment  "Active participant during a Say-Sila tracking run")
 
 ; TODO:
 ;   Tweet           ⊑ sioc:Post ⊑ foaf:Document
 ;   TwitterAccount  ⊑ sioc:UserAccount
-;   Player          ⊑ sioc:Role
-(defclass Player)
+
+(as-disjoint
+
+  (defclass Tweet
+    :label   "Tweet"
+    :comment "A Twitter message post")
+
+  (defclass TwitterAccount
+    :label   "Twitter Account"
+    :comment "A user account on Twitter"))
+
+(as-subclasses
+  Player :cover
+         :disjoint
+  (defclass BigPlayer
+    :label   "Big Player"
+    :comment "A Player (participant) who is extremely active during a tracking run")
+  (defclass RegularPlayer
+    :label   "Regular Player"
+    :comment "A Player (participant) who demonstrates normal activity during a tracking run"))
 
 
 ;;; --------------------------------------------------------------------------
-(defn load-ss
+(defn save [& args]
   "
-  Loads the official say-sila ontology
+  TODO: Re-sibylize the new project structure
   "
-  []
-  (let [iri (OWLOntologyID. (IRI/create SAY-SILA-IRI))
-        rsc (io/as-file SAY-SILA-FPATH)
-        man (owl-ontology-manager)]
-    (remove-ontology-maybe iri)
-    (.loadOntologyFromOntologyDocument man (IRI/create rsc))))
+  (save-ontology say-sila ONT-FPATH :owl))
 
