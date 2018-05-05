@@ -35,9 +35,13 @@
 
 (rsn/reasoner-factory :hermit)
 
+
 ;;; Top level:
 ;;;
 ;;; TBox: building on sioc:Post ⊑ foaf:Document
+(owl-class sioc/Post
+  :super foaf/Document)
+
 (defclass Tweet
   :super   sioc/Post
   :label   "Tweet"
@@ -185,7 +189,8 @@
     :subchain [isMentionedIn hasMentionBy]))
 
 
-(refine MentionedAuthor :equivalent (dl/and Author  (dl/some isMentionedIn Tweet)))
+(refine MentionedAuthor :equivalent (dl/and Author
+                                            (dl/some isMentionedIn Tweet)))
 
 
 
