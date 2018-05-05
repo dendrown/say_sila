@@ -1,7 +1,7 @@
-# sila-weka
+# say
 A Clojure bridge from say_sila on the BEAM over to the JVM:
 
-&nbsp;&nbsp;&nbsp;&nbsp; say.core, say.weka, say.sila!
+&nbsp;&nbsp;&nbsp;&nbsp; **say.core, say.weka, say.sila!**
 
 
 ## Usage
