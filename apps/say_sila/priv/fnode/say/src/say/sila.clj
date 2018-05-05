@@ -37,13 +37,13 @@
 
 ; Top level:
 ;
-; Building on sioc:Post ⊑ foaf:Document
+; TBox: building on sioc:Post ⊑ foaf:Document
 (defclass Tweet
   :super   sioc/Post
   :label   "Tweet"
   :comment "A Twitter message post")
 
-; Building on sioc:Role
+; TBox: building on sioc:Role
 (defclass Influencer
   :super    sioc/Role
   :disjoint Tweet
@@ -56,7 +56,7 @@
   :label    "Player"
   :comment  "Active participant during a Say-Sila tracking run")
 
-; Building on sioc:UserAccount
+; TBox: building on sioc:UserAccount
 (defclass TwitterAccount
   :super    sioc/UserAccount
   :disjoint Tweet
@@ -64,7 +64,7 @@
   :comment  "A user account on Twitter")
 
 
-; Building on sioc:Post==>sila:Tweet
+; TBox: building on sioc:Post==>sila:Tweet
 (as-subclasses Tweet
   :cover
   :disjoint
@@ -77,7 +77,7 @@
     :comment    "A twitter communication, posted by its original author"))
 
 
-; Building on sioc:Role==>sila:Player
+; TBox: building on sioc:Role==>sila:Player
 (as-subclasses Player
   :cover
   :disjoint
@@ -89,7 +89,7 @@
     :comment "A Player (participant) who demonstrates normal activity during a tracking run"))
 
 
-; Building on sioc:UserAccount==>sila:TwitterAccount
+; TBox: building on sioc:UserAccount==>sila:TwitterAccount
 (as-subclasses TwitterAccount
   :cover                        ; but not disjoint
   (defclass Author
@@ -100,7 +100,7 @@
     :comment "A Twitter account, considered from the viewpoint of publishing tweets"))
 
 
-; Building on sioc:UserAccount==>sila:TwitterAccount==>sila:Author
+; TBox: building on sioc:UserAccount==>sila:TwitterAccount==>sila:Author
 (as-subclasses Author
   :cover                        ; but not disjoint
   (defclass OriginalAuthor
@@ -114,7 +114,7 @@
     :comment "A Twitter account whose tweet has been republished by another tweeter"))
 
 
-; Building on sioc:UserAccount==>sila:TwitterAccount==>sila:Tweeter
+; TBox: building on sioc:UserAccount==>sila:TwitterAccount==>sila:Tweeter
 (as-subclasses Tweeter
   :cover                        ; but not disjoint
   (defclass OriginalTweeter
@@ -124,6 +124,29 @@
     :label   "Retweeter"
     :comment "A Twitter account that republishes a tweet originally authored by a different user"))
 
+
+; Roles
+(as-inverse
+  (defoproperty tweets      :domain Tweeter :range Tweet)
+  (defoproperty isTweetedBy :domain Tweet   :range Tweeter))
+
+(as-inverse
+  (defoproperty retweets      :domain Retweeter :range Retweet   :super tweets)
+  (defoproperty isRetweetedBy :domain Retweet   :range Retweeter :super isTweetedBy))
+
+(as-inverse
+  (defoproperty makesMentionIn :domain Author :range  Tweet)
+  (defoproperty hasMentionBy   :domain Tweet  :range  Author))
+
+(as-inverse
+  (defoproperty hasMentionOf  :domain Tweet           :range  MentionedAuthor)
+  (defoproperty isMentionedIn :domain MentionedAuthor :range  Tweet))
+
+(as-inverse
+  (defoproperty mentions      :domain Author          :range MentionedAuthor :subchain [makesMentionIn
+                                                                                        hasMentionOf])
+  (defoproperty isMentionedBy :domain MentionedAuthor :range Author          :subchain [isMentionedIn
+                                                                                        hasMentionBy]))
 
 
 ;;; --------------------------------------------------------------------------
