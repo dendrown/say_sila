@@ -8,9 +8,9 @@
 ;;;;
 ;;;; Logging utilities
 ;;;;
-;;;; @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
-(ns sila-weka.log
+(ns say.log
   (:require [clj-time.local :as dts]))
 
 (set! *warn-on-reflection* true)

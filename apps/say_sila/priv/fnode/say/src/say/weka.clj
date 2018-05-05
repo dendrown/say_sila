@@ -8,13 +8,13 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
-(ns sila-weka.weka
-  (:require [clojure.java.io :as io]
-            [clojure.string  :as str]
-            [sila-weka.genie :as genie]
-            [sila-weka.log   :as log])
+(ns say.weka
+  (:require [say.genie       :as genie]
+            [say.log         :as log]
+            [clojure.java.io :as io]
+            [clojure.string  :as str])
   (:import  [weka.core  Instance
                         Instances]
             [weka.filters Filter]

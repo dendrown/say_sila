@@ -15,7 +15,8 @@
                  [uk.ac.wlv/sentistrength               "0.1.0"]
                  [affective/affectivetweets             "1.0.1"]
                  ; Ontologies
-                 [uk.org.russet/tawny-owl               "1.6.0"]])
+                 [uk.org.russet/tawny-owl               "1.6.0"]
+                 [com.google.guava/guava                "25.0-jre"]])  ; OWL caching dep
 
 ; NOTE for external JARs:
 ;  lein localrepo install /usr/lib/erlang/lib/jinterface-1.8.1/priv/OtpErlang.jar com.ericsson.otp.erlang/jinterface 1.8.1

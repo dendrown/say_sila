@@ -8,12 +8,12 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
-(ns sila-weka.core
-  (:require [sila-weka.weka :as weka]
-            [sila-weka.log  :as log]
-            [sila-weka.owl  :as owl])
+(ns say.core
+  (:require [say.sila :as sila]
+            [say.weka :as weka]
+            [say.log  :as log])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
                                      OtpErlangList
                                      OtpErlangMap
