@@ -283,9 +283,8 @@ tweet(Tracker, Tweet) ->
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
-init([Tracker, JVM]) ->
-    ?notice("Initializing player services: trk[~s] jvm[~s]", [Tracker,
-                                                              JVM]),
+init([Tracker]) ->
+    ?notice("Initializing player services: trk[~s]", [Tracker]),
     process_flag(trap_exit, true),
     {ok, reset_state(Tracker)}.
 
@@ -353,10 +352,14 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
                                    emotions    = Emos,
                                    type        = Type}}, State = #state{players  = Players,
                                                                         rankings = Rankings,
-                                                                        totals   = Totals}) ->
+                                                                        totals   = Totals,
+                                                                        jvm_node = JVM}) ->
 
     Acct = string:lowercase(ScreenName),
     ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
+
+    % Inform the dlogic module
+    {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)},
 
     % Update the tweet counter(s) and rank(s) for this tweet
     {MidPlayers,

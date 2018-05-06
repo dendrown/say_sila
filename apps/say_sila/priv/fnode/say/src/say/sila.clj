@@ -13,6 +13,7 @@
 (ns say.sila
   (:require [say.foaf         :as foaf]
             [say.sioc         :as sioc]
+            [say.log          :as log]
             [clojure.java.io  :as io]
             [tawny.english    :as dl]
             [tawny.reasoner   :as rsn]
@@ -191,6 +192,16 @@
 
 (refine MentionedAuthor :equivalent (dl/and Author
                                             (dl/some isMentionedIn Tweet)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn do-command
+  "
+  Processes the ontology command per the incoming map
+  "
+  [cmd]
+  (log/debug "SILA:" cmd))
 
 
 

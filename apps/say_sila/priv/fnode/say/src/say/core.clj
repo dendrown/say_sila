@@ -13,8 +13,10 @@
 (ns say.core
   (:require [say.sila :as sila]
             [say.weka :as weka]
-            [say.log  :as log])
+            [say.log  :as log]
+            [clojure.data.json :as json])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
+                                     OtpErlangBinary
                                      OtpErlangList
                                      OtpErlangMap
                                      OtpErlangObject
@@ -134,21 +136,29 @@
   "
   :cmd)
 
-(defmethod dispatch "emote"   [msg] (do-weka "emote"   msg weka/filter-arff weka/+EMOTE-FILTER+))
-(defmethod dispatch "dic9315" [msg] (do-weka "dic9315" msg weka/filter-arff '(:embed :bws)))
+(defmethod dispatch "emote"   [msg] (do-weka 'emote   msg weka/filter-arff weka/+EMOTE-FILTER+))
+(defmethod dispatch "dic9315" [msg] (do-weka 'dic9315 msg weka/filter-arff '(:embed :bws)))
+
+(defmethod dispatch "sila" [msg]
+  (future
+      (let [json (String. (.binaryValue ^OtpErlangBinary (:arg msg)))
+            arg  (json/read-str json)]
+        ; No response sent back to Erlang
+        (sila/do-command json))))
+
 
 (defmethod dispatch "embed" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
-  (log/info "Filter/EMBED:" fpath)
-  (weka/filter-arff fpath :embed)
-  (log/info "Filter/EMBED:" fpath "[OK]")))
+    (log/info "Filter/EMBED:" fpath)
+    (weka/filter-arff fpath :embed)
+    (log/info "Filter/EMBED:" fpath "[OK]")))
 
 
 (defmethod dispatch "lex" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
-  (log/info "Filter/LEX:" fpath)
-  (weka/filter-arff fpath :lex)
-  (log/info "Filter/LEX:" fpath "[OK]")))
+    (log/info "Filter/LEX:" fpath)
+    (weka/filter-arff fpath :lex)
+    (log/info "Filter/LEX:" fpath "[OK]")))
 
 
 (defmethod dispatch "ping" [msg]
@@ -205,9 +215,13 @@
 
   ([node mbox quitter]
     (when-not (identical? quitter :quit)
+
+      ; Block, waiting on something to do
+      ;
       ;(log/info "Waiting on SILA command...")
       (let [tuple ^OtpErlangTuple (.receive ^OtpMbox mbox)
             msg   (parse-msg tuple)]
+
         (log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
         (recur node mbox (dispatch (conj msg {:mbox mbox})))))))
 
@@ -226,7 +240,7 @@
 
   ([name]
     (let [node (make-node name)
-          mbox (.createMbox  node "weka")]
+          mbox (.createMbox  node "say")]
       (log/notice "Started:" (.node    node))
       (log/notice "Mailbox:" (.getName mbox))
       (log/debug  "Cookie :" (.cookie  node))

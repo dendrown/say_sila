@@ -14,6 +14,8 @@
 -ifndef(_types_included).
 -define(_types_included, ack).
 
+-type json_binary() :: binary().
+
 -type property()    :: atom() | {term(), term()}.
 -type proplist()    :: [property()].
 

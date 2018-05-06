@@ -7,6 +7,7 @@
   :plugins [[lein-localrepo "0.5.4"]]
   :dependencies [[org.clojure/clojure                   "1.9.0"]
                  [com.ericsson.otp.erlang/jinterface    "1.8.1"]
+                 [org.clojure/data.json                 "0.2.6"]
                  [clj-time                              "0.14.2"]
                  ; Weka + libs
                  [weka/weka                             "3.8.2"]

@@ -86,7 +86,7 @@ start_link(Tracker) ->
                  application:get_env(App, jvm_node,    undefined)],
 
     init_mnesia(Tracker, App),
-    gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Args], []).
+    gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, Args, []).
 
 
 
@@ -433,41 +433,6 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-% FIXME: deprecated/reference version of emote
-%        DELETE VERY SOON...
-handle_cast({emote, Tracker, Options}, State = #state{big_percent = BigP100,
-                                                      tweet_todo  = TodoMap,
-                                                      jvm_node    = JVM}) ->
-    ?notice("Preparing big-vs-regular player tweets"),
-    {BigPlayers,
-     RegPlayers} = get_big_players(Tracker, BigP100, Options),
-    ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
-
-    % Usually, we want to call weka (via clojure) with `emote', but allow for an override
-    WekaCmd = proplists:get_value(context, Options, emote),
-    PlayPct = round(100 * BigP100),
-    NewTodo = lists:map(fun({Size, Players}) ->
-                            % Pull the actual tweets for these players from the DB
-                            ?debug("Pulling ~s-player tweets", [Size]),
-                            Tweets = twitter:get_tweets(Tracker, Players, Options),
-
-                            ?debug("Packaging tweets for Weka"),
-                            FStub  = io_lib:format("tweets.~s.~B.~s", [Tracker, PlayPct, Size]),
-                            {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
-
-                            % Send to Weka to apply embedding/emotion filters
-                            Lookup = make_ref(),
-                            {say, JVM} ! {self(), Lookup, WekaCmd, FPath},
-                            {Lookup, #tweet_slot{category = Size,
-                                                 players  = Players,
-                                                 tweets   = Tweets}}
-                            end,
-                        [{big, BigPlayers}, {reg, RegPlayers}]),
-    NewTodoMap = maps:from_list(NewTodo),
-    {noreply, State#state{tracker    = Tracker,
-                          tweet_todo = maps:merge(TodoMap, NewTodoMap)}};
-
-
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.

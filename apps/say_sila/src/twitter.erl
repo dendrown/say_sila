@@ -36,6 +36,8 @@
          get_tweets/2,
          get_tweets/3,
          has_hashtag/2,
+         ontologize/1,
+         ontologize/2,
          to_hashtag/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -328,6 +330,45 @@ has_hashtag(Hash, Text) ->
 
 
 %%--------------------------------------------------------------------
+-spec ontologize(Tweet :: tweet()) -> map().
+%%
+% @doc  Converts the specified `Tweet' into a map with components
+%       of interest for the say-sila ontology.
+% @end  --
+ontologize(Tweet) ->
+    ontologize(Tweet, map).
+
+
+
+%%--------------------------------------------------------------------
+-spec ontologize(Tweet  :: tweet(),
+                 Format :: map | json) -> map()
+                                        | json_binary().
+%%
+% @doc  Converts the specified `Tweet' into a map with components
+%       of interest for the say-sila ontology.
+% @end  --
+ontologize(#tweet{screen_name = Tweeter,
+                  type        = Type,
+                  id          = TweetID}, Format) ->
+    %
+    % The object property is an action-based role
+    Action = case Type of
+        tweet   -> tweets;
+        retweet -> retweets
+    end,
+    OntMap = #{tweeter   => Tweeter,
+               oproperty => Action,
+               tweet     => TweetID},
+
+    % Format the ontology role mapping as requested
+    case Format of
+        map  -> OntMap;
+        json -> jsx:encode(OntMap)
+    end.
+
+
+%%--------------------------------------------------------------------
 -spec to_hashtag(Tracker :: atom()) -> string()
                                      | undefined.
 %%
@@ -336,6 +377,7 @@ has_hashtag(Hash, Text) ->
 % @end  --
 to_hashtag(Tracker) ->
     ?hashtag(Tracker).
+
 
 
 
