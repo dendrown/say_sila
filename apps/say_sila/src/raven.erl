@@ -65,7 +65,7 @@
                 emo_report        :: rec_map(),
                 tweet_slots = #{} :: map(),     % TODO: deprecated...remove soon
                 tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
-                weka_node         :: atom() }).
+                jvm_node          :: atom() }).
 -type state() :: #state{}.
 
 
@@ -81,11 +81,12 @@
 % @end  --
 start_link(Tracker) ->
     {ok, App} = application:get_application(),
-    WekaNode  = application:get_env(App, weka_node,   undefined),
-    BigP100   = application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
+    Args      = [Tracker,
+                 application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
+                 application:get_env(App, jvm_node,    undefined)],
 
     init_mnesia(Tracker, App),
-    gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Tracker, BigP100, WekaNode], []).
+    gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Args], []).
 
 
 
@@ -303,10 +304,10 @@ run_tweet_csv(FName) ->
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
-init([Tracker, BigP100, WekaNode]) ->
-    ?notice("The raven is taking flight: track[~s] big[~6.3f%] weka[~s]", [Tracker,
-                                                                           BigP100 * 100,
-                                                                           WekaNode]),
+init([Tracker, BigP100, JVM]) ->
+    ?notice("The raven is taking flight: trk[~s] big[~6.3f%] jvm[~s]", [Tracker,
+                                                                        BigP100 * 100,
+                                                                        JVM]),
     process_flag(trap_exit, true),
 
     % The big-player percentage range is: 0.0 (inclusive) to 1.0 (inclusive).
@@ -315,7 +316,7 @@ init([Tracker, BigP100, WekaNode]) ->
         BigP100 =< 1.0 ->
             {ok, #state{tracker     = Tracker,
                         big_percent = BigP100,
-                        weka_node   = WekaNode}};
+                        jvm_node    = JVM}};
         true ->
             ?error("Big player percentage must be between 0 and 1"),
             {stop, badarg}
@@ -351,7 +352,7 @@ code_change(OldVsn, State, _Extra) ->
 % @end  --
 handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
                                                         tweet_todo = Todo,
-                                                        weka_node  = WekaNode}) ->
+                                                        jvm_node   = JVM}) ->
     LotDay = proplists:get_value(start, Options),
     DayTxt = dts:date_str(LotDay),
     ?debug("Pulling tweet lot from DB: day[~s]", [DayTxt]),
@@ -375,7 +376,7 @@ handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
     NewTodo = maps:put(Lookup,
                        #tweet_lot{dts = LotDay, tweets = Tweets},
                        Todo),
-    {weka, WekaNode} ! {self(), Lookup, WekaCmd, FPath},
+    {say, JVM} ! {self(), Lookup, WekaCmd, FPath},
 
     {reply, ok, State#state{tweet_todo = NewTodo}};
 
@@ -387,7 +388,7 @@ handle_call(get_big_percent, _From, State) ->
 handle_call(reset, _From, State) ->
     {reply, ok, #state{tracker     = State#state.tracker,
                        big_percent = State#state.big_percent,
-                       weka_node   = State#state.weka_node}};
+                       jvm_node    = State#state.jvm_node}};
 
 
 handle_call({report, Period}, _From, State = #state{
@@ -436,7 +437,7 @@ handle_call(Msg, _From, State) ->
 %        DELETE VERY SOON...
 handle_cast({emote, Tracker, Options}, State = #state{big_percent = BigP100,
                                                       tweet_todo  = TodoMap,
-                                                      weka_node   = WekaNode}) ->
+                                                      jvm_node    = JVM}) ->
     ?notice("Preparing big-vs-regular player tweets"),
     {BigPlayers,
      RegPlayers} = get_big_players(Tracker, BigP100, Options),
@@ -456,7 +457,7 @@ handle_cast({emote, Tracker, Options}, State = #state{big_percent = BigP100,
 
                             % Send to Weka to apply embedding/emotion filters
                             Lookup = make_ref(),
-                            {weka, WekaNode} ! {self(), Lookup, WekaCmd, FPath},
+                            {say, JVM} ! {self(), Lookup, WekaCmd, FPath},
                             {Lookup, #tweet_slot{category = Size,
                                                  players  = Players,
                                                  tweets   = Tweets}}

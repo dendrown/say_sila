@@ -62,7 +62,8 @@
 -record(state, {tracker     :: atom(),
                 players     :: map(),
                 rankings    :: counts(),
-                totals      :: counts() }).   % number of tt|ot|rt|tm processed
+                totals      :: counts(),    % number of tt|ot|rt|tm processed
+                jvm_node    :: atom() }).
 -type state() :: #state{}.
 -type words() :: [binary()].
 
@@ -130,8 +131,6 @@ get_big_p100(Tracker, BigP100) ->
                    BigP100 :: float()) -> proplist().
 %%
 % @doc  Generate data for a Venn diagram for the WUI.
-%
-%       FIXME: Verbize the function name
 % @end  --
 get_big_venn(Tracker, BigP100) ->
     %
@@ -284,8 +283,9 @@ tweet(Tracker, Tweet) ->
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
-init([Tracker]) ->
-    ?notice("Initializing player services: ~s", [Tracker]),
+init([Tracker, JVM]) ->
+    ?notice("Initializing player services: trk[~s] jvm[~s]", [Tracker,
+                                                              JVM]),
     process_flag(trap_exit, true),
     {ok, reset_state(Tracker)}.
 
@@ -440,7 +440,11 @@ get_comm_combos(N, [Comm | Rest]) ->
 % @doc  Process out-of-band messages
 % @end  --
 reset_state(Tracker) ->
-    %
+
+    % Grab what we need from the configuration
+    {ok, App} = application:get_application(),
+    JVM       = application:get_env(App, jvm_node, undefined),
+
     % Start the tweet tree with a node for minimum-activity players
     ReRanker = gb_trees:insert(?MIN_COMMS_COUNT, [], gb_trees:empty()),
     Rankings = #counts{tt = ReRanker,
@@ -451,7 +455,8 @@ reset_state(Tracker) ->
     #state{tracker  = Tracker,
            players  = #{},
            rankings = Rankings,
-           totals   = #counts{}}.
+           totals   = #counts{},
+           jvm_node = JVM}.
 
 
 
