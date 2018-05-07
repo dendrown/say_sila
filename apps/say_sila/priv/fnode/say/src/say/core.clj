@@ -142,9 +142,10 @@
 (defmethod dispatch "sila" [msg]
   (future
       (let [json (String. (.binaryValue ^OtpErlangBinary (:arg msg)))
-            arg  (json/read-str json)]
+            arg  (json/read-str json
+                                :key-fn keyword)]
         ; No response sent back to Erlang
-        (sila/do-command json))))
+        (sila/do-command arg))))
 
 
 (defmethod dispatch "embed" [msg]
@@ -245,6 +246,16 @@
       (log/notice "Mailbox:" (.getName mbox))
       (log/debug  "Cookie :" (.cookie  node))
       (log/debug  "Pinging:" (.ping node "gw@chiron" 2000)) ; FIXME: !hard-coded
+
+      ; FIXME:  The ontology functionality in the say.sila namespace requires
+      ;         us to be in say.sila so it can create individuals as variables
+      ;         in that name-space. Tawny.owl macros are picky and fragile :(
+      (ns say.sila)
+
+      ; Receive and process messages from Erlang
       (otp-loop node mbox)
-      (.close node))
-    'ok))
+      (.close node)
+
+      ; Put us back where we're supposed to be
+      (ns say.core)
+    'ok)))

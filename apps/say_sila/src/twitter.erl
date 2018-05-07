@@ -357,9 +357,9 @@ ontologize(#tweet{screen_name = Tweeter,
         tweet   -> tweets;
         retweet -> retweets
     end,
-    OntMap = #{tweeter   => Tweeter,
+    OntMap = #{domain    => Tweeter,
                oproperty => Action,
-               tweet     => TweetID},
+               range     => TweetID},
 
     % Format the ontology role mapping as requested
     case Format of

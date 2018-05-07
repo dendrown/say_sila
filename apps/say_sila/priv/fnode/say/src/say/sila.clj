@@ -25,6 +25,7 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
+(def ^:const NS         *ns*)
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-sila")
 (def ^:const ONT-FPATH  "resources/KB/say-sila.owl")
 
@@ -196,12 +197,47 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn name-var
+  "
+  Returns a string representing the namespace-qualified variable name
+  without the #' as tawny.owl macros are picky and fragile
+  "
+  [tag]
+  (str NS "/" tag))
+
+
+
+;;; --------------------------------------------------------------------------
+(defmacro make-individual
+  "
+  Defines an individual in the ontology.
+  "
+  [var typ]
+  (let [sym# `(symbol (eval ~var))]
+     `(defindividual ~sym# :type ~typ)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn do-command
   "
   Processes the ontology command per the incoming map
   "
   [cmd]
-  (log/debug "SILA:" cmd))
+  (let [{role :oproperty
+         dom  :domain
+         rng  :range} cmd]
+    (log/debug (log/<> 'IND *ns*) (str dom "--[" role "]--" rng))
+    (try
+      (eval `(defindividual ~(symbol dom) :type Tweeter))
+      (catch Exception ex (log/error "Cannot create individual:" (.getMessage ex))))))
+
+   ;(defindividual (symbol dom) Tweeter)))
+   ;(clojure.pprint/pprint (macroexpand '(defindividual dom Tweeter)))))
+   ;(cond role
+   ;  "tweets"   (eval `(defindividual ~(symbol dom) :type Tweeter))   ; (make-individual rng Tweet))
+   ; ;"retweets" (do (make-individual dom Retweeter)) ; (make-individual rng Tweet))
+   ;  (log/warn "Unknown role:" cmd))))
 
 
 
