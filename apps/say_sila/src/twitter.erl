@@ -307,7 +307,9 @@ get_tweets(Tracker, ScreenName, Options) when is_binary(ScreenName) ->
 
 
 get_tweets(Tracker, ScreenNames, Options) ->
-    gen_server:call(?MODULE, {get_tweets, Tracker, listify_string(ScreenNames), Options}, ?TWITTER_DB_TIMEOUT).
+    gen_server:call(?MODULE,
+                    {get_tweets, Tracker, listify_string(ScreenNames), Options},
+                    ?TWITTER_DB_TIMEOUT).
 
 
 

@@ -150,8 +150,8 @@
 
 ;;; retweeting:
 (as-inverse
-  (defoproperty postsRetweetIn    :domain Retweeter :range Retweet   :super tweets)
-  (defoproperty isRetweetPostedBy :domain Retweet   :range Retweeter :super isTweetedBy))
+  (defoproperty postsRetweetIn    :domain Retweeter :range Retweet)
+  (defoproperty isRetweetPostedBy :domain Retweet   :range Retweeter))
 
 (as-inverse
   (defoproperty isRetweetBy   :domain Retweet         :range RetweetedAuthor)
@@ -232,8 +232,8 @@
          rng  :range} cmd
         tid           (str "t" rng)]        ; Make ID var-able
     (log-role "tweet" dom rng)
-    (doseq [form [`(defindividual ~(symbol dom) :type Tweeter)
-                  `(defindividual ~(symbol tid) :type Tweet)]]
+    (doseq [form [`(defindividual ~(symbol dom) :type OriginalTweeter)
+                  `(defindividual ~(symbol tid) :type OriginalTweet)]]
         (make-individual form))))
 
 
@@ -243,8 +243,8 @@
   (let [{dom  :domain
          rng  :range} cmd
         tid           (str "t" rng)]        ; Make ID var-able
-    (log-role "retweet" dom rng)
-    (doseq [form [`(defindividual ~(symbol dom) :type Reweeter)
+    (log-role "postsRetweetIn" dom rng)
+    (doseq [form [`(defindividual ~(symbol dom) :type Retweeter)
                   `(defindividual ~(symbol tid) :type Retweet)]]
         (make-individual form))))
 
