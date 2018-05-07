@@ -16,7 +16,7 @@
 
 (set! *warn-on-reflection* true)
 
-; Eclipse blocks colour
+; Eclipse blocks colour :/
 (def USE-COLOUR (when-not (System/getenv "LEIN_REPL_ACK_PORT") true))
 (def ^:const TEXT    "\033[0m")
 (def ^:const RED     "\033[0;31m")
@@ -38,21 +38,41 @@
 (deflevel INFO   "  INFO:" BROWN)
 (deflevel DEBUG  " DEBUG:" DK_GRAY)
 
-(def ^:const BRIEF_LENGTH  60)
+(def Logger (agent {:count 0}))
+
+;;; --------------------------------------------------------------------------
+(defmacro progress
+  "
+  TODO: proxy a Print Stream for agent-based logging.
+  "
+  []
+  `(into-array [System/out]))       ; FIXME: !stdout
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- send-log
+   "
+   Define agent alice's logging behaviour.
+   "
+   [alice msg]
+   (let [cnt (:count alice)]
+     (apply println msg)
+     (assoc alice :count (inc cnt))))
 
 
 ;;; --------------------------------------------------------------------------
 (defn log
   "
-  General logger function; prepends date-time stamp and informational level
+  General logger function; prepends date-time stamp and informational level.
   "
-	[level & args]
+  [level & args]
   (let [stamp (dts/local-now)
         msg   (conj args            ; Add elements in reverse order
                     level
                     (dts/format-local-time stamp :hour-minute-second-fraction)
                     (dts/format-local-time stamp :date))]
-     (apply println msg)))
+     (send Logger #(send-log % msg))))
 
 
 (defmacro panic  [& args] `(log PANIC  ~@args))
@@ -62,19 +82,6 @@
 (defmacro notice [& args] `(log NOTICE ~@args))
 (defmacro info   [& args] `(log INFO   ~@args))
 (defmacro debug  [& args] `(log DEBUG  ~@args))
-
-
-;;; --------------------------------------------------------------------------
-(defn brief
-  "
-  Only print the first few characters of a longer string.
-  "
-  ([text] (brief BRIEF_LENGTH text))
-
-  ([len text]
-  (if (<= (count text)  len)
-      text
-      (str (subs text 0 len) "..."))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -94,3 +101,13 @@
   "
   [boss sub]
   `(str ~boss "<" ~sub ">:"))
+
+
+;;; --------------------------------------------------------------------------
+(defn fail
+  "
+  Catch-all error logger for exceptions that excepted
+  "
+  [^Exception ex
+   ^String    msg]
+  (error msg (.getMessage ex)))

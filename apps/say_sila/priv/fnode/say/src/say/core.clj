@@ -223,7 +223,7 @@
       (let [tuple ^OtpErlangTuple (.receive ^OtpMbox mbox)
             msg   (parse-msg tuple)]
 
-        (log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
+        ;(log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
         (recur node mbox (dispatch (conj msg {:mbox mbox})))))))
 
 

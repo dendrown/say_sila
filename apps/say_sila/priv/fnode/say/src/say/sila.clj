@@ -197,47 +197,56 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn name-var
+(defn log-role
   "
-  Returns a string representing the namespace-qualified variable name
-  without the #' as tawny.owl macros are picky and fragile
+  Returns a string to indicate a domain==role==>range operation.
   "
-  [tag]
-  (str NS "/" tag))
+  [role dom rng]
+  (log/info (log/<> 'IND *ns*) (str dom "--[" role "]--" rng)))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defmacro make-individual
+(defn- make-individual
   "
   Defines an individual in the ontology.
   "
-  [var typ]
-  (let [sym# `(symbol (eval ~var))]
-     `(defindividual ~sym# :type ~typ)))
+  [form]
+  (try
+    ;(log/debug form)
+    (eval form)
+    (catch Exception ex (log/fail "Cannot create individual:"))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn do-command
+(defmulti do-command
   "
   Processes the ontology command per the incoming map
   "
-  [cmd]
-  (let [{role :oproperty
-         dom  :domain
-         rng  :range} cmd]
-    (log/debug (log/<> 'IND *ns*) (str dom "--[" role "]--" rng))
-    (try
-      (eval `(defindividual ~(symbol dom) :type Tweeter))
-      (catch Exception ex (log/error "Cannot create individual:" (.getMessage ex))))))
+  :oproperty)
 
-   ;(defindividual (symbol dom) Tweeter)))
-   ;(clojure.pprint/pprint (macroexpand '(defindividual dom Tweeter)))))
-   ;(cond role
-   ;  "tweets"   (eval `(defindividual ~(symbol dom) :type Tweeter))   ; (make-individual rng Tweet))
-   ; ;"retweets" (do (make-individual dom Retweeter)) ; (make-individual rng Tweet))
-   ;  (log/warn "Unknown role:" cmd))))
+(defmethod do-command "tweets"
+  [cmd]
+  (let [{dom  :domain
+         rng  :range} cmd
+        tid           (str "t" rng)]        ; Make ID var-able
+    (log-role "tweet" dom rng)
+    (doseq [form [`(defindividual ~(symbol dom) :type Tweeter)
+                  `(defindividual ~(symbol tid) :type Tweet)]]
+        (make-individual form))))
+
+
+
+(defmethod do-command "retweets"
+  [cmd]
+  (let [{dom  :domain
+         rng  :range} cmd
+        tid           (str "t" rng)]        ; Make ID var-able
+    (log-role "retweet" dom rng)
+    (doseq [form [`(defindividual ~(symbol dom) :type Reweeter)
+                  `(defindividual ~(symbol tid) :type Retweet)]]
+        (make-individual form))))
 
 
 
