@@ -359,7 +359,14 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
     ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
 
     % Inform the dlogic module
-    {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)},
+    %
+    % NOTE: For now we're not counting players unless they've tweeted at least twice
+    %       This is an interim measure to limit ontology size
+    case maps:is_key(ScreenName, Players) of
+        false -> ok;
+        true  ->
+            {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)}
+    end,
 
     % Update the tweet counter(s) and rank(s) for this tweet
     {MidPlayers,

@@ -207,46 +207,60 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- make-individual
+(defn- form->ontology
   "
-  Defines an individual in the ontology.
+  Evaluates a clojure form, presumably to add an entity to the ontology.
   "
   [form]
   (try
     ;(log/debug form)
     (eval form)
-    (catch Exception ex (log/fail "Cannot create individual:"))))
+    (catch Exception ex (log/fail "Bad ontology form:"))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defmulti do-command
+(defmulti alter-ontology
   "
   Processes the ontology command per the incoming map
   "
-  :oproperty)
-
-(defmethod do-command "tweets"
-  [cmd]
-  (let [{dom  :domain
-         rng  :range} cmd
-        tid           (str "t" rng)]        ; Make ID var-able
-    (log-role "tweet" dom rng)
-    (doseq [form [`(defindividual ~(symbol dom) :type OriginalTweeter)
-                  `(defindividual ~(symbol tid) :type OriginalTweet)]]
-        (make-individual form))))
+  (fn [oprop _ _] oprop))
 
 
+(defmethod alter-ontology "tweets"
+  [oprop dom rng]
+  (doseq [form [`(defindividual ~(symbol dom) :type OriginalTweeter)
+                `(defindividual ~(symbol rng) :type OriginalTweet)]]
+    (form->ontology form)))
 
-(defmethod do-command "retweets"
-  [cmd]
-  (let [{dom  :domain
-         rng  :range} cmd
-        tid           (str "t" rng)]        ; Make ID var-able
-    (log-role "postsRetweetIn" dom rng)
-    (doseq [form [`(defindividual ~(symbol dom) :type Retweeter)
-                  `(defindividual ~(symbol tid) :type Retweet)]]
-        (make-individual form))))
+
+(defmethod alter-ontology "retweets"
+  [oprop dom rng]
+  (doseq [form [`(defindividual ~(symbol dom) :type Retweeter)
+                `(defindividual ~(symbol rng) :type Retweet)]]
+    (form->ontology form)))
+
+
+(defmethod alter-ontology "isRetweetBy"
+  [oprop dom rng]
+  ; The tweet (ID) individual is added with the "retweets" property
+  (form->ontology `(defindividual ~(symbol dom) :type RetweetedAuthor)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn execute
+  "
+  Processes a sequence of ontology commands from say_sila/Erlang
+  "
+  [cmds]
+  (doseq [cmd cmds]
+    (let [{oprop :oproperty        ; TODO: dproperty
+           dom   :domain
+           rng   :range} cmd]
+
+      (log-role oprop dom rng)
+      (alter-ontology oprop dom rng))))
 
 
 

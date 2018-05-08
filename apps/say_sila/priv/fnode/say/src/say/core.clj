@@ -145,7 +145,7 @@
             arg  (json/read-str json
                                 :key-fn keyword)]
         ; No response sent back to Erlang
-        (sila/do-command arg))))
+        (sila/execute arg))))
 
 
 (defmethod dispatch "embed" [msg]

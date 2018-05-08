@@ -332,7 +332,7 @@ has_hashtag(Hash, Text) ->
 
 
 %%--------------------------------------------------------------------
--spec ontologize(Tweet :: tweet()) -> map().
+-spec ontologize(Tweet :: tweet()) -> [map()].
 %%
 % @doc  Converts the specified `Tweet' into a map with components
 %       of interest for the say-sila ontology.
@@ -344,29 +344,46 @@ ontologize(Tweet) ->
 
 %%--------------------------------------------------------------------
 -spec ontologize(Tweet  :: tweet(),
-                 Format :: map | json) -> map()
+                 Format :: map | json) -> [map()]
                                         | json_binary().
 %%
 % @doc  Converts the specified `Tweet' into a map with components
 %       of interest for the say-sila ontology.
+%
+%       NOTE: The object property definitions are in say.sila.clj
 % @end  --
-ontologize(#tweet{screen_name = Tweeter,
-                  type        = Type,
-                  id          = TweetID}, Format) ->
+ontologize(#tweet{id             = ID,
+                  screen_name    = Tweeter,
+                  type           = Type,
+                  rt_screen_name = Author}, Format) ->
     %
+    % Add `t' prefix to the tweet ID so it can be a Clojure variable
+    TID = list_to_binary(?str_fmt("t~s", [ID])),
+
     % The object property is an action-based role
     Action = case Type of
         tweet   -> tweets;
         retweet -> retweets
     end,
-    OntMap = #{domain    => Tweeter,
-               oproperty => Action,
-               range     => TweetID},
+
+    % We always have the Tweeter tweeting|retweeting a tweet
+    TweeterTweets = #{domain    => Tweeter,
+                      oproperty => Action,
+                      range     => TID},
+
+    % Listify that, plus on a retweet,
+    % also capture the Retweet retweeting the Retweeted Author (ha!)
+    OntMaps = case Action of
+        tweets   -> [TweeterTweets];
+        retweets -> [TweeterTweets, #{domain    => TID,
+                                      oproperty => isRetweetBy,
+                                      range     => Author}]
+    end,
 
     % Format the ontology role mapping as requested
     case Format of
-        map  -> OntMap;
-        json -> jsx:encode(OntMap)
+        map  -> OntMaps;
+        json -> jsx:encode(OntMaps)
     end.
 
 
