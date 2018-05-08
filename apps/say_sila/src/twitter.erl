@@ -358,7 +358,7 @@ ontologize(#tweet{id             = ID,
                   rt_screen_name = Author}, Format) ->
     %
     % Add `t' prefix to the tweet ID so it can be a Clojure variable
-    TID = list_to_binary(?str_fmt("t~s", [ID])),
+    TwID = list_to_binary(?str_fmt("t~s", [ID])),
 
     % The object property is an action-based role
     Action = case Type of
@@ -369,13 +369,13 @@ ontologize(#tweet{id             = ID,
     % We always have the Tweeter tweeting|retweeting a tweet
     TweeterTweets = #{domain    => Tweeter,
                       oproperty => Action,
-                      range     => TID},
+                      range     => TwID},
 
     % Listify that, plus on a retweet,
     % also capture the Retweet retweeting the Retweeted Author (ha!)
     OntMaps = case Action of
         tweets   -> [TweeterTweets];
-        retweets -> [TweeterTweets, #{domain    => TID,
+        retweets -> [TweeterTweets, #{domain    => TwID,
                                       oproperty => isRetweetFrom,
                                       range     => Author}]
     end,

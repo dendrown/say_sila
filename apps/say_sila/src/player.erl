@@ -392,7 +392,7 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
     % And update the social network counts/rankings
     {NewPlayers,
      NewRankings,
-     NewTotals} = check_network(Tweet, MidPlayers, MidRankings, MidTotals),
+     NewTotals} = check_network(Tweet, JVM, MidPlayers, MidRankings, MidTotals),
 
     {noreply, State#state{players   = NewPlayers,
                           rankings  = NewRankings,
@@ -596,6 +596,7 @@ update_players_aux(Profile, Account, CommCodes, Players) ->
 
 %%--------------------------------------------------------------------
 -spec check_network(Tweet    :: tweet(),
+                    JVM      :: atom(),
                     Players  :: map(),
                     Rankings :: counts(),
                     Totals   :: counts()) -> {map(), counts(), counts()}.
@@ -603,8 +604,8 @@ update_players_aux(Profile, Account, CommCodes, Players) ->
 % @doc  Updates a `Players' map according to the retweet/mention counts
 %       in the specified `Tweet'.
 % @end  --
-check_network(Tweet = #tweet{screen_name = Acct,
-                             text        = Text},
+check_network(Tweet = #tweet{text = Text},
+              JVM,
               Players,
               Rankings = #counts{rt = RanksRT, tm = RanksTM},
               Totals   = #counts{rt = TotalRT, tm = TotalTM}) ->
@@ -618,7 +619,7 @@ check_network(Tweet = #tweet{screen_name = Acct,
 
     {NewPlayers,
      NewRanksTM,
-     NewTotalTM} = check_mentions(Acct, MidWords, MidPlayers, RanksTM, TotalTM),
+     NewTotalTM} = check_mentions(Tweet, MidWords, JVM, MidPlayers, RanksTM, TotalTM),
 
     {NewPlayers,
      Rankings#counts{rt = NewRanksRT, tm = NewRanksTM},
@@ -684,8 +685,9 @@ check_retweet(_, Words, Players, Ranking, Total) ->
 
 
 %%--------------------------------------------------------------------
--spec check_mentions(Acct    :: binary(),
+-spec check_mentions(Tweet   :: tweet(),
                      Words   :: words(),
+                     JVM     :: atom(),
                      Players :: map(),
                      Ranking :: count_tree(),
                      Total   :: non_neg_integer()) -> {map(), count_tree(), non_neg_integer()}.
@@ -694,31 +696,44 @@ check_retweet(_, Words, Players, Ranking, Total) ->
 %       with respect to the accounts mentioned in the word list from
 %       the tweet text.
 % @end  --
-check_mentions(_, [], Players, Ranking, Total) ->
+check_mentions(_, [], _, Players, Ranking, Total) ->
     {Players, Ranking, Total};
 
 
-check_mentions(Acct, [<<$@>> | RestWords], Players, Ranking, Total) ->
+check_mentions(Tweet, [<<$@>> | RestWords], JVM, Players, Ranking, Total) ->
     %
     % Skip lone @-sign
-    check_mentions(Acct, RestWords, Players, Ranking, Total);
+    check_mentions(Tweet, RestWords, JVM, Players, Ranking, Total);
 
 
-check_mentions(Acct, [<<$@, Mention/binary>> | RestWords], Players, Ranking, Total) ->
-    %
+check_mentions(Tweet = #tweet{id = ID},
+               [<<$@, Mention/binary>> | RestWords],
+               JVM,
+               Players,
+               Ranking,
+               Total) ->
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
     NewPlayers = update_players(Mention, ?prop_counts(tm), Players),
 
-    check_mentions(Acct,
+    % Inform the say-sila ontology about the mention
+    TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
+    Role = #{domain    => TwID,
+             oproperty => hasMentionOf,
+             range     => Mention},
+    {say, JVM} ! {self(), make_ref(), sila, jsx:encode([Role])},
+
+    % Look for more mentions in the rest of the tweet text
+    check_mentions(Tweet,
                    RestWords,
+                   JVM,
                    NewPlayers,
                    update_ranking(Mention, #counts.tm, NewPlayers, Ranking),
                    1 + Total);
 
 
-check_mentions(Acct, [ _ | RestWords], Players, Ranking, Total) ->
+check_mentions(Tweet, [ _ | RestWords], JVM, Players, Ranking, Total) ->
     % Normal word
-    check_mentions(Acct, RestWords, Players, Ranking, Total).
+    check_mentions(Tweet, RestWords, JVM, Players, Ranking, Total).
 
 
 

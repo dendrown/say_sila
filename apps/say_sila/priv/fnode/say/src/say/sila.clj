@@ -17,6 +17,7 @@
             [clojure.java.io  :as io]
             [tawny.english    :as dl]
             [tawny.reasoner   :as rsn]
+            [tawny.repl       :as repl]         ; <= DEBUG
             [tawny.owl :refer :all])
     (:import  [org.semanticweb.owlapi.model IRI
                                           OWLOntologyID]))
@@ -202,7 +203,7 @@
   Returns a string to indicate a domain==role==>range operation.
   "
   [role dom rng]
-  (log/info (log/<> 'IND *ns*) (str dom "--[" role "]--" rng)))
+  (log/info (log/<> 'ROLE *ns*) (str dom "--[" role "]--" rng)))
 
 
 
@@ -243,9 +244,17 @@
 
 (defmethod alter-ontology "isRetweetFrom"
   [oprop dom rng]
-  (doseq [form [`(defindividual ~(symbol rng) :type Author)
+  (doseq [form [`(defindividual ~(symbol rng) :type Author)     ; reason: RetweetedAuthor
                 `(defindividual ~(symbol dom) :type Retweet
                                               :fact (is isRetweetFrom ~(symbol rng)))]]
+    (form->ontology form)))
+
+
+(defmethod alter-ontology "hasMentionOf"
+  [oprop dom rng]
+  (doseq [form [`(defindividual ~(symbol rng) :type Author)     ; reason: MentionedAuthor
+                `(defindividual ~(symbol dom) :type Tweet
+                                              :fact (is hasMentionOf ~(symbol rng)))]]
     (form->ontology form)))
 
 
