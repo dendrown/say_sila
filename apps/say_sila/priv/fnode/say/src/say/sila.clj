@@ -154,14 +154,14 @@
   (defoproperty isRetweetPostedBy :domain Retweet   :range Retweeter))
 
 (as-inverse
-  (defoproperty isRetweetBy   :domain Retweet         :range RetweetedAuthor)
+  (defoproperty isRetweetFrom :domain Retweet         :range RetweetedAuthor)
   (defoproperty isRetweetedIn :domain RetweetedAuthor :range Retweet))
 
 (as-inverse
   (defoproperty retweets
     :domain   Tweeter
     :range    RetweetedAuthor
-    :subchain [postsRetweetIn isRetweetBy])
+    :subchain [postsRetweetIn isRetweetFrom])
   (defoproperty isRetweetedBy
     :domain   RetweetedAuthor
     :range    Tweeter
@@ -241,10 +241,12 @@
     (form->ontology form)))
 
 
-(defmethod alter-ontology "isRetweetBy"
+(defmethod alter-ontology "isRetweetFrom"
   [oprop dom rng]
-  ; The tweet (ID) individual is added with the "retweets" property
-  (form->ontology `(defindividual ~(symbol dom) :type RetweetedAuthor)))
+  (doseq [form [`(defindividual ~(symbol rng) :type Author)
+                `(defindividual ~(symbol dom) :type Retweet
+                                              :fact (is isRetweetFrom ~(symbol rng)))]]
+    (form->ontology form)))
 
 
 

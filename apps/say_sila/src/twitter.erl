@@ -376,7 +376,7 @@ ontologize(#tweet{id             = ID,
     OntMaps = case Action of
         tweets   -> [TweeterTweets];
         retweets -> [TweeterTweets, #{domain    => TID,
-                                      oproperty => isRetweetBy,
+                                      oproperty => isRetweetFrom,
                                       range     => Author}]
     end,
 
