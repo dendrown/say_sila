@@ -148,6 +148,10 @@
                                                         ; completeness.  Tracking runs do not
                                                         ; consider Tweet authors that are not
                                                         ; active Tweeters, retweeted, or mentioned.
+(defdproperty hasPostCount
+  :domain Tweeter
+  :range  :XSD_NON_NEGATIVE_INTEGER
+  :characteristic :functional)
 
 ;;; retweeting:
 (as-inverse
@@ -231,7 +235,8 @@
 (defmethod alter-ontology "tweets"
   [oprop dom rng]
   (doseq [form [`(defindividual ~(symbol dom) :type OriginalTweeter)
-                `(defindividual ~(symbol rng) :type OriginalTweet)]]
+               ;`(defindividual ~(symbol rng) :type OriginalTweet)  ; Keep the ontology small-ish
+               ]]
     (form->ontology form)))
 
 
@@ -245,7 +250,7 @@
 
 (defmethod alter-ontology "isRetweetFrom"
   [oprop dom rng]
-  (doseq [form [`(defindividual ~(symbol rng) :type Author)     ; reason: RetweetedAuthor
+  (doseq [form [`(defindividual ~(symbol rng) :type Author)         ; reasoner => RetweetedAuthor
                 `(defindividual ~(symbol dom) :type Retweet
                                               :fact (is isRetweetFrom ~(symbol rng)))]]
     (form->ontology form)))
@@ -261,10 +266,22 @@
 
 (defmethod alter-ontology "hasMentionOf"
   [oprop dom rng]
-  (doseq [form [`(defindividual ~(symbol rng) :type Author)     ; reason: MentionedAuthor
+  (doseq [form [`(defindividual ~(symbol rng) :type Author)         ; reasoner => MentionedAuthor
                 `(defindividual ~(symbol dom) :type Tweet
                                               :fact (is hasMentionOf ~(symbol rng)))]]
     (form->ontology form)))
+
+
+(defmethod alter-ontology "hasPostCount"
+  [oprop dom rng]
+  (doseq [form [`(defindividual ~(symbol dom) :type Tweeter
+                                              :fact (is hasPostCount ~rng))]]
+    (form->ontology form)))
+
+
+(defmethod alter-ontology :default
+  [oprop dom rng]
+  (log/warn (log/fmt "Unrecognized request: prop[~a] dom[~a] rng[~a]" oprop dom rng)))
 
 
 

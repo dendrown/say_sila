@@ -149,7 +149,8 @@ emote(Tracker, Options) ->
      RunOptions} = extract_period(Tracker, Options),
 
     % The AUX function will make the gen_server call multiple times
-    emote_aux(?reg(Tracker), PeriodStart, PeriodStop, RunOptions).
+    emote_aux(?reg(Tracker), PeriodStart, PeriodStop, RunOptions),
+    player:ontologize(Tracker).
 
 
 

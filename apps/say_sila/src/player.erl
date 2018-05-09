@@ -25,6 +25,7 @@
          get_players/1,
          get_rankings/1,
          get_totals/1,
+         ontologize/1,
          plot/1,
          reset/1,
          tweet/2]).
@@ -222,6 +223,17 @@ get_totals(Tracker) ->
 
 
 %%--------------------------------------------------------------------
+-spec ontologize(Tracker :: atom()) -> ok.
+%%
+% @doc  Finalizes ontology creation by sending post counts for the
+%       original tweeters.  (Maybe there'll be more to come...)
+% @end  --
+ontologize(Tracker) ->
+    gen_server:call(?reg(Tracker), ontologize).
+
+
+
+%%--------------------------------------------------------------------
 -spec plot(Tracker :: atom()) -> ok.
 %%
 % @doc  Creates gnuplot scripts, data files and images.
@@ -333,6 +345,30 @@ handle_call(reset, _From, #state{tracker = Tracker}) ->
     {reply, ok, reset_state(Tracker)};
 
 
+handle_call(ontologize, _From, State = #state{rankings = Rankings,
+                                              jvm_node = JVM}) ->
+
+    % Functions to run a ranking tree, sending role declarations to Clojure
+    RecPosts = fun(Cnt, Acct) ->
+                   Ont = #{domain    => Acct,
+                           oproperty => hasPostCount,
+                           range     => Cnt},
+                   {say, JVM} ! {self(), make_ref(), sila, jsx:encode([Ont])},
+                   ok end,
+
+    GBRunner = fun Recur(none) -> ok;
+                   Recur({Cnt, Accts, Itr}) ->
+                      [RecPosts(Cnt, Acct) || Acct <- Accts],
+                      Recur(gb_trees:next(Itr))
+                      end,
+
+    % Only do original tweeters:
+    % the RTs and TMs were handled during normal processing
+    TreeItr = gb_trees:iterator(Rankings#counts.ot),
+    GBRunner(gb_trees:next(TreeItr)),
+    {reply, ok, State};
+
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
@@ -362,11 +398,11 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
     %
     % NOTE: For now we're not counting players unless they've tweeted at least twice
     %       This is an interim measure to limit ontology size
-    case maps:is_key(ScreenName, Players) of
-        false -> ok;
-        true  ->
-            {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)}
-    end,
+   %case maps:is_key(ScreenName, Players) of
+   %    false -> ok;
+   %    true  ->
+   %        {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)}
+   %end,
 
     % Update the tweet counter(s) and rank(s) for this tweet
     {MidPlayers,
