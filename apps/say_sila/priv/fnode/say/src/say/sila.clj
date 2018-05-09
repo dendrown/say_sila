@@ -229,11 +229,11 @@
   "
   Processes the ontology command per the incoming map
   "
-  (fn [oprop _ _] oprop))
+  (fn [prop _ _] prop))
 
 
 (defmethod alter-ontology "tweets"
-  [oprop dom rng]
+  [prop dom rng]
   (doseq [form [`(defindividual ~(symbol dom) :type OriginalTweeter)
                ;`(defindividual ~(symbol rng) :type OriginalTweet)  ; Keep the ontology small-ish
                ]]
@@ -241,7 +241,7 @@
 
 
 (defmethod alter-ontology "retweets"
-  [oprop dom rng]
+  [prop dom rng]
   (doseq [form [`(defindividual ~(symbol rng) :type Retweet)
                 `(defindividual ~(symbol dom) :type Retweeter
                                               :fact (is postsRetweetIn ~(symbol rng)))]]
@@ -249,7 +249,7 @@
 
 
 (defmethod alter-ontology "isRetweetFrom"
-  [oprop dom rng]
+  [prop dom rng]
   (doseq [form [`(defindividual ~(symbol rng) :type Author)         ; reasoner => RetweetedAuthor
                 `(defindividual ~(symbol dom) :type Retweet
                                               :fact (is isRetweetFrom ~(symbol rng)))]]
@@ -257,7 +257,7 @@
 
 
 (defmethod alter-ontology "makesMentionIn"
-  [oprop dom rng]
+  [prop dom rng]
   (doseq [form [`(defindividual ~(symbol rng) :type Tweet)
                 `(defindividual ~(symbol dom) :type Tweeter
                                               :fact (is makesMentionIn ~(symbol rng)))]]
@@ -265,7 +265,7 @@
 
 
 (defmethod alter-ontology "hasMentionOf"
-  [oprop dom rng]
+  [prop dom rng]
   (doseq [form [`(defindividual ~(symbol rng) :type Author)         ; reasoner => MentionedAuthor
                 `(defindividual ~(symbol dom) :type Tweet
                                               :fact (is hasMentionOf ~(symbol rng)))]]
@@ -273,15 +273,15 @@
 
 
 (defmethod alter-ontology "hasPostCount"
-  [oprop dom rng]
+  [prop dom rng]
   (doseq [form [`(defindividual ~(symbol dom) :type Tweeter
                                               :fact (is hasPostCount ~rng))]]
     (form->ontology form)))
 
 
 (defmethod alter-ontology :default
-  [oprop dom rng]
-  (log/warn (log/fmt "Unrecognized request: prop[~a] dom[~a] rng[~a]" oprop dom rng)))
+  [prop dom rng]
+  (log/warn (log/fmt "Unrecognized request: prop[~a] dom[~a] rng[~a]" prop dom rng)))
 
 
 
@@ -292,11 +292,11 @@
   "
   [cmds]
   (doseq [cmd cmds]
-    (let [{oprop :oproperty        ; TODO: dproperty
+    (let [{prop :property           ; oproperty|dproperty
            dom   :domain
            rng   :range} cmd]
-      (log-role oprop dom rng)
-      (alter-ontology oprop dom rng))))
+      (log-role prop dom rng)
+      (alter-ontology prop dom rng))))
 
 
 

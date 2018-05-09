@@ -350,9 +350,9 @@ handle_call(ontologize, _From, State = #state{rankings = Rankings,
 
     % Functions to run a ranking tree, sending role declarations to Clojure
     RecPosts = fun(Cnt, Acct) ->
-                   Ont = #{domain    => Acct,
-                           oproperty => hasPostCount,
-                           range     => Cnt},
+                   Ont = #{domain   => Acct,
+                           property => hasPostCount,
+                           range    => Cnt},
                    {say, JVM} ! {self(), make_ref(), sila, jsx:encode([Ont])},
                    ok end,
 
@@ -362,9 +362,9 @@ handle_call(ontologize, _From, State = #state{rankings = Rankings,
                       Recur(gb_trees:next(Itr))
                       end,
 
-    % Only do original tweeters:
-    % the RTs and TMs were handled during normal processing
-    TreeItr = gb_trees:iterator(Rankings#counts.ot),
+    % Only do (posting) tweeters:
+    % Retweeted and Mentioned Authors were handled during normal processing
+    TreeItr = gb_trees:iterator(Rankings#counts.tt),
     GBRunner(gb_trees:next(TreeItr)),
     {reply, ok, State};
 
@@ -393,16 +393,6 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
 
     Acct = string:lowercase(ScreenName),
     ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
-
-    % Inform the dlogic module
-    %
-    % NOTE: For now we're not counting players unless they've tweeted at least twice
-    %       This is an interim measure to limit ontology size
-   %case maps:is_key(ScreenName, Players) of
-   %    false -> ok;
-   %    true  ->
-   %        {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)}
-   %end,
 
     % Update the tweet counter(s) and rank(s) for this tweet
     {MidPlayers,
@@ -651,7 +641,7 @@ check_network(Tweet = #tweet{text = Text},
     {MidWords,
      MidPlayers,
      NewRanksRT,
-     NewTotalRT} = check_retweet(Tweet, Words, Players, RanksRT, TotalRT),
+     NewTotalRT} = check_retweet(Tweet, Words, JVM, Players, RanksRT, TotalRT),
 
     {NewPlayers,
      NewRanksTM,
@@ -666,6 +656,7 @@ check_network(Tweet = #tweet{text = Text},
 %%--------------------------------------------------------------------
 -spec check_retweet(Tweet   :: tweet(),
                     Words   :: words(),
+                    JVM     :: atom(),
                     Players :: map(),
                     Ranking :: count_tree(),
                     Total   :: non_neg_integer()) -> {words(), map(), count_tree(), non_neg_integer()}.
@@ -675,11 +666,12 @@ check_network(Tweet = #tweet{text = Text},
 %       if the specified `Tweet' is a `retweet'.  If it is, the first
 %       two words are stripped from the word list in the return tuple.
 % @end  --
-check_retweet(#tweet{type           = retweet,
-                     id             = ID,
-                     rt_screen_name = Author,
-                     screen_name    = Acct},
+check_retweet(Tweet = #tweet{type           = retweet,
+                             id             = ID,
+                             rt_screen_name = Author,
+                             screen_name    = Acct},
               [<<"RT">>, <<$@, AuthRef/binary>> | RestWords],
+              JVM,
               Players,
               Ranking,
               Total) ->
@@ -692,6 +684,9 @@ check_retweet(#tweet{type           = retweet,
         [Author] ->
             % Updates the retweeted author's (NOT the tweeter's) counts/ranking
             MidPlayers = update_players(Author, ?prop_counts(rt), Players),
+
+            % Inform the say-sila ontology about the retweet
+            {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)},
 
             {MidPlayers,
              update_ranking(Author, #counts.rt, MidPlayers, Ranking),
@@ -708,13 +703,13 @@ check_retweet(#tweet{type           = retweet,
 check_retweet(#tweet{type           = retweet,
                      id             = ID,
                      rt_screen_name = Author,
-                     screen_name    = Acct}, Words, Players, Ranking, Total) ->
+                     screen_name    = Acct}, Words, _, Players, Ranking, Total) ->
     %
     ?warning("Non-standard retweet text: id[~p] acct[~s] auth[~s]", [ID, Acct, Author]),
     {Words, Players, Ranking, Total};
 
 
-check_retweet(_, Words, Players, Ranking, Total) ->
+check_retweet(_, Words, _, Players, Ranking, Total) ->
     % Ignore non-retweets
     {Words, Players, Ranking, Total}.
 
@@ -754,8 +749,8 @@ check_mentions(Tweet = #tweet{id          = ID,
 
     % Inform the say-sila ontology about the mention
     TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
-    Roles = [#{domain => Acct, oproperty => makesMentionIn, range => TwID},
-             #{domain => TwID, oproperty => hasMentionOf,   range => Mention}],
+    Roles = [#{domain => Acct, property => makesMentionIn, range => TwID},
+             #{domain => TwID, property => hasMentionOf,   range => Mention}],
     {say, JVM} ! {self(), make_ref(), sila, jsx:encode(Roles)},
 
     % Look for more mentions in the rest of the tweet text

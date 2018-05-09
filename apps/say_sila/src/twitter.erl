@@ -367,17 +367,17 @@ ontologize(#tweet{id             = ID,
     end,
 
     % We always have the Tweeter tweeting|retweeting a tweet
-    TweeterTweets = #{domain    => Tweeter,
-                      oproperty => Action,
-                      range     => TwID},
+    TweeterTweets = #{domain   => Tweeter,
+                      property => Action,
+                      range    => TwID},
 
     % Listify that, plus on a retweet,
     % also capture the Retweet retweeting the Retweeted Author (ha!)
     OntMaps = case Action of
         tweets   -> [TweeterTweets];
-        retweets -> [TweeterTweets, #{domain    => TwID,
-                                      oproperty => isRetweetFrom,
-                                      range     => Author}]
+        retweets -> [TweeterTweets, #{domain   => TwID,
+                                      property => isRetweetFrom,
+                                      range    => Author}]
     end,
 
     % Format the ontology role mapping as requested
