@@ -237,8 +237,9 @@
 
 (defmethod alter-ontology "retweets"
   [oprop dom rng]
-  (doseq [form [`(defindividual ~(symbol dom) :type Retweeter)
-                `(defindividual ~(symbol rng) :type Retweet)]]
+  (doseq [form [`(defindividual ~(symbol rng) :type Retweet)
+                `(defindividual ~(symbol dom) :type Retweeter
+                                              :fact (is postsRetweetIn ~(symbol rng)))]]
     (form->ontology form)))
 
 
@@ -247,6 +248,14 @@
   (doseq [form [`(defindividual ~(symbol rng) :type Author)     ; reason: RetweetedAuthor
                 `(defindividual ~(symbol dom) :type Retweet
                                               :fact (is isRetweetFrom ~(symbol rng)))]]
+    (form->ontology form)))
+
+
+(defmethod alter-ontology "makesMentionIn"
+  [oprop dom rng]
+  (doseq [form [`(defindividual ~(symbol rng) :type Tweet)
+                `(defindividual ~(symbol dom) :type Tweeter
+                                              :fact (is makesMentionIn ~(symbol rng)))]]
     (form->ontology form)))
 
 
@@ -269,7 +278,6 @@
     (let [{oprop :oproperty        ; TODO: dproperty
            dom   :domain
            rng   :range} cmd]
-
       (log-role oprop dom rng)
       (alter-ontology oprop dom rng))))
 

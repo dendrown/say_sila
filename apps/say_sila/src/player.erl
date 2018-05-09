@@ -706,7 +706,8 @@ check_mentions(Tweet, [<<$@>> | RestWords], JVM, Players, Ranking, Total) ->
     check_mentions(Tweet, RestWords, JVM, Players, Ranking, Total);
 
 
-check_mentions(Tweet = #tweet{id = ID},
+check_mentions(Tweet = #tweet{id          = ID,
+                              screen_name = Acct},
                [<<$@, Mention/binary>> | RestWords],
                JVM,
                Players,
@@ -717,10 +718,9 @@ check_mentions(Tweet = #tweet{id = ID},
 
     % Inform the say-sila ontology about the mention
     TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
-    Role = #{domain    => TwID,
-             oproperty => hasMentionOf,
-             range     => Mention},
-    {say, JVM} ! {self(), make_ref(), sila, jsx:encode([Role])},
+    Roles = [#{domain => Acct, oproperty => makesMentionIn, range => TwID},
+             #{domain => TwID, oproperty => hasMentionOf,   range => Mention}],
+    {say, JVM} ! {self(), make_ref(), sila, jsx:encode(Roles)},
 
     % Look for more mentions in the rest of the tweet text
     check_mentions(Tweet,
