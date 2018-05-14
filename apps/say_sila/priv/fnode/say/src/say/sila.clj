@@ -200,6 +200,10 @@
                                             (dl/some isMentionedIn Tweet)))
 
 
+;;; Big Players and Influencers
+(refine Influencer :equivalent (dl/and Tweeter (dl/or (at-least 3 isRetweetedIn)
+                                                      (at-least 3 isMentionedIn))))
+
 
 ;;; --------------------------------------------------------------------------
 (defn log-role
@@ -220,7 +224,7 @@
   (try
     ;(log/debug form)
     (eval form)
-    (catch Exception ex (log/fail "Bad ontology form:"))))
+    (catch Exception ex (log/fail ex "Bad ontology form:"))))
 
 
 

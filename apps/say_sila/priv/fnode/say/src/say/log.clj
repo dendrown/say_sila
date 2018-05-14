@@ -110,4 +110,4 @@
   "
   [^Exception ex
    ^String    msg]
-  (error msg (.getMessage ex)))
+  (error (str msg ":") (.getMessage ex)))
