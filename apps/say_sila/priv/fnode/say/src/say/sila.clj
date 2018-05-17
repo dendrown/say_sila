@@ -19,7 +19,7 @@
             [tawny.reasoner   :as rsn]
             [tawny.repl       :as repl]         ; <= DEBUG
             [tawny.owl :refer :all])
-    (:import  [org.semanticweb.owlapi.model IRI
+  (:import  [org.semanticweb.owlapi.model IRI
                                           OWLOntologyID]))
 
 
@@ -173,7 +173,7 @@
     :subchain [isRetweetedIn isRetweetPostedBy]))
 
 (refine Retweeter       :equivalent (dl/and Tweeter (dl/some postsRetweetIn Retweet)))
-(refine RetweetedAuthor :equivalent (dl/and Author  (dl/some isRetweetedIn Retweet)))
+(refine RetweetedAuthor :equivalent (dl/and Author  (dl/some isRetweetedIn  Retweet)))
 
 
 ;;; mentioning:
