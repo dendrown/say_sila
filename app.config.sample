@@ -13,13 +13,13 @@
                 {twitter_access_token,      "accesstoken"},
                 {twitter_access_secret,     "accesssecret"},
                 {twitter_owner,             "screen_name"},
-                {twitter_ownser_id,         12345},
-                {db_config,                 [{host,         "localhost"},
-                                             {port,         5432},
-                                             {user,         "dbuser"},
-                                             {pass,         "dbpass"},
-                                             {database,     "sila_tweets"},
-                                             {status_tbl,   "tbl_statuses"}]},
+                {twitter_owner_id,          12345},
+                {db_config,                 [{host,     "localhost"},
+                                             {port,     5432},
+                                             {user,     "dbuser"},
+                                             {password, "dbpass"},
+                                             {database, "sila_tweets"}]},
+                {mnesia,                    [{nodes,    [nonode@nohost]}]},
                 {big_percent,                0.20},
-                {weka_node,                  jvm@localhost} ]}
+                {weka_node,                  jvm@nonode} ]}
 ].

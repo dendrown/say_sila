@@ -1,0 +1,4 @@
+#!/bin/bash
+
+ERL_LIBS=_build/default/lib erl -sname gw -config ./say_sila.config -mnesia dir '"/srv/say_sila/Mnesia.dev@kamino"'
+

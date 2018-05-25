@@ -25,24 +25,24 @@
 
 -export([start_link/0,
          stop/0,
-         has_hashtag/2,     % DEBUG: REMOVE
-         get_pin/0,
          authenticate/1,
+         get_pin/0,
+         login/0,
          track/1,
          get_first_dts/1,
          get_first_dts/2,
          get_players/1,
          get_players/2,
-         get_players_R/2,   % TODO: Move to raven
          get_tweets/2,
-         get_tweets/3]).
+         get_tweets/3,
+         has_hashtag/2,
+         to_hashtag/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
--include("llog.hrl").
+-include("types.hrl").
 -include("twitter.hrl").
-
--define(DB_TIMEOUT, (10 * 60 * 1000)).      % FIXME: Rework the DB-pull logic
+-include_lib("llog/include/llog.hrl").
 
 
 
@@ -77,11 +77,11 @@
 
 
 -record(state, {consumer     :: tuple(),
-                oauth_token  :: string(),
-                oauth_secret :: string(),
-                track        :: string() | binary(),
-                db_conn      :: pid(),
-                status_tbl   :: string() }).
+                oauth_token  :: rec_string(),
+                oauth_secret :: rec_string(),
+                track        :: rec_string() | binary(),
+                db_conn      :: rec_pid(),
+                status_tbl   :: rec_string() }).
 -type state() :: #state{}.
 
 
@@ -127,6 +127,16 @@ stop() ->
 
 
 %%--------------------------------------------------------------------
+-spec authenticate(PIN :: string() | binary()) -> ok.
+%%
+% @doc  Returns the Twitter URL for the access PIN.
+% @end  --
+authenticate(PIN) ->
+    gen_server:call(?MODULE, {authenticate, PIN}).
+
+
+
+%%--------------------------------------------------------------------
 -spec get_pin() -> string()
                  | undefined.
 %%
@@ -138,12 +148,15 @@ get_pin() ->
 
 
 %%--------------------------------------------------------------------
--spec authenticate(PIN :: string() | binary()) -> ok.
+-spec login() -> ok.
 %%
-% @doc  Returns the Twitter URL for the access PIN.
+% @doc  Logs the application into twitter.
+%
+%       NOTE: Currently, we just announce a PIN authentication URL and 
+%             prompt the sysadmin to complete the login procedure.
 % @end  --
-authenticate(PIN) ->
-    gen_server:call(?MODULE, {authenticate, PIN}).
+login() ->
+    gen_server:cast(?MODULE, login).
 
 
 
@@ -228,39 +241,25 @@ get_players(Tracker, Option) when   is_atom(Option)
 
 
 get_players(Tracker, Options) ->
-    gen_server:call(?MODULE, {get_players, Tracker, Options}, ?DB_TIMEOUT).
+    gen_server:call(?MODULE, {get_players, Tracker, Options}, ?TWITTER_DB_TIMEOUT).
 
-
-
-%%--------------------------------------------------------------------
--spec get_players_R(Tracker   :: atom(),
-                    MinTweets :: pos_integer()) -> string().
-%
-% @doc  DEBUG: Prepares a player list for processing by R.
-%
-%       TODO: R-module: eri:eval("barplot(gw, main='#globalwarming', ylab='tweets', xlab='account')").
-% @end  --
-get_players_R(Tracker, MinTweets) ->
-    Players = get_players(Tracker, MinTweets),
-    Counts  = [binary_to_list(Cnt) || {_, Cnt} <- Players],
-    lists:flatten([atom_to_list(Tracker), " <- c(", lists:join($,, Counts), ")"]).
 
 
 %%--------------------------------------------------------------------
 -spec get_tweets(Tracker     :: atom(),
                  ScreenNames :: binary()
                               | string()
-                              | list()) -> list().
+                              | player()
+                              | all) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
-%       take the form "denDrown" or ["denDrown", "someOneElse"]
+%       take one of the following forms:
+%           - <<"denDrown">>                : for one account
+%           - ["denDrown", "someOneElse"]   : for multiple accounts
+%           - `all'                         : all available tweets (careful!)
 %
-%       Options is a property list allowing the following:
-%           - `start'       Begining datetime to start looking for tweets
-%           - `stop'        End datetime to start looking for players
-%           - `no_retweet'  Collect original tweets only
-%
-%       NOTE: this pulls only classic 140-char tweets
+%       NOTE: this pulls only classic 140 and 280 char tweets (no
+%             extended tweets)
 % @end  --
 get_tweets(Tracker, ScreenNames) ->
     get_tweets(Tracker, ScreenNames, []).
@@ -271,13 +270,27 @@ get_tweets(Tracker, ScreenNames) ->
 -spec get_tweets(Tracker     :: atom(),
                  ScreenNames :: binary()
                               | string()
-                              | list(),
+                              | list()
+                              | player()
+                              | all,
                  Options     :: list()) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
-%       take the form "denDrown" or ["denDrown", "someOneElse"]
+%       take one of the following forms:
+%           - <<"denDrown">>                : for one account
+%           - ["denDrown", "someOneElse"]   : for multiple accounts
+%           - `all'                         : all available tweets (careful!)
 %
-%       NOTE: this pulls only classic 140-char tweets
+%       Options is a property list allowing the following:
+%           - `start'       Begining datetime to start looking for tweets
+%           - `stop'        End datetime to stop looking for players
+%           - `no_retweet'  Collect original tweets only
+%           - `mn_emo'      Call weka for an emotion analysis on the tweets
+%                           and store the results in mnesia.  For this option
+%                           we return the pid of the process handling the request.
+%
+%       NOTE: this pulls only classic 140 and 280 char tweets (no
+%             extended tweets)
 % @end  --
 get_tweets(_, [], _) ->
     [];
@@ -292,20 +305,44 @@ get_tweets(Tracker, ScreenName, Options) when is_binary(ScreenName) ->
 
 
 get_tweets(Tracker, ScreenNames, Options) ->
-    % Convert a singleton ScreenName to a list of one
-    ScreenNameList = case io_lib:printable_unicode_list(ScreenNames) of
-        true  -> [ScreenNames];                         % ["justOne"]
-        false -> ScreenNames
-    end,
-    gen_server:call(?MODULE, {get_tweets, Tracker, ScreenNameList, Options}, ?DB_TIMEOUT).
+    gen_server:call(?MODULE, {get_tweets, Tracker, listify_string(ScreenNames), Options}, ?TWITTER_DB_TIMEOUT).
 
+
+
+%%--------------------------------------------------------------------
+-spec has_hashtag(Hash :: string() | atom(),
+                  Text :: string() | binary()) -> boolean().
+%%
+% @doc  Returns `true' if the specified tweet text contains the requested
+%       hashtag; and `false' otherwise.
+% @end  --
+has_hashtag(Hash, Text) when is_binary(Text) ->
+    has_hashtag(Hash, binary_to_list(Text));
+
+has_hashtag([$#|Hash], Text) ->
+    has_lookup(Hash, Text);
+
+has_hashtag(Hash, Text) ->
+    has_lookup(Hash, Text).
+
+
+
+%%--------------------------------------------------------------------
+-spec to_hashtag(Tracker :: atom()) -> string()
+                                     | undefined.
+%%
+% @doc  Returns the complete hashtag (prepended with `#') for the
+%       specified `Tracker' code.
+% @end  --
+to_hashtag(Tracker) ->
+    ?hashtag(Tracker).
 
 
 
 %%====================================================================
 %% Server Implementation
 %%--------------------------------------------------------------------
--spec init(list()) -> any().
+%% init:
 %%
 % @doc  Initialization for the Twitter access server.
 % @end  --
@@ -342,9 +379,7 @@ terminate(Why, #state{db_conn = DBConn}) ->
 
 
 %%--------------------------------------------------------------------
--spec code_change(OldVsn :: term(),
-                  State  :: state(),
-                  Extra  :: term()) -> {atom(), term()}.
+%% code_change:
 %%
 % @doc  Hot code update processing: a placeholder.
 % @end  --
@@ -440,15 +475,19 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
     %
     % Note: This pulls only classic 140|280-char tweets and does not consider the extended_text field.
     %       Also, we're going to want to move the list_to_sql line to a DB module
-    %?debug("Screenames: ~p", [ScreenNames]),
-    ScreenNameSQL = lists:flatten(["('", hd(ScreenNames), "'",
-                                   [io_lib:format(",'~s'", [SN]) || SN <- tl(ScreenNames)],
-                                   ")"]),
     TimestampCond = get_timestamp_ms_sql("AND", Options),
     %
     % Have they asked to exclude retweets?
     RetweetCond = case proplists:get_bool(no_retweet, Options) of
         true  -> <<"AND status->'retweeted_status'->>'id' is NULL">>;
+        false -> <<"">>
+    end,
+    %
+    %?debug("Screenames: ~p", [ScreenNames]),
+    ScreenNamesCond = case ScreenNames =/= all of
+        true  -> io_lib:format("AND status->'user'->>'screen_name' IN ('~s'~s) ",
+                               [hd(ScreenNames),
+                                lists:flatten([io_lib:format(",'~s'", [SN]) || SN <- tl(ScreenNames)])]);
         false -> <<"">>
     end,
     Query = io_lib:format("SELECT status->>'id' AS id, "
@@ -460,10 +499,10 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                           "FROM ~s "
                           "WHERE track = '~s' "
                             "AND hash_~s "
-                            "AND status->>'lang' ='~s' ~s ~s "
-                            "AND status->'user'->>'screen_name' IN ~s "
+                            "AND status->>'lang' ='~s' ~s ~s ~s "
                           "ORDER BY timestamp_ms",
-                          [StatusTbl, ?DB_TRACK, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNameSQL]),
+                          [StatusTbl, ?DB_TRACK, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNamesCond]),
+
     %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, Rows} -> [#tweet{id             = ID,
@@ -493,6 +532,16 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
+handle_cast(login, State) ->
+    URL = get_pin(),
+    ?notice("Please retrieve your PIN from ~s~n", [URL]),
+
+    % TODO: We need a proper UI for PIN entry
+    % {ok, PIN} = io:fread("PIN> ", "~s"),
+    % authenticate(PIN),
+    {noreply, State};
+
+
 handle_cast({request_token, AccessKey, AccessSecret}, State = #state{consumer = Consumer}) ->
     {ok, Resp} = oauth:post(?twitter_oauth_url("request_token"),
                             [{oauth_callback, oob}],
@@ -573,6 +622,22 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
+%%--------------------------------------------------------------------
+-spec listify_string(S :: string()
+                        | term()) -> list() | term().
+%%
+% @doc  Turn a single string or printable binary into a one-item list
+%       of that item.  If the input is already a normal list (or really,
+%       anything other than a singleton string), the we return it as is.
+% @end  --
+listify_string(S) ->
+    case io_lib:printable_unicode_list(S) of
+        true  -> [S];                         % ["justOne"]
+        false -> S
+    end.
+
+
+
 %%--------------------------------------------------------------------
 -spec track(KeyWords :: binary()
                       | string(),
@@ -665,7 +730,7 @@ process_track([Packet | Rest]) ->
 
 
 %%--------------------------------------------------------------------
--spec log_tweet(map()) -> ok.
+-spec log_tweet(Tweet :: map()) -> ok.
 %%
 % @doc  Pretty-prints the information contained in a tweet over
 %       multiple log lines.
@@ -677,7 +742,8 @@ log_tweet(Tweet) ->
 
 %%--------------------------------------------------------------------
 -spec log_tweet(Indent :: string(),
-                Pair   :: {binary(), term()}) -> ok.
+                MapKV  :: map()
+                        | {binary(), term()}) -> ok.
 %%
 % @doc  Recursively logs the information contained in a tweet
 % @end  --
@@ -766,28 +832,8 @@ store_tweet(RawTweet, IsCC, IsGW, #state{db_conn = DBConn,
 
 
 %%--------------------------------------------------------------------
--spec has_hashtag(Hash :: string() | atom(),
-                  Text :: string() | binary()) -> undefined
-                                                | string().
-%%
-% @doc  Returns `true' if the specified tweet text contains the requested
-%       hashtag; and `false' otherwise.
-% @end  --
-has_hashtag(Hash, Text) when is_binary(Text) ->
-    has_hashtag(Hash, binary_to_list(Text));
-
-has_hashtag([$#|Hash], Text) ->
-    has_lookup(Hash, Text);
-
-has_hashtag(Hash, Text) ->
-    has_lookup(Hash, Text).
-
-
-
-%%--------------------------------------------------------------------
 -spec has_lookup(Look :: string() | atom(),
-                 Text :: string() | binary()) -> undefined
-                                               | string().
+                 Text :: string() | binary()) -> boolean().
 %%
 % @doc  Returns `true' if the specified tweet text contains the requested
 %       lookup keyword (hashtag without the hash); and `false' otherwise.
@@ -851,7 +897,7 @@ get_timestamp_ms_sql(Prefix, Options) ->
                                           end,
     Period = lists:map(GetPeriod, [{proplists:get_value(start, Options), <<">=">>},     % Inclusive
                                    {proplists:get_value(stop,  Options), <<"<">>}]),    % Exclusive
-    %
+
     % Build the SQL WHERE clause component
     case lists:filter(fun(P) -> P =/= undefined end, Period) of
         [Cut]       -> io_lib:format("~s ~s", [Prefix, Cut]);

@@ -229,7 +229,7 @@
       (log/notice "Started:" (.node    node))
       (log/notice "Mailbox:" (.getName mbox))
       (log/debug  "Cookie :" (.cookie  node))
-      (log/debug  "Pinging:" (.ping node "sila@chiron" 2000))
+      (log/debug  "Pinging:" (.ping node "gw@chiron" 2000)) ; FIXME: !hard-coded
       (otp-loop node mbox)
       (.close node))
     'ok))

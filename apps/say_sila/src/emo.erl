@@ -8,22 +8,29 @@
 %%
 %% @doc Say-Sila Emotion Utilities
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(emo).
-
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([add/2,
          average/1,
+         average/2,
+         clip_stoic/1,
          do_top_hits/2,
+         emote/4,
+         emote/5,
+         is_stoic/1,
          relevel/1,
-         stoic/0]).
+         stoic/0,
+         stoic/1]).
 
--include("llog.hrl").
--include("raven.hrl").
+-include("emo.hrl").
 -include("twitter.hrl").
+-include_lib("llog/include/llog.hrl").
+
+-define(EPSILON, 0.00000001).
 
 
 %%====================================================================
@@ -48,13 +55,54 @@ add(Emos1, Emos2) ->
 %
 % @doc  Returns an `emotions' record representing the average emotion
 %       levels per tweet.
+%
+%       CAUTION: Currently nothing is stopping us from whittling away
+%                emotional levels by calling this function repeatedly
+%                for the same group!
 % @end  --
 average(Emos = #emotions{count = Cnt}) ->
     if  0 =:= Cnt -> #emotions{};
         1 =:= Cnt -> Emos;
         Cnt > 1 ->
-            #emotions{count  = 1,
+            #emotions{count  = Cnt,
                       levels = relevel(fun(Emo) -> {Emo, maps:get(Emo, Emos#emotions.levels) / Cnt} end)}
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec average(Running  :: emotions(),
+              Incoming :: emotions()) -> emotions().
+%
+% @doc  Updates a running average `emotions' record with new (incoming)
+%       levels of emotion.
+% @end  --
+average(Running  = #emotions{count = RunCnt},
+        Incoming = #emotions{count = IncCnt}) ->
+    %
+    TotalCnt = RunCnt + IncCnt,
+    Averager = fun(Emo) ->
+                      Run = maps:get(Emo, Running#emotions.levels),
+                      Inc = maps:get(Emo, Incoming#emotions.levels),
+                      {Emo, (RunCnt * Run + IncCnt * Inc) / TotalCnt}
+                      end,
+    #emotions{count  = TotalCnt,
+              levels = relevel(Averager)}.
+
+
+
+%%--------------------------------------------------------------------
+-spec clip_stoic(Tweet :: tweet()) -> tweet().
+%
+% @doc  Returns the specified tweet, changing the text field field to
+%       `ignored' if all tweet levels are zero.
+%       levels per tweet.
+% @end  --
+clip_stoic(Tweet) ->
+    %
+    case emo:is_stoic(Tweet) of
+        true  -> Tweet#tweet{text = ignored};
+        false -> Tweet
     end.
 
 
@@ -86,6 +134,67 @@ do_top_hits(Tweet = #tweet{emotions = TweetEmos}, TopHits) ->
 
 
 %%--------------------------------------------------------------------
+-spec emote(Anger   :: float(),
+            Fear    :: float(),
+            Sadness :: float(),
+            Joy     :: float()) -> emotions().
+%
+% @doc  Returns an `emotion' record representing a single communication
+%       at the specifed levels of emotion.
+%
+%       Equivalent to emote(1, Anger, Fear, Sadness, Joy).
+% @end  --
+emote(Anger, Fear, Sadness, Joy) ->
+    emote(1, Anger, Fear, Sadness, Joy).
+
+
+
+%%--------------------------------------------------------------------
+-spec emote(Count   :: non_neg_integer(),
+            Anger   :: float(),
+            Fear    :: float(),
+            Sadness :: float(),
+            Joy     :: float()) -> emotions().
+%
+% @doc  Returns an `emotion' record representing `Count' communications
+%       of the specifed levels of emotion.
+% @end  --
+emote(Count, Anger, Fear, Sadness, Joy) ->
+    #emotions{count   = Count,
+              levels  = #{anger   => Anger,
+                          fear    => Fear,
+                          sadness => Sadness,
+                          joy     => Joy}}.
+
+
+
+%%--------------------------------------------------------------------
+-spec is_stoic(Emos :: tweet()
+                     | emotions()
+                     | float()) -> boolean().
+%
+% @doc  Returns an true if the entity has no emotion, false otherwise.
+% @end  --
+is_stoic(#tweet{emotions = Emos}) ->
+    is_stoic(Emos);
+
+
+is_stoic(#emotions{levels = Levels}) ->
+    Fn = fun Recur([]) ->
+                 true;
+             Recur([{_, Level} | RestLevels]) ->
+                 if Level > ?EPSILON -> false;
+                    true             -> Recur(RestLevels)
+                 end end,
+    Fn(maps:to_list(Levels));
+
+
+is_stoic(Level) when is_float(Level) ->
+    (Level < ?EPSILON).
+
+
+
+%%--------------------------------------------------------------------
 -spec relevel(Closure :: fun((atom()) -> {atom(), float()})) -> map().
 %
 % @doc  Applies the Closure function to all emotion values in the
@@ -104,16 +213,24 @@ relevel(Closure) ->
 
 
 %%--------------------------------------------------------------------
--spec stoic() -> map().
+-spec stoic() -> emotions().
 %
 % @doc  Returns an `emotion' record representing "no emotion".
+%
+%       Equivalent to stoic(1).
 % @end  --
 stoic() ->
-    #emotions{count   = 1,
-              levels  = #{anger   => 0.0,
-                          fear    => 0.0,
-                          sadness => 0.0,
-                          joy     => 0.0}}.
+    stoic(1).
+
+
+%%--------------------------------------------------------------------
+-spec stoic(Count :: non_neg_integer()) -> emotions().
+%
+% @doc  Returns an `emotion' record representing "no emotion" for the
+%       specified communication count.
+% @end  --
+stoic(Count) ->
+    emote(Count, 0.0, 0.0, 0.0, 0.0).
 
 
 

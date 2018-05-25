@@ -1,7 +1,10 @@
 say_sila.config
 yaws.conf
+apps/say_sila/www/out
 apps/say_sila/www/graph/*.png
 apps/say_sila/www/status/*.etf
+apps/say_sila/priv/plot/*.dat
+apps/say_sila/priv/plot/*.png
 
 rebar.lock
 .rebar3
@@ -9,7 +12,7 @@ _*
 .eunit
 *.o
 *.beam
-*.plt
+*.*_plt
 *.swp
 *.swo
 .erlang.cookie
@@ -19,6 +22,7 @@ erl_crash.dump
 .rebar
 logs
 _build
+.DS_Store
 .idea
 rebar3.crashdump
 compile_commands.json

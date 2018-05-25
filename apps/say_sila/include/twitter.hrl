@@ -16,15 +16,15 @@
 
 -include("raven.hrl").
 
-
+-define(TWITTER_DB_TIMEOUT, (10 * 60 * 1000)).              % FIXME: Rework the DB-pull logic
 -record(tweet, {id              :: binary(),
-                rt_id           :: undefined | binary(),    % rt_ means "retweet"
-                rt_screen_name  :: undefined | binary(),
+                rt_id           :: binary(),    % rt_ means "retweet"
+                rt_screen_name  :: binary(),
                 timestamp_ms    :: pos_integer(),
                 screen_name     :: binary(),
-                text            :: binary(),
+                text            :: ignored | binary(),
                 type            :: tweet | retweet | undefined,
-                emotions        :: emotions() }).
+                emotions        :: rec_emotions() }).
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
 

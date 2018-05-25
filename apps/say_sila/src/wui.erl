@@ -26,13 +26,13 @@
         get_status_dir/0,
         get_reports/1,
         get_tag/1,          get_tag/3,
-        get_track/1]).
+        get_track/1,        get_track/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
--include("llog.hrl").
 -include("raven.hrl").
 -include("wui.hrl").
+-include_lib("llog/include/llog.hrl").
 
 
 % TODO: Move config to the configuration
@@ -48,6 +48,8 @@
                      {listen,     {0,0,0,0}},
                      {docroot,    ?DOC_ROOT},
                      {appmods,    [{"/emote", wui_emote}]} ]).
+
+-define(GOOD_TRACKS, ["cc", "gw"]).     % TODO: Link to `twitter' definitions
 
 
 -record(state, {yaws :: yaws_conf()}).
@@ -145,7 +147,7 @@ get_comms_atom(Arg, Default) ->
 
 
 %%--------------------------------------------------------------------
--spec get_conf() -> [tuple()].
+-spec get_conf() -> yaws_conf().
 %%
 % @doc  Gets child process run specifications for YAWS processes.
 %       A supervisor should call this function.
@@ -160,10 +162,10 @@ get_conf() ->
                       sConfs = SConfs,
                       childSpecs = ChildSpecs},
 
-    ?debug("YAWS: id[~p]",   [Conf#yaws_conf.id]),
-    ?debug("YAWS: glob[~p]", [Conf#yaws_conf.gConf]),
-    ?debug("YAWS: srvs[~p]", [Conf#yaws_conf.sConfs]),
-    ?debug("YAWS: chSp[~p]", [Conf#yaws_conf.childSpecs]),
+    ?debug("YAWS: id[~s]",   [Conf#yaws_conf.id]),
+    %debug("YAWS: glob[~p]", [Conf#yaws_conf.gConf]),
+    %debug("YAWS: srvs[~p]", [Conf#yaws_conf.sConfs]),
+    %debug("YAWS: chSp[~p]", [Conf#yaws_conf.childSpecs]),
     Conf.
 
 
@@ -224,7 +226,7 @@ get_status_dir() ->
 %%--------------------------------------------------------------------
 -spec get_tag(Arg :: arg()
                    | atom()
-                   | string()) -> binary().
+                   | string()) -> string().
 %%
 % @doc  Returns the naming tag as track.percent.period.
 % @end  --
@@ -250,15 +252,37 @@ get_tag(Track, BigP100, Period) ->
 
 
 %%--------------------------------------------------------------------
--spec get_track(Arg :: arg()) -> binary().
+-spec get_track(Arg :: arg()) -> binary()
+                               | undefined.
 %%
 % @doc  Returns the tracking code requested in the URL `querydata'.
 % @end  --
 get_track(Arg) ->
+    get_track(Arg, binary).
+
+
+%%--------------------------------------------------------------------
+-spec get_track(Arg  :: arg(),
+                Type :: atom | binary | atom | string) -> atom()
+                                                        | string().
+%%
+% @doc  Returns the tracking code requested in the URL `querydata'
+%       in the form of the specified data type.
+% @end  --
+get_track(Arg, Type) ->
     case yaws_api:queryvar(Arg, "track") of
-        {ok, "cc"}  -> <<"cc">>;
-        {ok, "gw"}  -> <<"gw">>;
-        _           -> undefined
+        {ok, Text} ->
+
+            % Yaws gives us the value as a string (list); convert as needed
+            case {lists:member(Text, ?GOOD_TRACKS), Type} of
+
+                {false, _}  -> undefined;
+                {_, atom}   -> list_to_existing_atom(Text);
+                {_, binary} -> list_to_binary(Text);
+                {_, string} -> Text
+            end;
+
+        _ -> undefined
     end.
 
 
@@ -290,9 +314,7 @@ terminate(Why, _State) ->
 
 
 %%--------------------------------------------------------------------
--spec code_change(OldVsn :: term(),
-                  State  :: term(),
-                  Extra  :: term()) -> {atom(), term()}.
+%% code_change:
 %%
 % @doc  Hot code update processing: a placeholder.
 % @end  --

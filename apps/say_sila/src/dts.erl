@@ -16,6 +16,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([add/3,
+         date_str/1,
          datetime_to_unix/2,
          dayize/1,
          earlier/2,
@@ -26,24 +27,21 @@
          sub/3,
          unix_to_datetime/2]).
 
+-include("dts.hrl").
+
 -define(SECS_EPOCH,     62167219200).
 -define(SECS_IN_MIN,    60).
 -define(SECS_IN_HOUR,  (60 * ?SECS_IN_MIN)).
 -define(SECS_IN_DAY,   (24 * ?SECS_IN_HOUR)).
 
 
--type date()     :: {integer(), integer(), integer()}.
--type time()     :: {integer(), integer(), integer()}.
--type datetime() :: {date(), time()}.
-
-
 
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec add(DTS  :: tuple(),
+-spec add(DTS  :: datetime(),
           Amt  :: integer(),
-          Unit :: atom()) -> tuple().
+          Unit :: atom()) -> datetime().
 %
 %     Adds the specified amout of `second', `minute', `hour' or `day'
 %     to DTS.
@@ -63,8 +61,23 @@ add(DTS, Amt, Unit) ->
 
 
 %%--------------------------------------------------------------------
--spec datetime_to_unix(DateTime :: datetime() | date(),
-                       Unit     :: atom()) -> tuple().
+-spec date_str(DTS :: tuple()) -> string().
+%
+%     Creates a printable date from a datetime tuple.
+% @end  --
+date_str({Date, {_ ,_ ,_}}) ->
+    str(Date);
+
+
+date_str(Date) ->
+    str(Date).
+
+
+
+%%--------------------------------------------------------------------
+-spec datetime_to_unix(DateTime :: datetime()
+                                 | date(),
+                       Unit     :: atom()) -> non_neg_integer().
 %
 %     Returns the Epoch timestamp (specify `second' or `millisecond')
 %     corresponding to Erlang datetime tuple: `{{year,mon,day},{hour,min,sec}}'
@@ -87,6 +100,10 @@ datetime_to_unix(DateTime, Unit) ->
 %
 % @doc  Zeros out the time portion from a datetime tuple.
 % @end  --
+dayize(Day = {_, _, _}) ->
+    {Day, {0, 0, 0}};
+
+
 dayize({{Year, Month, Day}, {_, _, _}}) ->
     {{Year, Month, Day}, {0, 0, 0}}.
 

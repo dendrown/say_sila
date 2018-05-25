@@ -16,10 +16,10 @@
 
 -export([out/1, out/2]).
 
--include("llog.hrl").
 -include("raven.hrl").
 -include("twitter.hrl").
 -include("wui.hrl").
+-include_lib("llog/include/llog.hrl").
 
 
 

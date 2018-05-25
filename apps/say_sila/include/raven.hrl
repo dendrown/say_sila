@@ -14,18 +14,13 @@
 -ifndef(_raven_included).
 -define(_raven_included, ack).
 
--define(EMOTIONS,       [anger, fear, sadness, joy]).
+-include("emo.hrl").
+
+-define(RAVEN_WUI_CODE, "A01").                             % Raven-to-WUI data version code
 -define(MAX_TOP_HITS,   5).
 
 -define(BEG_EPOCH,      {{1970,  1,  1}, { 0,  0,  0}}).
 -define(END_EPOCH,      {{9999, 12, 31}, {23, 59, 59}}).
-
-
-% Emotions for analysis
--record(emotions, {count   = 0   :: integer(),
-                   levels  = #{} :: map() }).
--type emotions() :: #emotions{}.
-
 
 
 % File handling for one emotion

@@ -29,16 +29,12 @@
          tweets_to_arff/2]).
 
 -include("sila.hrl").
--include("llog.hrl").
--include("raven.hrl").
 -include("twitter.hrl").
+-include_lib("llog/include/llog.hrl").
 
 -define(put_attr(FOut, Attrib, Type),   io:format(FOut, "@ATTRIBUTE ~s ~s\n",    [Attrib, Type])).
 -define(put_attr(FOut, A0, A1, Type),   io:format(FOut, "@ATTRIBUTE ~s_~s ~s\n", [A0, A1, Type])).
--define(put_nl(FOut),                   io:put_chars(FOut, "\n")).
 
-% TODO: Move to llog
--define(fmt(Fmt, Args), io_lib:format(Fmt, Args)).
 
 
 %%====================================================================
@@ -54,7 +50,7 @@
 report_to_arff(Name, RptMap = #{big := BigRptPack}) ->
     %
     % Run each of the big report types (the reg reports should match)
-    lists:map(fun(Type) -> report_to_arff(?fmt("~s.~s", [Name, Type]), Type, RptMap) end,
+    lists:map(fun(Type) -> report_to_arff(?str_fmt("~s.~s", [Name, Type]), Type, RptMap) end,
               proplists:get_keys(BigRptPack)).
 
 
@@ -113,7 +109,7 @@ report_to_arff(Name, Type, #{big := BigRptPack,
                                              maps:get(Emo, RegLot#emotions.levels)])
                                   end,
                               ?EMOTIONS),
-                ?put_nl(FOut),
+                ?io_nl(FOut),
                 {LotCnt + 1,
                  BigCnt + BigLotCnt,
                  RegCnt + RegLotCnt}
@@ -197,8 +193,8 @@ open_arff(Name) ->
 
 %%--------------------------------------------------------------------
 -spec close_arff(FPath  :: string(),
-                 FOut   :: term()) -> ok
-                                  | {error, term()}.
+                 FOut   :: pid()) -> {ok, string()}
+                                   | {{error, atom()}, string()}.
 %%
 % @doc  Closes an ARFF file, previously opened with `open_arff'.
 % @end  --
