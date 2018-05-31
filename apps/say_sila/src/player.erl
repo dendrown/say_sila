@@ -25,6 +25,7 @@
          get_players/1,
          get_rankings/1,
          get_totals/1,
+         ontologize/1,
          plot/1,
          reset/1,
          tweet/2]).
@@ -62,7 +63,8 @@
 -record(state, {tracker     :: atom(),
                 players     :: map(),
                 rankings    :: counts(),
-                totals      :: counts() }).   % number of tt|ot|rt|tm processed
+                totals      :: counts(),    % number of tt|ot|rt|tm processed
+                jvm_node    :: atom() }).
 -type state() :: #state{}.
 -type words() :: [binary()].
 
@@ -130,8 +132,6 @@ get_big_p100(Tracker, BigP100) ->
                    BigP100 :: float()) -> proplist().
 %%
 % @doc  Generate data for a Venn diagram for the WUI.
-%
-%       FIXME: Verbize the function name
 % @end  --
 get_big_venn(Tracker, BigP100) ->
     %
@@ -223,6 +223,17 @@ get_totals(Tracker) ->
 
 
 %%--------------------------------------------------------------------
+-spec ontologize(Tracker :: atom()) -> ok.
+%%
+% @doc  Finalizes ontology creation by sending post counts for the
+%       original tweeters.  (Maybe there'll be more to come...)
+% @end  --
+ontologize(Tracker) ->
+    gen_server:call(?reg(Tracker), ontologize).
+
+
+
+%%--------------------------------------------------------------------
 -spec plot(Tracker :: atom()) -> ok.
 %%
 % @doc  Creates gnuplot scripts, data files and images.
@@ -285,7 +296,7 @@ tweet(Tracker, Tweet) ->
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
 init([Tracker]) ->
-    ?notice("Initializing player services: ~s", [Tracker]),
+    ?notice("Initializing player services: trk[~s]", [Tracker]),
     process_flag(trap_exit, true),
     {ok, reset_state(Tracker)}.
 
@@ -334,6 +345,30 @@ handle_call(reset, _From, #state{tracker = Tracker}) ->
     {reply, ok, reset_state(Tracker)};
 
 
+handle_call(ontologize, _From, State = #state{rankings = Rankings,
+                                              jvm_node = JVM}) ->
+
+    % Functions to run a ranking tree, sending role declarations to Clojure
+    RecPosts = fun(Cnt, Acct) ->
+                   Ont = #{domain   => Acct,
+                           property => hasPostCount,
+                           range    => Cnt},
+                   {say, JVM} ! {self(), make_ref(), sila, jsx:encode([Ont])},
+                   ok end,
+
+    GBRunner = fun Recur(none) -> ok;
+                   Recur({Cnt, Accts, Itr}) ->
+                      [RecPosts(Cnt, Acct) || Acct <- Accts],
+                      Recur(gb_trees:next(Itr))
+                      end,
+
+    % Only do (posting) tweeters:
+    % Retweeted and Mentioned Authors were handled during normal processing
+    TreeItr = gb_trees:iterator(Rankings#counts.tt),
+    GBRunner(gb_trees:next(TreeItr)),
+    {reply, ok, State};
+
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
@@ -353,7 +388,8 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
                                    emotions    = Emos,
                                    type        = Type}}, State = #state{players  = Players,
                                                                         rankings = Rankings,
-                                                                        totals   = Totals}) ->
+                                                                        totals   = Totals,
+                                                                        jvm_node = JVM}) ->
 
     Acct = string:lowercase(ScreenName),
     ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
@@ -382,7 +418,7 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
     % And update the social network counts/rankings
     {NewPlayers,
      NewRankings,
-     NewTotals} = check_network(Tweet, MidPlayers, MidRankings, MidTotals),
+     NewTotals} = check_network(Tweet, JVM, MidPlayers, MidRankings, MidTotals),
 
     {noreply, State#state{players   = NewPlayers,
                           rankings  = NewRankings,
@@ -440,7 +476,11 @@ get_comm_combos(N, [Comm | Rest]) ->
 % @doc  Process out-of-band messages
 % @end  --
 reset_state(Tracker) ->
-    %
+
+    % Grab what we need from the configuration
+    {ok, App} = application:get_application(),
+    JVM       = application:get_env(App, jvm_node, undefined),
+
     % Start the tweet tree with a node for minimum-activity players
     ReRanker = gb_trees:insert(?MIN_COMMS_COUNT, [], gb_trees:empty()),
     Rankings = #counts{tt = ReRanker,
@@ -451,7 +491,8 @@ reset_state(Tracker) ->
     #state{tracker  = Tracker,
            players  = #{},
            rankings = Rankings,
-           totals   = #counts{}}.
+           totals   = #counts{},
+           jvm_node = JVM}.
 
 
 
@@ -581,6 +622,7 @@ update_players_aux(Profile, Account, CommCodes, Players) ->
 
 %%--------------------------------------------------------------------
 -spec check_network(Tweet    :: tweet(),
+                    JVM      :: atom(),
                     Players  :: map(),
                     Rankings :: counts(),
                     Totals   :: counts()) -> {map(), counts(), counts()}.
@@ -588,8 +630,8 @@ update_players_aux(Profile, Account, CommCodes, Players) ->
 % @doc  Updates a `Players' map according to the retweet/mention counts
 %       in the specified `Tweet'.
 % @end  --
-check_network(Tweet = #tweet{screen_name = Acct,
-                             text        = Text},
+check_network(Tweet = #tweet{text = Text},
+              JVM,
               Players,
               Rankings = #counts{rt = RanksRT, tm = RanksTM},
               Totals   = #counts{rt = TotalRT, tm = TotalTM}) ->
@@ -599,11 +641,11 @@ check_network(Tweet = #tweet{screen_name = Acct,
     {MidWords,
      MidPlayers,
      NewRanksRT,
-     NewTotalRT} = check_retweet(Tweet, Words, Players, RanksRT, TotalRT),
+     NewTotalRT} = check_retweet(Tweet, Words, JVM, Players, RanksRT, TotalRT),
 
     {NewPlayers,
      NewRanksTM,
-     NewTotalTM} = check_mentions(Acct, MidWords, MidPlayers, RanksTM, TotalTM),
+     NewTotalTM} = check_mentions(Tweet, MidWords, JVM, MidPlayers, RanksTM, TotalTM),
 
     {NewPlayers,
      Rankings#counts{rt = NewRanksRT, tm = NewRanksTM},
@@ -614,6 +656,7 @@ check_network(Tweet = #tweet{screen_name = Acct,
 %%--------------------------------------------------------------------
 -spec check_retweet(Tweet   :: tweet(),
                     Words   :: words(),
+                    JVM     :: atom(),
                     Players :: map(),
                     Ranking :: count_tree(),
                     Total   :: non_neg_integer()) -> {words(), map(), count_tree(), non_neg_integer()}.
@@ -623,11 +666,12 @@ check_network(Tweet = #tweet{screen_name = Acct,
 %       if the specified `Tweet' is a `retweet'.  If it is, the first
 %       two words are stripped from the word list in the return tuple.
 % @end  --
-check_retweet(#tweet{type           = retweet,
-                     id             = ID,
-                     rt_screen_name = Author,
-                     screen_name    = Acct},
+check_retweet(Tweet = #tweet{type           = retweet,
+                             id             = ID,
+                             rt_screen_name = Author,
+                             screen_name    = Acct},
               [<<"RT">>, <<$@, AuthRef/binary>> | RestWords],
+              JVM,
               Players,
               Ranking,
               Total) ->
@@ -640,6 +684,9 @@ check_retweet(#tweet{type           = retweet,
         [Author] ->
             % Updates the retweeted author's (NOT the tweeter's) counts/ranking
             MidPlayers = update_players(Author, ?prop_counts(rt), Players),
+
+            % Inform the say-sila ontology about the retweet
+            {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)},
 
             {MidPlayers,
              update_ranking(Author, #counts.rt, MidPlayers, Ranking),
@@ -656,21 +703,22 @@ check_retweet(#tweet{type           = retweet,
 check_retweet(#tweet{type           = retweet,
                      id             = ID,
                      rt_screen_name = Author,
-                     screen_name    = Acct}, Words, Players, Ranking, Total) ->
+                     screen_name    = Acct}, Words, _, Players, Ranking, Total) ->
     %
     ?warning("Non-standard retweet text: id[~p] acct[~s] auth[~s]", [ID, Acct, Author]),
     {Words, Players, Ranking, Total};
 
 
-check_retweet(_, Words, Players, Ranking, Total) ->
+check_retweet(_, Words, _, Players, Ranking, Total) ->
     % Ignore non-retweets
     {Words, Players, Ranking, Total}.
 
 
 
 %%--------------------------------------------------------------------
--spec check_mentions(Acct    :: binary(),
+-spec check_mentions(Tweet   :: tweet(),
                      Words   :: words(),
+                     JVM     :: atom(),
                      Players :: map(),
                      Ranking :: count_tree(),
                      Total   :: non_neg_integer()) -> {map(), count_tree(), non_neg_integer()}.
@@ -679,31 +727,44 @@ check_retweet(_, Words, Players, Ranking, Total) ->
 %       with respect to the accounts mentioned in the word list from
 %       the tweet text.
 % @end  --
-check_mentions(_, [], Players, Ranking, Total) ->
+check_mentions(_, [], _, Players, Ranking, Total) ->
     {Players, Ranking, Total};
 
 
-check_mentions(Acct, [<<$@>> | RestWords], Players, Ranking, Total) ->
+check_mentions(Tweet, [<<$@>> | RestWords], JVM, Players, Ranking, Total) ->
     %
     % Skip lone @-sign
-    check_mentions(Acct, RestWords, Players, Ranking, Total);
+    check_mentions(Tweet, RestWords, JVM, Players, Ranking, Total);
 
 
-check_mentions(Acct, [<<$@, Mention/binary>> | RestWords], Players, Ranking, Total) ->
-    %
+check_mentions(Tweet = #tweet{id          = ID,
+                              screen_name = Acct},
+               [<<$@, Mention/binary>> | RestWords],
+               JVM,
+               Players,
+               Ranking,
+               Total) ->
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
     NewPlayers = update_players(Mention, ?prop_counts(tm), Players),
 
-    check_mentions(Acct,
+    % Inform the say-sila ontology about the mention
+    TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
+    Roles = [#{domain => Acct, property => makesMentionIn, range => TwID},
+             #{domain => TwID, property => hasMentionOf,   range => Mention}],
+    {say, JVM} ! {self(), make_ref(), sila, jsx:encode(Roles)},
+
+    % Look for more mentions in the rest of the tweet text
+    check_mentions(Tweet,
                    RestWords,
+                   JVM,
                    NewPlayers,
                    update_ranking(Mention, #counts.tm, NewPlayers, Ranking),
                    1 + Total);
 
 
-check_mentions(Acct, [ _ | RestWords], Players, Ranking, Total) ->
+check_mentions(Tweet, [ _ | RestWords], JVM, Players, Ranking, Total) ->
     % Normal word
-    check_mentions(Acct, RestWords, Players, Ranking, Total).
+    check_mentions(Tweet, RestWords, JVM, Players, Ranking, Total).
 
 
 

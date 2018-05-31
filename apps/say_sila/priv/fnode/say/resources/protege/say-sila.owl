@@ -1,0 +1,336 @@
+<?xml version="1.0"?>
+<Ontology xmlns="http://www.w3.org/2002/07/owl#"
+     xml:base="http://www.semanticweb.org/dend/ontologies/uqam/say-sila"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     ontologyIRI="http://www.semanticweb.org/dend/ontologies/uqam/say-sila">
+    <Prefix name="" IRI="http://www.semanticweb.org/dend/ontologies/uqam/say-sila"/>
+    <Prefix name="owl" IRI="http://www.w3.org/2002/07/owl#"/>
+    <Prefix name="rdf" IRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#"/>
+    <Prefix name="xml" IRI="http://www.w3.org/XML/1998/namespace"/>
+    <Prefix name="xsd" IRI="http://www.w3.org/2001/XMLSchema#"/>
+    <Prefix name="foaf" IRI="http://xmlns.com/foaf/0.1/"/>
+    <Prefix name="rdfs" IRI="http://www.w3.org/2000/01/rdf-schema#"/>
+    <Prefix name="sioc" IRI="http://rdfs.org/sioc/ns#"/>
+    <Prefix name="dcterms" IRI="http://purl.org/dc/terms/"/>
+    <Annotation>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <Literal xml:lang="en" datatypeIRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral">Ontology for analyzing climate change communications on Twitter.</Literal>
+    </Annotation>
+    <Declaration>
+        <Class IRI="#Influencer"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="foaf:Document"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RetweetedAuthor"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#OriginalTweet"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Player"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#mentionedBy"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#OriginalAuthor"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Tweeter"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#TwitterAccount"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#MentionedAuthor"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#RegularPlayer"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#retweetedBy"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#OriginalTweeter"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty abbreviatedIRI="dcterms:references"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Tweet"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#retweetedIn"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Retweet"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="sioc:Post"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#BigPlayer"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Retweeter"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#soic:mentions"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#posts"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="sioc:UserAccount"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#tweets"/>
+    </Declaration>
+    <Declaration>
+        <Class IRI="#Author"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#retweets"/>
+    </Declaration>
+    <Declaration>
+        <ObjectProperty IRI="#mentionedIn"/>
+    </Declaration>
+    <Declaration>
+        <Class abbreviatedIRI="sioc:Role"/>
+    </Declaration>
+    <EquivalentClasses>
+        <Class IRI="#MentionedAuthor"/>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="#mentionedBy"/>
+            <Class IRI="#Tweeter"/>
+        </ObjectSomeValuesFrom>
+    </EquivalentClasses>
+    <EquivalentClasses>
+        <Class IRI="#OriginalAuthor"/>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="#tweets"/>
+            <Class IRI="#OriginalTweet"/>
+        </ObjectSomeValuesFrom>
+    </EquivalentClasses>
+    <EquivalentClasses>
+        <Class IRI="#OriginalTweeter"/>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="#tweets"/>
+            <Class IRI="#OriginalTweet"/>
+        </ObjectSomeValuesFrom>
+    </EquivalentClasses>
+    <EquivalentClasses>
+        <Class IRI="#Player"/>
+        <ObjectUnionOf>
+            <Class IRI="#Author"/>
+            <Class IRI="#Tweeter"/>
+        </ObjectUnionOf>
+    </EquivalentClasses>
+    <EquivalentClasses>
+        <Class IRI="#RetweetedAuthor"/>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="#retweetedBy"/>
+            <Class IRI="#Tweeter"/>
+        </ObjectSomeValuesFrom>
+    </EquivalentClasses>
+    <EquivalentClasses>
+        <Class IRI="#Retweeter"/>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="#retweets"/>
+            <Class IRI="#Tweet"/>
+        </ObjectSomeValuesFrom>
+    </EquivalentClasses>
+    <EquivalentClasses>
+        <Class IRI="#Tweeter"/>
+        <ObjectSomeValuesFrom>
+            <ObjectProperty IRI="#tweets"/>
+            <Class IRI="#Tweet"/>
+        </ObjectSomeValuesFrom>
+    </EquivalentClasses>
+    <SubClassOf>
+        <Class abbreviatedIRI="sioc:Post"/>
+        <Class abbreviatedIRI="foaf:Document"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Author"/>
+        <Class IRI="#TwitterAccount"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#BigPlayer"/>
+        <Class IRI="#Player"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Influencer"/>
+        <Class abbreviatedIRI="sioc:Role"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#MentionedAuthor"/>
+        <Class IRI="#Author"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#OriginalAuthor"/>
+        <Class IRI="#Author"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#OriginalTweet"/>
+        <Class IRI="#Tweet"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#OriginalTweeter"/>
+        <Class IRI="#Tweeter"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Player"/>
+        <Class abbreviatedIRI="sioc:Role"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RegularPlayer"/>
+        <Class IRI="#Player"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Retweet"/>
+        <Class IRI="#Tweet"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#RetweetedAuthor"/>
+        <Class IRI="#Author"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Retweeter"/>
+        <Class IRI="#Tweeter"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Tweet"/>
+        <Class abbreviatedIRI="sioc:Post"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#Tweeter"/>
+        <Class IRI="#TwitterAccount"/>
+    </SubClassOf>
+    <SubClassOf>
+        <Class IRI="#TwitterAccount"/>
+        <Class abbreviatedIRI="sioc:UserAccount"/>
+    </SubClassOf>
+    <DisjointClasses>
+        <Class IRI="#BigPlayer"/>
+        <Class IRI="#RegularPlayer"/>
+    </DisjointClasses>
+    <DisjointClasses>
+        <Class IRI="#OriginalTweet"/>
+        <Class IRI="#Retweet"/>
+    </DisjointClasses>
+    <SubObjectPropertyOf>
+        <ObjectProperty IRI="#mentionedBy"/>
+        <ObjectProperty abbreviatedIRI="dcterms:references"/>
+    </SubObjectPropertyOf>
+    <SubObjectPropertyOf>
+        <ObjectProperty IRI="#mentionedIn"/>
+        <ObjectProperty abbreviatedIRI="dcterms:references"/>
+    </SubObjectPropertyOf>
+    <SubObjectPropertyOf>
+        <ObjectProperty IRI="#retweetedBy"/>
+        <ObjectProperty abbreviatedIRI="dcterms:references"/>
+    </SubObjectPropertyOf>
+    <SubObjectPropertyOf>
+        <ObjectProperty IRI="#retweetedIn"/>
+        <ObjectProperty abbreviatedIRI="dcterms:references"/>
+    </SubObjectPropertyOf>
+    <SubObjectPropertyOf>
+        <ObjectProperty IRI="#retweets"/>
+        <ObjectProperty IRI="#tweets"/>
+    </SubObjectPropertyOf>
+    <SubObjectPropertyOf>
+        <ObjectProperty IRI="#tweets"/>
+        <ObjectProperty IRI="#posts"/>
+    </SubObjectPropertyOf>
+    <InverseObjectProperties>
+        <ObjectProperty IRI="#mentionedIn"/>
+        <ObjectProperty IRI="#soic:mentions"/>
+    </InverseObjectProperties>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#mentionedBy"/>
+        <Class IRI="#Author"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#mentionedIn"/>
+        <Class IRI="#Author"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#posts"/>
+        <Class abbreviatedIRI="sioc:UserAccount"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#retweetedBy"/>
+        <Class IRI="#RetweetedAuthor"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#retweetedIn"/>
+        <Class IRI="#RetweetedAuthor"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#retweets"/>
+        <Class IRI="#Retweeter"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyDomain>
+        <ObjectProperty IRI="#tweets"/>
+        <Class IRI="#Tweeter"/>
+    </ObjectPropertyDomain>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#mentionedBy"/>
+        <Class IRI="#Tweeter"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#mentionedIn"/>
+        <Class IRI="#Tweet"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#posts"/>
+        <Class abbreviatedIRI="sioc:Post"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#retweetedBy"/>
+        <Class IRI="#Retweeter"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#retweetedIn"/>
+        <Class IRI="#Retweet"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#retweets"/>
+        <Class IRI="#Retweet"/>
+    </ObjectPropertyRange>
+    <ObjectPropertyRange>
+        <ObjectProperty IRI="#tweets"/>
+        <Class IRI="#Tweet"/>
+    </ObjectPropertyRange>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#Tweet</IRI>
+        <Literal xml:lang="en" datatypeIRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral">A communication published on Twitter</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>#TwitterAccount</IRI>
+        <Literal xml:lang="en" datatypeIRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral">A user account on Twitter.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>#TwitterAccount</IRI>
+        <Literal xml:lang="en" datatypeIRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral">TwitterAccount</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>#TwitterAccount</IRI>
+        <Literal xml:lang="fr" datatypeIRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#PlainLiteral">Utilisateur de Twitter</Literal>
+    </AnnotationAssertion>
+</Ontology>
+
+
+
+<!-- Generated by the OWL API (version 4.2.8.20170104-2310) https://github.com/owlcs/owlapi -->
+

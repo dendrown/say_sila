@@ -8,12 +8,15 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
-(ns sila-weka.core
-  (:require [sila-weka.weka :as weka])
-  (:require [sila-weka.log  :as log])
+(ns say.core
+  (:require [say.sila :as sila]
+            [say.weka :as weka]
+            [say.log  :as log]
+            [clojure.data.json :as json])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
+                                     OtpErlangBinary
                                      OtpErlangList
                                      OtpErlangMap
                                      OtpErlangObject
@@ -133,21 +136,30 @@
   "
   :cmd)
 
-(defmethod dispatch "emote"   [msg] (do-weka "emote"   msg weka/filter-arff weka/+EMOTE-FILTER+))
-(defmethod dispatch "dic9315" [msg] (do-weka "dic9315" msg weka/filter-arff '(:embed :bws)))
+(defmethod dispatch "emote"   [msg] (do-weka 'emote   msg weka/filter-arff weka/+EMOTE-FILTER+))
+(defmethod dispatch "dic9315" [msg] (do-weka 'dic9315 msg weka/filter-arff '(:embed :bws)))
+
+(defmethod dispatch "sila" [msg]
+  (future
+      (let [json (String. (.binaryValue ^OtpErlangBinary (:arg msg)))
+            arg  (json/read-str json
+                                :key-fn keyword)]
+        ; No response sent back to Erlang
+        (sila/execute arg))))
+
 
 (defmethod dispatch "embed" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
-  (log/info "Filter/EMBED:" fpath)
-  (weka/filter-arff fpath :embed)
-  (log/info "Filter/EMBED:" fpath "[OK]")))
+    (log/info "Filter/EMBED:" fpath)
+    (weka/filter-arff fpath :embed)
+    (log/info "Filter/EMBED:" fpath "[OK]")))
 
 
 (defmethod dispatch "lex" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
-  (log/info "Filter/LEX:" fpath)
-  (weka/filter-arff fpath :lex)
-  (log/info "Filter/LEX:" fpath "[OK]")))
+    (log/info "Filter/LEX:" fpath)
+    (weka/filter-arff fpath :lex)
+    (log/info "Filter/LEX:" fpath "[OK]")))
 
 
 (defmethod dispatch "ping" [msg]
@@ -204,10 +216,14 @@
 
   ([node mbox quitter]
     (when-not (identical? quitter :quit)
+
+      ; Block, waiting on something to do
+      ;
       ;(log/info "Waiting on SILA command...")
       (let [tuple ^OtpErlangTuple (.receive ^OtpMbox mbox)
             msg   (parse-msg tuple)]
-        (log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
+
+        ;(log/debug (:src msg) "<" (:cmd msg) ">:" (:arg msg))
         (recur node mbox (dispatch (conj msg {:mbox mbox})))))))
 
 
@@ -225,11 +241,21 @@
 
   ([name]
     (let [node (make-node name)
-          mbox (.createMbox  node "weka")]
+          mbox (.createMbox  node "say")]
       (log/notice "Started:" (.node    node))
       (log/notice "Mailbox:" (.getName mbox))
       (log/debug  "Cookie :" (.cookie  node))
       (log/debug  "Pinging:" (.ping node "gw@chiron" 2000)) ; FIXME: !hard-coded
+
+      ; FIXME:  The ontology functionality in the say.sila namespace requires
+      ;         us to be in say.sila so it can create individuals as variables
+      ;         in that name-space. Tawny.owl macros are picky and fragile :(
+      (ns say.sila)
+
+      ; Receive and process messages from Erlang
       (otp-loop node mbox)
-      (.close node))
-    'ok))
+      (.close node)
+
+      ; Put us back where we're supposed to be
+      (ns say.core)
+    'ok)))

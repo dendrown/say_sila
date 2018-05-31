@@ -36,6 +36,8 @@
          get_tweets/2,
          get_tweets/3,
          has_hashtag/2,
+         ontologize/1,
+         ontologize/2,
          to_hashtag/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -305,7 +307,9 @@ get_tweets(Tracker, ScreenName, Options) when is_binary(ScreenName) ->
 
 
 get_tweets(Tracker, ScreenNames, Options) ->
-    gen_server:call(?MODULE, {get_tweets, Tracker, listify_string(ScreenNames), Options}, ?TWITTER_DB_TIMEOUT).
+    gen_server:call(?MODULE,
+                    {get_tweets, Tracker, listify_string(ScreenNames), Options},
+                    ?TWITTER_DB_TIMEOUT).
 
 
 
@@ -328,6 +332,62 @@ has_hashtag(Hash, Text) ->
 
 
 %%--------------------------------------------------------------------
+-spec ontologize(Tweet :: tweet()) -> [map()].
+%%
+% @doc  Converts the specified `Tweet' into a map with components
+%       of interest for the say-sila ontology.
+% @end  --
+ontologize(Tweet) ->
+    ontologize(Tweet, map).
+
+
+
+%%--------------------------------------------------------------------
+-spec ontologize(Tweet  :: tweet(),
+                 Format :: map | json) -> [map()]
+                                        | json_binary().
+%%
+% @doc  Converts the specified `Tweet' into a map with components
+%       of interest for the say-sila ontology.
+%
+%       NOTE: The object property definitions are in say.sila.clj
+% @end  --
+ontologize(#tweet{id             = ID,
+                  screen_name    = Tweeter,
+                  type           = Type,
+                  rt_screen_name = Author}, Format) ->
+    %
+    % Add `t' prefix to the tweet ID so it can be a Clojure variable
+    TwID = list_to_binary(?str_fmt("t~s", [ID])),
+
+    % The object property is an action-based role
+    Action = case Type of
+        tweet   -> tweets;
+        retweet -> retweets
+    end,
+
+    % We always have the Tweeter tweeting|retweeting a tweet
+    TweeterTweets = #{domain   => Tweeter,
+                      property => Action,
+                      range    => TwID},
+
+    % Listify that, plus on a retweet,
+    % also capture the Retweet retweeting the Retweeted Author (ha!)
+    OntMaps = case Action of
+        tweets   -> [TweeterTweets];
+        retweets -> [TweeterTweets, #{domain   => TwID,
+                                      property => isRetweetFrom,
+                                      range    => Author}]
+    end,
+
+    % Format the ontology role mapping as requested
+    case Format of
+        map  -> OntMaps;
+        json -> jsx:encode(OntMaps)
+    end.
+
+
+%%--------------------------------------------------------------------
 -spec to_hashtag(Tracker :: atom()) -> string()
                                      | undefined.
 %%
@@ -336,6 +396,7 @@ has_hashtag(Hash, Text) ->
 % @end  --
 to_hashtag(Tracker) ->
     ?hashtag(Tracker).
+
 
 
 
