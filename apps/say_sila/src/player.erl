@@ -353,7 +353,7 @@ handle_call(ontologize, _From, State = #state{rankings = Rankings,
                    Ont = #{domain   => Acct,
                            property => hasPostCount,
                            range    => Cnt},
-                   {say, JVM} ! {self(), make_ref(), sila, jsx:encode([Ont])},
+                   say_ontology(JVM, jsx:encode([Ont])),
                    ok end,
 
     GBRunner = fun Recur(none) -> ok;
@@ -686,7 +686,7 @@ check_retweet(Tweet = #tweet{type           = retweet,
             MidPlayers = update_players(Author, ?prop_counts(rt), Players),
 
             % Inform the say-sila ontology about the retweet
-            {say, JVM} ! {self(), make_ref(), sila, twitter:ontologize(Tweet, json)},
+            say_ontology(JVM, twitter:ontologize(Tweet, json)),
 
             {MidPlayers,
              update_ranking(Author, #counts.rt, MidPlayers, Ranking),
@@ -751,7 +751,7 @@ check_mentions(Tweet = #tweet{id          = ID,
     TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
     Roles = [#{domain => Acct, property => makesMentionIn, range => TwID},
              #{domain => TwID, property => hasMentionOf,   range => Mention}],
-    {say, JVM} ! {self(), make_ref(), sila, jsx:encode(Roles)},
+    say_ontology(JVM, jsx:encode(Roles)),
 
     % Look for more mentions in the rest of the tweet text
     check_mentions(Tweet,
@@ -863,3 +863,17 @@ plot(Tracker, CommType, AcctCnt, Rankings, Markers) ->
                 yrange  => {0, ?plot_num_tweets(Tracker)},
                 markers => Markers}).
 
+
+%%--------------------------------------------------------------------
+-spec say_ontology(JVM  :: atom(),
+                   Msg  :: json_binary()) -> ok.
+%%
+% @doc  Sends an update for the say-sila ontology.
+%
+%       NOTE: Ontology updates are currently disabled.
+% @end  --
+say_ontology(JVM, Msg) ->
+    WorkRef = make_ref(),
+    ?debug("Ontology disabled: jvm[~s] ref~p msg[~s]", [JVM, WorkRef, Msg]).
+    %{say, JVM} ! {self(), WorkRef, sila, Msg}.
+    
