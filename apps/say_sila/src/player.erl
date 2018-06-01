@@ -18,6 +18,7 @@
 
 -export([start_link/1, stop/1,
          get_big_p100/2,
+         get_biggies/2,
          get_big_venn/2,
          get_comm_codes/0,
          get_comm_codes/1,
@@ -99,10 +100,14 @@ stop(Tracker) ->
                    BigP100 :: float()) -> proplist().
 %%
 % @doc  Returns top P100 percent
-%%--------------------------------------------------------------------
+%
+% @deprecated The flat percentage strategy is does not provide
+%             common cut points for different player types.
+%             Use {@link get_biggies}.
+% @end  --
 get_big_p100(_, BigP100) when   BigP100 =< 0.0
                          orelse BigP100 >= 1.0 ->
-    % before telling them what we want a percentage value to look like.
+    % Tell them what we want a percentage value to look like.
     ?error("Specify percentage between 0 and 1"),
     error(badarg);
 
@@ -154,6 +159,35 @@ get_big_venn(Tracker, BigP100) ->
 
     % Make it so...
     [Intersect(Comms) || Comms <- get_comm_combos()].
+
+
+
+%%--------------------------------------------------------------------
+-spec get_biggies(Tracker :: atom(),
+                  MinRate :: float()) -> proplist().
+%%
+% @doc  Returns big players, candidate influencers
+% @end  --
+get_biggies(_, MinRate) when   MinRate =< 0.0
+                        orelse MinRate >= 1.0 ->
+    % Tell them what we want a percentage value to look like.
+    ?error("Specify percentage between 0 and 1"),
+    error(badarg);
+
+
+get_biggies(Tracker, MinRate) ->
+    %
+    [counts | Totals] = tuple_to_list(get_totals(Tracker)),
+    [counts | Ranks ] = tuple_to_list(get_rankings(Tracker)),
+
+    % Pull the accounts which are adding tweets at or above the minimum rate
+    GoalFlds = ?COUNTS,
+    BigActivity  = lists:map(fun(TR) -> pull_biggies(MinRate, TR) end,
+                             lists:zip(Totals, Ranks)),
+    ActivityP100 = [erlang:insert_element(1, Act, Cnt/Tot) || {Act = {Cnt, _ }, Tot} <- lists:zip(BigActivity,
+                                                                                                  Totals)],
+    % Return the results as a proplist of the count types
+    lists:zip(GoalFlds,  ActivityP100).
 
 
 
@@ -386,10 +420,11 @@ handle_call(Msg, _From, State) ->
 % @end  --
 handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
                                    emotions    = Emos,
-                                   type        = Type}}, State = #state{players  = Players,
-                                                                        rankings = Rankings,
-                                                                        totals   = Totals,
-                                                                        jvm_node = JVM}) ->
+                                   type        = Type}},
+            State = #state{players  = Players,
+                           rankings = Rankings,
+                           totals   = Totals,
+                           jvm_node = JVM}) ->
 
     Acct = string:lowercase(ScreenName),
     ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
@@ -511,7 +546,7 @@ get_top({GoalCnt, Ranking}) ->
 %%--------------------------------------------------------------------
 -spec get_top(GoalCnt :: non_neg_integer(),
               Ranking :: count_tree(),
-              Cmt     :: non_neg_integer(),
+              Cnt     :: non_neg_integer(),
               Accts   :: list()) -> {non_neg_integer(), list()}.
 %%
 % @doc  Attempts to get the accounts with a total as close to the goal
@@ -541,6 +576,62 @@ get_top(GoalCnt, Ranking, Cnt, Accts) ->
              case NewCnt >= GoalCnt of
                 true  -> {NewCnt, NewAccts};
                 false -> get_top(GoalCnt, NewRanking, NewCnt, NewAccts)
+            end
+        end.
+
+
+
+%%--------------------------------------------------------------------
+-spec pull_biggies(MinRate :: float(),
+                   GrpData :: {non_neg_integer(),
+                               count_tree()}) -> {non_neg_integer(), list()}.
+%%
+% @doc  Attempts to get the accounts with a total as close to the goal
+%       as possible.
+% @end  --
+pull_biggies(MinRate, {Total, Ranking}) ->
+    pull_biggies(MinRate, Total, Ranking, 0, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec pull_biggies(MinRate :: float(),
+                   Total   :: non_neg_integer(),
+                   Ranking :: count_tree(),
+                   Cnt     :: non_neg_integer(),
+                   Accts   :: list()) -> {non_neg_integer(), list()}.
+%%
+% @doc  Attempts to get the accounts with a total as close to the goal
+%       as possible.  This is the helper function for get_top/2.
+% @end  --
+pull_biggies(MinRate, Total, Ranking, Cnt, Accts) ->
+    %
+    case gb_trees:is_empty(Ranking) of
+
+        true ->
+            % Nothing more we can do, return what we've got
+            {Cnt, Accts};
+
+        false ->
+            % Pull the (next) biggest group
+            {TopCnt,
+             TopAccts,
+             NewRanking} = gb_trees:take_largest(Ranking),
+
+            % Is this group tweeting at the required rate?
+            TopRate = TopCnt / Total,
+            case TopRate < MinRate of
+                true  ->
+                    % This group didn't make the cut.  We're done!
+                    {Cnt, Accts};
+                false ->
+                    % We got a group of biggies, add 'em and try to pull more...
+                    NewCnt   = Cnt + (TopCnt * length(TopAccts)),
+                    NewAccts = Accts ++ TopAccts,
+                    %?debug("Pulling biggies: rate[~4.2f] cnt[~B => ~B] tree[~B => ~B]",
+                    %       [TopRate, Cnt, NewCnt, gb_trees:size(Ranking), gb_trees:size(NewRanking)]),
+
+                    pull_biggies(MinRate, Total, NewRanking, NewCnt, NewAccts)
             end
         end.
 
