@@ -17,8 +17,8 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1, stop/1,
-         get_big_p100/2,
          get_biggies/2,
+         get_big_p100/2,
          get_big_venn/2,
          get_comm_codes/0,
          get_comm_codes/1,
@@ -44,6 +44,7 @@
 
 %% Plotting definitions
 -define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
+-define(PLOT_BP_RATES,          [0.0025, 0.0050, 0.0075, 0.0100, 0.0125, 0.0150, 0.0175, 0.0200]).
 -define(PLOT_NUM_PLAYERS,       #{cc => 300,
                                   gw => 300}).
 -define(plot_num_players(Trk),  maps:get(Trk, ?PLOT_NUM_PLAYERS)).
@@ -101,9 +102,11 @@ stop(Tracker) ->
 %%
 % @doc  Returns top P100 percent
 %
-% @deprecated The flat percentage strategy is does not provide
-%             common cut points for different player types.
-%             Use {@link get_biggies}.
+% @deprecated   The flat percentage strategy is does not provide
+%               common cut points for different player types.
+%               Use {@link get_biggies}
+%               This function will be gone after we convert the
+%               Venn Diagrammer and some code from adhoc.
 % @end  --
 get_big_p100(_, BigP100) when   BigP100 =< 0.0
                          orelse BigP100 >= 1.0 ->
@@ -276,12 +279,12 @@ plot(Tracker) ->
 
     Players  = get_players(Tracker),
     Rankings = get_rankings(Tracker),
-    BigP100s = [get_big_p100(Tracker, Pct) || Pct <- ?PLOT_MARKERS],
+    Biggies  = [get_biggies(Tracker, Rate) || Rate <- ?PLOT_BP_RATES],
 
     % Draw lines on the plot at certain percentile points
     Marker = fun(Comm) ->
-                 Bigs = [proplists:get_value(Comm, Pct) || Pct <- BigP100s],
-                 [length(BPs) || {_,_,BPs} <- Bigs]
+                 InfoByComm = [proplists:get_value(Comm, InfoByRate) || InfoByRate <- Biggies],
+                 [length(BPs) || {_Pct, _Cnt, BPs} <- InfoByComm]
                  end,
 
     Plotter  = fun({Comm, Ndx}) ->
