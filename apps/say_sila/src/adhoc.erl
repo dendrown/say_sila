@@ -14,7 +14,7 @@
 -module(adhoc).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([md/2, md/3, one/0, two/0, q4/0, today/0]).
+-export([md/2, md/3, one/0, two/0, q1/0, q4/0, q4q1/0, today/0]).
 
 -include("emo.hrl").
 -include("player.hrl").
@@ -139,9 +139,12 @@ emo_str(Key, Emos) ->
 
 
 %%--------------------------------------------------------------------
-one() -> [{start, {2017, 12, 31}}, {stop, {2018, 1, 1}}].
-two() -> [{start, {2017, 12, 30}}, {stop, {2018, 1, 1}}].
-q4()  -> [{start, {2017, 10,  1}}, {stop, {2018, 1, 1}}].
+one()  -> [{start, {2017, 12, 31}}, {stop, {2018, 1, 1}}].
+two()  -> [{start, {2017, 12, 30}}, {stop, {2018, 1, 1}}].
+
+q4()   -> [{start, {2017, 10,  1}}, {stop, {2018, 1, 1}}].   % Gonna need the year
+q1()   -> [{start, {2018, 01,  1}}, {stop, {2018, 4, 1}}].
+q4q1() -> [{start, {2017, 10,  1}}, {stop, {2018, 4, 1}}].
 
 today() ->
     Today = dts:dayize(calendar:local_time()),
