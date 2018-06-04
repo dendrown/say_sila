@@ -443,7 +443,7 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
              Rankings#counts{tt = update_ranking(Acct, #counts.tt, MidProfMap, Rankings#counts.tt),
                              ot = update_ranking(Acct, #counts.ot, MidProfMap, Rankings#counts.ot)},
              Totals  #counts{tt = 1 + Totals#counts.tt,
-                             ot = 1 + Totals#counts.tt}};
+                             ot = 1 + Totals#counts.ot}};
 
         % Retweets are not original, just do the send ( `tt' )
         retweet ->
