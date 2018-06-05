@@ -18,6 +18,7 @@
 
 -export([start_link/1, stop/1,
          get_biggies/2,
+         get_biggies/3,
          get_big_p100/2,
          get_big_venn/2,
          get_comm_codes/0,
@@ -27,7 +28,8 @@
          get_rankings/1,
          get_totals/1,
          ontologize/1,
-         plot/1,
+         plot/2,
+         plot/3,
          reset/1,
          tweet/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
@@ -45,6 +47,7 @@
 %% Plotting definitions
 -define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
 -define(PLOT_BP_RATES,          [0.0025, 0.0050, 0.0075, 0.0100, 0.0125, 0.0150, 0.0175, 0.0200]).
+-define(PLOT_MIN_DECEL,         0.0008).
 -define(PLOT_NUM_PLAYERS,       #{cc => 300,
                                   gw => 300}).
 -define(plot_num_players(Trk),  maps:get(Trk, ?PLOT_NUM_PLAYERS)).
@@ -171,21 +174,33 @@ get_big_venn(Tracker, BigP100) ->
 %%
 % @doc  Returns big players, candidate influencers
 % @end  --
-get_biggies(_, MinRate) when   MinRate =< 0.0
-                        orelse MinRate >= 1.0 ->
+get_biggies(Tracker, MinRate) ->
+    get_biggies(Tracker, MinRate, ?PLOT_MIN_DECEL).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_biggies(Tracker  :: atom(),
+                  MinRate  :: float(),
+                  MinDecel :: float()) -> proplist().
+%%
+% @doc  Returns big players, candidate influencers
+% @end  --
+get_biggies(_, MinRate, _) when   MinRate =< 0.0
+                           orelse MinRate >= 1.0 ->
     % Tell them what we want a percentage value to look like.
     ?error("Specify percentage between 0 and 1"),
     error(badarg);
 
 
-get_biggies(Tracker, MinRate) ->
+get_biggies(Tracker, MinRate, MinDecel) ->
     %
     [counts | Totals] = tuple_to_list(get_totals(Tracker)),
     [counts | Ranks ] = tuple_to_list(get_rankings(Tracker)),
 
     % Pull the accounts which are adding tweets at or above the minimum rate
     GoalFlds = ?COUNTS,
-    BigActivity  = lists:map(fun(TR) -> pull_biggies(MinRate, TR) end,
+    BigActivity  = lists:map(fun(TR) -> pull_biggies(MinRate, MinDecel, TR) end,
                              lists:zip(Totals, Ranks)),
     ActivityP100 = [erlang:insert_element(1, Act, Cnt/Tot) || {Act = {Cnt, _ }, Tot} <- lists:zip(BigActivity,
                                                                                                   Totals)],
@@ -271,15 +286,32 @@ ontologize(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec plot(Tracker :: atom()) -> ok.
+-spec plot(Tracker  :: atom(),
+           MinDecel :: float()) -> ok.
 %%
 % @doc  Creates gnuplot scripts, data files and images.
 % @end  --
-plot(Tracker) ->
+plot(Tracker, MinDecel) ->
+    plot(Tracker, ?PLOT_BP_RATES, MinDecel).
+
+
+
+%%--------------------------------------------------------------------
+-spec plot(Tracker  :: atom(),
+           Rates    :: float | [float()],
+           MinDecel :: float()) -> ok.
+%%
+% @doc  Creates gnuplot scripts, data files and images.
+% @end  --
+plot(Tracker, Rate, MinDecel) when is_float(Rate) ->
+    plot(Tracker, [Rate], MinDecel);
+
+
+plot(Tracker, Rates, MinDecel) ->
 
     Players  = get_players(Tracker),
     Rankings = get_rankings(Tracker),
-    Biggies  = [get_biggies(Tracker, Rate) || Rate <- ?PLOT_BP_RATES],
+    Biggies  = [get_biggies(Tracker, Rate, MinDecel) || Rate <- Rates],
 
     % Draw lines on the plot at certain percentile points
     Marker = fun(Comm) ->
@@ -585,58 +617,68 @@ get_top(GoalCnt, Ranking, Cnt, Accts) ->
 
 
 %%--------------------------------------------------------------------
--spec pull_biggies(MinRate :: float(),
-                   GrpData :: {non_neg_integer(),
-                               count_tree()}) -> {non_neg_integer(), list()}.
+-spec pull_biggies(MinRate  :: float(),
+                   MinDecel :: float(),
+                   GrpData  :: {non_neg_integer(),
+                                count_tree()}) -> {non_neg_integer(), list()}.
 %%
 % @doc  Attempts to get the accounts with a total as close to the goal
 %       as possible.
 % @end  --
-pull_biggies(MinRate, {Total, Ranking}) ->
-    pull_biggies(MinRate, Total, Ranking, 0, []).
+pull_biggies(MinRate, MinDecel, {Total, Ranking}) ->
+    pull_biggies(MinRate, MinDecel, Total, Total, Ranking, 0, []).
 
 
 
 %%--------------------------------------------------------------------
--spec pull_biggies(MinRate :: float(),
-                   Total   :: non_neg_integer(),
-                   Ranking :: count_tree(),
-                   Cnt     :: non_neg_integer(),
-                   Accts   :: list()) -> {non_neg_integer(), list()}.
+-spec pull_biggies(MinRate  :: float(),
+                   MinDecel :: float(),
+                   Total    :: non_neg_integer(),
+                   TallyIn  :: non_neg_integer(),
+                   RanksIn  :: count_tree(),
+                   CountIn  :: non_neg_integer(),
+                   AcctsIn  :: list()) -> {non_neg_integer(), list()}.
 %%
 % @doc  Attempts to get the accounts with a total as close to the goal
 %       as possible.  This is the helper function for get_top/2.
 % @end  --
-pull_biggies(MinRate, Total, Ranking, Cnt, Accts) ->
+pull_biggies(MinRate, MinDecel, Total, TallyIn, RanksIn, CountIn, AcctsIn) ->
     %
-    case gb_trees:is_empty(Ranking) of
+    case gb_trees:is_empty(RanksIn) of
 
         true ->
             % Nothing more we can do, return what we've got
-            {Cnt, Accts};
+            {CountIn, AcctsIn};
 
         false ->
             % Pull the (next) biggest group
-            {TopCnt,
-             TopAccts,
-             NewRanking} = gb_trees:take_largest(Ranking),
+             case gb_trees:take_largest(RanksIn) of
 
-            % Is this group tweeting at the required rate?
-            TopRate = TopCnt / Total,
-            case TopRate < MinRate of
-                true  ->
-                    % This group didn't make the cut.  We're done!
-                    {Cnt, Accts};
-                false ->
-                    % We got a group of biggies, add 'em and try to pull more...
-                    NewCnt   = Cnt + (TopCnt * length(TopAccts)),
-                    NewAccts = Accts ++ TopAccts,
-                    %?debug("Pulling biggies: rate[~4.2f] cnt[~B => ~B] tree[~B => ~B]",
-                    %       [TopRate, Cnt, NewCnt, gb_trees:size(Ranking), gb_trees:size(NewRanking)]),
+                {_, [], Ranks} ->
+                    % Make sure this isn't an empty node in the tree
+                    pull_biggies(MinRate, MinDecel, Total, TallyIn, Ranks, CountIn, AcctsIn);
 
-                    pull_biggies(MinRate, Total, NewRanking, NewCnt, NewAccts)
+                {Tally, Accts, Ranks} ->
+                    % Is this group still tweeting above the required contribution rate
+                    % and deceleration?  Note for the calculations, our delta-player is 1.
+                    Rate  = Tally / Total,                      %  percentage/∂player
+                    Decel = (TallyIn - Tally) / (CountIn + 1),  % ∂percentage/∂player
+                    case (Rate  >= MinRate)  orelse
+                         (Decel >= MinDecel) of
+                        true ->
+                            % We got a group of biggies, add 'em and try to pull more...
+                            Count    = CountIn + (Tally * length(Accts)),
+                            NewAccts = AcctsIn ++ Accts,
+                            ?debug("Pulling biggies: rate[~6.4f] decel[~6.4f] cnt[~B => ~B] tree[~B => ~B]",
+                                   [Rate, Decel, CountIn, Count, gb_trees:size(RanksIn), gb_trees:size(Ranks)]),
+
+                            pull_biggies(MinRate, MinDecel, Total, Tally, Ranks, Count, NewAccts);
+                        false ->
+                            % This group didn't make the cut.  We're done!
+                            {CountIn, AcctsIn}
+                    end
             end
-        end.
+    end.
 
 
 
