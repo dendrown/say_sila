@@ -157,7 +157,7 @@ get_big_venn(Tracker, BigP100) ->
 
     % Function to create counts for a list of one or more codes
     Intersect = fun(Comms) ->
-                    Accts = lists:map(fun(C) -> proplists:get_value(C, AcctSets) end, Comms),
+                    Accts = [proplists:get_value(C, AcctSets) || C <- Comms],
                     ISet  = sets:intersection(Accts),
                     %?debug("INTERSECTION~p => ~p", [Comms, sets:to_list(ISet)]),
                     {Comms, sets:size(ISet)}
@@ -225,7 +225,7 @@ get_comm_codes() ->
 % @doc  Returns communication codes in tuple-groups of N.
 % @end  --
 get_comm_codes(N) ->
-    get_comm_combos(N, ?COMM_CODES).
+    get_comm_combos(N, get_comm_codes()).
 
 
 
@@ -433,7 +433,7 @@ handle_call(ontologize, _From, State = #state{rankings = Rankings,
 
     % Only do (posting) tweeters:
     % Retweeted and Mentioned Authors were handled during normal processing
-    TreeItr = gb_trees:iterator(Rankings#counts.tt),
+    TreeItr = gb_trees:iterator(Rankings#counts.tter),
     GBRunner(gb_trees:next(TreeItr)),
     {reply, ok, State};
 
@@ -468,21 +468,23 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
     {MidPlayers,
      MidRankings,
      MidTotals} = case Type of
-        % An original tweet ( `ot' ) implies a tweet sent ( `tt' )
+        % An original tweeter ( `oter' ) implies tweeter ( `tter' )
         tweet ->
-            MidProfMap = update_players(Acct, [?prop_counts(tt), ?prop_counts(ot)], Emos, Players),
+            MidProfMap = update_players(Acct, [?prop_counts(tter), ?prop_counts(oter)], Emos, Players),
             {MidProfMap,
-             Rankings#counts{tt = update_ranking(Acct, #counts.tt, MidProfMap, Rankings#counts.tt),
-                             ot = update_ranking(Acct, #counts.ot, MidProfMap, Rankings#counts.ot)},
-             Totals  #counts{tt = 1 + Totals#counts.tt,
-                             ot = 1 + Totals#counts.ot}};
+             Rankings#counts{tter = update_ranking(Acct, #counts.tter, MidProfMap, Rankings#counts.tter),
+                             oter = update_ranking(Acct, #counts.oter, MidProfMap, Rankings#counts.oter)},
+             Totals  #counts{tter = 1 + Totals#counts.tter,
+                             oter = 1 + Totals#counts.oter}};
 
-        % Retweets are not original, just do the send ( `tt' )
+        % Retweets are not original, just do the send ( `tter' )
         retweet ->
-            MidProfMap = update_players(Acct, ?prop_counts(tt), Emos, Players),
+            MidProfMap = update_players(Acct, [?prop_counts(tter), ?prop_counts(rter)], Emos, Players),
             {MidProfMap,
-             Rankings#counts{tt = update_ranking(Acct, #counts.tt, MidProfMap, Rankings#counts.tt)},
-             Totals  #counts{tt = 1 + Totals#counts.tt}}
+             Rankings#counts{tter = update_ranking(Acct, #counts.tter, MidProfMap, Rankings#counts.tter),
+                             rter = update_ranking(Acct, #counts.rter, MidProfMap, Rankings#counts.rter)},
+             Totals  #counts{tter = 1 + Totals#counts.tter,
+                             rter = 1 + Totals#counts.rter}}
     end,
 
     % And update the social network counts/rankings
@@ -553,10 +555,11 @@ reset_state(Tracker) ->
 
     % Start the tweet tree with a node for minimum-activity players
     ReRanker = gb_trees:insert(?MIN_COMMS_COUNT, [], gb_trees:empty()),
-    Rankings = #counts{tt = ReRanker,
-                       ot = ReRanker,
-                       rt = ReRanker,
-                       tm = ReRanker},
+    Rankings = #counts{tter = ReRanker,
+                       oter = ReRanker,
+                       rter = ReRanker,
+                       rted = ReRanker,
+                       tmed = ReRanker},
 
     #state{tracker  = Tracker,
            players  = #{},
@@ -691,9 +694,9 @@ pull_biggies(MinRate, MinDecel, Total, TallyIn, RanksIn, CountIn, AcctsIn) ->
 % @doc  Retrieves a player's `profile' from the `Players' map, updates it
 %       with respect to the specified `Tweet', and returns the new map.
 % @end  --
-update_players(Account, CommCode, TweetEmos, Players) when is_tuple(CommCode) ->
-    %
-    update_players(Account, [CommCode], TweetEmos, Players);
+%update_players(Account, CommCode, TweetEmos, Players) when is_tuple(CommCode) ->
+%    %
+%    update_players(Account, [CommCode], TweetEmos, Players);
 
 
 update_players(Account, CommCodes, TweetEmos, Players) ->
@@ -769,23 +772,23 @@ update_players_aux(Profile, Account, CommCodes, Players) ->
 check_network(Tweet = #tweet{text = Text},
               JVM,
               Players,
-              Rankings = #counts{rt = RanksRT, tm = RanksTM},
-              Totals   = #counts{rt = TotalRT, tm = TotalTM}) ->
+              Rankings = #counts{rted = RanksRTed, tmed = RanksTMed},
+              Totals   = #counts{rted = TotalRTed, tmed = TotalTMed}) ->
 
     Words = string:split(Text, " ", all),
 
     {MidWords,
      MidPlayers,
-     NewRanksRT,
-     NewTotalRT} = check_retweet(Tweet, Words, JVM, Players, RanksRT, TotalRT),
+     NewRanksRTed,
+     NewTotalRTed} = check_retweet(Tweet, Words, JVM, Players, RanksRTed, TotalRTed),
 
     {NewPlayers,
-     NewRanksTM,
-     NewTotalTM} = check_mentions(Tweet, MidWords, JVM, MidPlayers, RanksTM, TotalTM),
+     NewRanksTMed,
+     NewTotalTMed} = check_mentions(Tweet, MidWords, JVM, MidPlayers, RanksTMed, TotalTMed),
 
     {NewPlayers,
-     Rankings#counts{rt = NewRanksRT, tm = NewRanksTM},
-     Totals  #counts{rt = NewTotalRT, tm = NewTotalTM}}.
+     Rankings#counts{rted = NewRanksRTed, tmed = NewRanksTMed},
+     Totals  #counts{rted = NewTotalRTed, tmed = NewTotalTMed}}.
 
 
 
@@ -819,13 +822,13 @@ check_retweet(Tweet = #tweet{type           = retweet,
 
         [Author] ->
             % Updates the retweeted author's (NOT the tweeter's) counts/ranking
-            MidPlayers = update_players(Author, ?prop_counts(rt), Players),
+            MidPlayers = update_players(Author, ?prop_counts(rted), Players),
 
             % Inform the say-sila ontology about the retweet
             say_ontology(JVM, twitter:ontologize(Tweet, json)),
 
             {MidPlayers,
-             update_ranking(Author, #counts.rt, MidPlayers, Ranking),
+             update_ranking(Author, #counts.rted, MidPlayers, Ranking),
              1 + Total};
 
         [Who] ->
@@ -881,7 +884,7 @@ check_mentions(Tweet = #tweet{id          = ID,
                Ranking,
                Total) ->
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
-    NewPlayers = update_players(Mention, ?prop_counts(tm), Players),
+    NewPlayers = update_players(Mention, ?prop_counts(tmed), Players),
 
     % Inform the say-sila ontology about the mention
     TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
@@ -894,7 +897,7 @@ check_mentions(Tweet = #tweet{id          = ID,
                    RestWords,
                    JVM,
                    NewPlayers,
-                   update_ranking(Mention, #counts.tm, NewPlayers, Ranking),
+                   update_ranking(Mention, #counts.tmed, NewPlayers, Ranking),
                    1 + Total);
 
 

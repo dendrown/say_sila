@@ -18,18 +18,19 @@
 
 -define(MIN_COMMS_COUNT,    3).                 % Minimum user activity for processing
 
--define(COMM_TYPES,     [tweet, original, retweet, mention]).
--define(COMM_CODES,     [tt,    ot,       rt,      tm     ]).
--type comm_code() ::     tt|    ot|       rt|      tm.
+-define(COMM_TYPES,     [tweeter, originater, retweeter, retweeted, mentioned]).
+-define(COMM_CODES,     [tter,    oter,       rter,      rted,      tmed     ]).
+-type comm_code() ::     ttter|   oter|       rter|      rted|      tmed.
 
 
 %%--------------------------------------------------------------------
 -type count_tree()  :: gb_trees:tree(integer(), list()).
 
--record(counts, {tt = 0 :: non_neg_integer() | count_tree(),    % Tweets sent from a user
-                 ot = 0 :: non_neg_integer() | count_tree(),    % Original tweets sent (not retweets)
-                 rt = 0 :: non_neg_integer() | count_tree(),    % Times retweeted be another user
-                 tm = 0 :: non_neg_integer() | count_tree()}).  % Times mentioned by another user
+-record(counts, {tter = 0 :: non_neg_integer() | count_tree(),    % Tweets sent from a user
+                 oter = 0 :: non_neg_integer() | count_tree(),    % Original tweets sent (not retweets)
+                 rter = 0 :: non_neg_integer() | count_tree(),    % Retweets sent (not originals)
+                 rted = 0 :: non_neg_integer() | count_tree(),    % Times retweeted be another user
+                 tmed = 0 :: non_neg_integer() | count_tree()}).  % Times mentioned by another user
 -type counts() :: #counts{}.
 
 -define(prop_counts(Fld), {Fld, #counts.Fld}).

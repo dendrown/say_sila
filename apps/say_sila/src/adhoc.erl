@@ -46,10 +46,10 @@ md(rpt_comms, Track, P100) ->
                  #profile{cnts = Cnts,
                           emos = Emos} = maps:get(Acct, Players),
                  % Sanity check
-                 Note = case (Cnts#counts.tt =:= Emos#emotions.count) of
+                 Note = case (Cnts#counts.tter =:= Emos#emotions.count) of
                     true  -> <<>>;
                     false -> ?fmt("COUNT MISMATCH (tt[~B] =/= emo[~B])",
-                                  [Cnts#counts.tt,
+                                  [Cnts#counts.tter,
                                    Emos#emotions.count])
                  end,
                  ?out("| ~-56s | ~s | ~s | ~s | ~s | ~s | ~s | ~s | ~s |~s~n", [?twitter(Acct)]
@@ -109,7 +109,7 @@ md(rpt_tt_rt, Track, Bigs) ->
 
 
  %%--------------------------------------------------------------------
-cnts_str(Counts = #counts{tt = TT}) ->
+cnts_str(Counts = #counts{tter = TT}) ->
     %
     [counts | CntList] = tuple_to_list(Counts),
     lists:map(fun({Key, Val}) ->
