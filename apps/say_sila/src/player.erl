@@ -42,7 +42,11 @@
 
 -define(MODULES,    #{cc => player_cc,
                       gw => player_gw}).
--define(reg(Key), maps:get(Key, ?MODULES, ?MODULE)).
+-define(reg(Key),   maps:get(Key, ?MODULES, ?MODULE)).
+
+-define(NEW_COMM,   #comm{cnt  = 0,
+                          emos = emo:stoic(0),
+                          msgs =  []}).
 
 %% Plotting definitions
 -define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
@@ -56,19 +60,12 @@
                                   gw =>  1500}).
 -define(plot_num_tweets(Trk),   maps:get(Trk, ?PLOT_NUM_TWEETS)).
 
-%% Record handling
--define(COUNTS,             record_info(fields, counts)).
--define(counts(),           lists:zip(?COUNTS, lists:seq(2, record_info(size, counts)))).
-
--define(NEW_PROFILE,        #profile{cnts = #counts{},
-                                     emos = emo:stoic(0)}).
-
 
 %%--------------------------------------------------------------------
 -record(state, {tracker     :: atom(),
                 players     :: map(),
-                rankings    :: counts(),
-                totals      :: counts(),    % number of tt|ot|rt|tm processed
+                rankings    :: map(),
+                totals      :: map(),     % counts of tter|oter|rter|rted|tmed
                 jvm_node    :: atom() }).
 -type state() :: #state{}.
 -type words() :: [binary()].
@@ -120,21 +117,27 @@ get_big_p100(_, BigP100) when   BigP100 =< 0.0
 
 get_big_p100(Tracker, BigP100) ->
     %
-    [counts | Totals] = tuple_to_list(get_totals(Tracker)),
-    [counts | Ranks ] = tuple_to_list(get_rankings(Tracker)),
+    Totals = get_totals(Tracker),
+    Ranks  = get_rankings(Tracker),
 
     % Figure out the counts which represent the desired percentage
-    GoalFlds = ?COUNTS,
-    GoalCnts = [round(BigP100 * Tot) || Tot <- Totals],
-    ?info("Big P100 goals: pct[~4.1f%] cnts~p", [100 * BigP100,
-                                                lists:zip(GoalFlds, GoalCnts)]),
+    % NOTE: We're doing two list comprehensions for the sake of the log message
+    GoalCnts = [{Comm, round(BigP100 * Tot)} || {Comm,Tot} <- maps:to_list(Totals)],
+
+    ?info("Big P100 goals: pct[~4.1f%] goals~p", [100*BigP100, GoalCnts]),
+    Goals = [{Comm,
+              Cnt,
+              maps:get(Comm, Ranks)} || {Comm,Cnt} <- GoalCnts],
 
     % Pull the accounts which get us as close as we can to our goal counts
-    BigActivity  = lists:map(fun get_top/1, lists:zip(GoalCnts, Ranks)),
-    ActivityP100 = [erlang:insert_element(1, Act, Cnt/Tot) || {Act = {Cnt, _ }, Tot} <- lists:zip(BigActivity,
-                                                                                                  Totals)],
-    % Return the results as a proplist of the count types
-    lists:zip(GoalFlds,  ActivityP100).
+    BigActivity  = lists:map(fun get_top/1, Goals),
+
+    % Put it all together and map across all communication codes
+    Finalizer = fun({Comm, {Cnt, Accts}}) ->
+                    Pct = Cnt / maps:get(Comm, Totals),
+                    {Comm, {Pct, Cnt, Accts}}
+                    end,
+    lists:map(Finalizer, BigActivity).
 
 
 
@@ -195,17 +198,19 @@ get_biggies(_, MinRate, _) when   MinRate =< 0.0
 
 get_biggies(Tracker, MinRate, MinDecel) ->
     %
-    [counts | Totals] = tuple_to_list(get_totals(Tracker)),
-    [counts | Ranks ] = tuple_to_list(get_rankings(Tracker)),
+    Totals = get_totals(Tracker),
+    Ranks  = get_rankings(Tracker),
 
     % Pull the accounts which are adding tweets at or above the minimum rate
-    GoalFlds = ?COUNTS,
-    BigActivity  = lists:map(fun(TR) -> pull_biggies(MinRate, MinDecel, TR) end,
-                             lists:zip(Totals, Ranks)),
-    ActivityP100 = [erlang:insert_element(1, Act, Cnt/Tot) || {Act = {Cnt, _ }, Tot} <- lists:zip(BigActivity,
-                                                                                                  Totals)],
-    % Return the results as a proplist of the count types
-    lists:zip(GoalFlds,  ActivityP100).
+    BigChecker  = fun(Comm) ->
+                      CommTotal = maps:get(Comm, Totals),
+                      CommRanks = maps:get(Comm, Ranks),
+                      {Cnt, Accts} = pull_biggies(MinRate, MinDecel, CommTotal, CommRanks),
+                      {Comm, {Cnt/CommTotal,
+                              Cnt,
+                              Accts}}
+                      end,
+    lists:map(BigChecker, ?COMM_CODES).
 
 
 
@@ -252,7 +257,7 @@ get_players(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec get_rankings(Tracker :: atom()) -> counts().
+-spec get_rankings(Tracker :: atom()) -> map().
 %%
 % @doc  Returns the server's internal count rankings.
 %%--------------------------------------------------------------------
@@ -262,12 +267,14 @@ get_rankings(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec get_totals(Tracker :: atom()) -> counts().
+-spec get_totals(Tracker :: atom()) -> map().
 %%
-% @doc  Returns the server totals in a `counts' record:
-%           - `tt'  total count of all tweets sent
-%           - `tt'  number of retweeted messages
-%           - `tm'  number of times users are mentioned
+% @doc  Returns the server totals in a `comm' map with keys:
+%           - `tter'  total count of all tweets sent
+%           - `oter'  number of original posts tweeted
+%           - `rter'  number of postes retweeted
+%           - `rted'  number of times an author is retweeted
+%           - `tmed'  number of times users are mentioned
 %%--------------------------------------------------------------------
 get_totals(Tracker) ->
     gen_server:call(?reg(Tracker), get_totals).
@@ -319,20 +326,21 @@ plot(Tracker, Rates, MinDecel) ->
                  [length(BPs) || {_Pct, _Cnt, BPs} <- InfoByComm]
                  end,
 
-    Plotter  = fun({Comm, Ndx}) ->
+    Plotter  = fun(Comm) ->
                    % How many accounts participated in the current communication mode?
-                   Accounter = fun(_, #profile{cnts = Cnts}, Acc) ->
-                                   Cnt = element(Ndx, Cnts),
+                   Accounter = fun(_Acct, Profile, Acc) ->
+                                   Cnt = maps:get(Comm, Profile, 0),
                                    case  Cnt > 0 of
                                        true  -> Acc + 1;
                                        false -> Acc
                                     end end,
                    AcctCnt = maps:fold(Accounter, 0, Players),
-                   Ranks   = element(Ndx, Rankings),
+                   Ranks   = maps:get(Comm, Rankings),
                    Markers = Marker(Comm),
                    plot(Tracker, Comm, AcctCnt, Ranks, Markers)
                    end,
-    lists:foreach(Plotter, ?counts()).
+
+    lists:foreach(Plotter, maps:keys(Rankings)).
 
 
 
@@ -433,7 +441,7 @@ handle_call(ontologize, _From, State = #state{rankings = Rankings,
 
     % Only do (posting) tweeters:
     % Retweeted and Mentioned Authors were handled during normal processing
-    TreeItr = gb_trees:iterator(Rankings#counts.tter),
+    TreeItr = gb_trees:iterator(maps:get(tter, Rankings)),
     GBRunner(gb_trees:next(TreeItr)),
     {reply, ok, State};
 
@@ -454,7 +462,6 @@ handle_call(Msg, _From, State) ->
 % @doc  Process async messages
 % @end  --
 handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
-                                   emotions    = Emos,
                                    type        = Type}},
             State = #state{players  = Players,
                            rankings = Rankings,
@@ -465,27 +472,13 @@ handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
     ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
 
     % Update the tweet counter(s) and rank(s) for this tweet
-    {MidPlayers,
-     MidRankings,
-     MidTotals} = case Type of
-        % An original tweeter ( `oter' ) implies tweeter ( `tter' )
-        tweet ->
-            MidProfMap = update_players(Acct, [?prop_counts(tter), ?prop_counts(oter)], Emos, Players),
-            {MidProfMap,
-             Rankings#counts{tter = update_ranking(Acct, #counts.tter, MidProfMap, Rankings#counts.tter),
-                             oter = update_ranking(Acct, #counts.oter, MidProfMap, Rankings#counts.oter)},
-             Totals  #counts{tter = 1 + Totals#counts.tter,
-                             oter = 1 + Totals#counts.oter}};
-
-        % Retweets are not original, just do the send ( `tter' )
-        retweet ->
-            MidProfMap = update_players(Acct, [?prop_counts(tter), ?prop_counts(rter)], Emos, Players),
-            {MidProfMap,
-             Rankings#counts{tter = update_ranking(Acct, #counts.tter, MidProfMap, Rankings#counts.tter),
-                             rter = update_ranking(Acct, #counts.rter, MidProfMap, Rankings#counts.rter)},
-             Totals  #counts{tter = 1 + Totals#counts.tter,
-                             rter = 1 + Totals#counts.rter}}
+     CommCodes = case Type of
+        tweet   -> [tter, oter];
+        retweet -> [tter, rter]
     end,
+    MidPlayers  = update_players(Acct,  CommCodes, Tweet, Players),
+    MidRankings = update_rankings(Acct, CommCodes, MidPlayers, Rankings),
+    MidTotals   = update_totals(CommCodes, Totals),
 
     % And update the social network counts/rankings
     {NewPlayers,
@@ -543,6 +536,17 @@ get_comm_combos(N, [Comm | Rest]) ->
 
 
 %%--------------------------------------------------------------------
+-spec new_ranking() -> count_tree().
+%%
+% @doc  Creates a new ranking structure.
+% @end  --
+new_ranking() ->
+    % Start the tweet tree with a node for minimum-activity players
+    gb_trees:insert(?MIN_COMMS_COUNT, [], gb_trees:empty()).
+
+
+
+%%--------------------------------------------------------------------
 -spec reset_state(Tracker :: atom()) -> state().
 %%
 % @doc  Process out-of-band messages
@@ -554,30 +558,31 @@ reset_state(Tracker) ->
     JVM       = application:get_env(App, jvm_node, undefined),
 
     % Start the tweet tree with a node for minimum-activity players
-    ReRanker = gb_trees:insert(?MIN_COMMS_COUNT, [], gb_trees:empty()),
-    Rankings = #counts{tter = ReRanker,
-                       oter = ReRanker,
-                       rter = ReRanker,
-                       rted = ReRanker,
-                       tmed = ReRanker},
+    NumComms = length(?COMM_CODES),
+    CommInit = lists:zip(?COMM_CODES, lists:seq(1, NumComms)),
+    RankInit = new_ranking(),
+    ReRanker = fun({Comm,_}) -> {Comm, RankInit} end,
+    ReZeroer = fun({Comm,_}) -> {Comm, 0} end,
 
     #state{tracker  = Tracker,
            players  = #{},
-           rankings = Rankings,
-           totals   = #counts{},
+           rankings = maps:from_list([ReRanker(C) || C <- CommInit]),
+           totals   = maps:from_list([ReZeroer(C) || C <- CommInit]),
            jvm_node = JVM}.
 
 
 
 %%--------------------------------------------------------------------
--spec get_top({GoalCnt :: non_neg_integer(),
-               Ranking :: count_tree()}) -> {non_neg_integer(), list()}.
+-spec get_top({Comm    :: comm_code(),
+               GoalCnt :: non_neg_integer(),
+               Ranking :: count_tree()}) -> {comm_code(),
+                                             {non_neg_integer(), list()}}.
 %%
 % @doc  Attempts to get the accounts with a total as close to the goal
 %       as possible.
 % @end  --
-get_top({GoalCnt, Ranking}) ->
-    get_top(GoalCnt, Ranking, 0, []).
+get_top({Comm, GoalCnt, Ranking}) ->
+    {Comm, get_top(GoalCnt, Ranking, 0, [])}.
 
 
 
@@ -620,15 +625,31 @@ get_top(GoalCnt, Ranking, Cnt, Accts) ->
 
 
 %%--------------------------------------------------------------------
+-spec get_total(Account  :: binary(),
+                CommCode :: comm_code(),
+                Players  :: map()) -> non_neg_integer().
+%%
+% @doc  Returns the total activity for the specified account for the
+%       indicated communication type.
+% @end  --
+get_total(Account, CommCode, Players) ->
+    %
+    Prof = maps:get(Account, Players),
+    Comm = maps:get(CommCode, Prof, ?NEW_COMM),
+    Comm#comm.cnt.
+
+
+
+%%--------------------------------------------------------------------
 -spec pull_biggies(MinRate  :: float(),
                    MinDecel :: float(),
-                   GrpData  :: {non_neg_integer(),
-                                count_tree()}) -> {non_neg_integer(), list()}.
+                   Total    :: non_neg_integer(),
+                   Ranking  :: count_tree()) -> {non_neg_integer(), list()}.
 %%
 % @doc  Attempts to get the accounts with a total as close to the goal
 %       as possible.
 % @end  --
-pull_biggies(MinRate, MinDecel, {Total, Ranking}) ->
+pull_biggies(MinRate, MinDecel, Total, Ranking) ->
     pull_biggies(MinRate, MinDecel, Total, Total, Ranking, 0, []).
 
 
@@ -687,75 +708,38 @@ pull_biggies(MinRate, MinDecel, Total, TallyIn, RanksIn, CountIn, AcctsIn) ->
 
 %%--------------------------------------------------------------------
 -spec update_players(Account   :: binary(),
-                     CommCodes :: proplist() | property(),
-                     TweetEmos :: emotions(),
+                     CommCodes :: comm_code()
+                                | comm_codes(),
+                     Tweet     :: tweet(),
                      Players   :: map()) -> map().
 %%
 % @doc  Retrieves a player's `profile' from the `Players' map, updates it
 %       with respect to the specified `Tweet', and returns the new map.
 % @end  --
-%update_players(Account, CommCode, TweetEmos, Players) when is_tuple(CommCode) ->
-%    %
-%    update_players(Account, [CommCode], TweetEmos, Players);
-
-
-update_players(Account, CommCodes, TweetEmos, Players) ->
+update_players(Account, CommCode, Tweet, Players) when is_atom(CommCode) ->
     %
-    Profile  = maps:get(Account, Players, ?NEW_PROFILE),
-    AcctEmos = Profile#profile.emos,
-
-    %?debug("Player EMOS: ~p", [AcctEmos]),
-    %?debug("Tweet  EMOS: ~p", [TweetEmos]),
-
-    NewEmos = emo:average(AcctEmos, TweetEmos),
+    update_players(Account, [CommCode], Tweet, Players);
 
 
-    update_players_aux(Profile#profile{emos = NewEmos}, Account, CommCodes, Players).
+update_players(Account, CommCodes, Tweet, Players) ->
 
+    % The (current) profile implementation is a map of communications
+    Profiler = fun(Code, Profile) ->
+                   Comm = #comm{cnt  = Cnt,
+                                emos = Emos,
+                                msgs = Msgs} = maps:get(Code, Profile, ?NEW_COMM),
+                   % TODO: Check memory usage, and then cut text from stoic tweets
+                   maps:put(Code,
+                            Comm#comm{cnt  = 1 + Cnt,
+                                      emos = emo:average(Emos, Tweet#tweet.emotions),
+                                      msgs = [Tweet | Msgs]},
+                            Profile)
+                   end,
 
+    NewProfile = lists:foldl(Profiler, maps:get(Account, Players, #{}), CommCodes),
 
-%%--------------------------------------------------------------------
--spec update_players(Account   :: binary(),
-                     CommCodes :: proplist() | property(),
-                     Players   :: map()) -> map().
-%%
-% @doc  Retrieves a player's `profile' from the `Players' map, updates it
-%       for the specified communication type, and returns the new map.
-% @end  --
-update_players(Account, CommCode, Players) when is_tuple(CommCode) ->
-    %
-    update_players(Account, [CommCode], Players);
-
-
-update_players(Account, CommCodes, Players) ->
-    %
-    update_players_aux(maps:get(Account, Players, ?NEW_PROFILE),
-                       Account, CommCodes, Players).
-
-
-
-%%--------------------------------------------------------------------
--spec update_players_aux(Profile   :: profile(),
-                         Account   :: binary(),
-                         CommCodes :: pos_integer()
-                                    | proplist(),
-                         Players   :: map()) -> map().
-%%
-% @doc  Updates the player's `profile' om the `Players' map for the
-%       specified communication type and returns a new map.
-% @end  --
-update_players_aux(Profile, Account, CommCodes, Players) ->
-    %
-    ReCounter = fun({Comm, Elm}, Counts) ->
-                    NewVal = 1 + element(Elm, Counts),
-                    ?debug("Update: ~s[~B] acct[~s]", [Comm, NewVal, Account]),
-
-                    setelement(Elm, Counts, NewVal)
-                    end,
-
-    NewCounts = lists:foldl(ReCounter, Profile#profile.cnts, CommCodes),
-
-    maps:put(Account, Profile#profile{cnts = NewCounts}, Players).
+    % And Our players map contains the comms maps
+    maps:put(Account, NewProfile, Players).
 
 
 
@@ -763,8 +747,8 @@ update_players_aux(Profile, Account, CommCodes, Players) ->
 -spec check_network(Tweet    :: tweet(),
                     JVM      :: atom(),
                     Players  :: map(),
-                    Rankings :: counts(),
-                    Totals   :: counts()) -> {map(), counts(), counts()}.
+                    Rankings :: map(),
+                    Totals   :: map()) -> {map(), map(), map()}.
 %%
 % @doc  Updates a `Players' map according to the retweet/mention counts
 %       in the specified `Tweet'.
@@ -772,8 +756,8 @@ update_players_aux(Profile, Account, CommCodes, Players) ->
 check_network(Tweet = #tweet{text = Text},
               JVM,
               Players,
-              Rankings = #counts{rted = RanksRTed, tmed = RanksTMed},
-              Totals   = #counts{rted = TotalRTed, tmed = TotalTMed}) ->
+              Rankings = #{rted := RanksRTed, tmed := RanksTMed},
+              Totals   = #{rted := TotalRTed, tmed := TotalTMed}) ->
 
     Words = string:split(Text, " ", all),
 
@@ -787,8 +771,8 @@ check_network(Tweet = #tweet{text = Text},
      NewTotalTMed} = check_mentions(Tweet, MidWords, JVM, MidPlayers, RanksTMed, TotalTMed),
 
     {NewPlayers,
-     Rankings#counts{rted = NewRanksRTed, tmed = NewRanksTMed},
-     Totals  #counts{rted = NewTotalRTed, tmed = NewTotalTMed}}.
+     maps:put(rted, NewRanksRTed, maps:put(tmed, NewRanksTMed, Rankings)),
+     maps:put(rted, NewTotalRTed, maps:put(tmed, NewTotalTMed, Totals))}.
 
 
 
@@ -822,13 +806,14 @@ check_retweet(Tweet = #tweet{type           = retweet,
 
         [Author] ->
             % Updates the retweeted author's (NOT the tweeter's) counts/ranking
-            MidPlayers = update_players(Author, ?prop_counts(rted), Players),
+            MidPlayers = update_players(Author, rted, Tweet, Players),
 
             % Inform the say-sila ontology about the retweet
             say_ontology(JVM, twitter:ontologize(Tweet, json)),
 
+            RetweetedCnt = get_total(Author, rted, MidPlayers),
             {MidPlayers,
-             update_ranking(Author, #counts.rted, MidPlayers, Ranking),
+             update_ranking(Author, RetweetedCnt, Ranking),
              1 + Total};
 
         [Who] ->
@@ -884,7 +869,7 @@ check_mentions(Tweet = #tweet{id          = ID,
                Ranking,
                Total) ->
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
-    NewPlayers = update_players(Mention, ?prop_counts(tmed), Players),
+    NewPlayers = update_players(Mention, tmed, Tweet, Players),
 
     % Inform the say-sila ontology about the mention
     TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
@@ -893,11 +878,12 @@ check_mentions(Tweet = #tweet{id          = ID,
     say_ontology(JVM, jsx:encode(Roles)),
 
     % Look for more mentions in the rest of the tweet text
+    MentionCnt = get_total(Mention, tmed, NewPlayers),
     check_mentions(Tweet,
                    RestWords,
                    JVM,
                    NewPlayers,
-                   update_ranking(Mention, #counts.tmed, NewPlayers, Ranking),
+                   update_ranking(Mention, MentionCnt, Ranking),
                    1 + Total);
 
 
@@ -908,47 +894,89 @@ check_mentions(Tweet, [ _ | RestWords], JVM, Players, Ranking, Total) ->
 
 
 %%--------------------------------------------------------------------
--spec update_ranking(Acct    :: binary(),
-                     Counter :: pos_integer(),
-                     Players :: map(),
-                     Ranking :: count_tree()) -> count_tree().
+-spec update_rankings(Account   :: binary(),
+                      CommCodes :: comm_codes(),
+                      Players   :: map(),
+                      Rankings  :: map()) -> map().
 %%
 % @doc  Updates the account's ranking in the count tree.
 %
 %       NOTE: We assume the `Account' exists in the `Players' maps,
 %             so update `Players' before calling this function.
 % @end  --
-update_ranking(Acct, Counter, Players, Ranking) ->
+update_rankings(Account, CommCodes, Players, Rankings) ->
+
+    % We update the Players map first, so this guy should already exist
+    Profile = maps:get(Account, Players),
+    Ranker  = fun(Comm, AccRanks) ->
+                  Prof  = maps:get(Comm, Profile),
+                  Ranks = maps:get(Comm, Rankings),
+                  maps:put(Comm,
+                           update_ranking(Account, Prof#comm.cnt, Ranks),
+                           AccRanks)
+                  end,
+
+    lists:foldl(Ranker, Rankings, CommCodes).
+
+
+
+%%--------------------------------------------------------------------
+-spec update_totals(CommCodes :: comm_code()
+                               | comm_codes(),
+                    Totals    :: map()) -> map().
+%%
+% @doc  Increments the `Totals' counts for the specified `CommCodes'.
+% @end  --
+update_totals(CommCode, Totals) when is_atom(CommCode) ->
     %
-    %?debug("Ranking counter: ~B", [Counter]),
+    NewCnt = 1 + maps:get(CommCode, Totals, 0),
+    maps:put(CommCode, NewCnt, Totals);
 
-    % NOTE: The players map  has the NEW count, while
-    %       the ranking tree has the OLD count (NEW - 1)
-    case maps:get(Acct, Players) of
 
-        #profile{cnts = Counts} when element(Counter, Counts) < (?MIN_COMMS_COUNT) ->
+update_totals(CommCodes, Totals) when is_list(CommCodes) ->
+    %
+    lists:foldl(fun update_totals/2, Totals, CommCodes).
+
+
+
+%%--------------------------------------------------------------------
+-spec update_ranking(Acct    :: binary(),
+                     CommCnt :: non_neg_integer(),
+                     Ranking :: count_tree()) -> count_tree().
+%%
+% @doc  Updates the account's ranking in the count tree.
+%
+%       NOTE: We assume the account exists in the `Players' map,
+%             so update `Players' before calling this function.
+% @end  --
+update_ranking(Acct, CommCnt, Ranking) ->
+    %
+    ?debug("Rank update: acct[~s] cnt[~B]", [Acct, CommCnt]),
+
+    % NOTE: The `CommCnt' for the account has the NEW count,
+    %       while the ranking tree has the OLD count (NEW - 1)
+    if  CommCnt < ?MIN_COMMS_COUNT ->
             % Player activity continues, but hasn't hit our processing threshold
              Ranking;
 
-        #profile{cnts = Counts} when element(Counter, Counts) =:= (?MIN_COMMS_COUNT) ->
+        CommCnt  =:= ?MIN_COMMS_COUNT ->
             % Passing activity threshold: add user to min-count node
             % NOTE: handling this special case is faster
             %       because we already know the node exists
             MinAccts = gb_trees:get(?MIN_COMMS_COUNT, Ranking),
             gb_trees:update(?MIN_COMMS_COUNT, [Acct | MinAccts], Ranking);
 
-        Profile ->
+        true ->
             % Remove the account from the old count-node
-            AcctCnt    = element(Counter, Profile#profile.cnts),
-            OldCnt     = AcctCnt - 1,
+            OldCnt     = CommCnt - 1,
             OldNode    = gb_trees:get(OldCnt, Ranking),
             MidRanking = gb_trees:update(OldCnt, lists:delete(Acct, OldNode), Ranking),
 
             % Add the account to the new count-node
-            case gb_trees:lookup(AcctCnt, MidRanking) of
+            case gb_trees:lookup(CommCnt, MidRanking) of
 
-                {value, CntAccts} -> gb_trees:update(AcctCnt, [Acct | CntAccts], MidRanking);   % Exists
-                none              -> gb_trees:insert(AcctCnt, [Acct], MidRanking)               % Newbie
+                {value, CntAccts} -> gb_trees:update(CommCnt, [Acct | CntAccts], MidRanking);   % Exists
+                none              -> gb_trees:insert(CommCnt, [Acct], MidRanking)               % Newbie
             end
     end.
 
