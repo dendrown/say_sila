@@ -27,11 +27,16 @@
          get_players/1,
          get_rankings/1,
          get_totals/1,
-         ontologize/1,
          plot/2,
          plot/3,
          reset/1,
-         tweet/2]).
+         tweet/2,
+        %----------------------
+        % Pending final design:
+        %----------------------
+         ontologize/1,
+         say_ontology/2]).
+
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
@@ -805,7 +810,7 @@ check_retweet(KeyDTS,
                              rt_screen_name = Author,
                              screen_name    = Acct},
               [<<"RT">>, <<$@, AuthRef/binary>> | RestWords],
-              JVM,
+              _JVM,
               Players,
               Ranking,
               Total) ->
@@ -820,7 +825,7 @@ check_retweet(KeyDTS,
             MidPlayers = update_players(Author, KeyDTS, rted, Tweet, Players),
 
             % Inform the say-sila ontology about the retweet
-            say_ontology(JVM, twitter:ontologize(Tweet, json)),
+            % TODO: say_ontology(JVM, twitter:ontologize(Tweet, json)),
 
             RetweetedCnt = get_total(Author, rted, MidPlayers),
             {MidPlayers,
@@ -874,8 +879,7 @@ check_mentions(KeyDTS, Tweet, [<<$@>> | RestWords], JVM, Players, Ranking, Total
 
 
 check_mentions(KeyDTS,
-               Tweet = #tweet{id          = ID,
-                              screen_name = Acct},
+               Tweet, % = #tweet{id = ID, screen_name = Acct},
                [<<$@, Mention/binary>> | RestWords],
                JVM,
                Players,
@@ -885,10 +889,11 @@ check_mentions(KeyDTS,
     NewPlayers = update_players(Mention, KeyDTS, tmed, Tweet, Players),
 
     % Inform the say-sila ontology about the mention
-    TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
-    Roles = [#{domain => Acct, property => makesMentionIn, range => TwID},
-             #{domain => TwID, property => hasMentionOf,   range => Mention}],
-    say_ontology(JVM, jsx:encode(Roles)),
+    % TODO: This code is waiting on a (more) final design
+    %TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
+    %Roles = [#{domain => Acct, property => makesMentionIn, range => TwID},
+    %         #{domain => TwID, property => hasMentionOf,   range => Mention}],
+    %say_ontology(JVM, jsx:encode(Roles)),
 
     % Look for more mentions in the rest of the tweet text
     MentionCnt = get_total(Mention, tmed, NewPlayers),
@@ -1049,7 +1054,7 @@ plot(Tracker, CommType, AcctCnt, Rankings, Markers) ->
 
 %%--------------------------------------------------------------------
 -spec say_ontology(JVM  :: atom(),
-                   Msg  :: json_binary()) -> ok.
+                   Msg  :: json_binary()) -> tuple().
 %%
 % @doc  Sends an update for the say-sila ontology.
 %
@@ -1057,6 +1062,6 @@ plot(Tracker, CommType, AcctCnt, Rankings, Markers) ->
 % @end  --
 say_ontology(JVM, Msg) ->
     WorkRef = make_ref(),
-    ?debug("Ontology disabled: jvm[~s] ref~p msg[~s]", [JVM, WorkRef, Msg]).
-    %{say, JVM} ! {self(), WorkRef, sila, Msg}.
+    ?warning("Ontology disabled: jvm[~s] ref~p msg[~s]", [JVM, WorkRef, Msg]),
+    {say, JVM} ! {self(), WorkRef, sila, Msg}.
     
