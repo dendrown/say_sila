@@ -202,7 +202,7 @@ get_first_dts(Tracker) ->
 get_first_dts(Tracker, Options) ->
     DTS = gen_server:call(?MODULE, {get_first_dts, Tracker}),
     case proplists:get_value(calendar, Options) of
-        true      -> dts:unix_to_datetime(DTS, millisecond);
+        true      -> dts:to_datetime(DTS, millisecond);
         undefined -> DTS
     end.
 
@@ -954,7 +954,7 @@ get_timestamp_ms_sql(Prefix, Options) ->
     GetPeriod = fun({undefined, _})    -> undefined;
                    ({DateTime, CmpOp}) -> io_lib:format("(status->>'timestamp_ms' ~s '~B')",
                                                         [CmpOp,
-                                                         dts:datetime_to_unix(DateTime, millisecond)])
+                                                         dts:to_unix(DateTime, millisecond)])
                                           end,
     Period = lists:map(GetPeriod, [{proplists:get_value(start, Options), <<">=">>},     % Inclusive
                                    {proplists:get_value(stop,  Options), <<"<">>}]),    % Exclusive

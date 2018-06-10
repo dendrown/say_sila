@@ -55,11 +55,6 @@
 
 
 % FIXME: Merge tweet_slot functionality into tweet_lot
-%        This is the current Mnesia-based design (in process)
--record(tweet_lot, {dts      :: datetime(),
-                    tweets   :: tweets() }).
-%type tweet_lot() :: #tweet_lot{}.
-
 -record(state, {tracker           :: atom(),
                 big_percent       :: float(),
                 emo_report        :: rec_map(),
@@ -790,7 +785,7 @@ report_aux([Tweet = #tweet{timestamp_ms = Millis1970} | RestTweets],
             Period,
             Reports) ->
     % Tweet emotion calculations go into buckets representing the period
-    DTS = dts:unix_to_datetime(Millis1970, millisecond),
+    DTS = dts:to_datetime(Millis1970, millisecond),
     Key = case Period of
         day  -> dts:dayize(DTS);
         hour -> dts:hourize(DTS)

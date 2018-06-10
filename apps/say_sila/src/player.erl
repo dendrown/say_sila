@@ -723,17 +723,22 @@ update_players(Account, CommCode, Tweet, Players) when is_atom(CommCode) ->
 
 update_players(Account, CommCodes, Tweet, Players) ->
 
+    DayDTS = dts:dayize(Tweet#tweet.timestamp_ms, millisecond),
+
     % The (current) profile implementation is a map of communications
     Profiler = fun(Code, Profile) ->
-                   Comm = #comm{cnt  = Cnt,
-                                emos = Emos,
-                                msgs = Msgs} = maps:get(Code, Profile, ?NEW_COMM),
-                   % TODO: Check memory usage, and then cut text from stoic tweets
-                   maps:put(Code,
-                            Comm#comm{cnt  = 1 + Cnt,
-                                      emos = emo:average(Emos, Tweet#tweet.emotions),
-                                      msgs = [Tweet | Msgs]},
-                            Profile)
+                   % NOTE: When we start using #comm.msgs, consider cutting
+                   %       the text from stoic tweets to limit memory usage.
+                   DayProf = maps:get(DayDTS, Profile),
+                   DayComm = #comm{cnt  = Cnt,
+                                  %msgs = Msgs,
+                                   emos = Emos} = maps:get(Code, DayProf, ?NEW_COMM),
+                   NewDayProf = maps:put(Code,
+                                         DayComm#comm{cnt  = 1 + Cnt,
+                                                     %msgs = [Tweet | Msgs]
+                                                      emos = emo:average(Emos, Tweet#tweet.emotions)},
+                                         DayProf),
+                   maps:put(DayDTS, NewDayProf, Profile)
                    end,
 
     NewProfile = lists:foldl(Profiler, maps:get(Account, Players, #{}), CommCodes),
