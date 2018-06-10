@@ -63,9 +63,9 @@
 
 %%--------------------------------------------------------------------
 -record(state, {tracker     :: atom(),
-                players     :: map(),
+                players     :: map(),       % map(key=day, val=map(comms))
                 rankings    :: map(),
-                totals      :: map(),     % counts of tter|oter|rter|rted|tmed
+                totals      :: map(),       % counts of tter|oter|rter|rted|tmed
                 jvm_node    :: atom() }).
 -type state() :: #state{}.
 -type words() :: [binary()].
@@ -461,29 +461,32 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast({tweet, Tweet = #tweet{screen_name = ScreenName,
-                                   type        = Type}},
+handle_cast({tweet, Tweet = #tweet{screen_name  = ScreenName,
+                                   timestamp_ms = TweetMillis,
+                                   type         = Type}},
             State = #state{players  = Players,
                            rankings = Rankings,
                            totals   = Totals,
                            jvm_node = JVM}) ->
 
-    Acct = string:lowercase(ScreenName),
-    ?info("TWEET: acct[~s] type[~s] id[~s]", [Acct, Type, Tweet#tweet.id]),
+    Account = string:lowercase(ScreenName),
+    KeyDTS  = dts:dayize(TweetMillis, millisecond),
+
+    ?info("TWEET: acct[~s] type[~s] id[~s] key[~B]", [Account, Type, Tweet#tweet.id, KeyDTS]),
 
     % Update the tweet counter(s) and rank(s) for this tweet
      CommCodes = case Type of
         tweet   -> [tter, oter];
         retweet -> [tter, rter]
     end,
-    MidPlayers  = update_players(Acct,  CommCodes, Tweet, Players),
-    MidRankings = update_rankings(Acct, CommCodes, MidPlayers, Rankings),
+    MidPlayers  = update_players(Account,  KeyDTS, CommCodes, Tweet, Players),
+    MidRankings = update_rankings(Account, KeyDTS, CommCodes, MidPlayers, Rankings),
     MidTotals   = update_totals(CommCodes, Totals),
 
     % And update the social network counts/rankings
     {NewPlayers,
      NewRankings,
-     NewTotals} = check_network(Tweet, JVM, MidPlayers, MidRankings, MidTotals),
+     NewTotals} = check_network(KeyDTS, Tweet, JVM, MidPlayers, MidRankings, MidTotals),
 
     {noreply, State#state{players   = NewPlayers,
                           rankings  = NewRankings,
@@ -708,6 +711,7 @@ pull_biggies(MinRate, MinDecel, Total, TallyIn, RanksIn, CountIn, AcctsIn) ->
 
 %%--------------------------------------------------------------------
 -spec update_players(Account   :: binary(),
+                     KeyDTS    :: non_neg_integer(),
                      CommCodes :: comm_code()
                                 | comm_codes(),
                      Tweet     :: tweet(),
@@ -716,20 +720,18 @@ pull_biggies(MinRate, MinDecel, Total, TallyIn, RanksIn, CountIn, AcctsIn) ->
 % @doc  Retrieves a player's `profile' from the `Players' map, updates it
 %       with respect to the specified `Tweet', and returns the new map.
 % @end  --
-update_players(Account, CommCode, Tweet, Players) when is_atom(CommCode) ->
+update_players(Account, KeyDTS, CommCode, Tweet, Players) when is_atom(CommCode) ->
     %
-    update_players(Account, [CommCode], Tweet, Players);
+    update_players(Account, KeyDTS, [CommCode], Tweet, Players);
 
 
-update_players(Account, CommCodes, Tweet, Players) ->
-
-    DayDTS = dts:dayize(Tweet#tweet.timestamp_ms, millisecond),
+update_players(Account, KeyDTS, CommCodes, Tweet, Players) ->
 
     % The (current) profile implementation is a map of communications
     Profiler = fun(Code, Profile) ->
                    % NOTE: When we start using #comm.msgs, consider cutting
                    %       the text from stoic tweets to limit memory usage.
-                   DayProf = maps:get(DayDTS, Profile),
+                   DayProf = maps:get(KeyDTS, Profile, #{}),
                    DayComm = #comm{cnt  = Cnt,
                                   %msgs = Msgs,
                                    emos = Emos} = maps:get(Code, DayProf, ?NEW_COMM),
@@ -738,7 +740,7 @@ update_players(Account, CommCodes, Tweet, Players) ->
                                                      %msgs = [Tweet | Msgs]
                                                       emos = emo:average(Emos, Tweet#tweet.emotions)},
                                          DayProf),
-                   maps:put(DayDTS, NewDayProf, Profile)
+                   maps:put(KeyDTS, NewDayProf, Profile)
                    end,
 
     NewProfile = lists:foldl(Profiler, maps:get(Account, Players, #{}), CommCodes),
@@ -749,7 +751,8 @@ update_players(Account, CommCodes, Tweet, Players) ->
 
 
 %%--------------------------------------------------------------------
--spec check_network(Tweet    :: tweet(),
+-spec check_network(KeyDTS   :: non_neg_integer(),
+                    Tweet    :: tweet(),
                     JVM      :: atom(),
                     Players  :: map(),
                     Rankings :: map(),
@@ -758,7 +761,8 @@ update_players(Account, CommCodes, Tweet, Players) ->
 % @doc  Updates a `Players' map according to the retweet/mention counts
 %       in the specified `Tweet'.
 % @end  --
-check_network(Tweet = #tweet{text = Text},
+check_network(KeyDTS,
+              Tweet = #tweet{text = Text},
               JVM,
               Players,
               Rankings = #{rted := RanksRTed, tmed := RanksTMed},
@@ -769,11 +773,11 @@ check_network(Tweet = #tweet{text = Text},
     {MidWords,
      MidPlayers,
      NewRanksRTed,
-     NewTotalRTed} = check_retweet(Tweet, Words, JVM, Players, RanksRTed, TotalRTed),
+     NewTotalRTed} = check_retweet(KeyDTS, Tweet, Words, JVM, Players, RanksRTed, TotalRTed),
 
     {NewPlayers,
      NewRanksTMed,
-     NewTotalTMed} = check_mentions(Tweet, MidWords, JVM, MidPlayers, RanksTMed, TotalTMed),
+     NewTotalTMed} = check_mentions(KeyDTS, Tweet, MidWords, JVM, MidPlayers, RanksTMed, TotalTMed),
 
     {NewPlayers,
      maps:put(rted, NewRanksRTed, maps:put(tmed, NewRanksTMed, Rankings)),
@@ -782,7 +786,8 @@ check_network(Tweet = #tweet{text = Text},
 
 
 %%--------------------------------------------------------------------
--spec check_retweet(Tweet   :: tweet(),
+-spec check_retweet(KeyDTS  :: non_neg_integer(),
+                    Tweet   :: tweet(),
                     Words   :: words(),
                     JVM     :: atom(),
                     Players :: map(),
@@ -794,7 +799,8 @@ check_network(Tweet = #tweet{text = Text},
 %       if the specified `Tweet' is a `retweet'.  If it is, the first
 %       two words are stripped from the word list in the return tuple.
 % @end  --
-check_retweet(Tweet = #tweet{type           = retweet,
+check_retweet(KeyDTS,
+              Tweet = #tweet{type           = retweet,
                              id             = ID,
                              rt_screen_name = Author,
                              screen_name    = Acct},
@@ -811,7 +817,7 @@ check_retweet(Tweet = #tweet{type           = retweet,
 
         [Author] ->
             % Updates the retweeted author's (NOT the tweeter's) counts/ranking
-            MidPlayers = update_players(Author, rted, Tweet, Players),
+            MidPlayers = update_players(Author, KeyDTS, rted, Tweet, Players),
 
             % Inform the say-sila ontology about the retweet
             say_ontology(JVM, twitter:ontologize(Tweet, json)),
@@ -829,23 +835,24 @@ check_retweet(Tweet = #tweet{type           = retweet,
     {RestWords, NewPlayers, NewRanking, NewTotal};
 
 
-check_retweet(#tweet{type           = retweet,
-                     id             = ID,
-                     rt_screen_name = Author,
-                     screen_name    = Acct}, Words, _, Players, Ranking, Total) ->
+check_retweet(_, #tweet{type           = retweet,
+                        id             = ID,
+                        rt_screen_name = Author,
+                        screen_name    = Acct}, Words, _, Players, Ranking, Total) ->
     %
     ?warning("Non-standard retweet text: id[~p] acct[~s] auth[~s]", [ID, Acct, Author]),
     {Words, Players, Ranking, Total};
 
 
-check_retweet(_, Words, _, Players, Ranking, Total) ->
+check_retweet(_, _, Words, _, Players, Ranking, Total) ->
     % Ignore non-retweets
     {Words, Players, Ranking, Total}.
 
 
 
 %%--------------------------------------------------------------------
--spec check_mentions(Tweet   :: tweet(),
+-spec check_mentions(KeyDTS  :: non_neg_integer(),
+                     Tweet   :: tweet(),
                      Words   :: words(),
                      JVM     :: atom(),
                      Players :: map(),
@@ -856,17 +863,18 @@ check_retweet(_, Words, _, Players, Ranking, Total) ->
 %       with respect to the accounts mentioned in the word list from
 %       the tweet text.
 % @end  --
-check_mentions(_, [], _, Players, Ranking, Total) ->
+check_mentions(_, _, [], _, Players, Ranking, Total) ->
     {Players, Ranking, Total};
 
 
-check_mentions(Tweet, [<<$@>> | RestWords], JVM, Players, Ranking, Total) ->
+check_mentions(KeyDTS, Tweet, [<<$@>> | RestWords], JVM, Players, Ranking, Total) ->
     %
     % Skip lone @-sign
-    check_mentions(Tweet, RestWords, JVM, Players, Ranking, Total);
+    check_mentions(KeyDTS, Tweet, RestWords, JVM, Players, Ranking, Total);
 
 
-check_mentions(Tweet = #tweet{id          = ID,
+check_mentions(KeyDTS,
+               Tweet = #tweet{id          = ID,
                               screen_name = Acct},
                [<<$@, Mention/binary>> | RestWords],
                JVM,
@@ -874,7 +882,7 @@ check_mentions(Tweet = #tweet{id          = ID,
                Ranking,
                Total) ->
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
-    NewPlayers = update_players(Mention, tmed, Tweet, Players),
+    NewPlayers = update_players(Mention, KeyDTS, tmed, Tweet, Players),
 
     % Inform the say-sila ontology about the mention
     TwID = list_to_binary(?str_fmt("t~s", [ID])),               % Prefix for Clj-var
@@ -884,7 +892,8 @@ check_mentions(Tweet = #tweet{id          = ID,
 
     % Look for more mentions in the rest of the tweet text
     MentionCnt = get_total(Mention, tmed, NewPlayers),
-    check_mentions(Tweet,
+    check_mentions(KeyDTS,
+                   Tweet,
                    RestWords,
                    JVM,
                    NewPlayers,
@@ -892,14 +901,15 @@ check_mentions(Tweet = #tweet{id          = ID,
                    1 + Total);
 
 
-check_mentions(Tweet, [ _ | RestWords], JVM, Players, Ranking, Total) ->
+check_mentions(KeyDTS, Tweet, [ _ | RestWords], JVM, Players, Ranking, Total) ->
     % Normal word
-    check_mentions(Tweet, RestWords, JVM, Players, Ranking, Total).
+    check_mentions(KeyDTS, Tweet, RestWords, JVM, Players, Ranking, Total).
 
 
 
 %%--------------------------------------------------------------------
 -spec update_rankings(Account   :: binary(),
+                      KeyDTS    :: non_neg_integer(),
                       CommCodes :: comm_codes(),
                       Players   :: map(),
                       Rankings  :: map()) -> map().
@@ -909,15 +919,16 @@ check_mentions(Tweet, [ _ | RestWords], JVM, Players, Ranking, Total) ->
 %       NOTE: We assume the `Account' exists in the `Players' maps,
 %             so update `Players' before calling this function.
 % @end  --
-update_rankings(Account, CommCodes, Players, Rankings) ->
+update_rankings(Account, KeyDTS, CommCodes, Players, Rankings) ->
 
     % We update the Players map first, so this guy should already exist
     Profile = maps:get(Account, Players),
-    Ranker  = fun(Comm, AccRanks) ->
-                  Prof  = maps:get(Comm, Profile),
-                  Ranks = maps:get(Comm, Rankings),
-                  maps:put(Comm,
-                           update_ranking(Account, Prof#comm.cnt, Ranks),
+    Ranker  = fun(Code, AccRanks) ->
+                  Comms = maps:get(KeyDTS, Profile),
+                  Comm  = maps:get(Code, Comms),
+                  Ranks = maps:get(Code, Rankings),
+                  maps:put(Code,
+                           update_ranking(Account, Comm#comm.cnt, Ranks),
                            AccRanks)
                   end,
 
