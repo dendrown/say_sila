@@ -29,8 +29,8 @@
 -type count_tree()  :: gb_trees:tree(integer(), list()).
 
 -record(comm, {cnt  :: non_neg_integer(),
-               emos :: emotions(),
-               msgs :: tweets() }).
+              %msgs :: tweets(),
+               emos :: emotions() }).
 -type comm()  :: #comm{}.
 -type comms() :: [comm()].
 

@@ -50,8 +50,8 @@
 -define(reg(Key),   maps:get(Key, ?MODULES, ?MODULE)).
 
 -define(NEW_COMM,   #comm{cnt  = 0,
-                          emos = emo:stoic(0),
-                          msgs =  []}).
+                         %msgs = [],
+                          emos = emo:stoic(0) }).
 
 %% Plotting definitions
 -define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
@@ -67,8 +67,14 @@
 
 
 %%--------------------------------------------------------------------
+-record(profile, {comms = #{} :: map(),     % Comms totals for user
+                  lots  = #{} :: map()}).   % map(key=day, val=map(comms))
+%type profile() :: #profile{}.
+
+
+%%--------------------------------------------------------------------
 -record(state, {tracker     :: atom(),
-                players     :: map(),       % map(key=day, val=map(comms))
+                players     :: map(),       % map(key=acct, val=profile)
                 rankings    :: map(),
                 totals      :: map(),       % counts of tter|oter|rter|rted|tmed
                 jvm_node    :: atom() }).
@@ -485,7 +491,7 @@ handle_cast({tweet, Tweet = #tweet{screen_name  = ScreenName,
         retweet -> [tter, rter]
     end,
     MidPlayers  = update_players(Account,  KeyDTS, CommCodes, Tweet, Players),
-    MidRankings = update_rankings(Account, KeyDTS, CommCodes, MidPlayers, Rankings),
+    MidRankings = update_rankings(Account, CommCodes, MidPlayers, Rankings),
     MidTotals   = update_totals(CommCodes, Totals),
 
     % And update the social network counts/rankings
@@ -643,7 +649,7 @@ get_top(GoalCnt, Ranking, Cnt, Accts) ->
 get_total(Account, CommCode, Players) ->
     %
     Prof = maps:get(Account, Players),
-    Comm = maps:get(CommCode, Prof, ?NEW_COMM),
+    Comm = maps:get(CommCode, Prof#profile.comms, ?NEW_COMM),
     Comm#comm.cnt.
 
 
@@ -733,22 +739,29 @@ update_players(Account, KeyDTS, CommCode, Tweet, Players) when is_atom(CommCode)
 update_players(Account, KeyDTS, CommCodes, Tweet, Players) ->
 
     % The (current) profile implementation is a map of communications
-    Profiler = fun(Code, Profile) ->
-                   % NOTE: When we start using #comm.msgs, consider cutting
-                   %       the text from stoic tweets to limit memory usage.
-                   DayProf = maps:get(KeyDTS, Profile, #{}),
-                   DayComm = #comm{cnt  = Cnt,
-                                  %msgs = Msgs,
-                                   emos = Emos} = maps:get(Code, DayProf, ?NEW_COMM),
-                   NewDayProf = maps:put(Code,
-                                         DayComm#comm{cnt  = 1 + Cnt,
-                                                     %msgs = [Tweet | Msgs]
-                                                      emos = emo:average(Emos, Tweet#tweet.emotions)},
-                                         DayProf),
-                   maps:put(KeyDTS, NewDayProf, Profile)
+    Emotions = Tweet#tweet.emotions,
+    Updater  = fun(Comm = #comm{cnt  = Cnt,                     %msgs = Msgs,
+                                emos = Emos}) ->
+                   Comm#comm{cnt  = 1 + Cnt,                    %msgs = [Tweet|Msgs]
+                             emos = emo:average(Emos, Emotions)}
                    end,
 
-    NewProfile = lists:foldl(Profiler, maps:get(Account, Players, #{}), CommCodes),
+    Profiler = fun(Code, Profile = #profile{comms = AllComms,
+                                            lots  = AllLots}) ->
+                   % NOTE: When we start using #comm.msgs, consider cutting
+                   %       the text from stoic tweets to limit memory usage.
+                   NewAllComm = Updater(maps:get(Code, AllComms, ?NEW_COMM)),
+
+                   % Remember `lots' looks like map(K=day, V=map(K=code, V=comm))
+                   LotComms    = maps:get(KeyDTS, AllLots, #{}),
+                   NewLotComm  = Updater(maps:get(Code, LotComms, ?NEW_COMM)),
+                   NewLotComms = maps:put(Code, NewLotComm, LotComms),
+
+                   Profile#profile{comms = maps:put(Code, NewAllComm, AllComms),
+                                   lots  = maps:put(KeyDTS, NewLotComms, AllLots)}
+                   end,
+
+    NewProfile = lists:foldl(Profiler, maps:get(Account, Players, #profile{}), CommCodes),
 
     % And Our players map contains the comms maps
     maps:put(Account, NewProfile, Players).
@@ -914,7 +927,6 @@ check_mentions(KeyDTS, Tweet, [ _ | RestWords], JVM, Players, Ranking, Total) ->
 
 %%--------------------------------------------------------------------
 -spec update_rankings(Account   :: binary(),
-                      KeyDTS    :: non_neg_integer(),
                       CommCodes :: comm_codes(),
                       Players   :: map(),
                       Rankings  :: map()) -> map().
@@ -924,13 +936,12 @@ check_mentions(KeyDTS, Tweet, [ _ | RestWords], JVM, Players, Ranking, Total) ->
 %       NOTE: We assume the `Account' exists in the `Players' maps,
 %             so update `Players' before calling this function.
 % @end  --
-update_rankings(Account, KeyDTS, CommCodes, Players, Rankings) ->
+update_rankings(Account, CommCodes, Players, Rankings) ->
 
     % We update the Players map first, so this guy should already exist
     Profile = maps:get(Account, Players),
     Ranker  = fun(Code, AccRanks) ->
-                  Comms = maps:get(KeyDTS, Profile),
-                  Comm  = maps:get(Code, Comms),
+                  Comm  = maps:get(Code, Profile#profile.comms),
                   Ranks = maps:get(Code, Rankings),
                   maps:put(Code,
                            update_ranking(Account, Comm#comm.cnt, Ranks),
