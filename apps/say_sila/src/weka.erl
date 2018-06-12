@@ -61,47 +61,52 @@ biggies_to_arff(_Name, Biggies, Players) ->
     CommCodes = proplists:delete(tter, ?COMM_CODES),
     InitComm  = ?NEW_COMM,
 
-    % Create a new proplist with {code, BP-emos, RP-emos}
+    % Create a new proplist with {code, BP-lots, RP-lots}
     %
     % NOTE: `lots' looks like map(K=day, V=map(K=code, V=comm))
-    Updater  = fun(DTS, AcctLots, {Code, LotsAcc}) ->
+    Updater  = fun(DTS, AcctComms, {Code, LotsAcc}) ->
                    %
                    % Make sure the user has this kind of communication data
-                   NewLotsAcc = case maps:get(DTS, AcctLots, undefined) of
+                   NewLotsAcc = case maps:get(Code, AcctComms, undefined) of
                        undefined -> LotsAcc;
-                       AcctComms ->
-                           case maps:get(Code, AcctComms, undefined) of
-                               undefined -> LotsAcc;
-                               AcctComm  ->
-                                    % We have user comm data for this code,
-                                    % pull the matching comm record from the accumulator
-                                    LotsComms    = maps:get(DTS,  LotsAcc, #{}),
-                                    LotsComm     = maps:get(Code, LotsComms, InitComm),
-                                    NewLotsComm  = player:update_comm(LotsComm, AcctComm),
-                                    NewLotsComms = maps:put(Code, NewLotsComm, LotsComms),
-                                    maps:put(DTS, NewLotsComms, LotsAcc)
-                           end
+                       AcctComm  ->
+                           %?debug("~p", [AcctComm]),
+
+                           % We have user comm data for this code,
+                           % pull the matching comm record from the accumulator
+                           LotsComms    = maps:get(DTS,  LotsAcc, #{}),
+                           LotsComm     = maps:get(Code, LotsComms, InitComm),
+                           NewLotsComm  = player:update_comm(LotsComm, AcctComm),
+                           NewLotsComms = maps:put(Code, NewLotsComm, LotsComms),
+                           maps:put(DTS, NewLotsComms, LotsAcc)
                    end,
                    {Code, NewLotsAcc}
                    end,
 
     % Function to run through all the DTS lots for a user, adding each to a lot accumulator
-    Alloter  = fun(AcctLots, LotsAcc) ->
-                   maps:fold(Updater, LotsAcc, AcctLots)
+    Alloter  = fun(Code, AcctLots, LotsAcc) ->
+                   {_, NewLotsAcc} = maps:fold(Updater, {Code, LotsAcc}, AcctLots),
+                   NewLotsAcc
                    end,
 
     % Function to add the comm info into the big|reg accumulator from all the user's lots
-    Chooser  = fun(Acct, #profile{lots = AcctLots}, {BigAccts, BigLotsAcc, RegLotsAcc}) ->
+    Chooser  = fun(Acct, #profile{lots = AcctLots}, {Code, BigAccts, BigLotsAcc, RegLotsAcc}) ->
                    case lists:member(Acct, BigAccts) of
-                       true  -> {BigAccts, Alloter(AcctLots, BigLotsAcc), RegLotsAcc};
-                       false -> {BigAccts, BigLotsAcc, Alloter(AcctLots, RegLotsAcc)}
+                       true ->
+                           ?debug("Big player: acct[~s] lots[~B]", [Code, maps:size(AcctLots)]),
+                           NewBigLotsAcc = Alloter(Code, AcctLots, BigLotsAcc),
+                           {Code, BigAccts, NewBigLotsAcc, RegLotsAcc};
+                       false ->
+                            NewRegLotsAcc = Alloter(Code, AcctLots, RegLotsAcc),
+                            {Code, BigAccts, BigLotsAcc, NewRegLotsAcc}
                    end end,
 
     Splitter = fun(Code) ->
+                   ?info("Compiling ~s communications", [Code]),
                    {_, _, BigAccts} = proplists:get_value(Code, Biggies),
-                   {_,
+                   {_, _,
                     BigLots,
-                    RegLots} = maps:fold(Chooser, {BigAccts, #{}, #{}}, Players),
+                    RegLots} = maps:fold(Chooser, {Code, BigAccts, #{}, #{}}, Players),
                    {Code, BigLots, RegLots}
                    end,
 
