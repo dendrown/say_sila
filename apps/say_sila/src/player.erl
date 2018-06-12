@@ -16,19 +16,16 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([start_link/1, stop/1,
-         get_biggies/2,
-         get_biggies/3,
+-export([start_link/1,      stop/1,
+         get_biggies/2,     get_biggies/3,
          get_big_p100/2,
          get_big_venn/2,
-         get_comm_codes/0,
-         get_comm_codes/1,
+         get_comm_codes/0,  get_comm_codes/1,
          get_comm_combos/0,
          get_players/1,
          get_rankings/1,
          get_totals/1,
-         plot/2,
-         plot/3,
+         plot/1,            plot/2, plot/3,
          reset/1,
          tweet/2,
          update_comm/2,
@@ -295,6 +292,16 @@ ontologize(Tracker) ->
 
 
 %%--------------------------------------------------------------------
+-spec plot(Tracker  :: atom()) -> ok.
+%%
+% @doc  Creates gnuplot scripts, data files and images.
+% @end  --
+plot(Tracker) ->
+    plot(Tracker, ?PLOT_BP_RATES, ?PLOT_MIN_DECEL).
+
+
+
+%%--------------------------------------------------------------------
 -spec plot(Tracker  :: atom(),
            MinDecel :: float()) -> ok.
 %%
@@ -321,25 +328,26 @@ plot(Tracker, Rates, MinDecel) ->
     Players  = get_players(Tracker),
     Rankings = get_rankings(Tracker),
     Biggies  = [get_biggies(Tracker, Rate, MinDecel) || Rate <- Rates],
+    NullComm = ?NEW_COMM,
 
     % Draw lines on the plot at certain percentile points
-    Marker = fun(Comm) ->
-                 InfoByComm = [proplists:get_value(Comm, InfoByRate) || InfoByRate <- Biggies],
+    Marker = fun(Code) ->
+                 InfoByComm = [proplists:get_value(Code, InfoByRate) || InfoByRate <- Biggies],
                  [length(BPs) || {_Pct, _Cnt, BPs} <- InfoByComm]
                  end,
 
-    Plotter  = fun(Comm) ->
+    Plotter  = fun(Code) ->
                    % How many accounts participated in the current communication mode?
-                   Accounter = fun(_Acct, Profile, Acc) ->
-                                   Cnt = maps:get(Comm, Profile, 0),
-                                   case  Cnt > 0 of
+                   Accounter = fun(_Acct, #profile{comms = Comms}, Acc) ->
+                                   Comm = maps:get(Code, Comms, NullComm),
+                                   case  Comm#comm.cnt > 0 of
                                        true  -> Acc + 1;
                                        false -> Acc
                                     end end,
                    AcctCnt = maps:fold(Accounter, 0, Players),
-                   Ranks   = maps:get(Comm, Rankings),
-                   Markers = Marker(Comm),
-                   plot(Tracker, Comm, AcctCnt, Ranks, Markers)
+                   Ranks   = maps:get(Code, Rankings),
+                   Markers = Marker(Code),
+                   plot(Tracker, Code, AcctCnt, Ranks, Markers)
                    end,
 
     lists:foreach(Plotter, maps:keys(Rankings)).
@@ -829,14 +837,17 @@ check_network(KeyDTS,
 check_retweet(KeyDTS,
               Tweet = #tweet{type           = retweet,
                              id             = ID,
-                             rt_screen_name = Author,
+                             rt_screen_name = ScreenNameRT,
                              screen_name    = Acct},
-              [<<"RT">>, <<$@, AuthRef/binary>> | RestWords],
+              [<<"RT">>, <<$@, RetweetedTag/binary>> | RestWords],
               _JVM,
               Players,
               Ranking,
               Total) ->
     %
+    Author  = string:lowercase(ScreenNameRT),
+    AuthRef = string:lowercase(RetweetedTag),
+
     % Pull off the colon from the author reference to verify the retweeted author
     {NewPlayers,
      NewRanking,
@@ -902,12 +913,13 @@ check_mentions(KeyDTS, Tweet, [<<$@>> | RestWords], JVM, Players, Ranking, Total
 
 check_mentions(KeyDTS,
                Tweet, % = #tweet{id = ID, screen_name = Acct},
-               [<<$@, Mention/binary>> | RestWords],
+               [<<$@, MentionTag/binary>> | RestWords],
                JVM,
                Players,
                Ranking,
                Total) ->
     % Updates the mentioned account's (NOT the tweeter's) counts/ranking
+    Mention    = string:lowercase(MentionTag),
     NewPlayers = update_players(Mention, KeyDTS, tmed, Tweet, Players),
 
     % Inform the say-sila ontology about the mention
