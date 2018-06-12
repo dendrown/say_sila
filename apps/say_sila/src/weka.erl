@@ -24,12 +24,15 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([report_to_arff/2,
+-export([biggies_to_arff/3,
+         report_to_arff/2,
          report_to_arff/3,
          tweets_to_arff/2]).
 
 -include("sila.hrl").
 -include("twitter.hrl").
+-include("types.hrl").
+-include("player.hrl").
 -include_lib("llog/include/llog.hrl").
 
 -define(put_attr(FOut, Attrib, Type),   io:format(FOut, "@ATTRIBUTE ~s ~s\n",    [Attrib, Type])).
@@ -39,6 +42,73 @@
 
 %%====================================================================
 %% API
+%%--------------------------------------------------------------------
+-spec biggies_to_arff(Name    :: string(),
+                      Biggies :: proplist(),
+                      Players :: map()) -> list().  %  [{ok, string()}]
+                                                    %| [{{error, term()}, string()}].
+%%
+% @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
+%       for the output of `players:get_biggies'.
+%
+%       NOTE: This function is addressing the question of influence in
+%             Twitter communities, and is currently somewhat in flux.
+% @end  --
+biggies_to_arff(_Name, Biggies, Players) ->
+
+    % Use the "all-tweets" category as a time-slice reference,
+    % but not for the ARFF output. (It is just tweets+retweets.)
+    CommCodes = proplists:delete(tter, ?COMM_CODES),
+    InitComm  = ?NEW_COMM,
+
+    % Create a new proplist with {code, BP-emos, RP-emos}
+    %
+    % NOTE: `lots' looks like map(K=day, V=map(K=code, V=comm))
+    Updater  = fun(DTS, AcctLots, {Code, LotsAcc}) ->
+                   %
+                   % Make sure the user has this kind of communication data
+                   NewLotsAcc = case maps:get(DTS, AcctLots, undefined) of
+                       undefined -> LotsAcc;
+                       AcctComms ->
+                           case maps:get(Code, AcctComms, undefined) of
+                               undefined -> LotsAcc;
+                               AcctComm  ->
+                                    % We have user comm data for this code,
+                                    % pull the matching comm record from the accumulator
+                                    LotsComms    = maps:get(DTS,  LotsAcc, #{}),
+                                    LotsComm     = maps:get(Code, LotsComms, InitComm),
+                                    NewLotsComm  = player:update_comm(LotsComm, AcctComm),
+                                    NewLotsComms = maps:put(Code, NewLotsComm, LotsComms),
+                                    maps:put(DTS, NewLotsComms, LotsAcc)
+                           end
+                   end,
+                   {Code, NewLotsAcc}
+                   end,
+
+    % Function to run through all the DTS lots for a user, adding each to a lot accumulator
+    Alloter  = fun(AcctLots, LotsAcc) ->
+                   maps:fold(Updater, LotsAcc, AcctLots)
+                   end,
+
+    % Function to add the comm info into the big|reg accumulator from all the user's lots
+    Chooser  = fun(Acct, #profile{lots = AcctLots}, {BigAccts, BigLotsAcc, RegLotsAcc}) ->
+                   case lists:member(Acct, BigAccts) of
+                       true  -> {BigAccts, Alloter(AcctLots, BigLotsAcc), RegLotsAcc};
+                       false -> {BigAccts, BigLotsAcc, Alloter(AcctLots, RegLotsAcc)}
+                   end end,
+
+    Splitter = fun(Code) ->
+                   {_, _, BigAccts} = proplists:get_value(Code, Biggies),
+                   {_,
+                    BigLots,
+                    RegLots} = maps:fold(Chooser, {BigAccts, #{}, #{}}, Players),
+                   {Code, BigLots, RegLots}
+                   end,
+
+   _WekaLots = lists:map(Splitter, CommCodes).
+
+
+
 %%--------------------------------------------------------------------
 -spec report_to_arff(Name   :: string(),
                      RptMap :: map()) -> [{ok, string()}]

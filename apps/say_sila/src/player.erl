@@ -31,6 +31,7 @@
          plot/3,
          reset/1,
          tweet/2,
+         update_comm/2,
         %----------------------
         % Pending final design:
         %----------------------
@@ -49,10 +50,6 @@
                       gw => player_gw}).
 -define(reg(Key),   maps:get(Key, ?MODULES, ?MODULE)).
 
--define(NEW_COMM,   #comm{cnt  = 0,
-                         %msgs = [],
-                          emos = emo:stoic(0) }).
-
 %% Plotting definitions
 -define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
 -define(PLOT_BP_RATES,          [0.0025, 0.0050, 0.0075, 0.0100, 0.0125, 0.0150, 0.0175, 0.0200]).
@@ -64,12 +61,6 @@
 -define(PLOT_NUM_TWEETS,        #{cc => 16000,
                                   gw =>  1500}).
 -define(plot_num_tweets(Trk),   maps:get(Trk, ?PLOT_NUM_TWEETS)).
-
-
-%%--------------------------------------------------------------------
--record(profile, {comms = #{} :: map(),     % Comms totals for user
-                  lots  = #{} :: map()}).   % map(key=day, val=map(comms))
-%type profile() :: #profile{}.
 
 
 %%--------------------------------------------------------------------
@@ -352,6 +343,29 @@ plot(Tracker, Rates, MinDecel) ->
                    end,
 
     lists:foreach(Plotter, maps:keys(Rankings)).
+
+
+
+%%--------------------------------------------------------------------
+-spec update_comm(Comm   :: comm(),
+                  Update :: comm()
+                          | emotions()) -> comm().
+%%
+% @doc  Updates the first communication info block with a second
+%       block or a raw emotion record.
+% @end  --
+update_comm(Comm = #comm{cnt  = Cnt,
+                         emos = Emos}, Emotions = #emotions{}) ->
+    % FIXME: We already have a count in emos
+    Comm#comm{cnt  = 1 + Cnt,
+              emos = emo:average(Emos, Emotions)};
+
+
+update_comm(Comm = #comm{cnt = Cnt1, emos = Emos1},
+                   #comm{cnt = Cnt2, emos = Emos2}) ->
+    % FIXME: We already have a count in emos
+    Comm#comm{cnt  = Cnt1 + Cnt2,
+              emos = emo:average(Emos1, Emos2)}.
 
 
 
@@ -740,21 +754,16 @@ update_players(Account, KeyDTS, CommCodes, Tweet, Players) ->
 
     % The (current) profile implementation is a map of communications
     Emotions = Tweet#tweet.emotions,
-    Updater  = fun(Comm = #comm{cnt  = Cnt,                     %msgs = Msgs,
-                                emos = Emos}) ->
-                   Comm#comm{cnt  = 1 + Cnt,                    %msgs = [Tweet|Msgs]
-                             emos = emo:average(Emos, Emotions)}
-                   end,
 
     Profiler = fun(Code, Profile = #profile{comms = AllComms,
                                             lots  = AllLots}) ->
                    % NOTE: When we start using #comm.msgs, consider cutting
                    %       the text from stoic tweets to limit memory usage.
-                   NewAllComm = Updater(maps:get(Code, AllComms, ?NEW_COMM)),
+                   NewAllComm = update_comm(maps:get(Code, AllComms, ?NEW_COMM), Emotions),
 
                    % Remember `lots' looks like map(K=day, V=map(K=code, V=comm))
                    LotComms    = maps:get(KeyDTS, AllLots, #{}),
-                   NewLotComm  = Updater(maps:get(Code, LotComms, ?NEW_COMM)),
+                   NewLotComm  = update_comm(maps:get(Code, LotComms, ?NEW_COMM), Emotions),
                    NewLotComms = maps:put(Code, NewLotComm, LotComms),
 
                    Profile#profile{comms = maps:put(Code, NewAllComm, AllComms),

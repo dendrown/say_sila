@@ -28,10 +28,20 @@
 %%--------------------------------------------------------------------
 -type count_tree()  :: gb_trees:tree(integer(), list()).
 
--record(comm, {cnt  :: non_neg_integer(),
+-record(comm, {cnt  :: non_neg_integer(),   % FIXME: We already have a count in emos
               %msgs :: tweets(),
                emos :: emotions() }).
 -type comm()  :: #comm{}.
 -type comms() :: [comm()].
+
+-define(NEW_COMM,   #comm{cnt  = 0,
+                         %msgs = [],
+                          emos = emo:stoic(0) }).
+
+
+%%--------------------------------------------------------------------
+-record(profile, {comms = #{} :: map(),     % Comms totals for user
+                  lots  = #{} :: map()}).   % map(key=day, val=map(comms))
+%type profile() :: #profile{}.
 
 -endif.

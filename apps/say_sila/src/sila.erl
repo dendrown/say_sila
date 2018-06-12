@@ -14,7 +14,13 @@
 -module(sila).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([start/0, start/1,stop/0, reset/0]).
+-export([start/0, start/1,
+         stop/0,
+         reset/0,
+         split_on_prop/2,
+         split_on_prop/3]).
+
+-include("types.hrl").
 
 
 %%====================================================================
@@ -79,6 +85,37 @@ reset() ->
     Trackers = [cc, gw],
     ResetTrk = fun(Trk) -> {Trk, [{Mod, Mod:reset(Trk)} || Mod <- Modules]} end,
     lists:map(ResetTrk, Trackers).
+
+
+
+%%--------------------------------------------------------------------
+-spec split_on_prop(Key   :: atom(),
+                    Props :: proplist()) -> {term(), proplist()}.
+%%
+% @doc  Generalized/simplified one-key splitter for property lists.
+%
+%       NOTE: This function is a candidate for a utility box module.
+% @end  --
+split_on_prop(Key, Props) ->
+    split_on_prop(Key, Props, undefined).
+
+
+
+%%--------------------------------------------------------------------
+-spec split_on_prop(Key     :: atom(),
+                    Props   :: proplist(),
+                    Default :: term()) -> {term(), proplist()}.
+%%
+% @doc  Generalized/simplified one-key splitter for property lists.
+%       Caller specifies a `Default' property value, returned when
+%       `Props' does not contain `Key'.
+% @end  --
+split_on_prop(Key, Props, Default) ->
+
+    case proplists:split(Props, [Key]) of
+        {[ [            ] ], Rest} -> {Default, Rest};
+        {[ [{Key, Value}] ], Rest} -> {Value,   Rest}
+    end.
 
 
 
