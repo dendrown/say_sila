@@ -36,6 +36,7 @@
 -include("player.hrl").
 -include_lib("llog/include/llog.hrl").
 
+-define(put_data(FOut),                 io:put_chars(FOut, "\n@DATA\n")).
 -define(put_attr(FOut, Attrib, Type),   io:format(FOut, "@ATTRIBUTE ~s ~s\n",    [Attrib, Type])).
 -define(put_attr(FOut, A0, A1, Type),   io:format(FOut, "@ATTRIBUTE ~s_~s ~s\n", [A0, A1, Type])).
 
@@ -134,8 +135,8 @@ biggies_to_arff(Name, Biggies, Players) ->
                  %       or find a more elegant way to organize all this.
                  LotGroups = proplists:get_value(Code, WekaLots),
                  Lots = case Group of
-                    big -> element(2, LotGroups);
-                    reg -> element(3, LotGroups)
+                    big -> element(1, LotGroups);
+                    reg -> element(2, LotGroups)
                  end,
                  %
                  % TODO: This line may fail for very small periods.
@@ -152,13 +153,12 @@ biggies_to_arff(Name, Biggies, Players) ->
                  % The DTS is a millisecond timestamp for the current lot in the period
                  ?io_fmt(FOut, "~B", [DTS]),
                  lists:foldl(Commer, {big, DTS}, CommCodes),
-
-                 % TODO: regular players!
-                 %lists:foldl(Commer, {reg, DTS}, CommCodes),
+                 lists:foldl(Commer, {reg, DTS}, [oter]),       % TODO: define general sentiment
                  ?io_nl(FOut)
                  end,
 
     % We use original tweets to get our DTS keys, but all the other categories must match
+    ?put_data(FOut),
     {Template,_} = proplists:get_value(oter, WekaLots),         % prop: {code, {BPs, RPs}}
     lists:foreach(Liner, maps:keys(Template)),
 
@@ -215,7 +215,7 @@ report_to_arff(Name, Type, #{big := BigRptPack,
                   [cnt | ?EMOTIONS]),
 
     % Create one data instance per day
-    io:put_chars(FOut, "\n@DATA\n"),
+    ?put_data(FOut),
     BigEmos = BigRpt#report.emotions,
     RegEmos = RegRpt#report.emotions,
     MakeInst = fun(Key, BigLot, {LotCnt, BigCnt, RegCnt}) ->
@@ -291,7 +291,7 @@ tweets_to_arff(Name, Tweets) ->
     ?put_attr(FOut, text,        string),
 
     % Fill in the tweet text as attribute data
-    io:put_chars(FOut, "\n@DATA\n"),
+    ?put_data(FOut),
     write_tweets(FOut, Tweets),
 
     % All ready for some learnin'
