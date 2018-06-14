@@ -30,6 +30,7 @@
          tweets_to_arff/2]).
 
 -include("sila.hrl").
+-include("ioo.hrl").
 -include("twitter.hrl").
 -include("types.hrl").
 -include("player.hrl").
@@ -45,8 +46,8 @@
 %%--------------------------------------------------------------------
 -spec biggies_to_arff(Name    :: string(),
                       Biggies :: proplist(),
-                      Players :: map()) -> list().  %  [{ok, string()}]
-                                                    %| [{{error, term()}, string()}].
+                      Players :: any()) ->  {ok, string()}
+                                         |  {{error, term()}, string()}.
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for the output of `players:get_biggies'.
@@ -54,7 +55,7 @@
 %       NOTE: This function is addressing the question of influence in
 %             Twitter communities, and is currently somewhat in flux.
 % @end  --
-biggies_to_arff(_Name, Biggies, Players) ->
+biggies_to_arff(Name, Biggies, Players) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
@@ -109,8 +110,58 @@ biggies_to_arff(_Name, Biggies, Players) ->
                     RegLots} = maps:fold(Chooser, {Code, BigAccts, #{}, #{}}, Players),
                    {Code, BigLots, RegLots}
                    end,
+    WekaLots = lists:map(Splitter, CommCodes),
 
-   _WekaLots = lists:map(Splitter, CommCodes).
+    % For a run period of significant size, all lots will be the same size.
+    lists:foreach(fun({Code, BL, RL}) ->
+                      ?debug("~s: big[~B] reg[~B]", [Code, maps:size(BL), maps:size(RL)])
+                      end,
+                  WekaLots),
+
+    % Now we have our data organized the way we need it for the ARFF.  Let's go!
+    {FPath, FOut} = open_arff(Name),
+
+    % Function to write one emotion for one comm on one line of the ARFF
+    Emoter = fun(Emo, Emotions) ->
+                 Val = maps:get(Emo, Emotions),
+                 ?io_fmt(FOut, ",~f", [Val]),
+                 Emotions end,
+
+    % Function to write one comm on one line of the ARFF
+    Commer = fun(Code, {Group, DTS}) ->
+                 %
+                 % TODO: If this becomes integral code, use a record for `WekaLots',
+                 %       or find a more elegant way to organize all this.
+                 Lots = proplists:get_value(Code, WekaLots),
+                 Lot  = case Group of
+                    big -> element(2, Lots);
+                    reg -> element(3, Lots)
+                 end,
+                 %
+                 % TODO: This line may fail for very small periods.
+                 %        Decide how we want to handle missing bits.
+                 #comm{emos = Emotions} = maps:get(Code, Lot),
+                 %
+                 % We're not really reducing, the "accumulator" just holds the emo-map
+                 lists:foldl(Emoter, Emotions, ?EMOTIONS),
+                 DTS end,
+
+    % Function to write one line of the ARFF
+    Liner  = fun(DTS) ->
+                 % The DTS is a millisecond timestamp for the current lot in the period
+                 ?io_fmt(FOut, "~B", [DTS]),
+                 lists:foldl(Commer, {big, DTS}, CommCodes),
+
+                 % TODO: regular players!
+                 %lists:foldl(Commer, {reg, DTS}, CommCodes),
+                 ?io_nl(FOut)
+                 end,
+
+    % We use original tweets to get our DTS keys, but all the other categories must match
+    Template = proplists:get_value(oter, WekaLots),
+    lists:foreach(Liner, maps:keys(Template)),
+
+    close_arff(FPath, FOut).
 
 
 

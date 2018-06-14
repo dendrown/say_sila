@@ -14,7 +14,7 @@
 -ifndef(_emo_included).
 -define(_emo_included, ack).
 
--define(EMOTIONS,       [anger, fear, sadness, joy]).
+-define(EMOTIONS,   [anger, fear, sadness, joy]).
 
 
 %%%-------------------------------------------------------------------

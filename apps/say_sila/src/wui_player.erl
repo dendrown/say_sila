@@ -17,6 +17,7 @@
 -export([out/1]).
 
 -include("sila.hrl").
+-include("ioo.hrl").
 -include("player.hrl").
 -include("wui.hrl").
 -include_lib("llog/include/llog.hrl").
