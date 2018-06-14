@@ -108,12 +108,12 @@ biggies_to_arff(Name, Biggies, Players) ->
                    {_, _,
                     BigLots,
                     RegLots} = maps:fold(Chooser, {Code, BigAccts, #{}, #{}}, Players),
-                   {Code, BigLots, RegLots}
+                   {Code, {BigLots, RegLots}}
                    end,
     WekaLots = lists:map(Splitter, CommCodes),
 
     % For a run period of significant size, all lots will be the same size.
-    lists:foreach(fun({Code, BL, RL}) ->
+    lists:foreach(fun({Code, {BL, RL}}) ->
                       ?debug("~s: big[~B] reg[~B]", [Code, maps:size(BL), maps:size(RL)])
                       end,
                   WekaLots),
@@ -122,29 +122,30 @@ biggies_to_arff(Name, Biggies, Players) ->
     {FPath, FOut} = open_arff(Name),
 
     % Function to write one emotion for one comm on one line of the ARFF
-    Emoter = fun(Emo, Emotions) ->
-                 Val = maps:get(Emo, Emotions),
+    Emoter = fun(Emo, Levels) ->
+                 Val = maps:get(Emo, Levels),
                  ?io_fmt(FOut, ",~f", [Val]),
-                 Emotions end,
+                 Levels end,
 
     % Function to write one comm on one line of the ARFF
     Commer = fun(Code, {Group, DTS}) ->
                  %
                  % TODO: If this becomes integral code, use a record for `WekaLots',
                  %       or find a more elegant way to organize all this.
-                 Lots = proplists:get_value(Code, WekaLots),
-                 Lot  = case Group of
-                    big -> element(2, Lots);
-                    reg -> element(3, Lots)
+                 LotGroups = proplists:get_value(Code, WekaLots),
+                 Lots = case Group of
+                    big -> element(2, LotGroups);
+                    reg -> element(3, LotGroups)
                  end,
                  %
                  % TODO: This line may fail for very small periods.
                  %        Decide how we want to handle missing bits.
-                 #comm{emos = Emotions} = maps:get(Code, Lot),
+                 Comms = maps:get(DTS, Lots),
+                 #comm{emos = Emos} = maps:get(Code, Comms),
                  %
                  % We're not really reducing, the "accumulator" just holds the emo-map
-                 lists:foldl(Emoter, Emotions, ?EMOTIONS),
-                 DTS end,
+                 lists:foldl(Emoter, Emos#emotions.levels, ?EMOTIONS),
+                 {Group, DTS} end,
 
     % Function to write one line of the ARFF
     Liner  = fun(DTS) ->
@@ -158,7 +159,7 @@ biggies_to_arff(Name, Biggies, Players) ->
                  end,
 
     % We use original tweets to get our DTS keys, but all the other categories must match
-    Template = proplists:get_value(oter, WekaLots),
+    {Template,_} = proplists:get_value(oter, WekaLots),         % prop: {code, {BPs, RPs}}
     lists:foreach(Liner, maps:keys(Template)),
 
     close_arff(FPath, FOut).
