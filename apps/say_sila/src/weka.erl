@@ -122,6 +122,13 @@ biggies_to_arff(Name, Biggies, Players) ->
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
     {FPath, FOut} = open_arff(Name),
 
+    Attribber = fun({Grp, Code, Emo}) ->
+                    Attr = ?str_fmt("~s_~s_~s", [Grp, Code, Emo]),
+                    ?put_attr(FOut, Attr, numeric)
+                    end,
+    lists:foreach(Attribber, [{big, Code, Emo} || Code <- CommCodes, Emo <- ?EMOTIONS]),
+    lists:foreach(Attribber, [{reg, oter, Emo} ||                    Emo <- ?EMOTIONS]),
+
     % Function to write one emotion for one comm on one line of the ARFF
     Emoter = fun(Emo, Levels) ->
                  Val = maps:get(Emo, Levels),
