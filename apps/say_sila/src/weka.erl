@@ -63,6 +63,14 @@ biggies_to_arff(Name, Biggies, Players) ->
     CommCodes = proplists:delete(tter, ?COMM_CODES),
     InitComm  = ?NEW_COMM,
 
+    % Remove ALL categories of big players to get our regular players
+    BigAccter = fun(Code) ->
+                    {_, _, Accts} = proplists:get_value(Code, Biggies),
+                    Accts end,
+
+    BigAccts   = lists:flatten([BigAccter(Code) || Code <- CommCodes]),
+    RegPlayers = maps:without(BigAccts, Players),
+
     % Create a new proplist with {code, BP-lots, RP-lots}
     %
     % NOTE: `lots' looks like map(K=day, V=map(K=code, V=comm))
@@ -103,6 +111,10 @@ biggies_to_arff(Name, Biggies, Players) ->
                             {Code, BigAccts, BigLotsAcc, NewRegLotsAcc}
                    end end,
 
+    % Function to split the accounts into big|regular players for each comm-code
+    %
+    % TODO: We only need the big players here.  The regulars will be those accounts
+    %       not considered a big player in ANY category.  (Also applies to Chooser.)
     Splitter = fun(Code) ->
                    ?info("Compiling ~s communications", [Code]),
                    {_, _, BigAccts} = proplists:get_value(Code, Biggies),
