@@ -60,7 +60,8 @@ biggies_to_arff(Name, Biggies, Players) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
-    CommCodes = proplists:delete(tter, ?COMM_CODES),
+    BigCommCodes = proplists:delete(tter, ?COMM_CODES),
+    RegCommCodes = [tter],
     InitComm  = ?NEW_COMM,
 
     % Remove ALL categories of big players to get our regular players
@@ -68,7 +69,8 @@ biggies_to_arff(Name, Biggies, Players) ->
                     {_, _, Accts} = proplists:get_value(Code, Biggies),
                     Accts end,
 
-    BigAccts   = lists:flatten([BigAccter(Code) || Code <- CommCodes]),
+    BigAccts   = lists:flatten([BigAccter(Code) || Code <- BigCommCodes]),
+    BigPlayers = maps:with(BigAccts, Players),
     RegPlayers = maps:without(BigAccts, Players),
 
     % Create a new proplist with {code, BP-lots, RP-lots}
@@ -81,7 +83,6 @@ biggies_to_arff(Name, Biggies, Players) ->
                        undefined -> LotsAcc;
                        AcctComm  ->
                            %?debug("~p", [AcctComm]),
-
                            % We have user comm data for this code,
                            % pull the matching comm record from the accumulator
                            LotsComms    = maps:get(DTS,  LotsAcc, #{}),
@@ -94,42 +95,33 @@ biggies_to_arff(Name, Biggies, Players) ->
                    end,
 
     % Function to run through all the DTS lots for a user, adding each to a lot accumulator
-    Alloter  = fun(Code, AcctLots, LotsAcc) ->
-                   {_, NewLotsAcc} = maps:fold(Updater, {Code, LotsAcc}, AcctLots),
-                   NewLotsAcc
+    Allotter = fun(_User, #profile{lots = UserLots}, {Code, LotsAcc}) ->
+                   %?debug("Folding in player lots: acct[~s] lots[~B]", [User, maps:size(UserLots)]),
+                   {_,
+                    NewLotsAcc} = maps:fold(Updater, {Code, LotsAcc}, UserLots),
+                   {Code, NewLotsAcc}
                    end,
-
-    % Function to add the comm info into the big|reg accumulator from all the user's lots
-    Chooser  = fun(Acct, #profile{lots = AcctLots}, {Code, BigAccts, BigLotsAcc, RegLotsAcc}) ->
-                   case lists:member(Acct, BigAccts) of
-                       true ->
-                           ?debug("Big player: acct[~s] lots[~B]", [Code, maps:size(AcctLots)]),
-                           NewBigLotsAcc = Alloter(Code, AcctLots, BigLotsAcc),
-                           {Code, BigAccts, NewBigLotsAcc, RegLotsAcc};
-                       false ->
-                            NewRegLotsAcc = Alloter(Code, AcctLots, RegLotsAcc),
-                            {Code, BigAccts, BigLotsAcc, NewRegLotsAcc}
-                   end end,
 
     % Function to split the accounts into big|regular players for each comm-code
-    %
-    % TODO: We only need the big players here.  The regulars will be those accounts
-    %       not considered a big player in ANY category.  (Also applies to Chooser.)
-    Splitter = fun(Code) ->
-                   ?info("Compiling ~s communications", [Code]),
-                   {_, _, BigAccts} = proplists:get_value(Code, Biggies),
-                   {_, _,
-                    BigLots,
-                    RegLots} = maps:fold(Chooser, {Code, BigAccts, #{}, #{}}, Players),
-                   {Code, {BigLots, RegLots}}
+    DeCommer = fun(Code, Grp, GrpPlayers) ->
+                   ?info("Compiling  ~s_~s communications", [Grp, Code]),
+                   {_,
+                    Lots} = maps:fold(Allotter, {Code, #{}}, GrpPlayers),
+                   {Code, Lots}
                    end,
-    WekaLots = lists:map(Splitter, CommCodes),
 
-    % For a run period of significant size, all lots will be the same size.
-    lists:foreach(fun({Code, {BL, RL}}) ->
-                      ?debug("~s: big[~B] reg[~B]", [Code, maps:size(BL), maps:size(RL)])
+    BigLots = [DeCommer(Code, big, BigPlayers) || Code <- BigCommCodes],
+    RegLots = [DeCommer(Code, reg, RegPlayers) || Code <- RegCommCodes],
+
+    % Sanity check: for run periods of significant size, all lots should be the same size.
+    Checker = fun(Code, {Grp, GrpLots}) ->
+                      Lots = proplists:get_value(Code, GrpLots),
+                      ?debug("LOTS: comm[~s] grp[~s] size[~B]", [Code, Grp, maps:size(Lots)]),
+                      {Grp, GrpLots}
                       end,
-                  WekaLots),
+
+    lists:foldl(Checker, {big, BigLots}, BigCommCodes),
+    lists:foldl(Checker, {reg, RegLots}, RegCommCodes),
 
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
     {FPath, FOut} = open_arff(Name),
@@ -138,8 +130,8 @@ biggies_to_arff(Name, Biggies, Players) ->
                     Attr = ?str_fmt("~s_~s_~s", [Grp, Code, Emo]),
                     ?put_attr(FOut, Attr, numeric)
                     end,
-    lists:foreach(Attribber, [{big, Code, Emo} || Code <- CommCodes, Emo <- ?EMOTIONS]),
-    lists:foreach(Attribber, [{reg, oter, Emo} ||                    Emo <- ?EMOTIONS]),
+    lists:foreach(Attribber, [{big, Code, Emo} || Code <- BigCommCodes, Emo <- ?EMOTIONS]),
+    lists:foreach(Attribber, [{reg, Code, Emo} || Code <- RegCommCodes, Emo <- ?EMOTIONS]),
 
     % Function to write one emotion for one comm on one line of the ARFF
     Emoter = fun(Emo, Levels) ->
@@ -148,15 +140,8 @@ biggies_to_arff(Name, Biggies, Players) ->
                  Levels end,
 
     % Function to write one comm on one line of the ARFF
-    Commer = fun(Code, {Group, DTS}) ->
-                 %
-                 % TODO: If this becomes integral code, use a record for `WekaLots',
-                 %       or find a more elegant way to organize all this.
-                 LotGroups = proplists:get_value(Code, WekaLots),
-                 Lots = case Group of
-                    big -> element(1, LotGroups);
-                    reg -> element(2, LotGroups)
-                 end,
+    Commer = fun(Code, {DTS, GrpLots}) ->
+                 Lots = proplists:get_value(Code, GrpLots),
                  %
                  % TODO: This line may fail for very small periods.
                  %        Decide how we want to handle missing bits.
@@ -165,20 +150,20 @@ biggies_to_arff(Name, Biggies, Players) ->
                  %
                  % We're not really reducing, the "accumulator" just holds the emo-map
                  lists:foldl(Emoter, Emos#emotions.levels, ?EMOTIONS),
-                 {Group, DTS} end,
+                 {DTS, GrpLots} end,
 
     % Function to write one line of the ARFF
     Liner  = fun(DTS) ->
                  % The DTS is a millisecond timestamp for the current lot in the period
                  ?io_fmt(FOut, "~B", [DTS]),
-                 lists:foldl(Commer, {big, DTS}, CommCodes),
-                 lists:foldl(Commer, {reg, DTS}, [oter]),       % TODO: define general sentiment
+                 lists:foldl(Commer, {DTS, BigLots}, BigCommCodes),
+                 lists:foldl(Commer, {DTS, RegLots}, RegCommCodes),
                  ?io_nl(FOut)
                  end,
 
     % We use original tweets to get our DTS keys, but all the other categories must match
     ?put_data(FOut),
-    {Template,_} = proplists:get_value(oter, WekaLots),         % prop: {code, {BPs, RPs}}
+    Template = proplists:get_value(oter, BigLots),
     lists:foreach(Liner, maps:keys(Template)),
 
     close_arff(FPath, FOut).
