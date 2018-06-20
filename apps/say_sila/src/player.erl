@@ -591,8 +591,10 @@ new_ranking() ->
 reset_state(Tracker) ->
 
     % Grab what we need from the configuration
-    {ok, App} = application:get_application(),
-    JVM       = application:get_env(App, jvm_node, undefined),
+    JVM = case application:get_application() of
+        undefined -> jvm@nonode;
+        {ok, App} -> application:get_env(App, jvm_node, jvm@nonode)
+    end,
 
     % Start the tweet tree with a node for minimum-activity players
     NumComms = length(?COMM_CODES),
