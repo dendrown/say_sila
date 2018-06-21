@@ -20,7 +20,8 @@
          tweet_01/1,
          tweet_02/1,
          tweet_03/1,
-         tweet_04/1]).
+         tweet_04/1,
+         emote_01/1]).
 
 -include("player.hrl").
 -include("twitter.hrl").
@@ -65,7 +66,8 @@
 all() ->
     [get_players_01,
      get_rankings_01,
-     tweet_01, tweet_02, tweet_03, tweet_04].
+     tweet_01, tweet_02, tweet_03, tweet_04,
+     emote_01].
 
 
 %%--------------------------------------------------------------------
@@ -103,8 +105,9 @@ tweet_01(_Config) ->
 
     Players = player:get_players(?TRACKER),
     Profile = maps:get(Account, Players),
-    check_comm_counts(Profile, [tter, oter], ?MIN_COMMS_COUNT),
-    check_comm_counts(Profile, [rter, rted, tmed], undefined),
+
+    true = check_comm_counts(Profile, [tter, oter], ?MIN_COMMS_COUNT),
+    true = check_comm_counts(Profile, [rter, rted, tmed], undefined),
 
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #{tter => {1,{?MIN_COMMS_COUNT, [Account],nil, nil}},
@@ -127,10 +130,10 @@ tweet_02(_Config) ->
     ok = tweet_N_times(?MIN_COMMS_COUNT, ?RETWEET),
     Account = string:lowercase(?RETWEET#tweet.screen_name),
     Author  = string:lowercase(?RETWEET#tweet.rt_screen_name),
-
     Players = player:get_players(?TRACKER),
-    check_comm_counts(maps:get(Account, Players), [tter, rter], ?MIN_COMMS_COUNT),
-    check_comm_counts(maps:get(Author,  Players), rted, ?MIN_COMMS_COUNT),
+
+    true = check_comm_counts(maps:get(Account, Players), [tter, rter], ?MIN_COMMS_COUNT),
+    true = check_comm_counts(maps:get(Author,  Players), rted, ?MIN_COMMS_COUNT),
 
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #{tter => {1,{?MIN_COMMS_COUNT,[Account], nil, nil}},
@@ -156,8 +159,8 @@ tweet_03(_Config) ->
     Mention = string:lowercase(<<"CNN">>),
 
     Players = player:get_players(?TRACKER),
-    check_comm_counts(maps:get(Account, Players), [tter, oter], ?MIN_COMMS_COUNT),
-    check_comm_counts(maps:get(Mention, Players), tmed, ?MIN_COMMS_COUNT),
+    true = check_comm_counts(maps:get(Account, Players), [tter, oter], ?MIN_COMMS_COUNT),
+    true = check_comm_counts(maps:get(Mention, Players), tmed, ?MIN_COMMS_COUNT),
 
     Rankings = player:get_rankings(?TRACKER),
     Rankings = #{tter => {1, {?MIN_COMMS_COUNT, [Account],  nil, nil}},
@@ -183,8 +186,9 @@ tweet_04(_Config) ->
 
     Players = player:get_players(?TRACKER),
     Profile = maps:get(Account, Players),
-    check_comm_counts(Profile, [tter, oter], ?MANY_COMMS),
-    check_comm_counts(Profile, [rter, rted, tmed], undefined),
+
+    true = check_comm_counts(Profile, [tter, oter], ?MANY_COMMS),
+    true = check_comm_counts(Profile, [rter, rted, tmed], undefined),
 
     Rankings  = player:get_rankings(?TRACKER),
     [Account] = gb_trees:get(?MANY_COMMS, maps:get(tter, Rankings)),
@@ -196,6 +200,23 @@ tweet_04(_Config) ->
                rted => 0,
                tmed => 0}.
 
+
+
+%%--------------------------------------------------------------------
+emote_01(_Config) ->
+    %
+    Tweet = ?TWEET,
+    player:tweet(?TRACKER, Tweet#tweet{emotions = emo:emote(0.4, 0.3, 0.2, 0.1)}),
+    player:tweet(?TRACKER, Tweet#tweet{emotions = emo:emote(0.5, 0.5, 0.5, 0.5)}),
+    player:tweet(?TRACKER, Tweet#tweet{emotions = emo:emote(0.6, 0.7, 0.8, 0.9)}),
+    CommAvg = #comm{cnt  = 3,
+                    emos = emo:emote(3, 0.5, 0.5, 0.5, 0.5)},
+    Account = string:lowercase(?TWEET#tweet.screen_name),
+    Players = player:get_players(?TRACKER),
+
+    #profile{comms = Comms} = maps:get(Account, Players),
+    #{oter := CommAvg,
+      tter := CommAvg} = Comms.
 
 
 %%====================================================================
