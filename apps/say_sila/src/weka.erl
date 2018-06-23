@@ -17,7 +17,7 @@
 %%
 %%      REF: https://github.com/felipebravom/AffectiveTweets
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(weka).
@@ -61,7 +61,7 @@ biggies_to_arff(Name, Biggies, Players) ->
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
     BigCommCodes = proplists:delete(tter, ?COMM_CODES),
-    RegCommCodes = [tter],
+    RegCommCodes = [oter],
     InitComm  = ?NEW_COMM,
 
     % Remove ALL categories of big players to get our regular players
@@ -69,20 +69,25 @@ biggies_to_arff(Name, Biggies, Players) ->
                     {_, _, Accts} = proplists:get_value(Code, Biggies),
                     Accts end,
 
-    BigAccts   = lists:flatten([BigAccter(Code) || Code <- BigCommCodes]),
-    BigPlayers = maps:with(BigAccts, Players),
-    RegPlayers = maps:without(BigAccts, Players),
+    AllBigAccts = lists:flatten([BigAccter(Code) || Code <- BigCommCodes]),
+    RegPlayers  = maps:without(AllBigAccts, Players),
 
     % Create a new proplist with {code, BP-lots, RP-lots}
     %
     % NOTE: `lots' looks like map(K=day, V=map(K=code, V=comm))
     Updater  = fun(DTS, AcctComms, {Code, LotsAcc}) ->
+%   Updater  = fun({DTS, AcctComms}, {Code, LotsAcc, Cnt}) ->
                    %
                    % Make sure the user has this kind of communication data
                    NewLotsAcc = case maps:get(Code, AcctComms, undefined) of
-                       undefined -> LotsAcc;
+                       undefined ->
+                           %?warning("~s<~B>: NO-COMMS", [Code, DTS]),
+                           LotsAcc;
                        AcctComm  ->
-                           %?debug("~p", [AcctComm]),
+%                          case (Cnt < 1) of
+%                              false -> ok;
+%                              true  -> ok %?debug("~s<~B>: ~p", [Code, DTS, AcctComm])
+%                          end,
                            % We have user comm data for this code,
                            % pull the matching comm record from the accumulator
                            LotsComms    = maps:get(DTS,  LotsAcc, #{}),
@@ -92,26 +97,37 @@ biggies_to_arff(Name, Biggies, Players) ->
                            maps:put(DTS, NewLotsComms, LotsAcc)
                    end,
                    {Code, NewLotsAcc}
+%                  {Code, NewLotsAcc, Cnt+1}
                    end,
 
     % Function to run through all the DTS lots for a user, adding each to a lot accumulator
-    Allotter = fun(_User, #profile{lots = UserLots}, {Code, LotsAcc}) ->
-                   %?debug("Folding in player lots: acct[~s] lots[~B]", [User, maps:size(UserLots)]),
+    Allotter = fun(User, #profile{lots = UserLots}, {Code, LotsAcc}) ->
+%   Allotter = fun({User, #profile{lots = UserLots}}, {Code, LotsAcc}) ->
+                   ?notice("Player lots: acct[~s] code[~s] lots[~B]", [User, Code, maps:size(UserLots)]),
                    {_,
                     NewLotsAcc} = maps:fold(Updater, {Code, LotsAcc}, UserLots),
+%                  CommsMap = lists:sort(maps:to_list(UserLots)),
+%                  {_, NewLotsAcc, _} = lists:foldl(Updater, {Code, LotsAcc, 0}, CommsMap),
                    {Code, NewLotsAcc}
                    end,
 
     % Function to split the accounts into big|regular players for each comm-code
-    DeCommer = fun(Code, Grp, GrpPlayers) ->
-                   ?info("Compiling  ~s_~s communications", [Grp, Code]),
+    DeCommer = fun(Code, Grp) ->
+                   GrpPlayers = case Grp of
+                       reg -> RegPlayers;
+                       big -> maps:with(BigAccter(Code), Players)
+                   end,
+                   ?info("Compiling ~s_~s communications", [Grp, Code]),
                    {_,
                     Lots} = maps:fold(Allotter, {Code, #{}}, GrpPlayers),
+%                  GrpPlayerData = lists:sort(maps:to_list(GrpPlayers)),
+%                  {_,
+%                   Lots} = lists:foldl(Allotter, {Code, #{}}, GrpPlayerData),
                    {Code, Lots}
                    end,
 
-    BigLots = [DeCommer(Code, big, BigPlayers) || Code <- BigCommCodes],
-    RegLots = [DeCommer(Code, reg, RegPlayers) || Code <- RegCommCodes],
+    BigLots = [DeCommer(Code, big) || Code <- BigCommCodes],
+    RegLots = [DeCommer(Code, reg) || Code <- RegCommCodes],
 
     % Sanity check: for run periods of significant size, all lots should be the same size.
     Checker = fun(Code, {Grp, GrpLots}) ->
@@ -165,6 +181,10 @@ biggies_to_arff(Name, Biggies, Players) ->
     ?put_data(FOut),
     Template = proplists:get_value(oter, BigLots),
     lists:foreach(Liner, maps:keys(Template)),
+%   Template = proplists:get_value(rted, BigLots),
+%   X = hd(maps:keys(Template)),
+%   ?notice("Running line for ~p", [X]),
+%   lists:foreach(Liner, [X]),
 
     close_arff(FPath, FOut).
 
