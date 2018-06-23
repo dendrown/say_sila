@@ -76,7 +76,6 @@ biggies_to_arff(Name, Biggies, Players) ->
     %
     % NOTE: `lots' looks like map(K=day, V=map(K=code, V=comm))
     Updater  = fun(DTS, AcctComms, {Code, LotsAcc}) ->
-%   Updater  = fun({DTS, AcctComms}, {Code, LotsAcc, Cnt}) ->
                    %
                    % Make sure the user has this kind of communication data
                    NewLotsAcc = case maps:get(Code, AcctComms, undefined) of
@@ -84,10 +83,6 @@ biggies_to_arff(Name, Biggies, Players) ->
                            %?warning("~s<~B>: NO-COMMS", [Code, DTS]),
                            LotsAcc;
                        AcctComm  ->
-%                          case (Cnt < 1) of
-%                              false -> ok;
-%                              true  -> ok %?debug("~s<~B>: ~p", [Code, DTS, AcctComm])
-%                          end,
                            % We have user comm data for this code,
                            % pull the matching comm record from the accumulator
                            LotsComms    = maps:get(DTS,  LotsAcc, #{}),
@@ -97,17 +92,13 @@ biggies_to_arff(Name, Biggies, Players) ->
                            maps:put(DTS, NewLotsComms, LotsAcc)
                    end,
                    {Code, NewLotsAcc}
-%                  {Code, NewLotsAcc, Cnt+1}
                    end,
 
     % Function to run through all the DTS lots for a user, adding each to a lot accumulator
-    Allotter = fun(User, #profile{lots = UserLots}, {Code, LotsAcc}) ->
-%   Allotter = fun({User, #profile{lots = UserLots}}, {Code, LotsAcc}) ->
-                   ?notice("Player lots: acct[~s] code[~s] lots[~B]", [User, Code, maps:size(UserLots)]),
+    Allotter = fun(_User, #profile{lots = UserLots}, {Code, LotsAcc}) ->
+                   %?notice("Player lots: acct[~s] code[~s] lots[~B]", [User, Code, maps:size(UserLots)]),
                    {_,
                     NewLotsAcc} = maps:fold(Updater, {Code, LotsAcc}, UserLots),
-%                  CommsMap = lists:sort(maps:to_list(UserLots)),
-%                  {_, NewLotsAcc, _} = lists:foldl(Updater, {Code, LotsAcc, 0}, CommsMap),
                    {Code, NewLotsAcc}
                    end,
 
@@ -120,9 +111,6 @@ biggies_to_arff(Name, Biggies, Players) ->
                    ?info("Compiling ~s_~s communications", [Grp, Code]),
                    {_,
                     Lots} = maps:fold(Allotter, {Code, #{}}, GrpPlayers),
-%                  GrpPlayerData = lists:sort(maps:to_list(GrpPlayers)),
-%                  {_,
-%                   Lots} = lists:foldl(Allotter, {Code, #{}}, GrpPlayerData),
                    {Code, Lots}
                    end,
 
@@ -181,10 +169,6 @@ biggies_to_arff(Name, Biggies, Players) ->
     ?put_data(FOut),
     Template = proplists:get_value(oter, BigLots),
     lists:foreach(Liner, maps:keys(Template)),
-%   Template = proplists:get_value(rted, BigLots),
-%   X = hd(maps:keys(Template)),
-%   ?notice("Running line for ~p", [X]),
-%   lists:foreach(Liner, [X]),
 
     close_arff(FPath, FOut).
 
