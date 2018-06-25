@@ -24,12 +24,15 @@
          later/2,
          minutize/1,
          minutize/2,
+         quarter/1,
+         quarter/2,
          str/1,
          sub/3,
          to_datetime/2,
          to_unix/2]).
 
 -include("dts.hrl").
+-include("ioo.hrl").
 
 -define(SECS_EPOCH,     62167219200).
 
@@ -154,6 +157,31 @@ minutize({{Year, Month, Day}, {Hour, Min, _}}) ->
 minutize(DTS1970, Unit) ->
     DTS = to_datetime(DTS1970, Unit),
     to_unix(minutize(DTS), Unit).
+
+
+%%--------------------------------------------------------------------
+-spec quarter(DateTime :: tuple()) -> atom().
+%
+% @doc  Returns an atom representing the yearly quarter, such as q4_2017.
+% @end  --
+quarter(Day = {_, _, _}) ->
+    quarter({Day, {0, 0, 0}});
+
+
+quarter({{Year, Month, _}, {_, _, _}}) ->
+    Qtr = (Month + 2) div 3,
+    list_to_atom(lists:flatten(?str_fmt("q~B_~B", [Qtr, Year]))).
+
+
+%%--------------------------------------------------------------------
+-spec quarter(DTS1970 :: integer(),
+              Unit    :: atom()) -> atom().
+%
+% @doc  Returns an atom representing the yearly quarter, such as q4_2017.
+% @end  --
+quarter(DTS1970, Unit) ->
+    quarter(to_datetime(DTS1970, Unit)).
+
 
 
 %%--------------------------------------------------------------------
