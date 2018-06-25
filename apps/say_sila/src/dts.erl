@@ -48,6 +48,10 @@
 %     Adds the specified amout of `second', `minute', `hour' or `day'
 %     to DTS.
 % @end  --
+add(Day = {_, _, _}, Amt, Unit) ->
+    add({Day, {0, 0, 0}}, Amt, Unit);
+
+
 add(DTS, Amt, Unit) ->
     Secs = case Unit of
         millisecond -> Amt div 1000;
