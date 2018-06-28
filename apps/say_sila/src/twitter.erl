@@ -15,7 +15,7 @@
 %%      referring to Twitter hashtags, and not to hashtables or
 %%      related structures.
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(twitter).
@@ -206,7 +206,7 @@ get_first_dts(Tracker) ->
 %           - `calendar' :  Gives the result as a tuple: {{year,mon,day},{hour,min,sec}}
 % @end  --
 get_first_dts(Tracker, Options) ->
-    DTS = gen_server:call(?MODULE, {get_first_dts, Tracker}),
+    DTS = gen_server:call(?MODULE, {get_first_dts, Tracker}, ?TWITTER_DB_TIMEOUT),
     case proplists:get_value(calendar, Options) of
         true      -> dts:to_datetime(DTS, millisecond);
         undefined -> DTS

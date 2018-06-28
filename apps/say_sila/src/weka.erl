@@ -24,7 +24,7 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([biggies_to_arff/3,
+-export([biggies_to_arff/4,
          report_to_arff/2,
          report_to_arff/3,
          tweets_to_arff/2]).
@@ -46,6 +46,7 @@
 %% API
 %%--------------------------------------------------------------------
 -spec biggies_to_arff(Name    :: string(),
+                      RegCode :: comm_code(),
                       Biggies :: proplist(),
                       Players :: any()) ->  {ok, string()}
                                          |  {{error, term()}, string()}.
@@ -56,12 +57,12 @@
 %       NOTE: This function is addressing the question of influence in
 %             Twitter communities, and is currently somewhat in flux.
 % @end  --
-biggies_to_arff(Name, Biggies, Players) ->
+biggies_to_arff(Name, RegCode, Biggies, Players) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
     BigCommCodes = proplists:delete(tter, ?COMM_CODES),
-    RegCommCodes = [oter],
+    RegCommCodes = [RegCode],
     InitComm  = ?NEW_COMM,
 
     % Remove ALL categories of big players to get our regular players
