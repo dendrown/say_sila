@@ -145,24 +145,30 @@ biggies_to_arff(Name, RegCode, Biggies, Players) ->
                  Levels end,
 
     % Function to write one comm on one line of the ARFF
-    Commer = fun(Code, {DTS, GrpLots}) ->
+    Commer = fun(Code, {DTS, Grp, GrpLots}) ->
                  Lots = proplists:get_value(Code, GrpLots),
                  %
                  % TODO: This line may fail for very small periods.
                  %        Decide how we want to handle missing bits.
-                 Comms = maps:get(DTS, Lots),
+                 Comms = case maps:get(DTS, Lots, none) of
+                    none ->
+                        ?warning("Missing lot: grp[~s] comm[~s] ms[~B] dts[~s]",
+                                 [Grp, Code, DTS, dts:str(DTS, millisecond)]),
+                    #{Code => InitComm};
+                    Lot -> Lot
+                 end,
                  #comm{emos = Emos} = maps:get(Code, Comms),
                  %
                  % We're not really reducing, the "accumulator" just holds the emo-map
                  lists:foldl(Emoter, Emos#emotions.levels, ?EMOTIONS),
-                 {DTS, GrpLots} end,
+                 {DTS, Grp, GrpLots} end,
 
     % Function to write one line of the ARFF
     Liner  = fun(DTS) ->
                  % The DTS is a millisecond timestamp for the current lot in the period
                  ?io_fmt(FOut, "~B", [DTS]),
-                 lists:foldl(Commer, {DTS, BigLots}, BigCommCodes),
-                 lists:foldl(Commer, {DTS, RegLots}, RegCommCodes),
+                 lists:foldl(Commer, {DTS, big, BigLots}, BigCommCodes),
+                 lists:foldl(Commer, {DTS, reg, RegLots}, RegCommCodes),
                  ?io_nl(FOut)
                  end,
 

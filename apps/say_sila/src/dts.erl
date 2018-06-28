@@ -27,6 +27,7 @@
          quarter/1,
          quarter/2,
          str/1,
+         str/2,
          sub/3,
          to_datetime/2,
          to_unix/2]).
@@ -199,6 +200,17 @@ str({Year, Mon, Day}) ->
 
 str({{Year, Mon, Day}, {Hour, Min, Sec}}) ->
     io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B", [Year, Mon, Day, Hour, Min, Sec]).
+
+
+
+%%--------------------------------------------------------------------
+-spec str(DTS1970 :: integer(),
+          Unit    :: atom()) -> string().
+%
+%     Creates an ISO 8601 printable string from a datetime tuple.
+% @end  --
+str(DTS1970, Unit) ->
+    str(to_datetime(DTS1970, Unit)).
 
 
 
