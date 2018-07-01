@@ -25,6 +25,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([biggies_to_arff/4,
+         biggies_to_arff/5,
          report_to_arff/2,
          report_to_arff/3,
          tweets_to_arff/2]).
@@ -52,12 +53,34 @@
                                          |  {{error, term()}, string()}.
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
-%       for the output of `players:get_biggies'.
+%       for the output of `players:get_biggies'.  Each output instance
+%       represents one day during a tracking run.
 %
 %       NOTE: This function is addressing the question of influence in
 %             Twitter communities, and is currently somewhat in flux.
 % @end  --
 biggies_to_arff(Name, RegCode, Biggies, Players) ->
+    biggies_to_arff(Name, RegCode, Biggies, Players, 1).
+
+
+
+%%--------------------------------------------------------------------
+-spec biggies_to_arff(Name    :: string(),
+                      RegCode :: comm_code(),
+                      Biggies :: proplist(),
+                      Players :: any(),
+                      Period  :: integer()) ->  {ok, string()}
+                                             |  {{error, term()}, string()}.
+%%
+% @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
+%       for the output of `players:get_biggies'.  Each output instance
+%       corresponds to the number of days in `Period' over the course of
+%       a tracking run.
+%
+%       NOTE: This function is addressing the question of influence in
+%             Twitter communities, and is currently somewhat in flux.
+% @end  --
+biggies_to_arff(Name, RegCode, Biggies, Players, _Period) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
@@ -65,118 +88,14 @@ biggies_to_arff(Name, RegCode, Biggies, Players) ->
     RegCommCodes = [RegCode],
     InitComm  = ?NEW_COMM,
 
-    % Remove ALL categories of big players to get our regular players
-    BigAccter = fun(Code) ->
-                    {_, _, Accts} = proplists:get_value(Code, Biggies),
-                    Accts end,
-
-    AllBigAccts = lists:flatten([BigAccter(Code) || Code <- BigCommCodes]),
-    RegPlayers  = maps:without(AllBigAccts, Players),
-
-    % Create a new proplist with {code, BP-lots, RP-lots}
-    %
-    % NOTE: `lots' looks like map(K=day, V=map(K=code, V=comm))
-    Updater  = fun(DTS, AcctComms, {Code, LotsAcc}) ->
-                   %
-                   % Make sure the user has this kind of communication data
-                   NewLotsAcc = case maps:get(Code, AcctComms, undefined) of
-                       undefined ->
-                           %?warning("~s<~B>: NO-COMMS", [Code, DTS]),
-                           LotsAcc;
-                       AcctComm  ->
-                           % We have user comm data for this code,
-                           % pull the matching comm record from the accumulator
-                           LotsComms    = maps:get(DTS,  LotsAcc, #{}),
-                           LotsComm     = maps:get(Code, LotsComms, InitComm),
-                           NewLotsComm  = player:update_comm(LotsComm, AcctComm),
-                           NewLotsComms = maps:put(Code, NewLotsComm, LotsComms),
-                           maps:put(DTS, NewLotsComms, LotsAcc)
-                   end,
-                   {Code, NewLotsAcc}
-                   end,
-
-    % Function to run through all the DTS lots for a user, adding each to a lot accumulator
-    Allotter = fun(_User, #profile{lots = UserLots}, {Code, LotsAcc}) ->
-                   %?notice("Player lots: acct[~s] code[~s] lots[~B]", [User, Code, maps:size(UserLots)]),
-                   {_,
-                    NewLotsAcc} = maps:fold(Updater, {Code, LotsAcc}, UserLots),
-                   {Code, NewLotsAcc}
-                   end,
-
-    % Function to split the accounts into big|regular players for each comm-code
-    DeCommer = fun(Code, Grp) ->
-                   GrpPlayers = case Grp of
-                       reg -> RegPlayers;
-                       big -> maps:with(BigAccter(Code), Players)
-                   end,
-                   ?info("Compiling ~s_~s communications", [Grp, Code]),
-                   {_,
-                    Lots} = maps:fold(Allotter, {Code, #{}}, GrpPlayers),
-                   {Code, Lots}
-                   end,
-
-    BigLots = [DeCommer(Code, big) || Code <- BigCommCodes],
-    RegLots = [DeCommer(Code, reg) || Code <- RegCommCodes],
-
-    % Sanity check: for run periods of significant size, all lots should be the same size.
-    Checker = fun(Code, {Grp, GrpLots}) ->
-                      Lots = proplists:get_value(Code, GrpLots),
-                      ?debug("LOTS: comm[~s] grp[~s] size[~B]", [Code, Grp, maps:size(Lots)]),
-                      {Grp, GrpLots}
-                      end,
-
-    lists:foldl(Checker, {big, BigLots}, BigCommCodes),
-    lists:foldl(Checker, {reg, RegLots}, RegCommCodes),
+    % Separate out comm-code lots for big & regular players
+    {BigLots,
+     RegLots} = get_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm),
 
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
-    {FPath, FOut} = open_arff(Name),
+    {FPath, FOut} = init_biggie_arff(Name, BigCommCodes, RegCommCodes),
 
-    Attribber = fun({Grp, Code, Emo}) ->
-                    Attr = ?str_fmt("~s_~s_~s", [Grp, Code, Emo]),
-                    ?put_attr(FOut, Attr, numeric)
-                    end,
-    lists:foreach(Attribber, [{big, Code, Emo} || Code <- BigCommCodes, Emo <- ?EMOTIONS]),
-    lists:foreach(Attribber, [{reg, Code, Emo} || Code <- RegCommCodes, Emo <- ?EMOTIONS]),
-
-    % Function to write one emotion for one comm on one line of the ARFF
-    Emoter = fun(Emo, Levels) ->
-                 Val = maps:get(Emo, Levels),
-                 ?io_fmt(FOut, ",~f", [Val]),
-                 Levels end,
-
-    % Function to write one comm on one line of the ARFF
-    Commer = fun(Code, {DTS, Grp, GrpLots}) ->
-                 Lots = proplists:get_value(Code, GrpLots),
-                 %
-                 % TODO: This line may fail for very small periods.
-                 %        Decide how we want to handle missing bits.
-                 Comms = case maps:get(DTS, Lots, none) of
-                    none ->
-                        ?warning("Missing lot: grp[~s] comm[~s] ms[~B] dts[~s]",
-                                 [Grp, Code, DTS, dts:str(DTS, millisecond)]),
-                    #{Code => InitComm};
-                    Lot -> Lot
-                 end,
-                 #comm{emos = Emos} = maps:get(Code, Comms),
-                 %
-                 % We're not really reducing, the "accumulator" just holds the emo-map
-                 lists:foldl(Emoter, Emos#emotions.levels, ?EMOTIONS),
-                 {DTS, Grp, GrpLots} end,
-
-    % Function to write one line of the ARFF
-    Liner  = fun(DTS) ->
-                 % The DTS is a millisecond timestamp for the current lot in the period
-                 ?io_fmt(FOut, "~B", [DTS]),
-                 lists:foldl(Commer, {DTS, big, BigLots}, BigCommCodes),
-                 lists:foldl(Commer, {DTS, reg, RegLots}, RegCommCodes),
-                 ?io_nl(FOut)
-                 end,
-
-    % We use original tweets to get our DTS keys, but all the other categories must match
-    ?put_data(FOut),
-    Template = proplists:get_value(oter, BigLots),
-    lists:foreach(Liner, maps:keys(Template)),
-
+    write_biggie_arff(FOut, BigCommCodes, RegCommCodes, BigLots, RegLots, InitComm),
     close_arff(FPath, FOut).
 
 
@@ -318,7 +237,7 @@ tweets_to_arff(Name, Tweets) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec open_arff(Name :: string()) -> {string(), term()}.
+-spec open_arff(Name :: string()) -> {string(), file:io_device()}.
 %%
 % @doc  Opens an ARFF file for writing the specified relation and
 %       returns the full pathname to the file and its file descriptor.
@@ -347,6 +266,7 @@ close_arff(FPath, FOut) ->
 
 
 
+%%--------------------------------------------------------------------
 -spec make_fpath(Name :: string()) -> string().
 %%
 % @doc  Returns the full filepath for an ARFF file with the specified
@@ -378,4 +298,159 @@ write_tweets(Out, [Tweet = #tweet{text = Text0} | Rest]) ->
                                         Tweet#tweet.screen_name,
                                         Text]),
     write_tweets(Out, Rest).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_biggie_lots(BigCommCodes  :: [atom()],
+                      RegCommmCodes :: [atom()],
+                      Biggies       :: proplist(),
+                      Players       :: any(),
+                      InitComm      :: comm()) -> {proplist(),
+                                                   proplist()}.
+%%
+% @doc  Separates the comm-code lots for the big and regular players
+% @end  --
+get_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm) ->
+
+    % Remove ALL categories of big players to get our regular players
+    BigAccter = fun(Code) ->
+                    {_, _, Accts} = proplists:get_value(Code, Biggies),
+                    Accts end,
+
+    AllBigAccts = lists:flatten([BigAccter(Code) || Code <- BigCommCodes]),
+    RegPlayers  = maps:without(AllBigAccts, Players),
+
+    % Create a new proplist with {code, BP-lots, RP-lots}
+    %
+    % NOTE: `lots' looks like map(K=day, V=map(K=code, V=comm))
+    Updater  = fun(DTS, AcctComms, {Code, LotsAcc}) ->
+                   %
+                   % Make sure the user has this kind of communication data
+                   NewLotsAcc = case maps:get(Code, AcctComms, undefined) of
+                       undefined ->
+                           %?warning("~s<~B>: NO-COMMS", [Code, DTS]),
+                           LotsAcc;
+                       AcctComm  ->
+                           % We have user comm data for this code,
+                           % pull the matching comm record from the accumulator
+                           LotsComms    = maps:get(DTS,  LotsAcc, #{}),
+                           LotsComm     = maps:get(Code, LotsComms, InitComm),
+                           NewLotsComm  = player:update_comm(LotsComm, AcctComm),
+                           NewLotsComms = maps:put(Code, NewLotsComm, LotsComms),
+                           maps:put(DTS, NewLotsComms, LotsAcc)
+                   end,
+                   {Code, NewLotsAcc}
+                   end,
+
+    % Function to run through all the DTS lots for a user, adding each to a lot accumulator
+    Allotter = fun(_User, #profile{lots = UserLots}, {Code, LotsAcc}) ->
+                   %?notice("Player lots: acct[~s] code[~s] lots[~B]", [User, Code, maps:size(UserLots)]),
+                   {_,
+                    NewLotsAcc} = maps:fold(Updater, {Code, LotsAcc}, UserLots),
+                   {Code, NewLotsAcc}
+                   end,
+
+    % Function to split the accounts into big|regular players for each comm-code
+    DeCommer = fun(Code, Grp) ->
+                   GrpPlayers = case Grp of
+                       reg -> RegPlayers;
+                       big -> maps:with(BigAccter(Code), Players)
+                   end,
+                   ?info("Compiling ~s_~s communications", [Grp, Code]),
+                   {_,
+                    Lots} = maps:fold(Allotter, {Code, #{}}, GrpPlayers),
+                   {Code, Lots}
+                   end,
+
+    Return = {BigLots = [DeCommer(Code, big) || Code <- BigCommCodes],
+              RegLots = [DeCommer(Code, reg) || Code <- RegCommCodes]},
+
+    % Sanity check: for run periods of significant size, all lots should be the same size.
+    Checker = fun(Code, {Grp, GrpLots}) ->
+                      Lots = proplists:get_value(Code, GrpLots),
+                      ?debug("LOTS: comm[~s] grp[~s] size[~B]", [Code, Grp, maps:size(Lots)]),
+                      {Grp, GrpLots}
+                      end,
+
+    lists:foldl(Checker, {big, BigLots}, BigCommCodes),
+    lists:foldl(Checker, {reg, RegLots}, RegCommCodes),
+    Return.
+
+
+
+%%--------------------------------------------------------------------
+-spec init_biggie_arff(Name          :: string(),
+                       BigCommCodes  :: [atom()],
+                       RegCommmCodes :: [atom()]) -> {string(), file:io_device()}.
+%%
+% @doc  Opens an ARFF for biggie influence analysis and writes out the
+%       attribute header.
+% @end  --
+init_biggie_arff(Name, BigCommCodes, RegCommCodes) ->
+
+    % Now we have our data organized the way we need it for the ARFF.  Let's go!
+    Return = {_, FOut} = open_arff(Name),
+
+    Attribber = fun({Grp, Code, Emo}) ->
+                    Attr = ?str_fmt("~s_~s_~s", [Grp, Code, Emo]),
+                    ?put_attr(FOut, Attr, numeric)
+                    end,
+    lists:foreach(Attribber, [{big, Code, Emo} || Code <- BigCommCodes, Emo <- ?EMOTIONS]),
+    lists:foreach(Attribber, [{reg, Code, Emo} || Code <- RegCommCodes, Emo <- ?EMOTIONS]),
+    Return.
+
+
+
+%%--------------------------------------------------------------------
+-spec write_biggie_arff(FOut          :: file:io_device(),
+                        BigCommCodes  :: [atom()],
+                        RegCommmCodes :: [atom()],
+                        BigLots       :: proplist(),
+                        RegLots       :: proplist(),
+                        InitComm      :: comm()) -> ok.
+%%
+% @doc  Opens an ARFF for biggie influence analysis and writes out the
+%       attribute header.
+% @end  --
+write_biggie_arff(FOut, BigCommCodes, RegCommCodes, BigLots, RegLots, InitComm) ->
+
+    % Function to write one emotion for one comm on one line of the ARFF
+    Emoter = fun(Emo, Levels) ->
+                 Val = maps:get(Emo, Levels),
+                 ?io_fmt(FOut, ",~f", [Val]),
+                 Levels end,
+
+    % Function to write one comm on one line of the ARFF
+    Commer = fun(Code, {DTS, Grp, GrpLots}) ->
+                 Lots = proplists:get_value(Code, GrpLots),
+                 %
+                 % TODO: This line may fail for very small periods.
+                 %        Decide how we want to handle missing bits.
+                 Comms = case maps:get(DTS, Lots, none) of
+                    none ->
+                        ?warning("Missing lot: grp[~s] comm[~s] ms[~B] dts[~s]",
+                                 [Grp, Code, DTS, dts:str(DTS, millisecond)]),
+                    #{Code => InitComm};
+                    Lot -> Lot
+                 end,
+                 #comm{emos = Emos} = maps:get(Code, Comms),
+                 %
+                 % We're not really reducing, the "accumulator" just holds the emo-map
+                 lists:foldl(Emoter, Emos#emotions.levels, ?EMOTIONS),
+                 {DTS, Grp, GrpLots} end,
+
+    % Function to write one line of the ARFF
+    Liner  = fun(DTS) ->
+                 % The DTS is a millisecond timestamp for the current lot in the period
+                 ?io_fmt(FOut, "~B", [DTS]),
+                 lists:foldl(Commer, {DTS, big, BigLots}, BigCommCodes),
+                 lists:foldl(Commer, {DTS, reg, RegLots}, RegCommCodes),
+                 ?io_nl(FOut)
+                 end,
+
+    % We use original tweets to get our DTS keys, but all the other categories must match
+    ?put_data(FOut),
+    Template = proplists:get_value(oter, BigLots),
+    lists:foreach(Liner, maps:keys(Template)).
 
