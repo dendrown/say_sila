@@ -80,7 +80,7 @@ biggies_to_arff(Name, RegCode, Biggies, Players) ->
 %       NOTE: This function is addressing the question of influence in
 %             Twitter communities, and is currently somewhat in flux.
 % @end  --
-biggies_to_arff(Name, RegCode, Biggies, Players, _Period) ->
+biggies_to_arff(Name, RegCode, Biggies, Players, Period) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
@@ -90,7 +90,7 @@ biggies_to_arff(Name, RegCode, Biggies, Players, _Period) ->
 
     % Separate out comm-code lots for big & regular players
     {BigLots,
-     RegLots} = get_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm),
+     RegLots} = make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, Period, InitComm),
 
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
     {FPath, FOut} = init_biggie_arff(Name, BigCommCodes, RegCommCodes),
@@ -302,16 +302,17 @@ write_tweets(Out, [Tweet = #tweet{text = Text0} | Rest]) ->
 
 
 %%--------------------------------------------------------------------
--spec get_biggie_lots(BigCommCodes  :: [atom()],
-                      RegCommmCodes :: [atom()],
-                      Biggies       :: proplist(),
-                      Players       :: any(),
-                      InitComm      :: comm()) -> {proplist(),
-                                                   proplist()}.
+-spec make_biggie_lots(BigCommCodes  :: [atom()],
+                       RegCommmCodes :: [atom()],
+                       Biggies       :: proplist(),
+                       Players       :: any(),
+                       Period        :: non_neg_integer(),
+                       InitComm      :: comm()) -> {proplist(),
+                                                    proplist()}.
 %%
 % @doc  Separates the comm-code lots for the big and regular players
 % @end  --
-get_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm) ->
+make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, Period, InitComm) ->
 
     % Remove ALL categories of big players to get our regular players
     BigAccter = fun(Code) ->
@@ -363,8 +364,9 @@ get_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm) ->
                    {Code, Lots}
                    end,
 
-    Return = {BigLots = [DeCommer(Code, big) || Code <- BigCommCodes],
-              RegLots = [DeCommer(Code, reg) || Code <- RegCommCodes]},
+    % Prepare big/reg lots by comm-code, one per day
+    BigDayLots = [DeCommer(Code, big) || Code <- BigCommCodes],
+    RegDayLots = [DeCommer(Code, reg) || Code <- RegCommCodes],
 
     % Sanity check: for run periods of significant size, all lots should be the same size.
     Checker = fun(Code, {Grp, GrpLots}) ->
@@ -373,9 +375,87 @@ get_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm) ->
                       {Grp, GrpLots}
                       end,
 
-    lists:foldl(Checker, {big, BigLots}, BigCommCodes),
-    lists:foldl(Checker, {reg, RegLots}, RegCommCodes),
-    Return.
+    lists:foldl(Checker, {big, BigDayLots}, BigCommCodes),
+    lists:foldl(Checker, {reg, RegDayLots}, RegCommCodes),
+
+    % Function to regroup the lots for a period of N days.
+    %
+    % NOTE: Extra days that don't make up a full period will get ignored.
+    %
+    % NOTE: Erlang/OTP 21 has map iterators, which may provide a more elegant
+    %       solution, provided that the keys are processed in order.
+    GroupDays = fun(Day, {N, CurrGroup, AllGroups}) ->
+                    %
+                    case N < Period of
+                        % Finalize this group, and go to the next (pretend like N was zero)
+                        false ->
+                            {1, [Day], [CurrGroup | AllGroups]};
+
+                        % Add this day to the current group and keep going
+                        true  ->
+                            {N + 1, [Day | CurrGroup], AllGroups}
+                    end end,
+
+    % Function to create a period->lot mapping from a day->lot map
+    RemapDays = fun(PeriodDays, {DayLots, LotAcc}) ->
+                    %
+                    % Function to merge a day lot into an accumulating period lot
+                    Remoter  = fun(Code, DayComm, PeriodLotAcc) ->
+                                   AccComm = maps:get(Code, LotAcc),
+                                   NewEmos = emo:average(AccComm#comm.emos,
+                                                         DayComm#comm.emos),
+                                   % FIXME: Don't duplicate counts in #comm and #emotions!
+                                   %        For now, this is a good place for a SANITY check.
+                                   NewComm = case NewEmos#emotions.count =:= AccComm#comm.cnt +
+                                                                             DayComm#comm.cnt of
+                                       true  -> AccComm#comm{cnt = NewEmos#emotions.count};
+                                       false -> ?error("Communications/emotions count mismatch"),
+                                              throw(bad_count)
+                                   end,
+                                   maps:update(Code, NewComm, PeriodLotAcc)
+                                   end,
+
+                    % Function to map a list of day lots into one period lot
+                    Remapper = fun Recur([Day|RestDays], PeriodLotAcc) ->
+                                   PerComms = maps:fold(Remoter, PeriodLotAcc, maps:get(Day, DayLots)),
+                                   case RestDays of
+                                       % Day-order is reversed, so this last days becomes the DTS key
+                                       [] -> maps:put(Day, PerComms, PeriodLotAcc);
+                                       _  -> Recur(RestDays, PerComms)
+                                   end end,
+
+                    % Remap the day lots by day groupings
+                    {DayLots, lists:foldl(Remapper, #{}, PeriodDays)}
+                    end,
+
+    % Function to regroup day-mapped lots to period-mapped lots (key = first day)
+    Periodize = fun(DayLots) ->
+                    Days = lists:sort(maps:keys(DayLots)),
+                    {_,
+                     ExtraDays,
+                     Periods} = lists:foldl(GroupDays, {0, [], []}, Days),
+                    case ExtraDays of
+                        [] -> ok;
+                        _  -> ?warning("Days cut from period groupings: ~p",
+                                       [[dts:date_str(Day, millisecond) || Day <- ExtraDays]])
+                    end,
+                    {_,
+                     PeriodLots} = lists:foldr(RemapDays, {DayLots, #{}}, Periods),
+                    PeriodLots
+                    end,
+
+    % Now, regroup the lots if necessary
+    case Period of
+        %
+        % Default is one instance per day
+        1 ->
+            {BigDayLots, RegDayLots};
+
+        % Otherwise, group by days (usually 7 for a week)
+        N when N > 1 ->
+            {[{Code, Periodize(DayLots)} || {Code, DayLots} <- BigDayLots],
+             [{Code, Periodize(DayLots)} || {Code, DayLots} <- RegDayLots]}
+    end.
 
 
 

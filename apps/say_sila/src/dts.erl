@@ -17,6 +17,7 @@
 
 -export([add/3,
          date_str/1,
+         date_str/2,
          dayize/1,
          dayize/2,
          earlier/2,
@@ -78,6 +79,17 @@ date_str({Date, {_ ,_ ,_}}) ->
 
 date_str(Date) ->
     str(Date).
+
+
+
+%%--------------------------------------------------------------------
+-spec date_str(DTS1970 :: integer(),
+               Unit    :: atom()) -> string().
+%
+%     Creates an ISO 8601 printable date string from a unix timestamp.
+% @end  --
+date_str(DTS1970, Unit) ->
+    date_str(to_datetime(DTS1970, Unit)).
 
 
 
@@ -207,7 +219,7 @@ str({{Year, Mon, Day}, {Hour, Min, Sec}}) ->
 -spec str(DTS1970 :: integer(),
           Unit    :: atom()) -> string().
 %
-%     Creates an ISO 8601 printable string from a datetime tuple.
+%     Creates an ISO 8601 printable string from a unix timestamp.
 % @end  --
 str(DTS1970, Unit) ->
     str(to_datetime(DTS1970, Unit)).
