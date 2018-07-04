@@ -397,10 +397,11 @@ make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, Period, InitComm)
                     end end,
 
     % Function to create a period->lot mapping from a day->lot map
-    RemapDays = fun(PeriodDays, {DayLots, LotAcc}) ->
+    RemapDays = fun(PeriodDays, {DayLots, PeriodLotAcc}) ->
                     %
                     % Function to merge a day lot into an accumulating period lot
-                    Remoter  = fun(Code, DayComm, PeriodLotAcc) ->
+                    Reemoter = fun(Code, DayComm, LotAcc) ->
+                                   ?debug("Re-emoting: code[~s] comm~p", [Code, DayComm]),
                                    AccComm = maps:get(Code, LotAcc),
                                    NewEmos = emo:average(AccComm#comm.emos,
                                                          DayComm#comm.emos),
@@ -412,20 +413,22 @@ make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, Period, InitComm)
                                        false -> ?error("Communications/emotions count mismatch"),
                                               throw(bad_count)
                                    end,
-                                   maps:update(Code, NewComm, PeriodLotAcc)
+                                   maps:update(Code, NewComm, LotAcc)
                                    end,
 
                     % Function to map a list of day lots into one period lot
-                    Remapper = fun Recur([Day|RestDays], PeriodLotAcc) ->
-                                   PerComms = maps:fold(Remoter, PeriodLotAcc, maps:get(Day, DayLots)),
-                                   case RestDays of
-                                       % Day-order is reversed, so this last days becomes the DTS key
-                                       [] -> maps:put(Day, PerComms, PeriodLotAcc);
-                                       _  -> Recur(RestDays, PerComms)
-                                   end end,
+                    Remapper = fun(Day, {_, LotAcc}) ->
+                                   ?debug("Remapping day ~s<~B>", [dts:date_str(Day, millisecond), Day]),
+                                   % Day-order is reversed, so the last day becomes the DTS key
+                                   {Day,
+                                    maps:fold(Reemoter, LotAcc, maps:get(Day, DayLots))}
+                                   end,
 
                     % Remap the day lots by day groupings
-                    {DayLots, lists:foldl(Remapper, #{}, PeriodDays)}
+                    ?info("Remapping period: ~p", [[dts:date_STR(Day, millisecond) || Day <- PeriodDays]]),
+                    {KeyDay,
+                     PeriodLots} = lists:foldl(Remapper, {start, #{}}, PeriodDays),
+                    {DayLots, maps:put(KeyDay, PeriodLots, PeriodLotAcc)}
                     end,
 
     % Function to regroup day-mapped lots to period-mapped lots (key = first day)
