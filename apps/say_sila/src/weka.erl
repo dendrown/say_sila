@@ -437,7 +437,7 @@ make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, Period, InitComm)
                     case ExtraDays of
                         [] -> ok;
                         _  -> ?warning("Days cut from period groupings: ~p",
-                                       [[dts:date_str(Day, millisecond) || Day <- ExtraDays]])
+                                       [[dts:date_STR(Day, millisecond) || Day <- ExtraDays]])
                     end,
                     {_,
                      PeriodLots} = lists:foldr(RemapDays, {DayLots, #{}}, Periods),

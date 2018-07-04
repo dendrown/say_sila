@@ -16,8 +16,8 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([add/3,
-         date_str/1,
-         date_str/2,
+         date_str/1, date_str/2,
+         date_STR/1, date_STR/2,
          dayize/1,
          dayize/2,
          earlier/2,
@@ -69,9 +69,9 @@ add(DTS, Amt, Unit) ->
 
 
 %%--------------------------------------------------------------------
--spec date_str(DTS :: tuple()) -> string().
+-spec date_str(DTS :: tuple()) -> io_lib:chars().
 %
-%     Creates a printable date from a datetime tuple.
+%     Creates a printable date as an IO list from a datetime tuple.
 % @end  --
 date_str({Date, {_ ,_ ,_}}) ->
     str(Date);
@@ -84,12 +84,33 @@ date_str(Date) ->
 
 %%--------------------------------------------------------------------
 -spec date_str(DTS1970 :: integer(),
+               Unit    :: atom()) -> io_lib:chars().
+%
+%     Creates an ISO 8601 printable date IO list from a unix timestamp.
+% @end  --
+date_str(DTS1970, Unit) ->
+    date_str(to_datetime(DTS1970, Unit)).
+
+
+
+%%--------------------------------------------------------------------
+-spec date_STR(DTS :: tuple()) -> io_lib:chars().
+%
+%     Creates a printable date as a string from a datetime tuple.
+% @end  --
+date_STR(Date) ->
+    lists:flatten(date_str(Date)).
+
+
+
+%%--------------------------------------------------------------------
+-spec date_STR(DTS1970 :: integer(),
                Unit    :: atom()) -> string().
 %
 %     Creates an ISO 8601 printable date string from a unix timestamp.
 % @end  --
-date_str(DTS1970, Unit) ->
-    date_str(to_datetime(DTS1970, Unit)).
+date_STR(DTS1970, Unit) ->
+    lists:flatten(date_str(DTS1970, Unit)).
 
 
 
