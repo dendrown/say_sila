@@ -402,18 +402,25 @@ make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, Period, InitComm)
                     % Function to merge a day lot into an accumulating period lot
                     Reemoter = fun(Code, DayComm, LotAcc) ->
                                    ?debug("Re-emoting: code[~s] comm~p", [Code, DayComm]),
-                                   AccComm = maps:get(Code, LotAcc),
+                                   AccComm = maps:get(Code, LotAcc, InitComm),
                                    NewEmos = emo:average(AccComm#comm.emos,
                                                          DayComm#comm.emos),
                                    % FIXME: Don't duplicate counts in #comm and #emotions!
                                    %        For now, this is a good place for a SANITY check.
-                                   NewComm = case NewEmos#emotions.count =:= AccComm#comm.cnt +
-                                                                             DayComm#comm.cnt of
-                                       true  -> AccComm#comm{cnt = NewEmos#emotions.count};
-                                       false -> ?error("Communications/emotions count mismatch"),
-                                              throw(bad_count)
+                                   NewComm = case {NewEmos#emotions.count,
+                                                   AccComm#comm.cnt + DayComm#comm.cnt} of
+
+                                       {Cnt, Cnt} ->
+                                           % FIXME: Here we where we see the double-count nonsense
+                                           AccComm#comm{cnt  = NewEmos#emotions.count,
+                                                        emos = NewEmos};
+
+                                       {EmoCnt, CommCnt} ->
+                                           ?error("Emotions/comms count mismatch: emo[~B] comm[~B]",
+                                                  [EmoCnt, CommCnt]),
+                                           throw(bad_count)
                                    end,
-                                   maps:update(Code, NewComm, LotAcc)
+                                   maps:put(Code, NewComm, LotAcc)
                                    end,
 
                     % Function to map a list of day lots into one period lot
