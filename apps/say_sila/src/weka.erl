@@ -407,13 +407,13 @@ periodize_lots(DayLots, Period, InitComm) ->
     %       solution, provided that the keys are processed in order.
     GroupDays = fun(Day, {N, CurrGroup, AllGroups}) ->
                     %
-                    case N < Period of
-                        % Finalize this group, and go to the next (pretend like N was zero)
-                        false ->
-                            {1, [Day], [CurrGroup | AllGroups]};
+                    case N >= Period of
+                        % Finalize this group, and go to the next
+                        true ->
+                            {1, [], [[Day|CurrGroup] | AllGroups]};
 
                         % Add this day to the current group and keep going
-                        true  ->
+                        false  ->
                             {N + 1, [Day | CurrGroup], AllGroups}
                     end end,
 
@@ -422,7 +422,7 @@ periodize_lots(DayLots, Period, InitComm) ->
                     %
                     % Function to merge a day lot into an accumulating period lot
                     Reemoter = fun(Code, DayComm, LotAcc) ->
-                                   ?debug("Re-emoting: code[~s] comm~p", [Code, DayComm]),
+                                   %?debug("Re-emoting: code[~s] comm~p", [Code, DayComm]),
                                    AccComm = maps:get(Code, LotAcc, InitComm),
                                    NewEmos = emo:average(AccComm#comm.emos,
                                                          DayComm#comm.emos),
@@ -463,7 +463,7 @@ periodize_lots(DayLots, Period, InitComm) ->
     Days = lists:sort(maps:keys(DayLots)),
     {_,
      ExtraDays,
-     Periods} = lists:foldl(GroupDays, {0, [], []}, Days),
+     Periods} = lists:foldl(GroupDays, {1, [], []}, Days),
     case ExtraDays of
         [] -> ok;
         _  -> ?warning("Days cut from period groupings: ~p",
