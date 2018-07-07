@@ -24,6 +24,7 @@
          get_comm_combos/0,
          get_players/1,
          get_rankings/1,
+         get_top_n/2,
          get_totals/1,
          plot/1,            plot/2, plot/3,
          reset/1,
@@ -102,7 +103,7 @@ stop(Tracker) ->
 %%
 % @doc  Returns top P100 percent
 %
-% @deprecated   The flat percentage strategy is does not provide
+% @deprecated   The flat percentage strategy does not provide
 %               common cut points for different player types.
 %               Use {@link get_biggies}
 %               This function will be gone after we convert the
@@ -264,6 +265,53 @@ get_players(Tracker) ->
 get_rankings(Tracker) ->
     gen_server:call(?reg(Tracker), get_rankings).
 
+
+
+%%--------------------------------------------------------------------
+-spec get_top_n(Tracker :: atom(),
+                N       :: pos_integer()) -> proplist().
+%%
+% @doc  Returns a list of the top N big players, candidate influencers,
+%       as a property list keyed by communication code.  Each property
+%       contains a tuple with the percentage of that category's tweets 
+%       represented by the top N players, the number of tweets that the
+%       players are responsible for, and finally a list of the players
+%       themselves.  (This is the same data/format as `get_biggies'.
+% @end  --
+get_top_n(Tracker, N) ->
+    %
+    Totals   = get_totals(Tracker),
+    Rankings = get_rankings(Tracker),
+
+    % Start by grabbing the top N accounts with their tweet counts
+    TopReducer = fun Recur(TweetTotal, Ranks, {AcctCnt, TweetCnt, Accts}) ->
+                     % 
+                     % NOTE: When we hit N accounts, we add the tweet percentage
+                     %       to the final returned tuple.
+                     if AcctCnt =:= N ->
+                            {TweetCnt/TweetTotal, TweetCnt, Accts};
+                        AcctCnt > N ->
+                            ?warning("Same activity rate, returning ~B accounts", [AcctCnt]),
+                            {TweetCnt/TweetTotal, TweetCnt, Accts};
+                        true ->
+                            {RankTweets,
+                             RankAccts,
+                             NewRanks} = gb_trees:take_largest(Ranks),
+                             NumAccts  = length(RankAccts),
+                             NumTweets = NumAccts * RankTweets,
+                             Recur(TweetTotal, NewRanks, {AcctCnt  + NumAccts,
+                                                          TweetCnt + NumTweets,
+                                                          RankAccts ++ Accts})
+                     end end,
+    [{Comm, TopReducer(maps:get(Comm, Totals),
+                       maps:get(Comm, Rankings), {0, 0, []})} || Comm <- ?COMM_CODES].
+
+%                    CommTotal = maps:get(Comm, Totals),
+%                    CommRanks = maps:get(Comm, Ranks),
+%                     {Cnt, Accts} = pull_biggies(MinRate, MinDecel, CommTotal, CommRanks),
+%                     {Comm, {Cnt/CommTotal,
+%                             Cnt,
+%                             Accts}}
 
 
 %%--------------------------------------------------------------------
