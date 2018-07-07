@@ -306,12 +306,6 @@ get_top_n(Tracker, N) ->
     [{Comm, TopReducer(maps:get(Comm, Totals),
                        maps:get(Comm, Rankings), {0, 0, []})} || Comm <- ?COMM_CODES].
 
-%                    CommTotal = maps:get(Comm, Totals),
-%                    CommRanks = maps:get(Comm, Ranks),
-%                     {Cnt, Accts} = pull_biggies(MinRate, MinDecel, CommTotal, CommRanks),
-%                     {Comm, {Cnt/CommTotal,
-%                             Cnt,
-%                             Accts}}
 
 
 %%--------------------------------------------------------------------
