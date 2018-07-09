@@ -1,0 +1,86 @@
+reg_tter_anger =
+
+      2.7918 * big_oter_fear +
+     -1.6846 * big_oter_sadness +
+      1.1527 * big_oter_joy +
+     -0.8197 * big_rter_fear +
+      0.2781 * big_tmed_anger +
+      0.1364
+
+Correlation coefficient                  0.01  
+Kendall's tau                            0.0499
+Spearman's rho                           0.066 
+Mean absolute error                      0.1215
+Root mean squared error                  0.1715
+Relative absolute error                164.8251 %
+Root relative squared error            161.8225 %
+
+___________________________________________________________
+reg_tter_fear =
+
+      0.4732 * big_oter_fear +
+     -0.1513 * big_oter_sadness +
+      0.2748 * big_rted_fear +
+      0.0652
+
+Correlation coefficient                  0.523
+Kendall's tau                            0.4143
+Spearman's rho                           0.5737
+Mean absolute error                      0.0156
+Root mean squared error                  0.021
+Relative absolute error                 82.879  %
+Root relative squared error             91.0455 %
+
+___________________________________________________________
+reg_tter_sadness =
+
+      0.3188 * big_oter_joy +
+      0.3612 * big_rted_sadness +
+     -0.1475 * big_rted_joy +
+      0.0923
+
+Correlation coefficient                  0.7253
+Kendall's tau                            0.4845
+Spearman's rho                           0.6621
+Mean absolute error                      0.0173
+Root mean squared error                  0.0215
+Relative absolute error                 69.8894 %
+Root relative squared error             68.6934 %
+
+___________________________________________________________
+reg_tter_joy =
+
+      0.2003 * big_oter_fear +
+     -0.1299 * big_rter_fear +
+      0.2008 * big_rter_joy +
+      0.3058 * big_rted_joy +
+      0.055
+
+Correlation coefficient                  0.5435
+Kendall's tau                            0.4035
+Spearman's rho                           0.6154
+Mean absolute error                      0.0195
+Root mean squared error                  0.0255
+Relative absolute error                 80.1674 %
+Root relative squared error             89.0788 %
+
+___________________________________________________________
+Instances: 39
+Players:   106651
+
+
+#{oter => 85397,
+  rter => 105812,
+  rted => 105812,
+  tmed => 60929,
+  tter => 191209},
+
+[{tter,{0.11154809658541177,21329,19}},
+ {oter,{0.25195264470648854,21516,33}},
+ {rter,{0.07503874796809436,7940,10}},
+ {rted,{0.46178127244546935,48862,52}},
+ {tmed,{0.21827044592886802,13299,28}}]
+
+
+01:32:30.780 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1529798400000] dts[2018-06-24T00:00:00]
+

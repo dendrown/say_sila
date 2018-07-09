@@ -1,0 +1,112 @@
+reg_oter_anger =
+
+      1.0321 * big_oter_fear +
+     -0.6257 * big_rter_joy +
+      1.626  * big_rted_anger +
+     -0.2579 * big_tmed_anger +
+     -0.0471
+
+Correlation coefficient                 -0.0089
+Kendall's tau                           -0.0634
+Spearman's rho                          -0.069 
+Mean absolute error                      0.1247
+Root mean squared error                  0.1584
+Relative absolute error                140.277  %
+Root relative squared error            132.1786 %
+
+___________________________________________________________
+reg_oter_fear =
+
+      0.276  * big_oter_fear +
+      0.118  * big_oter_sadness +
+      0.1031 * big_rter_anger +
+      0.143  * big_rter_fear +
+     -0.1371 * big_rter_joy +
+      0.0771 * big_rted_sadness +
+      0.062  * big_tmed_joy +
+      0.0144
+
+Correlation coefficient                  0.5576
+Kendall's tau                            0.471
+Spearman's rho                           0.6186
+Mean absolute error                      0.0149
+Root mean squared error                  0.0212
+Relative absolute error                 94.5191 %
+Root relative squared error            101.4554 %
+
+___________________________________________________________
+reg_oter_sadness =
+
+     -0      * big_oter_anger +
+      0.4412 * big_oter_sadness +
+      0.0781 * big_rter_sadness +
+     -0.0864 * big_rted_fear +
+      0.0976 * big_rted_sadness +
+      0.1231 * big_tmed_fear +
+     -0.0618 * big_tmed_sadness +
+      2.0861
+
+Correlation coefficient                  0.6482
+Kendall's tau                            0.3765
+Spearman's rho                           0.518
+Mean absolute error                      0.0194
+Root mean squared error                  0.0263
+Relative absolute error                 93.0742 %
+Root relative squared error             85.7697 %
+
+___________________________________________________________
+reg_oter_joy =
+
+     -0      * big_oter_anger +
+      0.0907 * big_oter_sadness +
+      0.3389 * big_oter_joy +
+      0.0408 * big_rted_sadness +
+     -0.0601 * big_tmed_sadness +
+      0.1048 * big_tmed_joy +
+      1.5611
+
+Correlation coefficient                  0.5804
+Kendall's tau                            0.336
+Spearman's rho                           0.4879
+Mean absolute error                      0.0164
+Root mean squared error                  0.0191
+Relative absolute error                101.1017 %
+Root relative squared error             88.9499 %
+
+___________________________________________________________
+Instances: 39
+Players:   106651
+
+
+#{oter => 85397,rted => 105812,rter => 105812,tmed => 60929,
+  tter => 191209},
+
+
+[{tter,{0.083092323060107,15888,
+        [<<"creativecivil">>,<<"russelcowell905">>,<<"iluvco2">>,
+         <<"timmelino">>,<<"gridpointwx">>,<<"joyfullyeco">>,
+         <<"scientific_me">>,<<"denybot6000">>,<<"ehfoundation237">>,
+         <<"erroldmoody">>]}},
+ {oter,{0.14248744101080835,12168,
+        [<<"katherynhale15">>,<<"greens_meagan">>,
+         <<"creativecivil">>,<<"russelcowell905">>,<<"iluvco2">>,
+         <<"timmelino">>,<<"gridpointwx">>,<<"joyfullyeco">>,
+         <<"denybot6000">>,<<"erroldmoody">>]}},
+ {rter,{0.07503874796809436,7940,
+        [<<"natural_sci">>,<<"stephencgill">>,<<"earthmineyours">>,
+         <<"world_dang">>,<<"climate_ch">>,<<"green_conc">>,
+         <<"arnabch01">>,<<"piers_corbyn">>,<<"scientific_me">>,
+         <<"ehfoundation237">>]}},
+ {rted,{0.21864249801534796,23135,
+        [<<"protect_wldlife">>,<<"kevpluck">>,<<"_cfj_">>,
+         <<"jwspry">>,<<"greenfraud">>,<<"healthranger">>,
+         <<"climatereality">>,<<"chuckwoolery">>,<<"kushykush">>,
+         <<"joyfullyeco">>]}},
+ {tmed,{0.14882896486073954,9068,
+        [<<226,128,166>>,
+         <<"cnn">>,<<"berkeleyearth">>,<<"carbonbrief">>,
+         <<"cathmckenna">>,<<"potus">>,<<"jwspry">>,
+         <<"galacticwarming">>,<<"algore">>,<<"realdonaldtrump">>]}}]
+
+
+00:15:33.157 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1529798400000] dts[2018-06-24T00:00:00]

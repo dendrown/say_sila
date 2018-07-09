@@ -1,0 +1,114 @@
+reg_rter_anger =
+
+      0      * big_oter_anger +
+     -5.0286 * big_oter_sadness +
+      5.0713 * big_oter_joy +
+     -2.3594 * big_rter_fear +
+      2.0819 * big_rter_sadness +
+     -2.776  * big_rted_anger +
+     -0.7443 * big_rted_joy +
+     -9.1851
+
+Correlation coefficient                 -0.0913
+Kendall's tau                            0.0472
+Spearman's rho                           0.102 
+Mean absolute error                      0.0681
+Root mean squared error                  0.1045
+Relative absolute error                136.7229 %
+Root relative squared error            135.013  %
+
+___________________________________________________________
+reg_rter_fear =
+
+     -0      * big_oter_anger +
+      0.7704 * big_rter_fear +
+      0.2368 * big_rted_fear +
+      1.7261
+
+Correlation coefficient                  0.2502
+Kendall's tau                            0.1498
+Spearman's rho                           0.2099
+Mean absolute error                      0.0246
+Root mean squared error                  0.0317
+Relative absolute error                112.8776 %
+Root relative squared error            107.667  %
+
+___________________________________________________________
+reg_rter_sadness =
+
+     -0      * big_oter_anger +
+      0.1685 * big_rted_sadness +
+      0.1204 * big_tmed_sadness +
+      1.812
+
+Correlation coefficient                  0.424
+Kendall's tau                            0.3252
+Spearman's rho                           0.4316
+Mean absolute error                      0.0177
+Root mean squared error                  0.0246
+Relative absolute error                 82.8168 %
+Root relative squared error             91.5442 %
+
+___________________________________________________________
+
+reg_rter_joy =
+
+      0      * big_oter_anger +
+      0.3833 * big_rter_fear +
+      0.3978 * big_rter_joy +
+      0.238  * big_rted_joy +
+      0.1153 * big_tmed_fear +
+     -0.1164 * big_tmed_sadness +
+     -1.5876
+
+Correlation coefficient                  0.626
+Kendall's tau                            0.2982
+Spearman's rho                           0.4089
+Mean absolute error                      0.0141
+Root mean squared error                  0.0169
+Relative absolute error                 90.033  %
+Root relative squared error             85.5432 %
+
+___________________________________________________________
+PLAYERS: 503759
+
+
+#{oter => 578253,
+  rter => 1073110,
+  rted => 1073110,
+  tmed => 615139,
+  tter => 1651363}
+
+
+[{tter,{0.10379910413397903,171410,
+        [<<"ehfoundation237">>,<<"gccthinkacttank">>,
+         <<"annemariayritys">>,<<"eljmkt_daily">>,
+         <<"leadingwpassion">>,<<"aroundomedia">>,<<"green_conc">>,
+         <<"climate_ch">>,<<"world_dang">>]}},
+ {oter,{0.21219777502235182,122704,
+        [<<"gccthinkacttank">>,<<"annemariayritys">>,
+         <<"eljmkt_daily">>,<<"leadingwpassion">>,<<"aroundomedia">>,
+         <<"eljmkt_climate">>,<<"brand_2_market">>,<<"beingfarhad">>,
+         <<"masscreativity">>,<<"kwamegilbert">>,<<"clime_it">>]}},
+ {rter,{0.13022057384611083,139741,
+        [<<"ehfoundation237">>,<<"green_conc">>,<<"climate_ch">>,
+         <<"world_dang">>,<<"eco_ec">>,<<"natural_sci">>,
+         <<"earthmineyours">>,<<"irxcellent">>,<<"molecular_en">>,
+         <<"trumpvsscience">>,<<"semanticearth">>,
+         <<"nrgrenaissance">>,<<"scientific_me">>,
+         <<"stopadanicairns">>]}},
+ {rted,{0.2422128206800794,259921,
+        [<<"pauledawson">>,<<"unfccc">>,<<"climatereality">>,
+         <<"annemariayritys">>,<<"gccthinkacttank">>,
+         <<"belugasolar">>,<<"greenpeace">>,<<"who">>,
+         <<"infoclimatecoin">>,<<"jackthelad1947">>,
+         <<"vinnyguadagnino">>,<<"allanmargolin">>,<<"joyfullyeco">>,
+         <<"stopadanicairns">>,<<"faoknowledge">>]}},
+ {tmed,{0.10303850024140886,63383,
+        [<<"realdonaldtrump">>,<<"un">>,<<"epascottpruitt">>,
+         <<"potus">>,<<"wef">>,<<"leodicaprio">>,<<"unfccc">>,
+         <<"unep:">>,
+         <<226,128,166>>,
+         <<"guardian">>,<<"epa">>,<<"turnbullmalcolm">>,
+         <<"africaresilienc:">>,<<"ep_actcampaign">>,<<"nytimes">>,
+         <<"cathmckenna">>,<<"algore">>]}}]

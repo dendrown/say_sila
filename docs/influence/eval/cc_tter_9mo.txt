@@ -1,0 +1,116 @@
+reg_tter_anger =
+
+      0      * big_oter_anger +
+     -5.0286 * big_oter_sadness +
+      5.0713 * big_oter_joy +
+     -2.3594 * big_rter_fear +
+      2.0819 * big_rter_sadness +
+     -2.776  * big_rted_anger +
+     -0.7443 * big_rted_joy +
+     -9.1851
+
+Correlation coefficient                 -0.0913
+Kendall's tau                            0.0472
+Spearman's rho                           0.102 
+Mean absolute error                      0.0681
+Root mean squared error                  0.1045
+Relative absolute error                136.7229 %
+Root relative squared error            135.013  %
+
+___________________________________________________________
+reg_tter_fear =
+
+     -0      * big_oter_anger +
+      0.672  * big_rter_fear +
+      0.1911 * big_rted_fear +
+     -0.0701 * big_rted_sadness +
+      1.8489
+
+Correlation coefficient                  0.4215
+Kendall's tau                            0.2659
+Spearman's rho                           0.367
+Mean absolute error                      0.0149
+Root mean squared error                  0.0194
+Relative absolute error                 95.7212 %
+Root relative squared error             90.0152 %
+
+___________________________________________________________
+reg_tter_sadness =
+
+     -0      * big_oter_anger +
+      0.0997 * big_rted_sadness +
+      0.0933 * big_tmed_sadness +
+      1.9202
+
+Correlation coefficient                  0.4622
+Kendall's tau                            0.3306
+Spearman's rho                           0.4389
+Mean absolute error                      0.0139
+Root mean squared error                  0.0185
+Relative absolute error                 86.5585 %
+Root relative squared error             90.8609 %
+
+___________________________________________________________
+reg_tter_joy =
+
+      0      * big_oter_anger +
+     -0.3173 * big_oter_joy +
+      0.1992 * big_rter_anger +
+      0.2796 * big_rter_fear +
+      0.5108 * big_rter_joy +
+      0.1938 * big_rted_joy +
+      0.0922 * big_tmed_fear +
+     -0.1    * big_tmed_sadness +
+     -0.8519
+
+Correlation coefficient                  0.7249
+Kendall's tau                            0.4467
+Spearman's rho                           0.6069
+Mean absolute error                      0.0094
+Root mean squared error                  0.0109
+Relative absolute error                 75.9066 %
+Root relative squared error             71.1149 %
+
+___________________________________________________________
+PLAYERS: 503759
+
+
+#{oter => 578253,
+  rter => 1073110,
+  rted => 1073110,
+  tmed => 615139,
+  tter => 1651363}
+
+
+[{tter,{0.10379910413397903,171410,
+        [<<"ehfoundation237">>,<<"gccthinkacttank">>,
+         <<"annemariayritys">>,<<"eljmkt_daily">>,
+         <<"leadingwpassion">>,<<"aroundomedia">>,<<"green_conc">>,
+         <<"climate_ch">>,<<"world_dang">>]}},
+ {oter,{0.21219777502235182,122704,
+        [<<"gccthinkacttank">>,<<"annemariayritys">>,
+         <<"eljmkt_daily">>,<<"leadingwpassion">>,<<"aroundomedia">>,
+         <<"eljmkt_climate">>,<<"brand_2_market">>,<<"beingfarhad">>,
+         <<"masscreativity">>,<<"kwamegilbert">>,<<"clime_it">>]}},
+ {rter,{0.13022057384611083,139741,
+        [<<"ehfoundation237">>,<<"green_conc">>,<<"climate_ch">>,
+         <<"world_dang">>,<<"eco_ec">>,<<"natural_sci">>,
+         <<"earthmineyours">>,<<"irxcellent">>,<<"molecular_en">>,
+         <<"trumpvsscience">>,<<"semanticearth">>,
+         <<"nrgrenaissance">>,<<"scientific_me">>,
+         <<"stopadanicairns">>]}},
+ {rted,{0.2422128206800794,259921,
+        [<<"pauledawson">>,<<"unfccc">>,<<"climatereality">>,
+         <<"annemariayritys">>,<<"gccthinkacttank">>,
+         <<"belugasolar">>,<<"greenpeace">>,<<"who">>,
+         <<"infoclimatecoin">>,<<"jackthelad1947">>,
+         <<"vinnyguadagnino">>,<<"allanmargolin">>,<<"joyfullyeco">>,
+         <<"stopadanicairns">>,<<"faoknowledge">>]}},
+ {tmed,{0.10303850024140886,63383,
+        [<<"realdonaldtrump">>,<<"un">>,<<"epascottpruitt">>,
+         <<"potus">>,<<"wef">>,<<"leodicaprio">>,<<"unfccc">>,
+         <<"unep:">>,
+         <<226,128,166>>,
+         <<"guardian">>,<<"epa">>,<<"turnbullmalcolm">>,
+         <<"africaresilienc:">>,<<"ep_actcampaign">>,<<"nytimes">>,
+         <<"cathmckenna">>,<<"algore">>]}}]

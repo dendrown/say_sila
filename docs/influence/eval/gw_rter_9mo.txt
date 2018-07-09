@@ -1,0 +1,138 @@
+reg_rter_anger =
+
+     -1.0042 * big_oter_sadness +
+      2.5559 * big_oter_joy +
+      0.0861
+
+Correlation coefficient                 -0.1671
+Kendall's tau                            0.095 
+Spearman's rho                           0.1322
+Mean absolute error                      0.0989
+Root mean squared error                  0.1372
+Relative absolute error                118.6528 %
+Root relative squared error            115.1775 %
+
+___________________________________________________________
+reg_rter_fear =
+
+      0.4097 * big_oter_fear +
+     -0.5241 * big_rter_sadness +
+      1.2846 * big_rter_joy +
+     -0.4809 * big_rted_anger +
+      0.2015 * big_rted_fear +
+      0.1236 * big_rted_joy +
+      0.0393
+
+Correlation coefficient                  0.2329
+Kendall's tau                            0.2389
+Spearman's rho                           0.3506
+Mean absolute error                      0.0328
+Root mean squared error                  0.0433
+Relative absolute error                117.2043 %
+Root relative squared error            130.0175 %
+
+___________________________________________________________
+reg_rter_sadness =
+
+      0.4681 * big_oter_fear +
+     -0.6206 * big_rter_fear +
+      0.4147 * big_rter_joy +
+     -0.1068 * big_rted_fear +
+      0.4031 * big_rted_sadness +
+     -0.2492 * big_tmed_fear +
+      0.2792 * big_tmed_joy +
+      0.0584
+
+Correlation coefficient                  0.7457
+Kendall's tau                            0.5816
+Spearman's rho                           0.7581
+Mean absolute error                      0.0234
+Root mean squared error                  0.0305
+Relative absolute error                 62.8511 %
+Root relative squared error             66.235  %
+
+___________________________________________________________
+reg_rter_joy =
+
+      0.4924 * big_oter_fear +
+     -0.373  * big_rter_fear +
+      0.3796 * big_rted_joy +
+      0.1046 * big_tmed_joy +
+      0.021 
+
+Correlation coefficient                  0.5091
+Kendall's tau                            0.4332
+Spearman's rho                           0.6136
+Mean absolute error                      0.0305
+Root mean squared error                  0.0377
+Relative absolute error                 86.3231 %
+Root relative squared error             91.9641 %
+
+___________________________________________________________
+Instances: 39
+Players:   106651
+
+
+#{oter => 85397,rted => 105812,rter => 105812,tmed => 60929,
+  tter => 191209},
+
+
+[{tter,{0.083092323060107,15888,
+        [<<"erroldmoody">>,<<"ehfoundation237">>,<<"denybot6000">>,
+         <<"scientific_me">>,<<"joyfullyeco">>,<<"gridpointwx">>,
+         <<"timmelino">>,<<"iluvco2">>,<<"russelcowell905">>,
+         <<"creativecivil">>]}},
+ {oter,{0.13495790250242984,11525,
+        [<<"erroldmoody">>,<<"denybot6000">>,<<"joyfullyeco">>, 
+         <<"gridpointwx">>,<<"timmelino">>,<<"iluvco2">>,
+         <<"russelcowell905">>,<<"creativecivil">>,
+         <<"greens_meagan">>]}},
+ {rter,{0.059341095527917435,6279,
+        [<<"ehfoundation237">>,<<"scientific_me">>,
+         <<"piers_corbyn">>,<<"arnabch01">>,<<"green_conc">>]}},
+ {rted,{0.2663592031149586,28184,
+        [<<"joyfullyeco">>,<<"kushykush">>,<<"chuckwoolery">>,
+         <<"climatereality">>,<<"healthranger">>,<<"greenfraud">>,
+         <<"jwspry">>,<<"_cfj_">>,<<"kevpluck">>,
+         <<"protect_wldlife">>,<<"anttilip">>,<<"poltoons">>,
+         <<"annabd20">>,<<"arizonakayte">>]}},
+ {tmed,{0.12936368560127362,7882,
+        [<<"realdonaldtrump">>,<<"algore">>,<<"galacticwarming">>,
+         <<"jwspry">>,<<"potus">>,<<"cathmckenna">>,
+         <<"carbonbrief">>]}}]
+
+
+00:55:07.167 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1517702400000] dts[2018-02-04T00:00:00]
+00:55:07.168 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1525564800000] dts[2018-05-06T00:00:00]
+00:55:07.168 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1529193600000] dts[2018-06-17T00:00:00]
+00:55:07.169 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1527379200000] dts[2018-05-27T00:00:00]
+00:55:07.169 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1515888000000] dts[2018-01-14T00:00:00]
+00:55:07.170 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1521331200000] dts[2018-03-18T00:00:00]
+00:55:07.170 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1514678400000] dts[2017-12-31T00:00:00]
+00:55:07.171 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1524355200000] dts[2018-04-22T00:00:00]
+00:55:07.171 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1523145600000] dts[2018-04-08T00:00:00]
+00:55:07.172 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1528588800000] dts[2018-06-10T00:00:00]
+00:55:07.173 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1510444800000] dts[2017-11-12T00:00:00]
+00:55:07.173 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1522540800000] dts[2018-04-01T00:00:00]
+00:55:07.174 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1527984000000] dts[2018-06-03T00:00:00]
+00:55:07.174 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1529798400000] dts[2018-06-24T00:00:00]
+00:55:07.174 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1526774400000] dts[2018-05-20T00:00:00]
+00:55:07.175 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1520121600000] dts[2018-03-04T00:00:00]
+00:55:07.175 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1512259200000] dts[2017-12-03T00:00:00]
+00:55:07.176 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1513468800000] dts[2017-12-17T00:00:00]
+00:55:07.176 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1517097600000] dts[2018-01-28T00:00:00]
+00:55:07.177 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1518307200000] dts[2018-02-11T00:00:00]
+00:55:07.177 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1526169600000] dts[2018-05-13T00:00:00]
+00:55:07.178 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1512864000000] dts[2017-12-10T00:00:00]
+00:55:07.178 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1523750400000] dts[2018-04-15T00:00:00]
+00:55:07.179 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1509840000000] dts[2017-11-05T00:00:00]
+00:55:07.180 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1514073600000] dts[2017-12-24T00:00:00]
+00:55:07.180 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1524960000000] dts[2018-04-29T00:00:00]
+00:55:07.181 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1511654400000] dts[2017-11-26T00:00:00]
+00:55:07.182 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1511049600000] dts[2017-11-19T00:00:00]
+00:55:07.182 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1519516800000] dts[2018-02-25T00:00:00]
+00:55:07.183 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1515283200000] dts[2018-01-07T00:00:00]
+00:55:07.183 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1516492800000] dts[2018-01-21T00:00:00]
+00:55:07.184 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1520726400000] dts[2018-03-11T00:00:00]
+00:55:07.185 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1521936000000] dts[2018-03-25T00:00:00]
+00:55:07.185 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1518912000000] dts[2018-02-18T00:00:00]
