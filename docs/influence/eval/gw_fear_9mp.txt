@@ -1,0 +1,51 @@
+ireg_tter_fear =
+
+      0.3343 * big_oter_anger +
+      0.1489 * big_oter_fear +
+      0.2639 * big_rted_fear +
+     -0.0869 * big_tmed_fear +
+      0.1822 * big_tmed_sadness +
+      0.04  
+
+Correlation coefficient                  0.7464
+Kendall's tau                            0.5574
+Spearman's rho                           0.7492
+Mean absolute error                      0.0177
+Root mean squared error                  0.0221
+Relative absolute error                 68.8287 %
+Root relative squared error             67.3723 %
+
+___________________________________________________________
+reg_oter_fear =
+
+      0.4434 * big_oter_fear +
+      0.1026 * big_rted_fear +
+      0.164  * big_tmed_anger +
+     -0.0614 * big_tmed_fear +
+      0.0317
+
+Correlation coefficient                  0.5001
+Kendall's tau                            0.2821
+Spearman's rho                           0.4198
+Mean absolute error                      0.0231
+Root mean squared error                  0.0309
+Relative absolute error                107.8089 %
+Root relative squared error             97.6376 %
+
+___________________________________________________________
+reg_rter_fear =
+
+      0.3228 * big_oter_anger +
+      0.3763 * big_rted_fear +
+     -0.2685 * big_tmed_anger +
+      0.2469 * big_tmed_sadness +
+      0.0664
+
+Correlation coefficient                  0.7617
+Kendall's tau                            0.5897
+Spearman's rho                           0.7563
+Mean absolute error                      0.0229
+Root mean squared error                  0.0297
+Relative absolute error                 61.4134 %
+Root relative squared error             64.4885 %
+Total Number of Instances               39
