@@ -6,12 +6,12 @@
 %%         _/    _/    _/        _/    _/
 %%  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 %%
-%% @doc Modelling FSM to keep Weka in line.
+%% @doc FSM to model influence using Weka.
 %%
-%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
--module(model).
+-module(influence).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -behaviour(gen_statem).
@@ -27,15 +27,18 @@
 -include("emo.hrl").
 -include("ioo.hrl").
 -include("player.hrl").
+-include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
 
 
 %%--------------------------------------------------------------------
 -record(data, {tracker  :: tracker(),
+               name     :: string(),
                dep_attr :: atom(),
                ind_attrs:: [string()],
-               name     :: string() }).
+               players  :: map(),
+               biggies  :: proplist() }).
 %type data() :: #data{}.                        % FSM internal state data
 
 
@@ -89,13 +92,23 @@ init([Tracker, RegComm, RunCode, Target]) ->
     BigCommCodes = weka:get_big_comm_codes(),
     Independents = [?str_FMT("big_~s_~s", [C,E]) || C <- BigCommCodes,
                                                     E <- ?EMOTIONS],
+    Players = player:get_players(Tracker),
+    Biggies = player:get_biggies(Tracker, 0.01),
+    Name    = ?str_FMT("~s_~s_~s_~s", [Tracker, RegComm, RunCode, Target]),
+
+    BigInfo = fun({Comm, {P100, Cnt, Accts}}) ->
+                  ?str_FMT("{~s: ~B%, ~B, ~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
+                  end,
+
+    ?info("Modelling '~s' influence: usr[~B] big~p", [Name,
+                                                      maps:size(Players),
+                                                      [BigInfo(Grp) || Grp <- Biggies]]),
     {ok, idle, #data{tracker   = Tracker,
+                     name      = Name,
                      dep_attr  = Target,
                      ind_attrs = Independents,
-                     name      = ?str_FMT("~s_~s_~s_~s", [Tracker,
-                                                          RegComm,
-                                                          RunCode,
-                                                          Target])}}.
+                     players   = Players,
+                     biggies   = Biggies}}.
 
 
 
@@ -171,7 +184,7 @@ idle(Type, Evt, Data) ->
 %%--------------------------------------------------------------------
 %% run:
 %%
-% @doc  FSM state running a Weka model
+% @doc  FSM state for running a Weka model
 % @end  --
 run(enter, _OldState, #data{name = Name}) ->
     %
@@ -187,7 +200,7 @@ run(Type, Evt, Data) ->
 %%--------------------------------------------------------------------
 %% eval:
 %%
-% @doc  FSM state running a Weka model
+% @doc  FSM state to evaluate a Weka model
 % @end  --
 eval(enter, _OldState, #data{name = Name}) ->
     %

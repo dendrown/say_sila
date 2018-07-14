@@ -21,7 +21,7 @@
 
 -define(COMM_TYPES,     [tweeter, originater, retweeter, retweeted, mentioned]).
 -define(COMM_CODES,     [tter,    oter,       rter,      rted,      tmed     ]).
--type comm_code()   ::   ttter|   oter|       rter|      rted|      tmed.
+-type comm_code()   ::   tter|    oter|       rter|      rted|      tmed.
 -type comm_codes()  ::  [comm_code()].
 
 

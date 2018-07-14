@@ -20,6 +20,7 @@
 -define(DEFAULT_BIG_P100, 0.15).
 -define(DEFAULT_PERIOD,   "day").
 
+-define(TRACKERS, [cc,  gw]).
 -type tracker() :: cc | gw.
 
 % Database macros
