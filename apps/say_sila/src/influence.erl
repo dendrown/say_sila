@@ -15,8 +15,9 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -behaviour(gen_statem).
--export([start_link/4,
+-export([start_link/4, start_link/5,
          stop/1,
+         reset/1,
          go/1]).
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
 -export([idle/3,
@@ -33,12 +34,14 @@
 
 
 %%--------------------------------------------------------------------
--record(data, {tracker  :: tracker(),
-               name     :: string(),
-               dep_attr :: atom(),
-               ind_attrs:: [string()],
-               players  :: map(),
-               biggies  :: proplist() }).
+-record(data, {tracker    :: tracker(),
+               name       :: string(),
+               attributes :: [string()],
+               reg_comm   :: comm_code(),
+               reg_emo    :: atom(),
+               period     :: non_neg_integer(),
+               players    :: map(),
+               biggies    :: proplist() }).
 %type data() :: #data{}.                        % FSM internal state data
 
 
@@ -47,14 +50,30 @@
 %% API
 %%--------------------------------------------------------------------
 -spec start_link(Tracker :: cc | gw,
+                 RunTag  :: string(),
                  RegComm :: comm_code(),
-                 RunCode :: string(),
-                 Target  :: atom()) -> gen_statem:start_ret().
+                 RegEmo  :: atom()) -> gen_statem:start_ret().
 %%
-% @doc  Startup function for back-off ticker services
+% @doc  Startup function for a daily Twitter influence model
 % @end  --
-start_link(Tracker, RegComm, RunCode, Target) ->
-    gen_statem:start_link(?MODULE, [Tracker, RegComm, RunCode, Target], []).
+start_link(Tracker, RunTag, RegComm, RegEmo) ->
+    start_link(Tracker, RunTag, RegComm, RegEmo, 1).
+
+
+
+%%--------------------------------------------------------------------
+-spec start_link(Tracker :: cc | gw,
+                 RunTag  :: string(),
+                 RegComm :: comm_code(),
+                 RegEmo  :: atom(),
+                 Period  :: non_neg_integer()) -> gen_statem:start_ret().
+%%
+% @doc  Startup function for Twitter influence model
+% @end  --
+start_link(Tracker, RunTag, RegComm, RegEmo, Period) ->
+    gen_statem:start_link(?MODULE,
+                          [Tracker, RunTag, RegComm, RegEmo, Period],
+                          []).
 
 
 
@@ -70,9 +89,19 @@ stop(Model) ->
 
 
 %%--------------------------------------------------------------------
+-spec reset(Model :: gen_statem:server_ref()) -> ok.
+%%
+% @doc  Resets the modeller
+% @end  --
+reset(Model) ->
+    gen_statem:cast(Model, reset).
+
+
+
+%%--------------------------------------------------------------------
 -spec go(Model :: gen_statem:server_ref()) -> ok.
 %%
-% @doc 
+% @doc  Gets the influence model running
 % @end  --
 go(Model) ->
     gen_statem:cast(Model, go).
@@ -86,29 +115,29 @@ go(Model) ->
 %%
 % @doc  Initialization for the back-off timer.
 % @end  --
-init([Tracker, RegComm, RunCode, Target]) ->
-    %
+init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
+
     process_flag(trap_exit, true),
-    BigCommCodes = weka:get_big_comm_codes(),
-    Independents = [?str_FMT("big_~s_~s", [C,E]) || C <- BigCommCodes,
-                                                    E <- ?EMOTIONS],
     Players = player:get_players(Tracker),
     Biggies = player:get_biggies(Tracker, 0.01),
-    Name    = ?str_FMT("~s_~s_~s_~s", [Tracker, RegComm, RunCode, Target]),
+    Name    = ?str_FMT("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
 
     BigInfo = fun({Comm, {P100, Cnt, Accts}}) ->
-                  ?str_FMT("{~s: ~B%, ~B, ~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
+                  ?str_FMT("{~s:~B%,tw=~B,cnt=~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
                   end,
 
     ?info("Modelling '~s' influence: usr[~B] big~p", [Name,
                                                       maps:size(Players),
                                                       [BigInfo(Grp) || Grp <- Biggies]]),
-    {ok, idle, #data{tracker   = Tracker,
-                     name      = Name,
-                     dep_attr  = Target,
-                     ind_attrs = Independents,
-                     players   = Players,
-                     biggies   = Biggies}}.
+    {ok, idle, #data{tracker    = Tracker,
+                     name       = Name,
+                     attributes = init_attributes(),
+                     reg_comm   = RegComm,
+                     reg_emo    = RegEmo,
+                     period     = Period,
+                     players    = Players,
+                     biggies    = Biggies}}.
+
 
 
 
@@ -149,6 +178,11 @@ code_change(OldVsn, _State, Data, _Extra) ->
 %%
 % @doc  Synchronous messages for Coinigy services
 % @end  --
+handle_event(cast, reset, Data = #data{name = Name}) ->
+    ?warning("Resetting model ~s", [Name]),
+    {next_state, idle, Data#data{attributes = init_attributes()}};
+
+
 handle_event(cast, go, #data{name = Name}) ->
     ?warning("Model ~s got the go-ahead but is already under way", [Name]),
     keep_state_and_data;
@@ -186,11 +220,15 @@ idle(Type, Evt, Data) ->
 %%
 % @doc  FSM state for running a Weka model
 % @end  --
-run(enter, _OldState, #data{name = Name}) ->
-    %
-    ?info("Model ~s running on Weka", [Name]),
-    keep_state_and_data;
+run(enter, _OldState, #data{name     = Name,
+                            reg_comm = RegComm,
+                            period   = Period,
+                            players  = Players,
+                            biggies  = Biggies}) ->
 
+    ?info("Model ~s running on Weka", [Name]),
+    weka:biggies_to_arff(Name, RegComm, Biggies, Players, Period),
+    keep_state_and_data;
 
 run(Type, Evt, Data) ->
     handle_event(Type, Evt, Data).
@@ -215,4 +253,12 @@ eval(Type, Evt, Data) ->
 
 %%====================================================================
 %% Internal functions
-%%====================================================================
+%%--------------------------------------------------------------------
+-spec init_attributes() -> [string()].
+%%
+% @doc  Initializes the independent attribute list.
+% @end  --
+init_attributes() ->
+    BigCommCodes = weka:get_big_comm_codes(),
+    [?str_FMT("big_~s_~s", [C,E]) || C <- BigCommCodes,
+                                     E <- ?EMOTIONS].

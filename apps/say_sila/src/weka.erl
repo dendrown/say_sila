@@ -498,6 +498,7 @@ init_biggie_arff(Name, BigCommCodes, RegCommCodes) ->
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
     Return = {_, FOut} = open_arff(Name),
 
+    ?put_attr(FOut, minute, numeric),
     Attribber = fun({Grp, Code, Emo}) ->
                     Attr = ?str_fmt("~s_~s_~s", [Grp, Code, Emo]),
                     ?put_attr(FOut, Attr, numeric)

@@ -67,6 +67,6 @@ influence() ->
 influence(Tracker) ->
     RegComm = tter,
     RegEmo  = anger,
-    RunCode = "test",
-    influence:start_link(Tracker, RegComm, RunCode, RegEmo).
+    RunTag  = "test",
+    influence:start_link(Tracker, RunTag, RegComm, RegEmo, 7).
 
