@@ -15,7 +15,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -behaviour(gen_statem).
--export([start_link/2,
+-export([start_link/4,
          stop/1,
          go/1]).
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
@@ -24,14 +24,18 @@
          eval/3]).
 
 -include("sila.hrl").
+-include("emo.hrl").
+-include("ioo.hrl").
+-include("player.hrl").
 -include_lib("llog/include/llog.hrl").
 
 
 
 %%--------------------------------------------------------------------
--record(data, {name         :: string(),
-               dep_attr     :: atom(),
-               ind_attrs    :: [atom()] }).
+-record(data, {tracker  :: tracker(),
+               dep_attr :: atom(),
+               ind_attrs:: [string()],
+               name     :: string() }).
 %type data() :: #data{}.                        % FSM internal state data
 
 
@@ -39,13 +43,15 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec start_link(Name   :: string(),
-                 Target :: atom()) -> gen_statem:start_ret().
+-spec start_link(Tracker :: cc | gw,
+                 RegComm :: comm_code(),
+                 RunCode :: string(),
+                 Target  :: atom()) -> gen_statem:start_ret().
 %%
 % @doc  Startup function for back-off ticker services
 % @end  --
-start_link(Name, Target) ->
-    gen_statem:start_link(?MODULE, [Name, Target], []).
+start_link(Tracker, RegComm, RunCode, Target) ->
+    gen_statem:start_link(?MODULE, [Tracker, RegComm, RunCode, Target], []).
 
 
 
@@ -77,13 +83,19 @@ go(Model) ->
 %%
 % @doc  Initialization for the back-off timer.
 % @end  --
-init([Name, Target]) ->
+init([Tracker, RegComm, RunCode, Target]) ->
     %
     process_flag(trap_exit, true),
-    Independents = [todo],
-    {ok, idle, #data{name      = Name,
+    BigCommCodes = weka:get_big_comm_codes(),
+    Independents = [?str_FMT("big_~s_~s", [C,E]) || C <- BigCommCodes,
+                                                    E <- ?EMOTIONS],
+    {ok, idle, #data{tracker   = Tracker,
                      dep_attr  = Target,
-                     ind_attrs = Independents}}.
+                     ind_attrs = Independents,
+                     name      = ?str_FMT("~s_~s_~s_~s", [Tracker,
+                                                          RegComm,
+                                                          RunCode,
+                                                          Target])}}.
 
 
 

@@ -26,6 +26,7 @@
 
 -export([biggies_to_arff/4,
          biggies_to_arff/5,
+         get_big_comm_codes/0,
          report_to_arff/2,
          report_to_arff/3,
          tweets_to_arff/2]).
@@ -84,7 +85,7 @@ biggies_to_arff(Name, RegCode, Biggies, Players, Period) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
-    BigCommCodes = proplists:delete(tter, ?COMM_CODES),
+    BigCommCodes = get_big_comm_codes(),
     RegCommCodes = [RegCode],
     InitComm  = ?NEW_COMM,
 
@@ -108,6 +109,17 @@ biggies_to_arff(Name, RegCode, Biggies, Players, Period) ->
 
     write_biggie_arff(FOut, BigCommCodes, RegCommCodes, BigLots, RegLots, InitComm),
     close_arff(FPath, FOut).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_comm_codes() -> comm_codes().
+%%
+% @doc  Returns the list of communication codes we consider for big
+%       player activity.
+% @end  --
+get_big_comm_codes() ->
+    proplists:delete(tter, ?COMM_CODES).
 
 
 
