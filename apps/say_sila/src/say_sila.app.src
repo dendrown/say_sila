@@ -11,6 +11,7 @@
              dts,
              emo,
              llog,
+             model,
              player,
              plot,
              r,
