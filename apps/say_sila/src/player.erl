@@ -400,13 +400,13 @@ plot(Tracker, Rates, MinDecel) ->
 %%--------------------------------------------------------------------
 -spec update_comm(Comm   :: comm(),
                   Update :: comm()
-                          | emotions()) -> comm().
+                          | emos()) -> comm().
 %%
 % @doc  Updates the first communication info block with a second
 %       block or a raw emotion record.
 % @end  --
 update_comm(Comm = #comm{cnt  = Cnt,
-                         emos = Emos}, Emotions = #emotions{}) ->
+                         emos = Emos}, Emotions = #emos{}) ->
     % FIXME: We already have a count in emos
     Comm#comm{cnt  = 1 + Cnt,
               emos = emo:average(Emos, Emotions)};

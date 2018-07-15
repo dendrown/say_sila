@@ -30,7 +30,7 @@
 
 -record(comm, {cnt  :: non_neg_integer(),   % FIXME: We already have a count in emos
               %msgs :: tweets(),
-               emos :: emotions() }).
+               emos :: emos() }).
 -type comm()  :: #comm{}.
 -type comms() :: [comm()].
 

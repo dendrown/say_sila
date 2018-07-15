@@ -18,11 +18,11 @@
 
 
 %%%-------------------------------------------------------------------
--record(emotions, {count   = 0   :: integer(),
-                   levels  = #{} :: map() }).
--type emotions()     :: #emotions{}.
--type rec_emotions() :: undefined | #emotions{}.
+-record(emos, {count   = 0   :: integer(),      % Text source count
+               levels  = #{} :: map() }).
+-type emos()     :: #emos{}.
+-type rec_emos() :: undefined | emos().
 
--define(emo_level(Emo, Rec),    maps:get(Emo, Rec#emotions.levels)).
+-define(emo_level(Emo, Rec),    maps:get(Emo, Rec#emos.levels)).
 
 -endif.

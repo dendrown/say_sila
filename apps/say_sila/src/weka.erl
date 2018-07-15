@@ -192,15 +192,15 @@ report_to_arff(Name, Type, #{big := BigRptPack,
                 ?warning("No regular tweets on ~s", [DTS]),
                 {LotCnt + 1, BigCnt, RegCnt};
             RegLot ->
-                BigLotCnt = BigLot#emotions.count,
-                RegLotCnt = RegLot#emotions.count,
+                BigLotCnt = BigLot#emos.count,
+                RegLotCnt = RegLot#emos.count,
                 io:format(FOut, "~s, ~B, ~B", [DTS, BigLotCnt, RegLotCnt]),
                 %?debug("BIG: ~p", [BigLot]),
                 %?debug("REG: ~p", [RegLot]),
                 lists:foreach(fun(Emo) ->
                                   io:format(FOut, ", ~f, ~f",
-                                            [maps:get(Emo, BigLot#emotions.levels),
-                                             maps:get(Emo, RegLot#emotions.levels)])
+                                            [maps:get(Emo, BigLot#emos.levels),
+                                             maps:get(Emo, RegLot#emos.levels)])
                                   end,
                               ?EMOTIONS),
                 ?io_nl(FOut),
@@ -450,14 +450,14 @@ periodize_lots(CommCode, DayLots, Period, Days, InitComm) ->
                                    AccComm = maps:get(Code, LotAcc, InitComm),
                                    NewEmos = emo:average(AccComm#comm.emos,
                                                          DayComm#comm.emos),
-                                   % FIXME: Don't duplicate counts in #comm and #emotions!
+                                   % FIXME: Don't duplicate counts in #comm and #emos!
                                    %        For now, this is a good place for a SANITY check.
-                                   NewComm = case {NewEmos#emotions.count,
+                                   NewComm = case {NewEmos#emos.count,
                                                    AccComm#comm.cnt + DayComm#comm.cnt} of
 
                                        {Cnt, Cnt} ->
                                            % FIXME: Here we where we see the double-count nonsense
-                                           AccComm#comm{cnt  = NewEmos#emotions.count,
+                                           AccComm#comm{cnt  = NewEmos#emos.count,
                                                         emos = NewEmos};
 
                                        {EmoCnt, CommCnt} ->
@@ -576,7 +576,7 @@ write_biggie_arff(FOut, BigCommCodes, RegCommCodes, BigLots, RegLots, InitComm) 
                  #comm{emos = Emos} = maps:get(Code, Comms),
                  %
                  % We're not really reducing, the "accumulator" just holds the emo-map
-                 lists:foldl(Emoter, Emos#emotions.levels, ?EMOTIONS),
+                 lists:foldl(Emoter, Emos#emos.levels, ?EMOTIONS),
                  {DTS, Grp, GrpLots} end,
 
     % Function to write one line of the ARFF

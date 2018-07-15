@@ -36,57 +36,57 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec add(Emos1 :: emotions(),
-          Emos2 :: emotions()) -> emotions().
+-spec add(Emos1 :: emos(),
+          Emos2 :: emos()) -> emos().
 %
-% @doc  Combines the two `emotions' records by adding the values for
+% @doc  Combines the two `emos' records by adding the values for
 %       each individual emotion.
 % @end  --
 add(Emos1, Emos2) ->
-    #emotions{count  = Emos1#emotions.count
-                     + Emos2#emotions.count,
-              levels = relevel(fun(Emo) -> {Emo,  maps:get(Emo, Emos1#emotions.levels)
-                                                + maps:get(Emo, Emos2#emotions.levels)} end)}.
+    #emos{count  = Emos1#emos.count
+                 + Emos2#emos.count,
+          levels = relevel(fun(Emo) -> {Emo,  maps:get(Emo, Emos1#emos.levels)
+                                            + maps:get(Emo, Emos2#emos.levels)} end)}.
 
 
 
 %%--------------------------------------------------------------------
--spec average(Emos :: emotions()) -> emotions().
+-spec average(Emos :: emos()) -> emos().
 %
-% @doc  Returns an `emotions' record representing the average emotion
+% @doc  Returns an `emos' record representing the average emotion
 %       levels per tweet.
 %
 %       CAUTION: Currently nothing is stopping us from whittling away
 %                emotional levels by calling this function repeatedly
 %                for the same group!
 % @end  --
-average(Emos = #emotions{count = Cnt}) ->
-    if  0 =:= Cnt -> #emotions{};
+average(Emos = #emos{count = Cnt}) ->
+    if  0 =:= Cnt -> #emos{};
         1 =:= Cnt -> Emos;
         Cnt > 1 ->
-            #emotions{count  = Cnt,
-                      levels = relevel(fun(Emo) -> {Emo, maps:get(Emo, Emos#emotions.levels) / Cnt} end)}
+            #emos{count  = Cnt,
+                  levels = relevel(fun(Emo) -> {Emo, maps:get(Emo, Emos#emos.levels) / Cnt} end)}
     end.
 
 
 
 %%--------------------------------------------------------------------
--spec average(Running  :: emotions(),
-              Incoming :: emotions()) -> emotions().
+-spec average(Running  :: emos(),
+              Incoming :: emos()) -> emos().
 %
-% @doc  Updates a running average `emotions' record with new (incoming)
+% @doc  Updates a running average `emos' record with new (incoming)
 %       levels of emotion.
 % @end  --
-average(Running  = #emotions{count = RunCnt},
-        Incoming = #emotions{count = IncCnt}) ->
+average(Running  = #emos{count = RunCnt},
+        Incoming = #emos{count = IncCnt}) ->
     %
     TotalCnt = RunCnt + IncCnt,
     Averager = fun(Emo) ->
-                      Run = maps:get(Emo, Running#emotions.levels),
-                      Inc = maps:get(Emo, Incoming#emotions.levels),
+                      Run = maps:get(Emo, Running#emos.levels),
+                      Inc = maps:get(Emo, Incoming#emos.levels),
                       {Emo, (RunCnt * Run + IncCnt * Inc) / TotalCnt}
                       end,
-    #emotions{count  = TotalCnt,
+    #emos{count  = TotalCnt,
               levels = relevel(Averager)}.
 
 
@@ -116,7 +116,7 @@ clip_stoic(Tweet) ->
 %       previous high-emotion tweet with a lower emotion level.
 % @end  --
 do_top_hits(Tweet = #tweet{emotions = TweetEmos}, TopHits) ->
-    TweetLevels = TweetEmos#emotions.levels,
+    TweetLevels = TweetEmos#emos.levels,
     CmpHits = fun(Emo) ->
         % Add in the new Tweet, which may give us one too many "hits"
         TweetLevel = maps:get(Emo, TweetLevels,  0.0),
@@ -137,7 +137,7 @@ do_top_hits(Tweet = #tweet{emotions = TweetEmos}, TopHits) ->
 -spec emote(Anger   :: float(),
             Fear    :: float(),
             Sadness :: float(),
-            Joy     :: float()) -> emotions().
+            Joy     :: float()) -> emos().
 %
 % @doc  Returns an `emotion' record representing a single communication
 %       at the specifed levels of emotion.
@@ -154,23 +154,23 @@ emote(Anger, Fear, Sadness, Joy) ->
             Anger   :: float(),
             Fear    :: float(),
             Sadness :: float(),
-            Joy     :: float()) -> emotions().
+            Joy     :: float()) -> emos().
 %
 % @doc  Returns an `emotion' record representing `Count' communications
 %       of the specifed levels of emotion.
 % @end  --
 emote(Count, Anger, Fear, Sadness, Joy) ->
-    #emotions{count   = Count,
-              levels  = #{anger   => Anger,
-                          fear    => Fear,
-                          sadness => Sadness,
-                          joy     => Joy}}.
+    #emos{count   = Count,
+          levels  = #{anger   => Anger,
+                      fear    => Fear,
+                      sadness => Sadness,
+                      joy     => Joy}}.
 
 
 
 %%--------------------------------------------------------------------
 -spec is_stoic(Emos :: tweet()
-                     | emotions()
+                     | emos()
                      | float()) -> boolean().
 %
 % @doc  Returns an true if the entity has no emotion, false otherwise.
@@ -179,7 +179,7 @@ is_stoic(#tweet{emotions = Emos}) ->
     is_stoic(Emos);
 
 
-is_stoic(#emotions{levels = Levels}) ->
+is_stoic(#emos{levels = Levels}) ->
     Fn = fun Recur([]) ->
                  true;
              Recur([{_, Level} | RestLevels]) ->
@@ -213,7 +213,7 @@ relevel(Closure) ->
 
 
 %%--------------------------------------------------------------------
--spec stoic() -> emotions().
+-spec stoic() -> emos().
 %
 % @doc  Returns an `emotion' record representing "no emotion".
 %
@@ -224,7 +224,7 @@ stoic() ->
 
 
 %%--------------------------------------------------------------------
--spec stoic(Count :: non_neg_integer()) -> emotions().
+-spec stoic(Count :: non_neg_integer()) -> emos().
 %
 % @doc  Returns an `emotion' record representing "no emotion" for the
 %       specified communication count.
