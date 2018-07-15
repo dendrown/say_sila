@@ -19,6 +19,7 @@
 -define(SECS_IN_HOUR,  (60 * ?SECS_IN_MIN)).
 -define(SECS_IN_DAY,   (24 * ?SECS_IN_HOUR)).
 
+-type dts_1970() :: non_neg_integer().
 -type date()     :: {integer(), integer(), integer()}.
 -type time()     :: {integer(), integer(), integer()}.
 -type datetime() :: date() %|time()

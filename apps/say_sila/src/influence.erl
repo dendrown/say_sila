@@ -179,7 +179,7 @@ code_change(OldVsn, _State, Data, _Extra) ->
 % @doc  Synchronous messages for Coinigy services
 % @end  --
 handle_event(cast, reset, Data = #data{name = Name}) ->
-    ?warning("Resetting model ~s", [Name]),
+    ?notice("Resetting model ~s", [Name]),
     {next_state, idle, Data#data{attributes = init_attributes()}};
 
 

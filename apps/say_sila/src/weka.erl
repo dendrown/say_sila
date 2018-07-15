@@ -100,8 +100,13 @@ biggies_to_arff(Name, RegCode, Biggies, Players, Period) ->
         % Otherwise, group by days (usually 7 for a week)
         {N, {BigDayLots,
              RegDayLots}} when N > 1 ->
-            {[{Code, periodize_lots(DayLots, N, InitComm)} || {Code, DayLots} <- BigDayLots],
-             [{Code, periodize_lots(DayLots, N, InitComm)} || {Code, DayLots} <- RegDayLots]}
+            %
+            % Use the regular community to find ALL the days we're considering.
+            % Depending on biggie requirements, some commumications (rter) may be missing days!
+            Days = lists:sort(maps:keys(proplists:get_value(tter, RegDayLots))),
+
+            {[{Code, periodize_lots(Code, DayLots, N, Days, InitComm)} || {Code, DayLots} <- BigDayLots],
+             [{Code, periodize_lots(Code, DayLots, N, Days, InitComm)} || {Code, DayLots} <- RegDayLots]}
     end,
 
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
@@ -403,8 +408,10 @@ make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm) ->
 
 
 %%--------------------------------------------------------------------
--spec periodize_lots(DayLots  :: map(),
+-spec periodize_lots(CommCode :: comm_code(),
+                     DayLots  :: map(),
                      Period   :: non_neg_integer(),
+                     Days     :: [dts_1970()],
                      InitComm :: comm()) -> map().
 %%
 % @doc  Regroup day-mapped lots to period-mapped lots (key = first day).
@@ -413,7 +420,7 @@ make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm) ->
 %       NOTE: Lots for extra days that don't make up a full period are ignored.
 %
 % @end  --
-periodize_lots(DayLots, Period, InitComm) ->
+periodize_lots(CommCode, DayLots, Period, Days, InitComm) ->
 
     % NOTE: Erlang/OTP 21 has map iterators, which may provide a more elegant
     %       solution, provided that the keys are processed in order.
@@ -449,33 +456,53 @@ periodize_lots(DayLots, Period, InitComm) ->
                                                         emos = NewEmos};
 
                                        {EmoCnt, CommCnt} ->
-                                           ?error("Emotions/comms count mismatch: emo[~B] comm[~B]",
-                                                  [EmoCnt, CommCnt]),
+                                           ?error("Emotions/comms count mismatch: code[~s] emo[~B] cnt[~B]",
+                                                  [CommCode, EmoCnt, CommCnt]),
                                            throw(bad_count)
                                    end,
                                    maps:put(Code, NewComm, LotAcc)
                                    end,
 
+                    % Function to warn about empty lots
+                    Check00s = fun(Code, Comm, Day) ->
+                                   case Comm#comm.cnt > 0 of
+                                       true  -> ok;
+                                       false ->
+                                           ?warning("Empty ~s comm on ~s <~B>: ~p",
+                                                    [Code, dts:date_str(Day, millisecond), Day]),
+                                           ?debug("~p", [Comm])
+                                   end end,
+
                     % Function to map a list of day lots into one period lot
                     Remapper = fun(Day, {_, LotAcc}) ->
-                                   ?debug("Remapping day ~s<~B>", [dts:date_str(Day, millisecond), Day]),
                                    % Day-order is reversed, so the last day becomes the DTS key
-                                   {Day,
-                                    maps:fold(Reemoter, LotAcc, maps:get(Day, DayLots))}
+                                   Remap = maps:fold(Reemoter, LotAcc, maps:get(Day, DayLots, #{})),
+                                   case maps:size(Remap) of
+                                       0 ->
+                                           ?warning("Empty ~s day @ ~s <~B>",
+                                                    [CommCode, dts:date_str(Day, millisecond), Day]);
+                                       1 ->
+                                           %?debug("Remapped ~s @ ~s <~B>",
+                                           %         [CommCode, dts:date_str(Day, millisecond), Day]),
+                                           % Sanity check against comms w/ no tweets!
+                                           maps:fold(Check00s, Day, Remap),
+                                           ok
                                    end,
+                                   {Day, Remap} end,
 
                     % Remap the day lots by day groupings
-                    ?info("Remapping period: ~p", [[dts:date_STR(Day, millisecond) || Day <- PeriodDays]]),
+                    %?info("Remapping ~s period: ~p",
+                    %      [CommCode, [dts:date_STR(Day, millisecond) || Day <- PeriodDays]]),
                     {KeyDay,
                      PeriodLots} = lists:foldl(Remapper, {start, #{}}, PeriodDays),
                     maps:put(KeyDay, PeriodLots, PeriodLotAcc)
                     end,
 
     % Regroup day-mapped lots to period-mapped lots (key = first day)
-    Days = lists:sort(maps:keys(DayLots)),
     {_,
      ExtraDays,
      Periods} = lists:foldl(GroupDays, {1, [], []}, Days),
+%%   Periods} = lists:foldl(GroupDays, {1, [], []}, lists:sublist(Days, 50, 7)),    % DEBUG: subset
     case ExtraDays of
         [] -> ok;
         _  -> ?warning("Days cut from period groupings: ~p",
