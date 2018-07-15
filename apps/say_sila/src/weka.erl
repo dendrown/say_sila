@@ -25,7 +25,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([biggies_to_arff/4,
-         biggies_to_arff/5,
+         biggies_to_arff/6,
          get_big_comm_codes/0,
          report_to_arff/2,
          report_to_arff/3,
@@ -55,19 +55,20 @@
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for the output of `players:get_biggies'.  Each output instance
-%       represents one day during a tracking run.
+%       represents one day during a tracking run, and the ARFF includes
+%       (target) attributes for all defined emotions.
 %
-%       NOTE: This function is addressing the question of influence in
-%             Twitter communities, and is currently somewhat in flux.
 % @end  --
 biggies_to_arff(Name, RegCode, Biggies, Players) ->
-    biggies_to_arff(Name, RegCode, Biggies, Players, 1).
+    biggies_to_arff(Name, RegCode, ?EMOTIONS, Biggies, Players, 1).
 
 
 
 %%--------------------------------------------------------------------
 -spec biggies_to_arff(Name    :: string(),
                       RegCode :: comm_code(),
+                      RegEmos :: atom()
+                               | [atom()],
                       Biggies :: proplist(),
                       Players :: any(),
                       Period  :: integer()) ->  {ok, string()}
@@ -81,7 +82,11 @@ biggies_to_arff(Name, RegCode, Biggies, Players) ->
 %       NOTE: This function is addressing the question of influence in
 %             Twitter communities, and is currently somewhat in flux.
 % @end  --
-biggies_to_arff(Name, RegCode, Biggies, Players, Period) ->
+biggies_to_arff(Name, RegCode, RegEmo, Biggies, Players, Period) when is_atom(RegEmo) ->
+    biggies_to_arff(Name, RegCode, [RegEmo], Biggies, Players, Period);
+
+
+biggies_to_arff(Name, RegCode, _RegEmos, Biggies, Players, Period) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)

@@ -222,12 +222,13 @@ idle(Type, Evt, Data) ->
 % @end  --
 run(enter, _OldState, #data{name     = Name,
                             reg_comm = RegComm,
+                            reg_emo  = RegEmo,
                             period   = Period,
                             players  = Players,
                             biggies  = Biggies}) ->
 
     ?info("Model ~s running on Weka", [Name]),
-    weka:biggies_to_arff(Name, RegComm, Biggies, Players, Period),
+    weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period),
     keep_state_and_data;
 
 run(Type, Evt, Data) ->
