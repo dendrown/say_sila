@@ -67,8 +67,8 @@ biggies_to_arff(Name, RegCode, Biggies, Players) ->
 %%--------------------------------------------------------------------
 -spec biggies_to_arff(Name    :: string(),
                       RegCode :: comm_code(),
-                      RegEmos :: atom()
-                               | [atom()],
+                      RegEmos :: emotion()
+                               | emotions(),
                       Biggies :: proplist(),
                       Players :: any(),
                       Period  :: integer()) ->  {ok, string()}
@@ -86,18 +86,18 @@ biggies_to_arff(Name, RegCode, RegEmo, Biggies, Players, Period) when is_atom(Re
     biggies_to_arff(Name, RegCode, [RegEmo], Biggies, Players, Period);
 
 
-biggies_to_arff(Name, RegCode, _RegEmos, Biggies, Players, Period) ->
+biggies_to_arff(Name, RegCode, RegEmos, Biggies, Players, Period) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
-    BigCommCodes = get_big_comm_codes(),
-    RegCommCodes = [RegCode],
-    InitComm  = ?NEW_COMM,
+    BigCodes = get_big_comm_codes(),
+    RegCodes = [RegCode],
+    InitComm = ?NEW_COMM,
 
     % Separate out comm-code lots for big & regular players, regrouping lots if necessary
     {BigLots,
      RegLots} = case {Period,
-                      make_biggie_lots(BigCommCodes, RegCommCodes, Biggies, Players, InitComm)} of
+                      make_biggie_lots(BigCodes, RegCodes, Biggies, Players, InitComm)} of
 
         % Default is one instance per day
         {1, {BigDayLots, RegDayLots}} -> {BigDayLots, RegDayLots};
@@ -115,9 +115,9 @@ biggies_to_arff(Name, RegCode, _RegEmos, Biggies, Players, Period) ->
     end,
 
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
-    {FPath, FOut} = init_biggie_arff(Name, BigCommCodes, RegCommCodes),
+    {FPath, FOut} = init_biggie_arff(Name, BigCodes, RegCodes, ?EMOTIONS, RegEmos),
 
-    write_biggie_arff(FOut, BigCommCodes, RegCommCodes, BigLots, RegLots, InitComm),
+    write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, ?EMOTIONS, RegEmos, InitComm),
     close_arff(FPath, FOut).
 
 
@@ -518,14 +518,16 @@ periodize_lots(CommCode, DayLots, Period, Days, InitComm) ->
 
 
 %%--------------------------------------------------------------------
--spec init_biggie_arff(Name          :: string(),
-                       BigCommCodes  :: [atom()],
-                       RegCommmCodes :: [atom()]) -> {string(), file:io_device()}.
+-spec init_biggie_arff(Name     :: string(),
+                       BigCodes :: comm_codes(),
+                       RegCodes :: comm_codes(),
+                       BigEmos  :: emotions(),
+                       RegEmos  :: emotions()) -> {string(), file:io_device()}.
 %%
 % @doc  Opens an ARFF for biggie influence analysis and writes out the
 %       attribute header.
 % @end  --
-init_biggie_arff(Name, BigCommCodes, RegCommCodes) ->
+init_biggie_arff(Name, BigCodes, RegCodes, BigEmos, RegEmos) ->
 
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
     Return = {_, FOut} = open_arff(Name),
@@ -535,24 +537,26 @@ init_biggie_arff(Name, BigCommCodes, RegCommCodes) ->
                     Attr = ?str_fmt("~s_~s_~s", [Grp, Code, Emo]),
                     ?put_attr(FOut, Attr, numeric)
                     end,
-    lists:foreach(Attribber, [{big, Code, Emo} || Code <- BigCommCodes, Emo <- ?EMOTIONS]),
-    lists:foreach(Attribber, [{reg, Code, Emo} || Code <- RegCommCodes, Emo <- ?EMOTIONS]),
+    lists:foreach(Attribber, [{big, Code, Emo} || Code <- BigCodes, Emo <- BigEmos]),
+    lists:foreach(Attribber, [{reg, Code, Emo} || Code <- RegCodes, Emo <- RegEmos]),
     Return.
 
 
 
 %%--------------------------------------------------------------------
--spec write_biggie_arff(FOut          :: file:io_device(),
-                        BigCommCodes  :: [atom()],
-                        RegCommmCodes :: [atom()],
-                        BigLots       :: proplist(),
-                        RegLots       :: proplist(),
-                        InitComm      :: comm()) -> ok.
+-spec write_biggie_arff(FOut     :: file:io_device(),
+                        BigCodes :: comm_codes(),
+                        RegCodes :: comm_codes(),
+                        BigLots  :: proplist(),
+                        RegLots  :: proplist(),
+                        BigEmos  :: emotions(),
+                        RegEmos  :: emotions(),
+                        InitComm :: comm()) -> ok.
 %%
 % @doc  Opens an ARFF for biggie influence analysis and writes out the
 %       attribute header.
 % @end  --
-write_biggie_arff(FOut, BigCommCodes, RegCommCodes, BigLots, RegLots, InitComm) ->
+write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos, InitComm) ->
 
     % Function to write one emotion for one comm on one line of the ARFF
     Emoter = fun(Emo, Levels) ->
@@ -561,7 +565,7 @@ write_biggie_arff(FOut, BigCommCodes, RegCommCodes, BigLots, RegLots, InitComm) 
                  Levels end,
 
     % Function to write one comm on one line of the ARFF
-    Commer = fun(Code, {DTS, Grp, GrpLots}) ->
+    Commer = fun(Code, {DTS, Grp, GrpLots, Emotions}) ->
                  Lots = proplists:get_value(Code, GrpLots),
                  %
                  % TODO: This line may fail for very small periods.
@@ -576,15 +580,15 @@ write_biggie_arff(FOut, BigCommCodes, RegCommCodes, BigLots, RegLots, InitComm) 
                  #comm{emos = Emos} = maps:get(Code, Comms),
                  %
                  % We're not really reducing, the "accumulator" just holds the emo-map
-                 lists:foldl(Emoter, Emos#emos.levels, ?EMOTIONS),
-                 {DTS, Grp, GrpLots} end,
+                 lists:foldl(Emoter, Emos#emos.levels, Emotions),
+                 {DTS, Grp, GrpLots, Emotions} end,
 
     % Function to write one line of the ARFF
     Liner  = fun(DTS) ->
                  % The DTS is a millisecond timestamp for the current lot in the period
                  ?io_fmt(FOut, "~B", [DTS]),
-                 lists:foldl(Commer, {DTS, big, BigLots}, BigCommCodes),
-                 lists:foldl(Commer, {DTS, reg, RegLots}, RegCommCodes),
+                 lists:foldl(Commer, {DTS, big, BigLots, BigEmos}, BigCodes),
+                 lists:foldl(Commer, {DTS, reg, RegLots, RegEmos}, RegCodes),
                  ?io_nl(FOut)
                  end,
 

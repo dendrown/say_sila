@@ -15,6 +15,8 @@
 -define(_emo_included, ack).
 
 -define(EMOTIONS,   [anger, fear, sadness, joy]).
+-type emotion()  ::  anger| fear| sadness| joy.
+-type emotions() :: [emotion()].
 
 
 %%%-------------------------------------------------------------------

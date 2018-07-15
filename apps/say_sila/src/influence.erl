@@ -38,7 +38,7 @@
                name       :: string(),
                attributes :: [string()],
                reg_comm   :: comm_code(),
-               reg_emo    :: atom(),
+               reg_emo    :: emotion(),
                period     :: non_neg_integer(),
                players    :: map(),
                biggies    :: proplist() }).
