@@ -251,7 +251,7 @@ report_to_arff(Name, Type, #{big := BigRptPack,
 % @end  --
 tweets_to_arff(Name, Tweets) ->
     %
-    {FPath, FOut} = open_arff(Name),
+    {FPath, FOut} = open_arff(tweets, Name),
 
     ?put_attr(FOut, id,          string),
     ?put_attr(FOut, screen_name, string),
@@ -270,7 +270,7 @@ tweets_to_arff(Name, Tweets) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec open_arff(Name :: string()) -> {string(), file:io_device()}.
+-spec open_arff(Name :: stringy()) -> {string(), file:io_device()}.
 %%
 % @doc  Opens an ARFF file for writing the specified relation and
 %       returns the full pathname to the file and its file descriptor.
@@ -282,6 +282,20 @@ open_arff(Name) ->
 
     io:format(FOut, "@RELATION  ~s~n~n", [Name]),
     {FPath, FOut}.
+
+
+
+%%--------------------------------------------------------------------
+-spec open_arff(SubDir :: stringy(),
+                Name   :: stringy()) -> {string(), file:io_device()}.
+%%
+% @doc  Opens an ARFF file in the specified local subdirectory for
+%       the named relation.  Returns the full filepath and the file
+%       descriptor.
+% @end  --
+open_arff(SubDir, Name) ->
+    LocalFPath = ?str_fmt("~s/~s", [SubDir, Name]),
+    open_arff(LocalFPath).
 
 
 
@@ -300,11 +314,10 @@ close_arff(FPath, FOut) ->
 
 
 %%--------------------------------------------------------------------
--spec make_fpath(Name :: string()) -> string().
+-spec make_fpath(Name :: stringy()) -> string().
 %%
 % @doc  Returns the full filepath for an ARFF file with the specified
-%       name.  Note that the path must be valid for this function to
-%       succeed.
+%       name.
 % @end  --
 make_fpath(Name) ->
     FPath = lists:flatten(io_lib:format("~s/weka/~s.arff", [?WORK_DIR, Name])),

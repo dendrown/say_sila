@@ -19,8 +19,12 @@
 -type property()    :: atom() | {term(), term()}.
 -type proplist()    :: [property()].
 
+-type stringy()     :: atom() | string() | io_lib:chars().
+
 -type rec_map()     :: undefined | map().
 -type rec_pid()     :: undefined | pid().
 -type rec_string()  :: undefined | string().
+-type rec_stringy() :: undefined | stringy().
+
 
 -endif.
