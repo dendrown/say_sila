@@ -548,7 +548,7 @@ handle_cast({tweet, Tweet = #tweet{screen_name  = ScreenName,
     Account = string:lowercase(ScreenName),
     KeyDTS  = dts:dayize(TweetMillis, millisecond),
 
-    ?info("TWEET: acct[~s] type[~s] id[~s] key[~B]", [Account, Type, Tweet#tweet.id, KeyDTS]),
+    ?info("TWEET: dts[~B] id[~s] type[~s] acct[~s]", [KeyDTS, Tweet#tweet.id, Type, Account]),
 
     % Update the tweet counter(s) and rank(s) for this tweet
      CommCodes = case Type of
@@ -1049,7 +1049,7 @@ update_totals(CommCodes, Totals) when is_list(CommCodes) ->
 % @end  --
 update_ranking(Acct, CommCnt, Ranking) ->
     %
-    ?debug("Rank update: acct[~s] cnt[~B]", [Acct, CommCnt]),
+    %?debug("Rank update: acct[~s] cnt[~B]", [Acct, CommCnt]),
 
     % NOTE: The `CommCnt' for the account has the NEW count,
     %       while the ranking tree has the OLD count (NEW - 1)
