@@ -97,7 +97,7 @@
                               [from ref otp-rsp])
         otp-msg (OtpErlangTuple. ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
                                  (into-array OtpErlangObject elms))]
-    (log/debug "SILA<" rsp ">:" rsp-arg)
+    (log/debug "SILA<" rsp ">:" (str rsp-arg))
     (.send mbox ^OtpErlangPid  (:pid req)
                                  otp-msg))))
 
@@ -112,16 +112,18 @@
   Template for processing a command with Weka and then sending the result
   back to sila.
   "
-  [cmd msg weka-fn weka-arg]
+  [msg fun & parms]
+  `(let [{cmd# :cmd
+          arg# :arg} ~msg
+          arff# (.stringValue ^OtpErlangString arg#)]
 
-  `(let [fpath# (.stringValue ^OtpErlangString (:arg ~msg))]
-  (log/info "->> weka<" ~cmd ">:" fpath#)
-  (future
-    ; NOTE: At this point the weka call is strict on its form.
-    ;       We probably want to generalize it.
-    (let [rsp# (~weka-fn fpath# ~weka-arg)]
-      (log/info "<<- weka<" ~cmd ">" rsp# "[OK]")
-      (answer-sila ~msg (keyword ~cmd) (map->otp rsp#))))))
+    (log/info "->> weka<" cmd# ">:" (str arff#))
+    (future
+      (let [wfun# (ns-resolve 'say.weka (symbol '~fun))
+            DBG#  (log/debug "(apply" wfun# arff# '~parms ")")
+            rsp#  (apply wfun# arff# '~parms)]
+        (log/info "<<- weka<" cmd# ">" rsp# "[OK]")
+        (answer-sila ~msg (keyword cmd#) (map->otp rsp#))))))
 
 
 
@@ -136,10 +138,12 @@
   "
   :cmd)
 
-(defmethod dispatch "emote"   [msg] (do-weka 'emote   msg weka/filter-arff weka/+EMOTE-FILTER+))
-(defmethod dispatch "dic9315" [msg] (do-weka 'dic9315 msg weka/filter-arff '(:embed :bws)))
+(defmethod dispatch "emote"   [msg] (do-weka msg filter-arff :bws))
+(defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff '(:embed :bws)))
+;;TODO: (defmethod dispatch "regress" [msg] (do-weka msg regress))
 
 (defmethod dispatch "sila" [msg]
+  ;; Handle updates to the say-sila ontology
   (future
       (let [json (String. (.binaryValue ^OtpErlangBinary (:arg msg)))
             arg  (json/read-str json
@@ -163,7 +167,7 @@
 
 
 (defmethod dispatch "ping" [msg]
-  (log/info "ping from" (:src msg) ":" (:arg msg))
+  (log/info "ping from" (:src msg))
   (answer-sila msg :pong))
 
 
