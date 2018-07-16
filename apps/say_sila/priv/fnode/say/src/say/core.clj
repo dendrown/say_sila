@@ -120,7 +120,6 @@
     (log/info "->> weka<" cmd# ">:" (str arff#))
     (future
       (let [wfun# (ns-resolve 'say.weka (symbol '~fun))
-            DBG#  (log/debug "(apply" wfun# arff# '~parms ")")
             rsp#  (apply wfun# arff# '~parms)]
         (log/info "<<- weka<" cmd# ">" rsp# "[OK]")
         (answer-sila ~msg (keyword cmd#) (map->otp rsp#))))))
@@ -140,7 +139,7 @@
 
 (defmethod dispatch "emote"   [msg] (do-weka msg filter-arff :bws))
 (defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff '(:embed :bws)))
-;;TODO: (defmethod dispatch "regress" [msg] (do-weka msg regress))
+(defmethod dispatch "regress" [msg] (do-weka msg regress))
 
 (defmethod dispatch "sila" [msg]
   ;; Handle updates to the say-sila ontology

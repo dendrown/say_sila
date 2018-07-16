@@ -18,6 +18,7 @@
   (:import  [weka.core  Instance
                         Instances]
             [weka.filters Filter]
+            [weka.classifiers.functions LinearRegression]
             [weka.core.converters AbstractSaver
                                   ArffLoader
                                   ArffSaver
@@ -92,13 +93,26 @@
 ;;; --------------------------------------------------------------------------
 (defn ^Instances load-arff
   "
-  Reads in and returns the Instances from the specified ARFF file
+  Reads in and returns the Instances from the specified ARFF file.  The caller
+  may specify any number of filter keywords after the target attribute (or nil
+  to specifically skip setting a class attribute).
   "
-  [fpath]
-  (let [loader (ArffLoader.)]
-    ; Pull the instances and give 'em to the caller
-    (.setFile loader (io/file fpath))
-    (.getDataSet loader)))
+  ([fpath]
+  (load-arff fpath nil))
+
+  ([^String fpath
+    ^String target
+    &       filters]
+  (let [loader (doto (ArffLoader.)
+                     (.setFile (io/file fpath)))
+        insts  (.getDataSet loader)]
+
+    ; Set the target if we know what it is
+    (when target
+      (.setClass insts (.attribute insts target)))
+
+    ; Apply any requested filters.
+    (reduce #(filter-instances %1 %2) insts filters))))
 
 
 
@@ -197,6 +211,28 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; ┏━┓┏━╸┏━╸┏━┓┏━╸┏━┓┏━┓
+;;; ┣┳┛┣╸ ┃╺┓┣┳┛┣╸ ┗━┓┗━┓
+;;; ╹┗╸┗━╸┗━┛╹┗╸┗━╸┗━┛┗━┛
+;;; --------------------------------------------------------------------------
+(defn regress
+  "
+  Runs a Linear Regression model on the ARFF at the specified filepath.
+  "
+  ([arff]
+  (regress arff nil))
+
+
+  ([arff target]
+  (let [model (LinearRegression.)
+        insts (load-arff arff target)]
+
+    ;; TODO: Move beyond this placeholder
+    (str model " [" (.numInstances insts) "]"))))
+
+
+
+;;; --------------------------------------------------------------------------
 ;;; ┏━╸┏┳┓┏━┓╺┳╸┏━╸   ┏━┓┏━┓┏━╸┏━╸
 ;;; ┣╸ ┃┃┃┃ ┃ ┃ ┣╸ ╺━╸┣━┫┣┳┛┣╸ ┣╸
 ;;; ┗━╸╹ ╹┗━┛ ╹ ┗━╸   ╹ ╹╹┗╸╹  ╹
@@ -211,7 +247,7 @@
 	"
   [fpath]
   ;(log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
-  (filter-arff fpath :bws))
+  (filter-arff fpath +EMOTE-FILTER+))
 
 
 
