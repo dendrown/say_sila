@@ -224,11 +224,23 @@
 
 
   ([arff target]
-  (let [model (LinearRegression.)
-        insts (load-arff arff target)]
+  (try
+    (let [model (LinearRegression.)
+          insts (load-arff arff target)]
 
-    ;; TODO: Move beyond this placeholder
-    (str model " [" (.numInstances insts) "]"))))
+      ;; If they didn't send a target, select the last attribute
+      (when-not target
+        (.setClassIndex insts (dec (.numAttributes insts))))
+
+      ;; Train the model
+      (.buildClassifier model insts)
+
+      ;; TODO: Move beyond this placeholder
+      {:status (str model " [" (.numInstances insts) "]")})
+
+    (catch Exception ex
+      (log/fail ex "Linear regression failed")
+      {:status "nak"}))))
 
 
 
