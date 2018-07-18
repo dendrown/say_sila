@@ -252,9 +252,9 @@
 
         ;; Prepare a response for the caller
         ;; TODO: Support for non-string values
-        (assoc ACK :model       (str (type model))
-                   :instances   (str (.numInstances insts))
-                   :correlation (str (.correlationCoefficient audit)))))
+        (assoc ACK :model       (type model)
+                   :instances   (.numInstances insts)
+                   :correlation (.correlationCoefficient audit))))
 
     (catch Exception ex (log/fail ex "Linear regression failed") NAK))))
 

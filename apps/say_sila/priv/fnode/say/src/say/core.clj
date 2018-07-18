@@ -14,10 +14,13 @@
   (:require [say.log    :as log]
             [say.sila   :as sila]
             [say.weka   :as weka]
+            [clojure.string    :as str]
             [clojure.data.json :as json])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
                                      OtpErlangBinary
+                                     OtpErlangDouble
                                      OtpErlangList
+                                     OtpErlangLong
                                      OtpErlangMap
                                      OtpErlangObject
                                      OtpErlangPid
@@ -52,6 +55,27 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;;     ┏━┓╺┳╸┏━┓
+;;; ╺━╸➤┃ ┃ ┃ ┣━┛
+;;;     ┗━┛ ╹ ╹
+;;; --------------------------------------------------------------------------
+(defn ->otp
+  "
+  Converts the specified data value into the appropriate OTP type.
+  "
+  [x]
+  (cond
+    (keyword? x) (OtpErlangAtom.   (name x))
+    (symbol?  x) (OtpErlangAtom.   (name x))
+    (float?   x) (OtpErlangDouble. (double x))
+    (number?  x) (OtpErlangLong.   (long x))
+    (string?  x) (OtpErlangString. ^String x)
+    (class?   x) (OtpErlangString. ^String (second (str/split (str x) #" ")))
+    :else        (OtpErlangAtom.   "undefined")))
+
+
+
+;;; --------------------------------------------------------------------------
 ;;; ┏┳┓┏━┓┏━┓    ┏━┓╺┳╸┏━┓
 ;;; ┃┃┃┣━┫┣━┛╺━╸➤┃ ┃ ┃ ┣━┛
 ;;; ╹ ╹╹ ╹╹      ┗━┛ ╹ ╹
@@ -68,7 +92,7 @@
   (let [clj-keys (keys clj-map)
         clj-vals (vals clj-map)
         otp-keys (into-array OtpErlangObject (map #(OtpErlangAtom. (name %))    clj-keys))
-        otp-vals (into-array OtpErlangObject (map #(OtpErlangString. ^String %) clj-vals))]
+        otp-vals (into-array OtpErlangObject (map ->otp clj-vals))]
     (OtpErlangMap. otp-keys otp-vals)))
 
 
