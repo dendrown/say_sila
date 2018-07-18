@@ -87,36 +87,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ╻  ┏━┓┏━┓╺┳┓   ┏━┓┏━┓┏━╸┏━╸
-;;; ┃  ┃ ┃┣━┫ ┃┃╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ┗━╸┗━┛╹ ╹╺┻┛   ╹ ╹╹┗╸╹  ╹
-;;; --------------------------------------------------------------------------
-(defn ^Instances load-arff
-  "
-  Reads in and returns the Instances from the specified ARFF file.  The caller
-  may specify any number of filter keywords after the target attribute (or nil
-  to specifically skip setting a class attribute).
-  "
-  ([fpath]
-  (load-arff fpath nil))
-
-  ([^String fpath
-    ^String target
-    &       filters]
-  (let [loader (doto (ArffLoader.)
-                     (.setFile (io/file fpath)))
-        insts  (.getDataSet loader)]
-
-    ; Set the target if we know what it is
-    (when target
-      (.setClass insts (.attribute insts target)))
-
-    ; Apply any requested filters.
-    (reduce #(filter-instances %1 %2) insts filters))))
-
-
-
-;;; --------------------------------------------------------------------------
 ;;; ┏━┓┏━┓╻ ╻┏━╸   ┏━╸╻╻  ┏━╸
 ;;; ┗━┓┣━┫┃┏┛┣╸ ╺━╸┣╸ ┃┃  ┣╸
 ;;; ┗━┛╹ ╹┗┛ ┗━╸   ╹  ╹┗━╸┗━╸
@@ -183,6 +153,37 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; ╻  ┏━┓┏━┓╺┳┓   ┏━┓┏━┓┏━╸┏━╸
+;;; ┃  ┃ ┃┣━┫ ┃┃╺━╸┣━┫┣┳┛┣╸ ┣╸
+;;; ┗━╸┗━┛╹ ╹╺┻┛   ╹ ╹╹┗╸╹  ╹
+;;; --------------------------------------------------------------------------
+(defn ^Instances load-arff
+  "
+  Reads in and returns the Instances from the specified ARFF file.  The caller
+  may specify any number of filter keywords after the target attribute (or nil
+  to specifically skip setting a class attribute).
+  "
+  ([fpath]
+  (load-arff fpath nil))
+
+  ([^String fpath
+    ^String target
+    &       filters]
+  (let [loader (doto (ArffLoader.)
+                     (.setFile (io/file fpath)))
+        insts  (.getDataSet loader)]
+
+    ; Set the target if we know what it is
+    (when target
+      (.setClass insts (.attribute insts target)))
+
+    ; Apply any requested filters.
+    (reduce #(filter-instances %1 %2) insts filters))))
+
+
+
+
+;;; --------------------------------------------------------------------------
 ;;; ┏━╸╻╻  ╺┳╸┏━╸┏━┓   ┏━┓┏━┓┏━╸┏━╸
 ;;; ┣╸ ┃┃   ┃ ┣╸ ┣┳┛╺━╸┣━┫┣┳┛┣╸ ┣╸
 ;;; ╹  ╹┗━╸ ╹ ┗━╸╹┗╸   ╹ ╹╹┗╸╹  ╹
@@ -206,7 +207,6 @@
                "==>"              (.numAttributes data-out) "x" (.size data-out))
     {:arff (save-file (:arff tag-fpaths) data-out :arff)
      :csv  (save-file (:csv  tag-fpaths) data-out :csv)}))
-
 
 
 
