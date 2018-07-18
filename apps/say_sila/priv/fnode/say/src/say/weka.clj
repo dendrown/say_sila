@@ -11,13 +11,15 @@
 ;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.weka
-  (:require [say.genie       :as genie]
+  (:require [say.genie       :as !!]
             [say.log         :as log]
             [clojure.java.io :as io]
             [clojure.string  :as str])
-  (:import  [weka.core  Instance
+  (:import  [java.util  Random]
+            [weka.core  Instance
                         Instances]
             [weka.filters Filter]
+            [weka.classifiers Evaluation]
             [weka.classifiers.functions LinearRegression]
             [weka.core.converters AbstractSaver
                                   ArffLoader
@@ -30,6 +32,11 @@
                                                  TweetToSentiStrengthFeatureVector]))
 
 (set! *warn-on-reflection* true)
+
+(def ^:const CV-FOLDS 10)               ; Folds for cross-validation evaluation
+(def ^:const ACK      {:status "ack"})  ; Positive acknowledgement response
+(def ^:const NAK      {:status "nak"})  ; Negative acknowledgement response
+
 
 ;; ---------------------------------------------------------------------------
 ;; LEXI-NOTES:
@@ -197,7 +204,7 @@
   Returns a vector of the output filenames.
   "
   [fpath flt-keys]
-  (let [filters    (genie/listify flt-keys)
+  (let [filters    (!!/listify flt-keys)
         data-in    (load-arff fpath)
         data-mid   (reduce #(filter-instances %1 %2) data-in filters)   ; Apply filter(s)
         data-out   (filter-instances data-mid :attrs)                   ; Remove text attr
@@ -225,22 +232,31 @@
 
   ([arff target]
   (try
-    (let [model (LinearRegression.)
-          insts (load-arff arff target)]
+    (let [insts (load-arff arff target)]
 
       ;; If they didn't send a target, select the last attribute
       (when-not target
         (.setClassIndex insts (dec (.numAttributes insts))))
 
-      ;; Train the model
-      (.buildClassifier model insts)
+      ;; Use N-fold cross validation for training/evaluation
+      (let [model   (LinearRegression.)
+            audit   (doto (Evaluation. insts)
+                          (.crossValidateModel model insts CV-FOLDS !!/RNG))
+            summary (.toSummaryString audit)]
 
-      ;; TODO: Move beyond this placeholder
-      {:status (str model " [" (.numInstances insts) "]")})
+        ;; Results are obtained from CV folds, but
+        ;; final model training uses the full dataset
+        (.buildClassifier model insts)
+        (log/info "Model:\n" (str model))
+        (log/info "Summary:\n" summary)
 
-    (catch Exception ex
-      (log/fail ex "Linear regression failed")
-      {:status "nak"}))))
+        ;; Prepare a response for the caller
+        ;; TODO: Support for non-string values
+        (assoc ACK :model       (str (type model))
+                   :instances   (str (.numInstances insts))
+                   :correlation (str (.correlationCoefficient audit)))))
+
+    (catch Exception ex (log/fail ex "Linear regression failed") NAK))))
 
 
 
@@ -343,7 +359,7 @@
 
         data-out    (doto ^Instances (convert big-data "BIG")
                                      (.addAll ^Instances (convert reg-data "REG"))
-                                     (.randomize genie/RNG))]
+                                     (.randomize !!/RNG))]
 
     {:arff (save-file "/tmp/dic9315.ML.arff" data-out :arff)
      :csv  (save-file "/tmp/dic9315.ML.csv"  data-out :csv)}))

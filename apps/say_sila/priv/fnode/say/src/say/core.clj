@@ -11,9 +11,9 @@
 ;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.core
-  (:require [say.sila :as sila]
-            [say.weka :as weka]
-            [say.log  :as log]
+  (:require [say.log    :as log]
+            [say.sila   :as sila]
+            [say.weka   :as weka]
             [clojure.data.json :as json])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
                                      OtpErlangBinary
@@ -29,9 +29,9 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const +ERLANG-COOKIE+ "say_sila_uqam_00")
+(def ^:const ERLANG-COOKIE  "say_sila_uqam_00")
 
-(def +to-sila+ (agent {:cnt 0}))       ; TODO: Serialize responses to Erlang
+(def TO-SILA (agent {:cnt 0}))          ; TODO: Serialize responses to Erlang
 
 
 
@@ -46,7 +46,7 @@
   "
   [name]
   (let [node (OtpNode. name)]
-    (.setCookie node +ERLANG-COOKIE+)
+    (.setCookie node ERLANG-COOKIE)
     node))
 
 
@@ -262,3 +262,4 @@
       ; Put us back where we're supposed to be
       (ns say.core)
     'ok)))
+
