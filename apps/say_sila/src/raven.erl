@@ -24,6 +24,7 @@
          get_big_percent/1,
          get_big_players/2,
          get_big_players/3,
+         get_jvm_node/1,
          report/2,
          reset/1,
          run_tweet_csv/1]).     %% DEBUG!
@@ -244,6 +245,17 @@ get_big_players(Players, BigP100, _) ->
 
 
 %%--------------------------------------------------------------------
+-spec get_jvm_node(Tracker :: atom()) -> atom().
+%%
+% @doc  Returns the official JVM node as specified in the application
+%       configuration.
+%%--------------------------------------------------------------------
+get_jvm_node(Tracker) ->
+    gen_server:call(?reg(Tracker), get_jvm_node).
+
+
+
+%%--------------------------------------------------------------------
 -spec report(Tracker :: atom(),
              Period  :: atom()) -> {ok, integer()}.
 %%
@@ -378,6 +390,10 @@ handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
 
 handle_call(get_big_percent, _From, State) ->
     {reply, State#state.big_percent, State};
+
+
+handle_call(get_jvm_node, _From, State) ->
+    {reply, State#state.jvm_node, State};
 
 
 handle_call(reset, _From, State) ->

@@ -36,12 +36,15 @@
 %%--------------------------------------------------------------------
 -record(data, {tracker    :: tracker(),
                name       :: string(),
+               arff       :: string(),
                attributes :: [string()],
                reg_comm   :: comm_code(),
                reg_emo    :: emotion(),
                period     :: non_neg_integer(),
                players    :: map(),
-               biggies    :: proplist() }).
+               biggies    :: proplist(),
+               jvm_node   :: atom(),
+               work_ref   :: none|reference() }).
 %type data() :: #data{}.                        % FSM internal state data
 
 
@@ -129,14 +132,20 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
     ?info("Modelling '~s' influence: usr[~B] big~p", [Name,
                                                       maps:size(Players),
                                                       [BigInfo(Grp) || Grp <- Biggies]]),
+
+    {ok, ARFF} = weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period),
+
     {ok, idle, #data{tracker    = Tracker,
                      name       = Name,
+                     arff       = ARFF,
                      attributes = init_attributes(),
                      reg_comm   = RegComm,
                      reg_emo    = RegEmo,
                      period     = Period,
                      players    = Players,
-                     biggies    = Biggies}}.
+                     biggies    = Biggies,
+                     jvm_node   = raven:get_jvm_node(Tracker),
+                     work_ref   = none}}.
 
 
 
@@ -215,21 +224,26 @@ idle(Type, Evt, Data) ->
 
 
 
-%%--------------------------------------------------------------------
+%%-------------------------------------------------------------------
 %% run:
 %%
 % @doc  FSM state for running a Weka model
 % @end  --
-run(enter, _OldState, #data{name     = Name,
-                            reg_comm = RegComm,
-                            reg_emo  = RegEmo,
-                            period   = Period,
-                            players  = Players,
-                            biggies  = Biggies}) ->
+run(enter, _OldState, Data = #data{name     = Name,
+                                   arff     = ARFF,
+                                   jvm_node = JVM}) ->
 
     ?info("Model ~s running on Weka", [Name]),
-    weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period),
-    keep_state_and_data;
+    WorkRef = case Data#data.work_ref of
+        none   -> ok;
+        OldRef ->
+            ?warning("Running a model with another outstanding: ref~p", [OldRef]),
+            make_ref()
+    end,
+    {say, JVM} ! {self(), WorkRef, regress, ARFF},
+
+    {keep_state, Data#data{work_ref = WorkRef}};
+
 
 run(Type, Evt, Data) ->
     handle_event(Type, Evt, Data).

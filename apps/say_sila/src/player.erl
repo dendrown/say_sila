@@ -632,12 +632,6 @@ new_ranking() ->
 % @end  --
 reset_state(Tracker) ->
 
-    % Grab what we need from the configuration
-    JVM = case application:get_application() of
-        undefined -> jvm@nonode;
-        {ok, App} -> application:get_env(App, jvm_node, jvm@nonode)
-    end,
-
     % Start the tweet tree with a node for minimum-activity players
     NumComms = length(?COMM_CODES),
     CommInit = lists:zip(?COMM_CODES, lists:seq(1, NumComms)),
@@ -649,7 +643,7 @@ reset_state(Tracker) ->
            players  = #{},
            rankings = maps:from_list([ReRanker(C) || C <- CommInit]),
            totals   = maps:from_list([ReZeroer(C) || C <- CommInit]),
-           jvm_node = JVM}.
+           jvm_node = raven:get_jvm_node(Tracker)}.
 
 
 
