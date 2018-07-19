@@ -27,6 +27,7 @@
 -export([biggies_to_arff/4,
          biggies_to_arff/6,
          get_big_comm_codes/0,
+         make_attribute/3,
          report_to_arff/2,
          report_to_arff/3,
          tweets_to_arff/2]).
@@ -130,6 +131,19 @@ biggies_to_arff(Name, RegCode, RegEmos, Biggies, Players, Period) ->
 % @end  --
 get_big_comm_codes() ->
     proplists:delete(tter, ?COMM_CODES).
+
+
+
+%%--------------------------------------------------------------------
+-spec make_attribute(Group :: big|reg,
+                     Code  :: comm_code(),
+                     Emo   :: emotion()) -> string().
+%%
+% @doc  Creates a Weka attribute name from the specified player group,
+%       communication code and emotion.
+% @end  --
+make_attribute(Group, Code, Emo) ->
+    ?str_FMT("~s_~s_~s", [Group, Code, Emo]).
 
 
 
@@ -547,7 +561,7 @@ init_biggie_arff(Name, BigCodes, RegCodes, BigEmos, RegEmos) ->
 
     ?put_attr(FOut, minute, numeric),
     Attribber = fun({Grp, Code, Emo}) ->
-                    Attr = ?str_fmt("~s_~s_~s", [Grp, Code, Emo]),
+                    Attr = make_attribute(Grp, Code, Emo),
                     ?put_attr(FOut, Attr, numeric)
                     end,
     lists:foreach(Attribber, [{big, Code, Emo} || Code <- BigCodes, Emo <- BigEmos]),

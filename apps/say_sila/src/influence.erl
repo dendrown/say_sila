@@ -32,12 +32,16 @@
 -include_lib("llog/include/llog.hrl").
 
 
+-define(ATTR_DTS,       "minute").
+-define(EXCLUDED_ATTRS, [?ATTR_DTS]).
+
 
 %%--------------------------------------------------------------------
 -record(data, {tracker    :: tracker(),
                name       :: string(),
                arff       :: string(),
-               attributes :: [string()],
+               incl_attrs :: [string()],
+               excl_attrs :: [string()],
                reg_comm   :: comm_code(),
                reg_emo    :: emotion(),
                period     :: non_neg_integer(),
@@ -138,7 +142,8 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
     {ok, idle, #data{tracker    = Tracker,
                      name       = Name,
                      arff       = ARFF,
-                     attributes = init_attributes(),
+                     incl_attrs = init_attributes(),
+                     excl_attrs = [?ATTR_DTS],
                      reg_comm   = RegComm,
                      reg_emo    = RegEmo,
                      period     = Period,
@@ -189,7 +194,8 @@ code_change(OldVsn, _State, Data, _Extra) ->
 % @end  --
 handle_event(cast, reset, Data = #data{name = Name}) ->
     ?notice("Resetting model ~s", [Name]),
-    {next_state, idle, Data#data{attributes = init_attributes()}};
+    {next_state, idle, Data#data{incl_attrs = init_attributes(),
+                                 excl_attrs = ?EXCLUDED_ATTRS}};
 
 
 handle_event(cast, go, #data{name = Name}) ->
@@ -229,9 +235,10 @@ idle(Type, Evt, Data) ->
 %%
 % @doc  FSM state for running a Weka model
 % @end  --
-run(enter, _OldState, Data = #data{name     = Name,
-                                   arff     = ARFF,
-                                   jvm_node = JVM}) ->
+run(enter, _OldState, Data = #data{name       = Name,
+                                   arff       = ARFF,
+                                   excl_attrs = ExclAttrs,
+                                   jvm_node   = JVM}) ->
 
     ?info("Model ~s running on Weka", [Name]),
     WorkRef = case Data#data.work_ref of
@@ -240,7 +247,9 @@ run(enter, _OldState, Data = #data{name     = Name,
             ?warning("Running a model with another outstanding: ref~p", [OldRef]),
             make_ref()
     end,
-    {say, JVM} ! {self(), WorkRef, regress, ARFF},
+
+    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff       => ARFF,
+                                                         excl_attrs => ExclAttrs})},
 
     {keep_state, Data#data{work_ref = WorkRef}};
 
@@ -274,6 +283,6 @@ eval(Type, Evt, Data) ->
 % @doc  Initializes the independent attribute list.
 % @end  --
 init_attributes() ->
-    BigCommCodes = weka:get_big_comm_codes(),
-    [?str_FMT("big_~s_~s", [C,E]) || C <- BigCommCodes,
-                                     E <- ?EMOTIONS].
+    [weka:make_attribute(big, Code, Emo) || Code <- weka:get_big_comm_codes(),
+                                            Emo  <- ?EMOTIONS].
+
