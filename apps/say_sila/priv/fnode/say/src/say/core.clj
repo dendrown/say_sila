@@ -138,13 +138,12 @@
   "
   [msg fun & parms]
   `(let [{cmd# :cmd
-          arg# :arg} ~msg
-          arff# (.stringValue ^OtpErlangString arg#)]
+          arg# :arg} ~msg]
 
-    (log/info "->> weka<" cmd# ">:" (str arff#))
+    (log/info "->> weka<" cmd# ">:" (str arg#))
     (future
       (let [wfun# (ns-resolve 'say.weka (symbol '~fun))
-            rsp#  (apply wfun# arff# '~parms)]
+            rsp#  (apply wfun# arg# '~parms)]
         (log/info "<<- weka<" cmd# ">" rsp# "[OK]")
         (answer-sila ~msg (keyword cmd#) (map->otp rsp#))))))
 
@@ -166,13 +165,8 @@
 (defmethod dispatch "regress" [msg] (do-weka msg regress))
 
 (defmethod dispatch "sila" [msg]
-  ;; Handle updates to the say-sila ontology
-  (future
-      (let [json (String. (.binaryValue ^OtpErlangBinary (:arg msg)))
-            arg  (json/read-str json
-                                :key-fn keyword)]
-        ; No response sent back to Erlang
-        (sila/execute arg))))
+  ;; Handle updates to the say-sila ontology (no response back to Erlang)
+  (future (sila/execute (:arg msg))))
 
 
 (defmethod dispatch "embed" [msg]
@@ -206,6 +200,30 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; ┏━┓┏━┓┏━┓┏━┓┏━╸   ┏━┓┏━┓┏━╸
+;;; ┣━┛┣━┫┣┳┛┗━┓┣╸ ╺━╸┣━┫┣┳┛┃╺┓
+;;; ╹  ╹ ╹╹┗╸┗━┛┗━╸   ╹ ╹╹┗╸┗━┛
+;;; --------------------------------------------------------------------------
+(defmulti parse-arg
+  "
+  The optional argument (fourth) element of an incoming message from Erlang
+  may be either a simple string or a JSON formatted map.
+  "
+  class)
+
+
+(defmethod parse-arg OtpErlangString [arg]
+  (.stringValue ^OtpErlangString arg))
+
+
+(defmethod parse-arg OtpErlangBinary [arg]
+  (-> (.binaryValue ^OtpErlangBinary  arg)
+      (String.)
+      (json/read-str :key-fn keyword)))
+
+
+
+;;; --------------------------------------------------------------------------
 ;;; ┏━┓┏━┓┏━┓┏━┓┏━╸   ┏┳┓┏━┓┏━╸
 ;;; ┣━┛┣━┫┣┳┛┗━┓┣╸ ╺━╸┃┃┃┗━┓┃╺┓
 ;;; ╹  ╹ ╹╹┗╸┗━┛┗━╸   ╹ ╹┗━┛┗━┛
@@ -225,7 +243,7 @@
        :src node
        :ref (when (>= arity 2)             ^OtpErlangRef  (.elementAt tuple 1))
        :cmd (when (>= arity 3) (.atomValue ^OtpErlangAtom (.elementAt tuple 2)))
-       :arg (when (>= arity 4)                            (.elementAt tuple 3))})
+       :arg (when (>= arity 4) (parse-arg                 (.elementAt tuple 3)))})
       {:src "TIMEOUT" :cmd "bye" :arg nil}))
 
 

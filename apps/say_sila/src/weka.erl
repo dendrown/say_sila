@@ -48,7 +48,7 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec biggies_to_arff(Name    :: string(),
+-spec biggies_to_arff(Name    :: stringy(),
                       RegCode :: comm_code(),
                       Biggies :: proplist(),
                       Players :: any()) ->  {ok, string()}
@@ -66,7 +66,7 @@ biggies_to_arff(Name, RegCode, Biggies, Players) ->
 
 
 %%--------------------------------------------------------------------
--spec biggies_to_arff(Name    :: string(),
+-spec biggies_to_arff(Name    :: stringy(),
                       RegCode :: comm_code(),
                       RegEmos :: emotion()
                                | emotions(),
@@ -137,13 +137,13 @@ get_big_comm_codes() ->
 %%--------------------------------------------------------------------
 -spec make_attribute(Group :: big|reg,
                      Code  :: comm_code(),
-                     Emo   :: emotion()) -> string().
+                     Emo   :: emotion()) -> binary().
 %%
 % @doc  Creates a Weka attribute name from the specified player group,
 %       communication code and emotion.
 % @end  --
 make_attribute(Group, Code, Emo) ->
-    ?str_FMT("~s_~s_~s", [Group, Code, Emo]).
+    ?bin_fmt("~s_~s_~s", [Group, Code, Emo]).
 
 
 
@@ -545,7 +545,7 @@ periodize_lots(CommCode, DayLots, Period, Days, InitComm) ->
 
 
 %%--------------------------------------------------------------------
--spec init_biggie_arff(Name     :: string(),
+-spec init_biggie_arff(Name     :: stringy(),
                        BigCodes :: comm_codes(),
                        RegCodes :: comm_codes(),
                        BigEmos  :: emotions(),

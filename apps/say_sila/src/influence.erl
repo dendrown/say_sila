@@ -32,16 +32,16 @@
 -include_lib("llog/include/llog.hrl").
 
 
--define(ATTR_DTS,       "minute").
+-define(ATTR_DTS,       <<"minute">>).
 -define(EXCLUDED_ATTRS, [?ATTR_DTS]).
 
 
 %%--------------------------------------------------------------------
 -record(data, {tracker    :: tracker(),
-               name       :: string(),
-               arff       :: string(),
-               incl_attrs :: [string()],
-               excl_attrs :: [string()],
+               name       :: binary(),
+               arff       :: binary(),
+               incl_attrs :: [binary()],
+               excl_attrs :: [binary()],
                reg_comm   :: comm_code(),
                reg_emo    :: emotion(),
                period     :: non_neg_integer(),
@@ -127,7 +127,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
     process_flag(trap_exit, true),
     Players = player:get_players(Tracker),
     Biggies = player:get_biggies(Tracker, 0.01),
-    Name    = ?str_FMT("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
+    Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
 
     BigInfo = fun({Comm, {P100, Cnt, Accts}}) ->
                   ?str_FMT("{~s:~B%,tw=~B,cnt=~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
@@ -141,7 +141,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
 
     {ok, idle, #data{tracker    = Tracker,
                      name       = Name,
-                     arff       = ARFF,
+                     arff       = list_to_binary(ARFF),
                      incl_attrs = init_attributes(),
                      excl_attrs = [?ATTR_DTS],
                      reg_comm   = RegComm,
@@ -248,8 +248,8 @@ run(enter, _OldState, Data = #data{name       = Name,
             make_ref()
     end,
 
-    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff       => ARFF,
-                                                         excl_attrs => ExclAttrs})},
+    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff    => ARFF,
+                                                         exclude => ExclAttrs})},
 
     {keep_state, Data#data{work_ref = WorkRef}};
 
@@ -278,7 +278,7 @@ eval(Type, Evt, Data) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec init_attributes() -> [string()].
+-spec init_attributes() -> [binary()].
 %%
 % @doc  Initializes the independent attribute list.
 % @end  --

@@ -25,7 +25,8 @@
                                   ArffLoader
                                   ArffSaver
                                   CSVSaver]
-            [weka.filters.unsupervised.attribute Reorder
+            [weka.filters.unsupervised.attribute RemoveByName
+                                                 Reorder
                                                  TweetToEmbeddingsFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
@@ -147,14 +148,19 @@
   "
   Applies a filter to the specified data Instances
   "
-  [^Instances data flt-key]
+  ([data flt-key]
   (let [flt-map (flt-key  +FILTERS+)
-        opts    (:options flt-map)
-        sieve   ^Filter (eval (:filter  flt-map))
-        tag     (name flt-key)]
+        sieve   (eval (:filter  flt-map))
+        opts    (:options flt-map)]
+    (filter-instances data sieve opts)) )
+
+
+  ([^Instances data
+    ^Filter    sieve
+               opts]
   (doto sieve
-    (.setOptions     (into-array String opts))
-    (.setInputFormat data))
+        (.setOptions (into-array String opts))
+        (.setInputFormat data))
   (Filter/useFilter data sieve)))
 
 
@@ -226,13 +232,21 @@
   "
   Runs a Linear Regression model on the ARFF at the specified filepath.
   "
-  ([arff]
-  (regress arff nil))
+  ([msg]
+  (let [{arff :arff
+         excl :exclude} msg]
+
+    ;; The target will be the last attribute
+    (regress arff nil excl)))
 
 
-  ([arff target]
+  ([arff target & excl-attrs]
+  (log/info "Excluding attributes:" excl-attrs)
   (try
-    (let [insts (load-arff arff target)]
+    (let [insts0 (load-arff arff target)
+          insts  (if excl-attrs
+                     (filter-instances insts0 (RemoveByName.) ["-E" ((first excl-attrs) 0)])    ; FIXME!
+                     insts0)]
 
       ;; If they didn't send a target, select the last attribute
       (when-not target
