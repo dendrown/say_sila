@@ -258,17 +258,24 @@
                           (.crossValidateModel model insts CV-FOLDS !!/RNG))
             summary (.toSummaryString audit)]
 
-        ;; Results are obtained from CV folds, but
-        ;; final model training uses the full dataset
-        (.buildClassifier model insts)
-        (log/info "Model:\n" (str model))
-        (log/info "Summary:\n" summary)
+      (letfn [(attr-coeff [[ndx coeff]]
+                (let [attr  (.attribute insts (int ndx))
+                      tag   (.name attr)]
+                  [(keyword tag) coeff]))]
 
-        ;; Prepare a response for the caller
-        ;; TODO: Support for non-string values
-        (assoc ACK :model       (type model)
-                   :instances   (.numInstances insts)
-                   :correlation (.correlationCoefficient audit))))
+          ;; Results are obtained from CV folds, but
+          ;; final model training uses the full dataset
+          (.buildClassifier model insts)
+          (log/info "Model:\n" (str model))
+          (log/info "Summary:\n" summary)
+
+          ;; Prepare a response for the caller
+          ;; TODO: Support for non-string values
+          (assoc ACK :model        (type model)
+                     :instances    (.numInstances insts)
+                     :correlation  (.correlationCoefficient audit)
+                     :coefficients (into {} (map attr-coeff (map vector (range (.numParameters model))
+                                                                        (.coefficients model))))))))
 
     (catch Exception ex (log/fail ex "Linear regression failed") NAK))))
 

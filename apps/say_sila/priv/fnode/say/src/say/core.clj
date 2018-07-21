@@ -55,27 +55,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;;     ┏━┓╺┳╸┏━┓
-;;; ╺━╸➤┃ ┃ ┃ ┣━┛
-;;;     ┗━┛ ╹ ╹
-;;; --------------------------------------------------------------------------
-(defn ->otp
-  "
-  Converts the specified data value into the appropriate OTP type.
-  "
-  [x]
-  (cond
-    (keyword? x) (OtpErlangAtom.   (name x))
-    (symbol?  x) (OtpErlangAtom.   (name x))
-    (float?   x) (OtpErlangDouble. (double x))
-    (number?  x) (OtpErlangLong.   (long x))
-    (string?  x) (OtpErlangString. ^String x)
-    (class?   x) (OtpErlangString. ^String (second (str/split (str x) #" ")))
-    :else        (OtpErlangAtom.   "undefined")))
-
-
-
-;;; --------------------------------------------------------------------------
 ;;; ┏┳┓┏━┓┏━┓    ┏━┓╺┳╸┏━┓
 ;;; ┃┃┃┣━┫┣━┛╺━╸➤┃ ┃ ┃ ┣━┛
 ;;; ╹ ╹╹ ╹╹      ┗━┛ ╹ ╹
@@ -85,15 +64,24 @@
   Our standard communication to Erlang Sila is {self(), atom(), map()}.
   This function converts a clojure map in the form {:keyword «string»}
   to an Erlang map to handle that third element in response tuples.
-
-  NOTE: This function currently works only on shallow maps.
   "
   [clj-map]
-  (let [clj-keys (keys clj-map)
-        clj-vals (vals clj-map)
-        otp-keys (into-array OtpErlangObject (map #(OtpErlangAtom. (name %))    clj-keys))
-        otp-vals (into-array OtpErlangObject (map ->otp clj-vals))]
-    (OtpErlangMap. otp-keys otp-vals)))
+  (letfn [(->otp [x]
+            (cond
+              (keyword? x) (OtpErlangAtom.   (name x))
+              (symbol?  x) (OtpErlangAtom.   (name x))
+              (float?   x) (OtpErlangDouble. (double x))
+              (number?  x) (OtpErlangLong.   (long x))
+              (string?  x) (OtpErlangString. ^String x)
+              (class?   x) (OtpErlangString. ^String (second (str/split (str x) #" ")))
+              (map?     x) (map->otp x)
+              :else        (OtpErlangAtom.   "undefined")))]
+
+    (let [clj-keys (keys clj-map)
+          clj-vals (vals clj-map)
+          otp-keys (into-array OtpErlangObject (map #(OtpErlangAtom. (name %))    clj-keys))
+          otp-vals (into-array OtpErlangObject (map ->otp clj-vals))]
+      (OtpErlangMap. otp-keys otp-vals))))
 
 
 
