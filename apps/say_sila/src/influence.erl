@@ -37,18 +37,19 @@
 
 
 %%--------------------------------------------------------------------
--record(data, {tracker    :: tracker(),
-               name       :: binary(),
-               arff       :: binary(),
-               incl_attrs :: [binary()],
-               excl_attrs :: [binary()],
-               reg_comm   :: comm_code(),
-               reg_emo    :: emotion(),
-               period     :: non_neg_integer(),
-               players    :: map(),
-               biggies    :: proplist(),
-               jvm_node   :: atom(),
-               work_ref   :: none|reference() }).
+-record(data, {tracker          :: tracker(),
+               name             :: binary(),
+               arff             :: binary(),
+               incl_attrs       :: [binary()],
+               excl_attrs       :: [binary()],
+               reg_comm         :: comm_code(),
+               reg_emo          :: emotion(),
+               period           :: non_neg_integer(),
+               players          :: map(),
+               biggies          :: proplist(),
+               jvm_node         :: atom(),
+               work_ref = none  :: none|reference(),
+               results  = none  :: none|map() }).
 %type data() :: #data{}.                        % FSM internal state data
 
 
@@ -149,8 +150,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
                      period     = Period,
                      players    = Players,
                      biggies    = Biggies,
-                     jvm_node   = raven:get_jvm_node(Tracker),
-                     work_ref   = none}}.
+                     jvm_node   = raven:get_jvm_node(Tracker)}}.
 
 
 
@@ -193,9 +193,15 @@ code_change(OldVsn, _State, Data, _Extra) ->
 % @doc  Synchronous messages for Coinigy services
 % @end  --
 handle_event(cast, reset, Data = #data{name = Name}) ->
+    %
     ?notice("Resetting model ~s", [Name]),
+    case Data#data.work_ref of
+        none -> ok;
+        Work -> ?warning("Abandoning ourstanding model: ~p", [Work])
+    end,
     {next_state, idle, Data#data{incl_attrs = init_attributes(),
-                                 excl_attrs = ?EXCLUDED_ATTRS}};
+                                 excl_attrs = ?EXCLUDED_ATTRS,
+                                 work_ref   = none}};
 
 
 handle_event(cast, go, #data{name = Name}) ->
@@ -244,14 +250,30 @@ run(enter, _OldState, Data = #data{name       = Name,
     WorkRef = case Data#data.work_ref of
         none   -> ok;
         OldRef ->
-            ?warning("Running a model with another outstanding: ref~p", [OldRef]),
+            ?warning("Running a model with another outstanding: old[~p]", [OldRef]),
             make_ref()
     end,
-
     {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff    => ARFF,
                                                          exclude => ExclAttrs})},
 
     {keep_state, Data#data{work_ref = WorkRef}};
+
+
+run(info, {From, WorkRef, regress, Results}, Data = #data{name = Name}) ->
+    %
+    case Data#data.work_ref of
+        WorkRef ->
+            % Yay, these are the results we're waiting on!
+            ?info("Model ~s results from ~p", [Name, From]),
+            {next_state, eval, Data#data{work_ref = none,
+                                         results  = Results}};
+        _ ->
+            % We've got a work mismatch. Stay put...
+            % We'll either get the right work, or a human can reset the FSM.
+            ?warning("Unexpected results for model ~s: src[~p] ref[~p]",
+                     [Name, From, WorkRef]),
+            keep_state_and_data
+    end;
 
 
 run(Type, Evt, Data) ->

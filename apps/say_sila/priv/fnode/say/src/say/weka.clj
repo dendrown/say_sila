@@ -35,8 +35,8 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const CV-FOLDS 10)               ; Folds for cross-validation evaluation
-(def ^:const ACK      {:status "ack"})  ; Positive acknowledgement response
-(def ^:const NAK      {:status "nak"})  ; Negative acknowledgement response
+(def ^:const ACK      {:status :ack})  ; Positive acknowledgement response
+(def ^:const NAK      {:status :nak})  ; Negative acknowledgement response
 
 
 ;; ---------------------------------------------------------------------------
