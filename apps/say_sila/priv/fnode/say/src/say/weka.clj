@@ -274,10 +274,14 @@
           (assoc ACK :model        (type model)
                      :instances    (.numInstances insts)
                      :correlation  (.correlationCoefficient audit)
-                     :coefficients (into {} (map attr-coeff (map vector (range (.numParameters model))
-                                                                        (.coefficients model))))))))
+                     :coefficients (into {} (map attr-coeff                                 ; ZIP:
+                                                 (map vector (range (.numParameters model)) ; Attr-indexes
+                                                             (.coefficients model))))))))   ; Coeff-values
 
-    (catch Exception ex (log/fail ex "Linear regression failed") NAK))))
+    (catch Exception ex
+           (log/fail ex "Linear regression failed")
+           (assoc NAK :model (type model)
+                      :info  (.getMessage ex))))))
 
 
 

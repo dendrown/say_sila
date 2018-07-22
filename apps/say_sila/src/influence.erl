@@ -23,6 +23,7 @@
 -export([idle/3,
          run/3,
          eval/3]).
+%        done/3
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -32,8 +33,9 @@
 -include_lib("llog/include/llog.hrl").
 
 
--define(ATTR_DTS,       <<"minute">>).
--define(EXCLUDED_ATTRS, [?ATTR_DTS]).
+-define(EPSILON,        0.00000001).                % Floating point comparisons
+-define(ATTR_DTS,       <<"minute">>).              % Date-timestamp attribute
+-define(EXCLUDED_ATTRS, [?ATTR_DTS]).               % Attributes to exclude from ARFF
 
 
 %%--------------------------------------------------------------------
@@ -50,7 +52,7 @@
                jvm_node         :: atom(),
                work_ref = none  :: none|reference(),
                results  = none  :: none|map() }).
-%type data() :: #data{}.                        % FSM internal state data
+-type data() :: #data{}.                        % FSM internal state data
 
 
 
@@ -282,13 +284,28 @@ run(Type, Evt, Data) ->
 
 
 %%--------------------------------------------------------------------
-%% eval:
+-spec eval(Type :: enter|gen_statem:event_type(),
+           Evt  :: term(),
+           Data :: data()) -> gen_statem:state_enter_result(eval)
+                            | gen_statem:state_function_result(eval).
 %%
 % @doc  FSM state to evaluate a Weka model
 % @end  --
-eval(enter, _OldState, #data{name = Name}) ->
+eval(enter, _OldState, #data{name    = Name,
+                             results = #{status       := ack,
+                                         coefficients := _Coeffs,
+                                         correlation  := Correlation}}) ->
     %
-    ?info("Model ~s under evaluation", [Name]),
+    ?notice("Evaluating model ~s: corr[~6.4f]", [Name, Correlation]),
+    keep_state_and_data;
+
+
+eval(enter, _OldState, #data{name    = Name,
+                             results = Results = #{status := nak}}) ->
+    %
+    ?warning("Model ~s failed: alg[~p] info[~s]", [Name,
+                                                   maps:get(model, Results, unknown),
+                                                   maps:get(info,  Results, unknown)]),
     keep_state_and_data;
 
 
