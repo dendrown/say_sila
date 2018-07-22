@@ -34,9 +34,10 @@
 
 (set! *warn-on-reflection* true)
 
+(def ^:const RNG-SEED 1)                ; Weka's default random seed
 (def ^:const CV-FOLDS 10)               ; Folds for cross-validation evaluation
-(def ^:const ACK      {:status :ack})  ; Positive acknowledgement response
-(def ^:const NAK      {:status :nak})  ; Negative acknowledgement response
+(def ^:const ACK      {:status :ack})   ; Positive acknowledgement response
+(def ^:const NAK      {:status :nak})   ; Negative acknowledgement response
 
 
 ;; ---------------------------------------------------------------------------
@@ -255,7 +256,7 @@
       ;; Use N-fold cross validation for training/evaluation
       (let [model   (LinearRegression.)
             audit   (doto (Evaluation. insts)
-                          (.crossValidateModel model insts CV-FOLDS !!/RNG))
+                          (.crossValidateModel model insts CV-FOLDS (Random. RNG-SEED)))
             summary (.toSummaryString audit)]
 
       (letfn [(attr-coeff [[ndx coeff]]
