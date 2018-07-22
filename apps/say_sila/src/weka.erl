@@ -137,13 +137,13 @@ get_big_comm_codes() ->
 %%--------------------------------------------------------------------
 -spec make_attribute(Group :: big|reg,
                      Code  :: comm_code(),
-                     Emo   :: emotion()) -> binary().
+                     Emo   :: emotion()) -> atom().
 %%
 % @doc  Creates a Weka attribute name from the specified player group,
 %       communication code and emotion.
 % @end  --
 make_attribute(Group, Code, Emo) ->
-    ?bin_fmt("~s_~s_~s", [Group, Code, Emo]).
+    list_to_atom(?str_FMT("~s_~s_~s", [Group, Code, Emo])).
 
 
 

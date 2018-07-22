@@ -72,8 +72,8 @@
               (symbol?  x) (OtpErlangAtom.   (name x))
               (float?   x) (OtpErlangDouble. (double x))
               (number?  x) (OtpErlangLong.   (long x))
-              (string?  x) (OtpErlangString. ^String x)
-              (class?   x) (OtpErlangString. ^String (second (str/split (str x) #" ")))
+              (string?  x) (OtpErlangBinary. (.getBytes ^String x))
+              (class?   x) (OtpErlangBinary. (.getBytes ^String (second (str/split (str x) #" "))))
               (map?     x) (map->otp x)
               :else        (OtpErlangAtom.   "undefined")))]
 

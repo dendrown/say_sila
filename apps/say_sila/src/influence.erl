@@ -33,17 +33,17 @@
 -include_lib("llog/include/llog.hrl").
 
 
--define(EPSILON,        0.00000001).                % Floating point comparisons
--define(ATTR_DTS,       <<"minute">>).              % Date-timestamp attribute
--define(EXCLUDED_ATTRS, [?ATTR_DTS]).               % Attributes to exclude from ARFF
+-define(EPSILON,        0.00000001).            % Floating point comparisons
+-define(ATTR_DTS,       minute).                % Date-timestamp attribute
+-define(EXCLUDED_ATTRS, [?ATTR_DTS]).           % Attributes to exclude from ARFF
 
 
 %%--------------------------------------------------------------------
 -record(data, {tracker          :: tracker(),
                name             :: binary(),
                arff             :: binary(),
-               incl_attrs       :: [binary()],
-               excl_attrs       :: [binary()],
+               incl_attrs       :: [atom()],
+               excl_attrs       :: [atom()],
                reg_comm         :: comm_code(),
                reg_emo          :: emotion(),
                period           :: non_neg_integer(),
@@ -273,8 +273,13 @@ run(enter, _OldState, Data = #data{name       = Name,
             ?warning("Running a model with another outstanding: old[~p]", [OldRef]),
             make_ref()
     end,
+    % The Weka filter takes a regular expression to filter attributes by name
+    ExclRE = lists:flatten(?str_fmt("~s", [hd(ExclAttrs)]) ++
+                           [?str_fmt("|~s", [Attr]) || Attr <- tl(ExclAttrs)]),
+
+    ?debug("Attribute filter: ~s", [ExclRE]),
     {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff    => ARFF,
-                                                         exclude => ExclAttrs})},
+                                                         exclude => list_to_binary(ExclRE)})},
 
     {keep_state, Data#data{work_ref = WorkRef}};
 
@@ -314,7 +319,7 @@ eval(enter, _OldState, Data = #data{name    = Name,
                                                 coefficients := Coeffs,
                                                 correlation  := Correlation}}) ->
     %
-    ?notice("Evaluating model ~s: corr[~6.4f]", [Name, Correlation]),
+    ?notice("Evaluating model ~s: corr[~7.4f]", [Name, Correlation]),
     FSM = self(),
     lists:foreach(fun(P) -> eval_param(FSM, P) end,
                   maps:keys(Coeffs)),
@@ -338,7 +343,7 @@ eval(cast, {eval_param, ready}, Data = #data{name    = Name,
     NextState = case Data#data.delta_cnt of
         % No deltas means we're done
         0 ->
-            ?notice("Completed processing for model ~s: corr[~6.4f]",
+            ?notice("Completed processing for model ~s: corr[~7.4f]",
                     [Name, maps:get(correlation, Results, 0.0)]),
             eval;
         % We've made changes, time to rerun the model
@@ -357,29 +362,31 @@ eval(cast, {eval_param, Param}, Data = #data{name       = Name,
                                              delta_cnt  = DeltaCnt,
                                              delta_cut  = DeltaCut,
                                              results    = #{coefficients := Coeffs}}) ->
-    ?notice("PARAM: ~s: ~p", [Param, Coeffs]),
+    %?debug("PARAM: ~s: ~p", [Param, Coeffs]),
     {NewInclAttrs,
-     NewExclAttrs} = case maps:get(Param, Coeffs, undefined) of
+     NewExclAttrs,
+     NewDeltaCnt} = case maps:get(Param, Coeffs, undefined) of
 
         undefined ->
-            ?warning("Unknown parameter: ~s", [Param]),
-            {InclAttrs, ExclAttrs};
+            ?warning("Unknown parameter: ~p", [Param]),
+            {InclAttrs, ExclAttrs, DeltaCnt};
 
         Coeff ->
             case Coeff >= DeltaCut of
                 true  ->
                     ?debug("Keeping parameter: ~s", [Param]),
-                    {InclAttrs, ExclAttrs};
+                    {InclAttrs, ExclAttrs, DeltaCnt};
 
                 false ->
-                    ?info("Cutting parameter ~s for model ~s: coeff[~6.4f]", [Param, Name, Coeff]),
+                    ?info("Cutting parameter ~s for model ~s: coeff[~7.4f]", [Param, Name, Coeff]),
                     {lists:delete(Param, InclAttrs),
-                     [Param | ExclAttrs]}
+                     [Param | ExclAttrs],
+                     DeltaCnt + 1}
             end
     end,
     {next_state, eval, Data#data{incl_attrs = NewInclAttrs,
                                  excl_attrs = NewExclAttrs,
-                                 delta_cnt  = DeltaCnt + 1}};
+                                 delta_cnt  = NewDeltaCnt}};
 
 eval(Type, Evt, Data) ->
     handle_event(Type, Evt, Data).
@@ -389,7 +396,7 @@ eval(Type, Evt, Data) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec init_attributes() -> [binary()].
+-spec init_attributes() -> [atom()].
 %%
 % @doc  Initializes the independent attribute list.
 % @end  --

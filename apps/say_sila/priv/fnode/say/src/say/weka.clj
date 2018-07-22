@@ -245,7 +245,7 @@
   (try
     (let [insts0 (load-arff arff target)
           insts  (if excl-attrs
-                     (filter-instances insts0 (RemoveByName.) ["-E" ((first excl-attrs) 0)])    ; FIXME!
+                     (filter-instances insts0 (RemoveByName.) ["-E" (first excl-attrs)])    ; FIXME!
                      insts0)]
 
       ;; If they didn't send a target, select the last attribute
@@ -261,7 +261,7 @@
       (letfn [(attr-coeff [[ndx coeff]]
                 (let [attr  (.attribute insts (int ndx))
                       tag   (.name attr)]
-                  [(keyword tag) coeff]))]
+                  [tag coeff]))]
 
           ;; Results are obtained from CV folds, but
           ;; final model training uses the full dataset
@@ -280,8 +280,7 @@
 
     (catch Exception ex
            (log/fail ex "Linear regression failed")
-           (assoc NAK :model (type model)
-                      :info  (.getMessage ex))))))
+           (assoc NAK :info  (.getMessage ex))))))
 
 
 
