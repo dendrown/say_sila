@@ -372,7 +372,7 @@ eval(cast, {eval_param, Param}, Data = #data{name       = Name,
             {InclAttrs, ExclAttrs, DeltaCnt};
 
         Coeff ->
-            case Coeff >= DeltaCut of
+            case abs(Coeff) >= DeltaCut of
                 true  ->
                     ?debug("Keeping parameter: ~s", [Param]),
                     {InclAttrs, ExclAttrs, DeltaCnt};
