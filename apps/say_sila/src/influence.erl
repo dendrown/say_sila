@@ -18,12 +18,12 @@
 -export([start_link/4, start_link/5,
          stop/1,
          reset/1,
-         go/1]).
+         go/1,
+         eval_param/2]).        % DEBUG!
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
 -export([idle/3,
          run/3,
          eval/3]).
-%        done/3
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -50,9 +50,11 @@
                players          :: map(),
                biggies          :: proplist(),
                jvm_node         :: atom(),
-               work_ref = none  :: none|reference(),
-               results  = none  :: none|map() }).
--type data() :: #data{}.                        % FSM internal state data
+               delta_cnt = 0    :: non_neg_integer(),   % Num. changes to model since last evaluation
+               delta_cut = 0.0  :: float(),             % Minimum parameter value to be included in model
+               work_ref  = none :: none|reference(),
+               results   = none :: none|map() }).
+-type data() :: #data{}.                                % FSM internal state data
 
 
 
@@ -115,6 +117,21 @@ reset(Model) ->
 % @end  --
 go(Model) ->
     gen_statem:cast(Model, go).
+
+
+
+%%--------------------------------------------------------------------
+-spec eval_param(Model :: gen_statem:server_ref(),
+                 Param :: atom()) -> ok.
+%%
+% @doc  Determines whether or not the specified parameter belongs in
+%       the model.
+%
+%       NOTE: This function is meant to be called from within the
+%             FSM code.  It is exported for debugging purposes.
+% @end  --
+eval_param(Model, Param) ->
+    gen_statem:cast(Model, {eval_param, Param}).
 
 
 
@@ -203,6 +220,7 @@ handle_event(cast, reset, Data = #data{name = Name}) ->
     end,
     {next_state, idle, Data#data{incl_attrs = init_attributes(),
                                  excl_attrs = ?EXCLUDED_ATTRS,
+                                 delta_cnt  = 0,
                                  work_ref   = none}};
 
 
@@ -291,13 +309,18 @@ run(Type, Evt, Data) ->
 %%
 % @doc  FSM state to evaluate a Weka model
 % @end  --
-eval(enter, _OldState, #data{name    = Name,
-                             results = #{status       := ack,
-                                         coefficients := _Coeffs,
-                                         correlation  := Correlation}}) ->
+eval(enter, _OldState, Data = #data{name    = Name,
+                                    results = #{status       := ack,
+                                                coefficients := Coeffs,
+                                                correlation  := Correlation}}) ->
     %
     ?notice("Evaluating model ~s: corr[~6.4f]", [Name, Correlation]),
-    keep_state_and_data;
+    FSM = self(),
+    lists:foreach(fun(P) -> eval_param(FSM, P) end,
+                  maps:keys(Coeffs)),
+    eval_param(FSM, ready),
+    {next_state, eval, Data#data{delta_cnt = 0,
+                                 delta_cut = ?EPSILON}};
 
 
 eval(enter, _OldState, #data{name    = Name,
@@ -308,6 +331,55 @@ eval(enter, _OldState, #data{name    = Name,
                                                    maps:get(info,  Results, unknown)]),
     keep_state_and_data;
 
+
+eval(cast, {eval_param, ready}, Data = #data{name    = Name,
+                                             results = Results}) ->
+    %
+    NextState = case Data#data.delta_cnt of
+        % No deltas means we're done
+        0 ->
+            ?notice("Completed processing for model ~s: corr[~6.4f]",
+                    [Name, maps:get(correlation, Results, 0.0)]),
+            eval;
+        % We've made changes, time to rerun the model
+        DeltaCnt ->
+            ?info("Model ~s finished updating parameters (rerunning): deltas[~B]",
+                  [Name, DeltaCnt]),
+            run
+    end,
+    {next_state, NextState,  Data};
+
+
+
+eval(cast, {eval_param, Param}, Data = #data{name       = Name,
+                                             incl_attrs = InclAttrs,
+                                             excl_attrs = ExclAttrs,
+                                             delta_cnt  = DeltaCnt,
+                                             delta_cut  = DeltaCut,
+                                             results    = #{coefficients := Coeffs}}) ->
+    ?notice("PARAM: ~s: ~p", [Param, Coeffs]),
+    {NewInclAttrs,
+     NewExclAttrs} = case maps:get(Param, Coeffs, undefined) of
+
+        undefined ->
+            ?warning("Unknown parameter: ~s", [Param]),
+            {InclAttrs, ExclAttrs};
+
+        Coeff ->
+            case Coeff >= DeltaCut of
+                true  ->
+                    ?debug("Keeping parameter: ~s", [Param]),
+                    {InclAttrs, ExclAttrs};
+
+                false ->
+                    ?info("Cutting parameter ~s for model ~s: coeff[~6.4f]", [Param, Name, Coeff]),
+                    {lists:delete(Param, InclAttrs),
+                     [Param | ExclAttrs]}
+            end
+    end,
+    {next_state, eval, Data#data{incl_attrs = NewInclAttrs,
+                                 excl_attrs = NewExclAttrs,
+                                 delta_cnt  = DeltaCnt + 1}};
 
 eval(Type, Evt, Data) ->
     handle_event(Type, Evt, Data).
