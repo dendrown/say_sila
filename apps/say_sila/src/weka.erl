@@ -291,7 +291,7 @@ tweets_to_arff(Name, Tweets) ->
 % @end  --
 open_arff(Name) ->
     %
-    FPath = make_fpath(Name),
+    FPath = ioo:make_fpath(?WORK_DIR, Name, <<"arff">>),
     {ok, FOut} = file:open(FPath, [write]),
 
     io:format(FOut, "@RELATION  ~s~n~n", [Name]),
@@ -324,19 +324,6 @@ close_arff(FPath, FOut) ->
     FStatus = file:close(FOut),
     ?info("ARFF<create>: path[~s] stat[~p]", [FPath, FStatus]),
     {FStatus, FPath}.
-
-
-
-%%--------------------------------------------------------------------
--spec make_fpath(Name :: stringy()) -> string().
-%%
-% @doc  Returns the full filepath for an ARFF file with the specified
-%       name.
-% @end  --
-make_fpath(Name) ->
-    FPath = lists:flatten(io_lib:format("~s/weka/~s.arff", [?WORK_DIR, Name])),
-    ok = filelib:ensure_dir(FPath),
-    FPath.
 
 
 
