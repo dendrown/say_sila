@@ -23,7 +23,8 @@
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
 -export([idle/3,
          run/3,
-         eval/3]).
+         eval/3,
+         done/3]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -33,6 +34,7 @@
 -include_lib("llog/include/llog.hrl").
 
 
+-define(REPORT_DIR,     ?WORK_DIR "/influence").
 -define(EPSILON,        0.00000001).            % Floating point comparisons
 -define(ATTR_DTS,       minute).                % Date-timestamp attribute
 -define(EXCLUDED_ATTRS, [?ATTR_DTS]).           % Attributes to exclude from ARFF
@@ -53,7 +55,8 @@
                delta_cnt = 0    :: non_neg_integer(),   % Num. changes to model since last evaluation
                delta_cut = 0.0  :: float(),             % Minimum parameter value to be included in model
                work_ref  = none :: none|reference(),
-               results   = none :: none|map() }).
+               results   = none :: none|map(),
+               models           :: queue:queue()}).
 -type data() :: #data{}.                                % FSM internal state data
 
 
@@ -169,7 +172,8 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
                      period     = Period,
                      players    = Players,
                      biggies    = Biggies,
-                     jvm_node   = raven:get_jvm_node(Tracker)}}.
+                     jvm_node   = raven:get_jvm_node(Tracker),
+                     models     = queue:new() }}.
 
 
 
@@ -338,22 +342,23 @@ eval(enter, _OldState, #data{name    = Name,
 
 
 eval(cast, {eval_param, ready}, Data = #data{name    = Name,
-                                             results = Results}) ->
+                                             results = Results,
+                                             models  = Models}) ->
     %
     NextState = case Data#data.delta_cnt of
         % No deltas means we're done
         0 ->
             ?notice("Completed processing for model ~s: corr[~7.4f]",
                     [Name, maps:get(correlation, Results, 0.0)]),
-            eval;
+            done;
         % We've made changes, time to rerun the model
         DeltaCnt ->
             ?info("Model ~s finished updating parameters (rerunning): deltas[~B]",
                   [Name, DeltaCnt]),
             run
     end,
-    {next_state, NextState,  Data};
-
+    {next_state, NextState,  Data#data{results = none,
+                                       models  = queue:in(Results, Models)}};
 
 
 eval(cast, {eval_param, Param}, Data = #data{name       = Name,
@@ -388,8 +393,34 @@ eval(cast, {eval_param, Param}, Data = #data{name       = Name,
                                  excl_attrs = NewExclAttrs,
                                  delta_cnt  = NewDeltaCnt}};
 
+
 eval(Type, Evt, Data) ->
     handle_event(Type, Evt, Data).
+
+
+
+%%--------------------------------------------------------------------
+-spec done(Type :: doner|gen_statem:event_type(),
+           Evt  :: term(),
+           Data :: data()) -> gen_statem:state_enter_result(done)
+                            | gen_statem:state_function_result(done).
+%%
+% @doc  FSM state to finalize the FSM's model series and create the
+%       associated report.
+% @end  --
+done(enter, _OldState, #data{name   = Name,
+                             models = Models}) ->
+    %
+    {RptStat,
+     RptFPath} = report(Name, Models),
+    ?info("Reported ~s created: path[~s] stat[~p]", [Name, RptFPath, RptStat]),
+    keep_state_and_data;
+
+
+
+done(Type, Evt, Data) ->
+    handle_event(Type, Evt, Data).
+
 
 
 
@@ -404,3 +435,26 @@ init_attributes() ->
     [weka:make_attribute(big, Code, Emo) || Code <- weka:get_big_comm_codes(),
                                             Emo  <- ?EMOTIONS].
 
+
+%%--------------------------------------------------------------------
+-spec report(Name   :: stringy(),
+             Models :: queue:queue()) -> {ok, string()}
+                                       | {{error, atom()}, string()}.
+%%
+% @doc  Opens an ARFF file for writing the specified relation and
+%       returns the full pathname to the file and its file descriptor.
+% @end  --
+report(Name, _Models) ->
+    %
+    Attrs = init_attributes(),
+    FPath = ioo:make_fpath(?REPORT_DIR, Name, <<"csv">>),
+    {ok, FOut} = file:open(FPath, [write]),
+
+    % Create a CSV header with all possible model attributes
+    ?io_put(FOut, "Num"),
+    lists:foreach(fun(A) -> ?io_fmt(FOut, ",~s", [A]) end, Attrs),
+    ?io_nl(FOut),
+
+    % And we're done!
+    FStatus = file:close(FOut),
+    {FStatus, FPath}.

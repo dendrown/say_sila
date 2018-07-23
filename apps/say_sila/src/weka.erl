@@ -39,6 +39,7 @@
 -include("player.hrl").
 -include_lib("llog/include/llog.hrl").
 
+-define(WEKA_DIR, ?WORK_DIR "/weka").
 -define(put_data(FOut),                 io:put_chars(FOut, "\n@DATA\n")).
 -define(put_attr(FOut, Attrib, Type),   io:format(FOut, "@ATTRIBUTE ~s ~s\n",    [Attrib, Type])).
 -define(put_attr(FOut, A0, A1, Type),   io:format(FOut, "@ATTRIBUTE ~s_~s ~s\n", [A0, A1, Type])).
@@ -291,7 +292,7 @@ tweets_to_arff(Name, Tweets) ->
 % @end  --
 open_arff(Name) ->
     %
-    FPath = ioo:make_fpath(?WORK_DIR, Name, <<"arff">>),
+    FPath = ioo:make_fpath(?WEKA_DIR, Name, <<"arff">>),
     {ok, FOut} = file:open(FPath, [write]),
 
     io:format(FOut, "@RELATION  ~s~n~n", [Name]),

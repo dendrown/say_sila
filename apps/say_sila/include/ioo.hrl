@@ -20,7 +20,7 @@
 -define(fmt(Fmt),               io:format(Fmt)).
 -define(fmt(Fmt, Args),         io:format(Fmt, Args)).
 -define(io_fmt(Out, Fmt, Args), io:format(Out, Fmt, Args)).
--define(io_put(FOut, Fmt),      io:put_chars(FOut, Fmt)).
+-define(io_put(FOut, Txt),      io:put_chars(FOut, Txt)).
 -define(io_nl(FOut),            io:put_chars(FOut, "\n")).
 
 -endif.
