@@ -347,19 +347,20 @@ eval(cast, {eval_param, ready}, Data = #data{name    = Name,
                                              results = Results,
                                              models  = Models}) ->
     %
-    NextState = case Data#data.delta_cnt of
+    {NextState,
+     NextResults} = case Data#data.delta_cnt of
         % No deltas means we're done
         0 ->
             ?notice("Completed processing for model ~s: corr[~7.4f]",
                     [Name, maps:get(correlation, Results, 0.0)]),
-            done;
+            {done, Results};
         % We've made changes, time to rerun the model
         DeltaCnt ->
             ?info("Model ~s finished updating parameters (rerunning): deltas[~B]",
                   [Name, DeltaCnt]),
-            run
+            {run, none}
     end,
-    {next_state, NextState,  Data#data{results = none,
+    {next_state, NextState,  Data#data{results = NextResults,
                                        models  = queue:in(Results, Models)}};
 
 
@@ -410,11 +411,10 @@ eval(Type, Evt, Data) ->
 % @doc  FSM state to finalize the FSM's model series and create the
 %       associated report.
 % @end  --
-done(enter, _OldState, #data{name   = Name,
-                             models = Models}) ->
+done(enter, _OldState, Data = #data{name = Name}) ->
     %
     {RptStat,
-     RptFPath} = report(Name, Models),
+     RptFPath} = report(Data),
     ?info("Reported ~s created: path[~s] stat[~p]", [Name, RptFPath, RptStat]),
     keep_state_and_data;
 
@@ -437,42 +437,64 @@ init_attributes() ->
                                             Emo  <- ?EMOTIONS].
 
 
+
 %%--------------------------------------------------------------------
--spec report(Name   :: stringy(),
-             Models :: queue:queue()) -> {ok, string()}
-                                       | {{error, atom()}, string()}.
+-spec report(Data :: data()) -> {ok, string()}
+                              | {{error, atom()}, string()}.
 %%
-% @doc  Opens an ARFF file for writing the specified relation and
-%       returns the full pathname to the file and its file descriptor.
+% @doc  Writes a CSV report for the full set of model runs for this FSM.
 % @end  --
-report(Name, Models) ->
-    %
+report(Data = #data{name   = Name,
+                    models = Models}) ->
+
     Attrs = init_attributes(),
     FPath = ioo:make_fpath(?REPORT_DIR, Name, <<"csv">>),
     {ok, FOut} = file:open(FPath, [write]),
 
     % Create a CSV header with all possible model attributes
-    ?io_put(FOut, "Number,Correlation,Instances"),
+    ?io_put(FOut, "run,tracker,reg_comm,reg_emo,Correlation,samples"),
     lists:foreach(fun(A) -> ?io_fmt(FOut, ",~s", [A]) end, Attrs),
     ?io_nl(FOut),
 
-    Attribber = fun(Attr, Coeffs) ->
+    % Fill in the CSV, one line per model run result
+    lists:foldl(fun report_line/2, {FOut, 0, Attrs, Data}, queue:to_list(Models)),
+
+    % And we're done!
+    FStatus = file:close(FOut),
+    {FStatus, FPath}.
+
+
+
+%%--------------------------------------------------------------------
+-spec report_line(Results :: map(),
+                  Acc     :: {FOut  :: file:io_device(),
+                              Line  :: non_neg_integer(),
+                              Attrs :: [atom()],
+                              Data  :: data()}) -> {file:io_device(),
+                                                    non_neg_integer(),
+                                                    [atom()],
+                                                    data()}.
+%%
+% @doc  Writes one line of a CSV report for the specified results.
+% @end  --
+report_line(#{coefficients := Coeffs,
+              correlation  := CorrScore,
+              instances    := InstCnt},
+            {FOut, Line, Attrs, Data = #data{tracker  = Tracker,
+                                             reg_comm = RegComm,
+                                             reg_emo  = RegEmo}}) ->
+
+    Attribber = fun(Attr) ->
                     case maps:get(Attr, Coeffs, no_param) of
                         no_param -> ?io_put(FOut, ",");
                         Coeff    -> ?io_fmt(FOut, ",~f", [Coeff])
                     end,
                     Coeffs end,
 
-    Modeller  = fun(#{coefficients := Coeffs,
-                      correlation  := CorrScore,
-                      instances    := InstCnt}, Num) ->
-                   ?io_fmt(FOut, "~B,~f,~B", [Num, CorrScore,InstCnt]),
-                   lists:foldl(Attribber, Coeffs, Attrs),
-                   ?io_nl(FOut),
-                   Num+1 end,
+    ?io_fmt(FOut, "~B,~s,~s,~s,~f,~B",
+            [Line, Tracker, RegComm, RegEmo, CorrScore,InstCnt]),
+    lists:foreach(Attribber, Attrs),
+    ?io_nl(FOut),
 
-    lists:foldl(Modeller, 0, queue:to_list(Models)),
-
-    % And we're done!
-    FStatus = file:close(FOut),
-    {FStatus, FPath}.
+    % Only the line number changes in the accumulator
+    {FOut, Line+1, Attrs, Data}.
