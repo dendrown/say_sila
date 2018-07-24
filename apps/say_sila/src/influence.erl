@@ -173,7 +173,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
                      players    = Players,
                      biggies    = Biggies,
                      jvm_node   = raven:get_jvm_node(Tracker),
-                     models     = queue:new() }}.
+                     models     = queue:new()}}.
 
 
 
@@ -225,7 +225,9 @@ handle_event(cast, reset, Data = #data{name = Name}) ->
     {next_state, idle, Data#data{incl_attrs = init_attributes(),
                                  excl_attrs = ?EXCLUDED_ATTRS,
                                  delta_cnt  = 0,
-                                 work_ref   = none}};
+                                 work_ref   = none,
+                                 results    = none,
+                                 models     = queue:new()}};
 
 
 handle_event(cast, go, #data{name = Name}) ->
@@ -417,7 +419,6 @@ done(enter, _OldState, #data{name   = Name,
     keep_state_and_data;
 
 
-
 done(Type, Evt, Data) ->
     handle_event(Type, Evt, Data).
 
@@ -444,16 +445,33 @@ init_attributes() ->
 % @doc  Opens an ARFF file for writing the specified relation and
 %       returns the full pathname to the file and its file descriptor.
 % @end  --
-report(Name, _Models) ->
+report(Name, Models) ->
     %
     Attrs = init_attributes(),
     FPath = ioo:make_fpath(?REPORT_DIR, Name, <<"csv">>),
     {ok, FOut} = file:open(FPath, [write]),
 
     % Create a CSV header with all possible model attributes
-    ?io_put(FOut, "Num"),
+    ?io_put(FOut, "Number,Correlation,Instances"),
     lists:foreach(fun(A) -> ?io_fmt(FOut, ",~s", [A]) end, Attrs),
     ?io_nl(FOut),
+
+    Attribber = fun(Attr, Coeffs) ->
+                    case maps:get(Attr, Coeffs, no_param) of
+                        no_param -> ?io_put(FOut, ",");
+                        Coeff    -> ?io_fmt(FOut, ",~f", [Coeff])
+                    end,
+                    Coeffs end,
+
+    Modeller  = fun(#{coefficients := Coeffs,
+                      correlation  := CorrScore,
+                      instances    := InstCnt}, Num) ->
+                   ?io_fmt(FOut, "~B,~f,~B", [Num, CorrScore,InstCnt]),
+                   lists:foldl(Attribber, Coeffs, Attrs),
+                   ?io_nl(FOut),
+                   Num+1 end,
+
+    lists:foldl(Modeller, 0, queue:to_list(Models)),
 
     % And we're done!
     FStatus = file:close(FOut),
