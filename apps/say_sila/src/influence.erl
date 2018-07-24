@@ -19,7 +19,9 @@
          stop/1,
          reset/1,
          go/1,
-         eval_param/2]).        % DEBUG!
+         eval_param/2,
+         report_open/1,
+         report_line/3]).
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
 -export([idle/3,
          run/3,
@@ -44,8 +46,9 @@
 -record(data, {tracker          :: tracker(),
                name             :: binary(),
                arff             :: binary(),
-               incl_attrs       :: [atom()],
-               excl_attrs       :: [atom()],
+               attributes       :: [atom()],
+               incl_attrs       :: [atom()],            % Info-purposes only
+               excl_attrs       :: [atom()],            % Info-purposes only
                reg_comm         :: comm_code(),
                reg_emo          :: emotion(),
                period           :: non_neg_integer(),
@@ -98,7 +101,6 @@ start_link(Tracker, RunTag, RegComm, RegEmo, Period) ->
 % @doc  Shutdown the state machine.
 % @end  --
 stop(Model) ->
-    gen_statem:call(Model, cancel),
     gen_statem:stop(Model).
 
 
@@ -138,6 +140,36 @@ eval_param(Model, Param) ->
 
 
 
+%%--------------------------------------------------------------------
+-spec report_open(Name :: stringy()) -> {ok, file:io_device(), string()}
+                                      | {error, file:posix() | badarg | system_limit}.
+%%
+% @doc  Opens a report file and writes a CSV header with the
+%       column names for a report on influence as modelled by
+%       this FSM.
+% @end  --
+report_open(Name) ->
+    Attrs = init_attributes(),
+    report_open(Name, Attrs).
+
+
+
+%%--------------------------------------------------------------------
+-spec report_line(Model :: gen_statem:server_ref(),
+                  FOut  :: file:io_device(),
+                  Line  ::  non_neg_integer()) -> ok.
+%%
+% @doc  Writes out a CSV line describing the final version of the
+%       model this FSM represents.
+%
+%       NOTE: If the FSM is still processing models, this function
+%             will block until the final model is processed.
+% @end  --
+report_line(Model, FOut, Line) ->
+    gen_statem:call(Model, {report_line, FOut, Line}).
+
+
+
 %%====================================================================
 %% Server Implementation
 %%--------------------------------------------------------------------
@@ -151,6 +183,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
     Players = player:get_players(Tracker),
     Biggies = player:get_biggies(Tracker, 0.01),
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
+    Attrs   = init_attributes(),
 
     BigInfo = fun({Comm, {P100, Cnt, Accts}}) ->
                   ?str_FMT("{~s:~B%,tw=~B,cnt=~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
@@ -165,7 +198,8 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
     {ok, idle, #data{tracker    = Tracker,
                      name       = Name,
                      arff       = list_to_binary(ARFF),
-                     incl_attrs = init_attributes(),
+                     attributes = Attrs,
+                     incl_attrs = Attrs,
                      excl_attrs = [?ATTR_DTS],
                      reg_comm   = RegComm,
                      reg_emo    = RegEmo,
@@ -215,6 +249,11 @@ code_change(OldVsn, _State, Data, _Extra) ->
 %%
 % @doc  Synchronous messages for Coinigy services
 % @end  --
+handle_event({call, _From}, {report_line, _, Line}, Data = #data{name = Name}) ->
+    ?debug("Waiting for report line #~B: ~s", [Line, Name]),
+    {keep_state, Data, [postpone]};
+
+
 handle_event(cast, reset, Data = #data{name = Name}) ->
     %
     ?notice("Resetting model ~s", [Name]),
@@ -414,9 +453,20 @@ eval(Type, Evt, Data) ->
 done(enter, _OldState, Data = #data{name = Name}) ->
     %
     {RptStat,
-     RptFPath} = report(Data),
+     RptFPath} = report_all(Data),
     ?info("Reported ~s created: path[~s] stat[~p]", [Name, RptFPath, RptStat]),
     keep_state_and_data;
+
+
+done({call, From}, {report_line, FOut, Line}, Data = #data{name       = Name,
+                                                           attributes = Attrs,
+                                                           results    = Results}) ->
+    %
+    % The caller wants just one line for our final report
+    ?info("Report line #~B requested: ~s", [Line, Name]),
+    report_line(Results, {FOut, Line, Attrs, Data}),
+
+    {keep_state_and_data, [{reply, From, ok}]};
 
 
 done(Type, Evt, Data) ->
@@ -439,15 +489,15 @@ init_attributes() ->
 
 
 %%--------------------------------------------------------------------
--spec report(Data :: data()) -> {ok, string()}
-                              | {{error, atom()}, string()}.
+-spec report_open(Name  :: stringy(),
+                  Attrs :: [atom()]) -> {ok, file:io_device(), string()}.
 %%
-% @doc  Writes a CSV report for the full set of model runs for this FSM.
+% @doc  Opens a report file and writes a CSV header with the
+%       column names for a report on influence as modelled by
+%       this FSM.
 % @end  --
-report(Data = #data{name   = Name,
-                    models = Models}) ->
+report_open(Name, Attrs) ->
 
-    Attrs = init_attributes(),
     FPath = ioo:make_fpath(?REPORT_DIR, Name, <<"csv">>),
     {ok, FOut} = file:open(FPath, [write]),
 
@@ -455,6 +505,22 @@ report(Data = #data{name   = Name,
     ?io_put(FOut, "run,tracker,reg_comm,reg_emo,Correlation,samples"),
     lists:foreach(fun(A) -> ?io_fmt(FOut, ",~s", [A]) end, Attrs),
     ?io_nl(FOut),
+
+    {ok, FOut, FPath}.
+
+
+
+%%--------------------------------------------------------------------
+-spec report_all(Data :: data()) -> {ok, string()}
+                                  | {{error, atom()}, string()}.
+%%
+% @doc  Writes a CSV report for the full set of model runs for this FSM.
+% @end  --
+report_all(Data = #data{name       = Name,
+                        models     = Models,
+                        attributes = Attrs}) ->
+
+    {ok, FOut, FPath} = report_open(Name, Attrs),
 
     % Fill in the CSV, one line per model run result
     lists:foldl(fun report_line/2, {FOut, 0, Attrs, Data}, queue:to_list(Models)),

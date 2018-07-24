@@ -19,6 +19,7 @@
 
 -include("sila.hrl").
 -include("emo.hrl").
+-include("ioo.hrl").
 -include("player.hrl").
 -include("twitter.hrl").
 
@@ -60,13 +61,32 @@ influence() ->
 
 
 %%--------------------------------------------------------------------
--spec influence(Tracker :: tracker()) -> gen_statem:start_ret().
+-spec influence(Tracker :: tracker()) -> term().
 %%
 % @doc  Do the Twitter/Emo influence experiments
 % @end  --
 influence(Tracker) ->
-    RegComm = tter,
-    RegEmo  = anger,
     RunTag  = "test",
-    influence:start_link(Tracker, RunTag, RegComm, RegEmo, 7).
+    Report  = ?str_fmt("~s_~s", [Tracker, RunTag]),
 
+    % Start up a modelling FSM for all regular comm/emo combos
+    RegComm = tter,
+    Runner  = fun(RegEmo) ->
+                  {ok, Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, 7),
+                  influence:go(Pid),
+                  Pid end,
+    Models  = [Runner(Emo) || Emo <- ?EMOTIONS],
+
+    % Create an overview report
+    {ok, FOut, FPath} = influence:report_open(Report),
+    Reporter = fun(Model, Line) ->
+                   % Note the FSM may block until it finishes modelling
+                   influence:report_line(Model, FOut, Line),
+                   Line+1 end,
+
+    lists:foldl(Reporter, 0, Models),
+
+    % Close the report, and shutdown the modelling FSMs
+    FStatus = file:close(FOut),
+    %lists:foreach(fun(M) -> influence:stop(M) end, Models),
+    {FStatus, FPath, Models}.
