@@ -269,15 +269,17 @@
           (.buildClassifier model insts)
           (log/info "Model:\n" (str model))
           (log/info "Summary:\n" summary)
-
           ;; Prepare a response for the caller
-          ;; TODO: Support for non-string values
-          (assoc ACK :model        (type model)
-                     :instances    (.numInstances insts)
-                     :correlation  (.correlationCoefficient audit)
-                     :coefficients (into {} (map attr-coeff                                 ; ZIP:
-                                                 (map vector (range (.numParameters model)) ; Attr-indexes
-                                                             (.coefficients model))))))))   ; Coeff-values
+          (let [param-cnt    (.numParameters model)
+                coefficients (.coefficients model)
+                intercept    (last coefficients)]
+            (assoc ACK :model        (type model)
+                       :instances    (.numInstances insts)
+                       :correlation  (.correlationCoefficient audit)
+                       :intercept    intercept
+                       :coefficients (into {} (map attr-coeff                       ; ZIP:
+                                                   (map vector (range param-cnt)    ; Attr-indexes
+                                                               coefficients)))))))) ; Coeff-values
 
     (catch Exception ex
            (log/fail ex "Linear regression failed")

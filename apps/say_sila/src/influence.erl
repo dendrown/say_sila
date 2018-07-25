@@ -504,7 +504,7 @@ report_open(Name, Attrs) ->
     % Create a CSV header with all possible model attributes
     ?io_put(FOut, "run,tracker,reg_comm,reg_emo,Correlation,samples"),
     lists:foreach(fun(A) -> ?io_fmt(FOut, ",~s", [A]) end, Attrs),
-    ?io_nl(FOut),
+    ?io_put(FOut, ",intercept\n"),
 
     {ok, FOut, FPath}.
 
@@ -544,6 +544,7 @@ report_all(Data = #data{name       = Name,
 % @doc  Writes one line of a CSV report for the specified results.
 % @end  --
 report_line(#{coefficients := Coeffs,
+              intercept    := Intercept,
               correlation  := CorrScore,
               instances    := InstCnt},
             {FOut, Line, Attrs, Data = #data{tracker  = Tracker,
@@ -560,7 +561,7 @@ report_line(#{coefficients := Coeffs,
     ?io_fmt(FOut, "~B,~s,~s,~s,~f,~B",
             [Line, Tracker, RegComm, RegEmo, CorrScore,InstCnt]),
     lists:foreach(Attribber, Attrs),
-    ?io_nl(FOut),
+    ?io_fmt(FOut, ",~f~n", [Intercept]),
 
     % Only the line number changes in the accumulator
     {FOut, Line+1, Attrs, Data}.
