@@ -15,12 +15,13 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([one/0, two/0, full/0, q1/0, q2/0, q4/0, q4q1/0, today/0,
-         influence/0, influence/1]).
+         influence/0, influence/2]).
 
 -include("sila.hrl").
 -include("emo.hrl").
 -include("ioo.hrl").
 -include("player.hrl").
+-include("types.hrl").
 -include("twitter.hrl").
 
 -define(twitter(Acct),  io_lib:format("[~s](https://twitter.com/~s)", [Acct, Acct])).
@@ -56,26 +57,26 @@ today() ->
 % @doc  Do the Twitter/Emo influence experiments
 % @end  --
 influence() ->
-    lists:foreach(fun influence/1, ?TRACKERS).
+    Tag = sila,
+    lists:foreach(fun(Trk) -> influence(Trk, Tag) end, ?TRACKERS).
 
 
 
 %%--------------------------------------------------------------------
--spec influence(Tracker :: tracker()) -> term().
+-spec influence(Tracker :: tracker(),
+                RunTag  :: stringy()) -> term().
 %%
 % @doc  Do the Twitter/Emo influence experiments
 % @end  --
-influence(Tracker) ->
-    RunTag  = "test",
-    Report  = ?str_fmt("~s_~s", [Tracker, RunTag]),
-
+influence(Tracker, RunTag) ->
     % Start up a modelling FSM for all regular comm/emo combos
-    RegComm = tter,
-    Runner  = fun(RegEmo) ->
-                  {ok, Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, 7),
+    Report  = ?str_fmt("~s_~s", [Tracker, RunTag]),
+    Runner  = fun(RegComm, RegEmo) ->
+                  {ok,
+                   Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, 7),
                   influence:go(Pid),
                   Pid end,
-    Models  = [Runner(Emo) || Emo <- ?EMOTIONS],
+    Models  = [Runner(Comm, Emo) || Comm <- [tter, oter, rter], Emo <- ?EMOTIONS],
 
     % Create an overview report
     {ok, FOut, FPath} = influence:report_open(Report),
@@ -88,5 +89,5 @@ influence(Tracker) ->
 
     % Close the report, and shutdown the modelling FSMs
     FStatus = file:close(FOut),
-    %lists:foreach(fun(M) -> influence:stop(M) end, Models),
-    {FStatus, FPath, Models}.
+    lists:foreach(fun(M) -> influence:stop(M) end, Models),
+    {FStatus, FPath}.

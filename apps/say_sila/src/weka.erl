@@ -110,7 +110,7 @@ biggies_to_arff(Name, RegCode, RegEmos, Biggies, Players, Period) ->
             %
             % Use the regular community to find ALL the days we're considering.
             % Depending on biggie requirements, some commumications (rter) may be missing days!
-            Days = lists:sort(maps:keys(proplists:get_value(tter, RegDayLots))),
+            Days = lists:sort(maps:keys(proplists:get_value(RegCode, RegDayLots))),
 
             {[{Code, periodize_lots(Code, DayLots, N, Days, InitComm)} || {Code, DayLots} <- BigDayLots],
              [{Code, periodize_lots(Code, DayLots, N, Days, InitComm)} || {Code, DayLots} <- RegDayLots]}
