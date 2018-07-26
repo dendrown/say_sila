@@ -69,14 +69,16 @@ influence() ->
 % @doc  Do the Twitter/Emo influence experiments
 % @end  --
 influence(Tracker, RunTag) ->
-    % Start up a modelling FSM for all regular comm/emo combos
+    % Start up a modelling FSM for all regular emo/comm combos
+    % (The usual hierarchy is comm/emo, but we're switching around
+    % for an easier-to-analyze report.)
     Report  = ?str_fmt("~s_~s", [Tracker, RunTag]),
-    Runner  = fun(RegComm, RegEmo) ->
+    Runner  = fun(RegEmo, RegComm) ->
                   {ok,
                    Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, 7),
                   influence:go(Pid),
                   Pid end,
-    Models  = [Runner(Comm, Emo) || Comm <- [tter, oter, rter], Emo <- ?EMOTIONS],
+    Models  = [Runner(Emo, Comm) || Emo <- ?EMOTIONS, Comm <- [tter, oter, rter]],
 
     % Create an overview report
     {ok, FOut, FPath} = influence:report_open(Report),
