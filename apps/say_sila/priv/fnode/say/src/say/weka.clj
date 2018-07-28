@@ -270,15 +270,26 @@
           (log/info "Model:\n" (str model))
           (log/info "Summary:\n" summary)
           ;; Prepare a response for the caller
-          (let [param-cnt    (.numParameters model)
+          ;;
+          ;; NOTE: LinearRegression.numParameters() does not include unused params!
+          ;;       The Weka LR coefficient array appears to take have the form:
+          ;;       [ a0, a1, ..., aN-1, 0.0, intercept ]
+          ;;
+          ;;       A better way may be to use the "-C" option, so the LR algorithm
+          ;;       does not try to eliminate colinear attributes.
+          ;;
+          ;; TODO: As Weka documentation seems to be lacking here, I should take the
+          ;;       time to verify the array structure in the Weka source code.
+          (let [;param-cnt   (.numParameters model)
                 coefficients (.coefficients model)
+                coeff-cnt    (- (count coefficients) 2)                             ; See note above
                 intercept    (last coefficients)]
             (assoc ACK :model        (type model)
                        :instances    (.numInstances insts)
                        :correlation  (.correlationCoefficient audit)
                        :intercept    intercept
                        :coefficients (into {} (map attr-coeff                       ; ZIP:
-                                                   (map vector (range param-cnt)    ; Attr-indexes
+                                                   (map vector (range coeff-cnt)    ; Attr-indexes
                                                                coefficients)))))))) ; Coeff-values
 
     (catch Exception ex

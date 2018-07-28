@@ -20,6 +20,7 @@
          reset/1,
          go/1,
          eval_param/2,
+         get_models/1,
          report_open/1,
          report_line/3]).
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
@@ -37,30 +38,33 @@
 
 
 -define(REPORT_DIR,     ?WORK_DIR "/influence").
--define(EPSILON,        0.00000001).            % Floating point comparisons
 -define(ATTR_DTS,       minute).                % Date-timestamp attribute
 -define(EXCLUDED_ATTRS, [?ATTR_DTS]).           % Attributes to exclude from ARFF
+-define(EPSILON,        0.00000001).            % Floating point comparisons
+%define(DELTA_CUTS,     [?EPSILON, 0.1]).       % Sequence of parameter cuts
+-define(DELTA_CUTS,     [?EPSILON]).    % DEBUG
 
 
 %%--------------------------------------------------------------------
--record(data, {tracker          :: tracker(),
-               name             :: binary(),
-               arff             :: binary(),
-               attributes       :: [atom()],
-               incl_attrs       :: [atom()],            % Info-purposes only
-               excl_attrs       :: [atom()],            % Info-purposes only
-               reg_comm         :: comm_code(),
-               reg_emo          :: emotion(),
-               period           :: non_neg_integer(),
-               players          :: map(),
-               biggies          :: proplist(),
-               jvm_node         :: atom(),
-               delta_cnt = 0    :: non_neg_integer(),   % Num. changes to model since last evaluation
-               delta_cut = 0.0  :: float(),             % Minimum parameter value to be included in model
-               work_ref  = none :: none|reference(),
-               results   = none :: none|map(),
-               models           :: queue:queue()}).
--type data() :: #data{}.                                % FSM internal state data
+-record(data, {tracker                  :: tracker(),
+               name                     :: binary(),
+               arff                     :: binary(),
+               attributes               :: [atom()],
+               incl_attrs               :: [atom()],            % Info-purposes only
+               excl_attrs               :: [atom()],            % Info-purposes only
+               reg_comm                 :: comm_code(),
+               reg_emo                  :: emotion(),
+               period                   :: non_neg_integer(),
+               players                  :: map(),
+               biggies                  :: proplist(),
+               jvm_node                 :: atom(),
+               delta_cuts = ?DELTA_CUTS :: [float()],           % Min param values for future passes
+               delta_cut  = ?EPSILON    :: float(),             % Min param value for current model
+               delta_cnt  = 0           :: non_neg_integer(),   % Num changes since last evaluation
+               work_ref   = none        :: none|reference(),
+               results    = none        :: none|map(),
+               models                   :: queue:queue()}).
+-type data() :: #data{}.                                        % FSM internal state data
 
 
 
@@ -68,7 +72,7 @@
 %% API
 %%--------------------------------------------------------------------
 -spec start_link(Tracker :: cc | gw,
-                 RunTag  :: string(),
+                 RunTag  :: stringy(),
                  RegComm :: comm_code(),
                  RegEmo  :: atom()) -> gen_statem:start_ret().
 %%
@@ -81,7 +85,7 @@ start_link(Tracker, RunTag, RegComm, RegEmo) ->
 
 %%--------------------------------------------------------------------
 -spec start_link(Tracker :: cc | gw,
-                 RunTag  :: string(),
+                 RunTag  :: stringy(),
                  RegComm :: comm_code(),
                  RegEmo  :: atom(),
                  Period  :: non_neg_integer()) -> gen_statem:start_ret().
@@ -137,6 +141,16 @@ go(Model) ->
 % @end  --
 eval_param(Model, Param) ->
     gen_statem:cast(Model, {eval_param, Param}).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_models(Model :: gen_statem:server_ref()) -> queue:queue().
+%%
+% @doc  Returns a queue of historical models for this FSM.
+% @end  --
+get_models(Model) ->
+    gen_statem:call(Model, get_models).
 
 
 
@@ -211,7 +225,6 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
 
 
 
-
 %%--------------------------------------------------------------------
 %% callback_mode:
 %%
@@ -249,6 +262,10 @@ code_change(OldVsn, _State, Data, _Extra) ->
 %%
 % @doc  Synchronous messages for Coinigy services
 % @end  --
+handle_event({call, From}, get_models, Data = #data{models = Models}) ->
+    {keep_state, Data, [{reply, From, Models}]};
+
+
 handle_event({call, _From}, {report_line, _, Line}, Data = #data{name = Name}) ->
     ?debug("Waiting for report line #~B: ~s", [Line, Name]),
     {keep_state, Data, [postpone]};
@@ -264,6 +281,8 @@ handle_event(cast, reset, Data = #data{name = Name}) ->
     {next_state, idle, Data#data{incl_attrs = init_attributes(),
                                  excl_attrs = ?EXCLUDED_ATTRS,
                                  delta_cnt  = 0,
+                                 delta_cut  = ?EPSILON,
+                                 delta_cuts = ?DELTA_CUTS,
                                  work_ref   = none,
                                  results    = none,
                                  models     = queue:new()}};
@@ -274,8 +293,8 @@ handle_event(cast, go, #data{name = Name}) ->
     keep_state_and_data;
 
 
-handle_event(_, Evt, #data{name = Name}) ->
-    ?warning("Model ~s received an unexpected event: ~p", [Name, Evt]),
+handle_event(Type, Evt, #data{name = Name}) ->
+    ?warning("Model ~s received an unexpected '~p' event: type[~p]", [Name, Evt, Type]),
     keep_state_and_data.
 
 
@@ -359,18 +378,35 @@ run(Type, Evt, Data) ->
 %%
 % @doc  FSM state to evaluate a Weka model
 % @end  --
-eval(enter, _OldState, Data = #data{name    = Name,
-                                    results = #{status       := ack,
-                                                coefficients := Coeffs,
-                                                correlation  := Correlation}}) ->
-    %
-    ?notice("Evaluating model ~s: corr[~7.4f]", [Name, Correlation]),
+eval(enter, _OldState, Data = #data{name       = Name,
+                                    delta_cuts = DeltaCuts,
+                                    results    = #{status       := ack,
+                                                   coefficients := Coeffs,
+                                                   correlation  := Correlation}}) ->
+
+    % We're going to be sending one or more events to ourself...
     FSM = self(),
-    lists:foreach(fun(P) -> eval_param(FSM, P) end,
-                  maps:keys(Coeffs)),
+
+    % Do we have cuts to make?
+    {DeltaCut,
+     RestCuts} = case DeltaCuts of
+        [] ->
+            % We're all done, keep the last cut for the record
+            {Data#data.delta_cut, []};
+
+        [Cut|Rest] ->
+            % We need another round of models
+            ?notice("Evaluating model ~s: corr[~7.4f] cut[~f]", [Name, Correlation, Cut]),
+            lists:foreach(fun(P) -> eval_param(FSM, P) end,
+                          maps:keys(Coeffs)),
+            {Cut, Rest}
+    end,
+
+    % A 'ready' signals either a model run start OR finalization
     eval_param(FSM, ready),
-    {next_state, eval, Data#data{delta_cnt = 0,
-                                 delta_cut = ?EPSILON}};
+    {next_state, eval, Data#data{delta_cnt  = 0,
+                                 delta_cut  = DeltaCut,
+                                 delta_cuts = RestCuts}};
 
 
 eval(enter, _OldState, #data{name    = Name,
@@ -425,7 +461,7 @@ eval(cast, {eval_param, Param}, Data = #data{name       = Name,
                     {InclAttrs, ExclAttrs, DeltaCnt};
 
                 false ->
-                    ?info("Cutting parameter ~s for model ~s: coeff[~7.4f]", [Param, Name, Coeff]),
+                    ?info("Cutting parameter ~s for model ~s: coeff[~g]", [Param, Name, Coeff]),
                     {lists:delete(Param, InclAttrs),
                      [Param | ExclAttrs],
                      DeltaCnt + 1}
