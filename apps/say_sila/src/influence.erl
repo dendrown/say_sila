@@ -41,8 +41,8 @@
 -define(ATTR_DTS,       minute).                % Date-timestamp attribute
 -define(EXCLUDED_ATTRS, [?ATTR_DTS]).           % Attributes to exclude from ARFF
 -define(EPSILON,        0.00000001).            % Floating point comparisons
-%define(DELTA_CUTS,     [?EPSILON, 0.1]).       % Sequence of parameter cuts
--define(DELTA_CUTS,     [?EPSILON]).    % DEBUG
+-define(DELTA_CUTS,     [?EPSILON, 0.1, 0.2]).  % Sequence of parameter cuts
+%define(DELTA_CUTS,     [?EPSILON]).
 
 
 %%--------------------------------------------------------------------
@@ -390,20 +390,14 @@ eval(enter, _OldState, Data = #data{name       = Name,
     % Do we have cuts to make?
     {DeltaCut,
      RestCuts} = case DeltaCuts of
-        [] ->
-            % We're all done, keep the last cut for the record
-            {Data#data.delta_cut, []};
-
-        [Cut|Rest] ->
-            % We need another round of models
-            ?notice("Evaluating model ~s: corr[~7.4f] cut[~f]", [Name, Correlation, Cut]),
-            lists:foreach(fun(P) -> eval_param(FSM, P) end,
-                          maps:keys(Coeffs)),
-            {Cut, Rest}
+        []          -> {Data#data.delta_cut, []};
+        [Cut|Rest]  -> {Cut, Rest}
     end,
 
-    % A 'ready' signals either a model run start OR finalization
-    eval_param(FSM, ready),
+    ?notice("Evaluating model ~s: corr[~7.4f] cut[~f]", [Name, Correlation, DeltaCut]),
+    lists:foreach(fun(P) -> eval_param(FSM, P) end,
+                  maps:keys(Coeffs)),
+    eval_param(FSM, ready),                             % Signal model run start|finalization
     {next_state, eval, Data#data{delta_cnt  = 0,
                                  delta_cut  = DeltaCut,
                                  delta_cuts = RestCuts}};
@@ -461,7 +455,7 @@ eval(cast, {eval_param, Param}, Data = #data{name       = Name,
                     {InclAttrs, ExclAttrs, DeltaCnt};
 
                 false ->
-                    ?info("Cutting parameter ~s for model ~s: coeff[~g]", [Param, Name, Coeff]),
+                    ?info("Cutting parameter ~s for model ~s: coeff[~f]", [Param, Name, Coeff]),
                     {lists:delete(Param, InclAttrs),
                      [Param | ExclAttrs],
                      DeltaCnt + 1}
