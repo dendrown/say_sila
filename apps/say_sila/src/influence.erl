@@ -19,7 +19,6 @@
          stop/1,
          reset/1,
          go/1,
-         eval_param/2,
          get_models/1,
          report_open/1,
          report_line/3]).
@@ -41,8 +40,8 @@
 -define(ATTR_DTS,       minute).                % Date-timestamp attribute
 -define(EXCLUDED_ATTRS, [?ATTR_DTS]).           % Attributes to exclude from ARFF
 -define(EPSILON,        0.00000001).            % Floating point comparisons
--define(DELTA_CUTS,     [?EPSILON, 0.1, 0.2]).  % Sequence of parameter cuts
-%define(DELTA_CUTS,     [?EPSILON]).
+%define(DELTA_CUTS,     [?EPSILON, 0.1, 0.2]).  % Sequence of parameter cuts
+-define(DELTA_CUTS,     [0.1]).
 
 
 %%--------------------------------------------------------------------
@@ -126,21 +125,6 @@ reset(Model) ->
 % @end  --
 go(Model) ->
     gen_statem:cast(Model, go).
-
-
-
-%%--------------------------------------------------------------------
--spec eval_param(Model :: gen_statem:server_ref(),
-                 Param :: atom()) -> ok.
-%%
-% @doc  Determines whether or not the specified parameter belongs in
-%       the model.
-%
-%       NOTE: This function is meant to be called from within the
-%             FSM code.  It is exported for debugging purposes.
-% @end  --
-eval_param(Model, Param) ->
-    gen_statem:cast(Model, {eval_param, Param}).
 
 
 
@@ -378,59 +362,59 @@ run(Type, Evt, Data) ->
 %%
 % @doc  FSM state to evaluate a Weka model
 % @end  --
-eval(enter, _OldState, Data = #data{name       = Name,
-                                    delta_cuts = DeltaCuts,
-                                    results    = #{status       := ack,
-                                                   coefficients := Coeffs,
-                                                   correlation  := Correlation}}) ->
-
-    % We're going to be sending one or more events to ourself...
-    FSM = self(),
-
-    % Do we have cuts to make?
-    {DeltaCut,
-     RestCuts} = case DeltaCuts of
-        []          -> {Data#data.delta_cut, []};
-        [Cut|Rest]  -> {Cut, Rest}
-    end,
-
-    ?notice("Evaluating model ~s: corr[~7.4f] cut[~f]", [Name, Correlation, DeltaCut]),
-    lists:foreach(fun(P) -> eval_param(FSM, P) end,
-                  maps:keys(Coeffs)),
-    eval_param(FSM, ready),                             % Signal model run start|finalization
-    {next_state, eval, Data#data{delta_cnt  = 0,
-                                 delta_cut  = DeltaCut,
-                                 delta_cuts = RestCuts}};
+eval(enter, _OldState, Data = #data{results = #{status := ack}}) ->
+    %
+    % Look at parameters to see what we should keep|cut
+    eval_params(Data),
+    {next_state, eval, Data#data{delta_cnt = 0}};
 
 
 eval(enter, _OldState, #data{name    = Name,
                              results = Results = #{status := nak}}) ->
-    %
+    % Our modeller is unhappy, bail here!
     ?warning("Model ~s failed: alg[~p] info[~s]", [Name,
                                                    maps:get(model, Results, unknown),
                                                    maps:get(info,  Results, unknown)]),
     keep_state_and_data;
 
 
-eval(cast, {eval_param, ready}, Data = #data{name    = Name,
-                                             results = Results,
-                                             models  = Models}) ->
-    %
+eval(cast, {eval_param, ready}, Data = #data{delta_cnt  = 0,
+                                             delta_cuts = DeltaCuts,
+                                             name       = Name,
+                                             results    = Results,
+                                             models     = Models}) ->
+    
+    % No parameters to cut, try the next cut level...
+    NextModels = queue:in(Results, Models),
     {NextState,
-     NextResults} = case Data#data.delta_cnt of
-        % No deltas means we're done
-        0 ->
+     NextData} = case DeltaCuts of
+        % We're all out of cuts, so we're done
+        [] -> 
             ?notice("Completed processing for model ~s: corr[~7.4f]",
                     [Name, maps:get(correlation, Results, 0.0)]),
-            {done, Results};
-        % We've made changes, time to rerun the model
-        DeltaCnt ->
-            ?info("Model ~s finished updating parameters (rerunning): deltas[~B]",
-                  [Name, DeltaCnt]),
-            {run, none}
+
+            {done, Data#data{models = NextModels}};
+
+        % We've got a new cut to try, so set up for the next run...
+        [Cut | RestCuts] ->
+            {run, Data#data{delta_cut  = Cut,
+                            delta_cuts = RestCuts,
+                            results    = none,
+                            models     = NextModels}}
     end,
-    {next_state, NextState,  Data#data{results = NextResults,
-                                       models  = queue:in(Results, Models)}};
+    {next_state, NextState,  NextData};
+
+
+eval(cast, {eval_param, ready}, Data = #data{delta_cnt = DeltaCnt,
+                                             name      = Name,
+                                             results   = Results,
+                                             models    = Models}) ->
+    %
+    ?info("Model ~s finished updating parameters (rerunning): deltas[~B]",
+          [Name, DeltaCnt]),
+
+    {next_state, run,  Data#data{results = none,
+                                 models  = queue:in(Results, Models)}};
 
 
 eval(cast, {eval_param, Param}, Data = #data{name       = Name,
@@ -515,6 +499,29 @@ done(Type, Evt, Data) ->
 init_attributes() ->
     [weka:make_attribute(big, Code, Emo) || Code <- weka:get_big_comm_codes(),
                                             Emo  <- ?EMOTIONS].
+
+
+
+%%--------------------------------------------------------------------
+-spec eval_params(Data :: data()) -> ok.
+%%
+% @doc  Determines which of the current set of parameters should stay
+%       the model.
+% @end  --
+eval_params(#data{name      = Name,
+                  delta_cut = DeltaCut,
+                  results   = #{coefficients := Coeffs,
+                                correlation  := Score}}) ->
+
+    ?notice("Evaluating model ~s: corr[~7.4f] cut[~f]", [Name, Score, DeltaCut]),
+    FSM = self(),
+    Caster = fun(Param) ->
+                 gen_statem:cast(FSM, {eval_param, Param})
+                 end,
+    lists:foreach(Caster, maps:keys(Coeffs)),
+
+    % Signal model run start|finalization
+    Caster(ready).
 
 
 
