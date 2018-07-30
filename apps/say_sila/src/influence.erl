@@ -40,7 +40,7 @@
 -define(ATTR_DTS,       minute).                % Date-timestamp attribute
 -define(EXCLUDED_ATTRS, [?ATTR_DTS]).           % Attributes to exclude from ARFF
 -define(EPSILON,        0.00000001).            % Floating point comparisons
-%define(DELTA_CUTS,     [?EPSILON, 0.1, 0.2]).  % Sequence of parameter cuts
+%define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
 -define(DELTA_CUTS,     [0.1]).
 
 
@@ -329,7 +329,8 @@ run(enter, _OldState, Data = #data{name       = Name,
     {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff    => ARFF,
                                                          exclude => list_to_binary(ExclRE)})},
 
-    {keep_state, Data#data{work_ref = WorkRef}};
+    {keep_state, Data#data{work_ref = WorkRef,
+                           results  = none}};
 
 
 run(info, {From, WorkRef, regress, Results}, Data = #data{name = Name}) ->
@@ -362,11 +363,14 @@ run(Type, Evt, Data) ->
 %%
 % @doc  FSM state to evaluate a Weka model
 % @end  --
-eval(enter, _OldState, Data = #data{results = #{status := ack}}) ->
+eval(enter, _OldState, Data = #data{results = Results = #{status := ack},
+                                    models  = Models}) ->
     %
     % Look at parameters to see what we should keep|cut
     eval_params(Data),
-    {next_state, eval, Data#data{delta_cnt = 0}};
+    {next_state, eval, Data#data{delta_cnt = 0,
+                                 models    = queue:in(Results, Models)}};
+
 
 
 eval(enter, _OldState, #data{name    = Name,
@@ -381,40 +385,32 @@ eval(enter, _OldState, #data{name    = Name,
 eval(cast, {eval_param, ready}, Data = #data{delta_cnt  = 0,
                                              delta_cuts = DeltaCuts,
                                              name       = Name,
-                                             results    = Results,
-                                             models     = Models}) ->
+                                             results    = Results}) ->
     
     % No parameters to cut, try the next cut level...
-    NextModels = queue:in(Results, Models),
-    {NextState,
-     NextData} = case DeltaCuts of
+    case DeltaCuts of
         % We're all out of cuts, so we're done
         [] -> 
             ?notice("Completed processing for model ~s: corr[~7.4f]",
                     [Name, maps:get(correlation, Results, 0.0)]),
 
-            {done, Data#data{models = NextModels}};
+            {next_state, done, Data};
 
         % We've got a new cut to try, so set up for the next run...
         [Cut | RestCuts] ->
-            {run, Data#data{delta_cut  = Cut,
-                            delta_cuts = RestCuts,
-                            results    = none,
-                            models     = NextModels}}
-    end,
-    {next_state, NextState,  NextData};
+            NewData = Data#data{delta_cut  = Cut,
+                                delta_cuts = RestCuts},
+            eval_params(NewData),
+            {next_state, eval, NewData}
+    end;
 
 
 eval(cast, {eval_param, ready}, Data = #data{delta_cnt = DeltaCnt,
-                                             name      = Name,
-                                             results   = Results,
-                                             models    = Models}) ->
+                                             name      = Name}) ->
     %
     ?info("Model ~s finished updating parameters (rerunning): deltas[~B]",
           [Name, DeltaCnt]),
-
-    {next_state, run,  Data#data{results = none,
-                                 models  = queue:in(Results, Models)}};
+    {next_state, run, Data};
 
 
 eval(cast, {eval_param, Param}, Data = #data{name       = Name,
