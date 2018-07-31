@@ -41,7 +41,8 @@
 -define(EXCLUDED_ATTRS, [?ATTR_DTS]).           % Attributes to exclude from ARFF
 -define(EPSILON,        0.00000001).            % Floating point comparisons
 %define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
--define(DELTA_CUTS,     [0.1]).
+%define(DELTA_CUTS,     [0.1]).
+-define(DELTA_CUTS,     []).
 
 
 %%--------------------------------------------------------------------
