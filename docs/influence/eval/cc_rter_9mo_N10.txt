@@ -1,0 +1,112 @@
+reg_rter_anger =
+
+      0      * big_oter_anger +
+     -3.5    * big_oter_sadness +
+      2.3377 * big_oter_joy +
+     -1.8255 * big_rted_anger +
+      0.2095 * big_tmed_sadness +
+     -8.2841
+
+Correlation coefficient                 -0.2948
+Kendall's tau                           -0.1282
+Spearman's rho                          -0.1947
+Mean absolute error                      0.0957
+Root mean squared error                  0.1425
+Relative absolute error                182.8304 %
+Root relative squared error            159.1755 %
+
+___________________________________________________________
+reg_rter_fear =
+
+     -0      * big_oter_anger +
+      0.2182 * big_rted_fear +
+     -0.1687 * big_rted_sadness +
+      0.163  * big_rted_joy +
+      0.0984 * big_tmed_sadness +
+      3.2245
+
+Correlation coefficient                  0.0207
+Kendall's tau                            0.031
+Spearman's rho                           0.063
+Mean absolute error                      0.0294
+Root mean squared error                  0.0379
+Relative absolute error                136.2468 %
+Root relative squared error            130.2033 %
+
+___________________________________________________________
+
+reg_rter_sadness =
+
+     -0      * big_oter_anger +
+      1.9351 * big_oter_fear +
+     -0.7196 * big_oter_sadness +
+     -0.8766 * big_rter_fear +
+      0.7766 * big_rter_sadness +
+      0.1399 * big_rted_joy +
+      0.1137 * big_tmed_sadness +
+      3.5335
+
+Correlation coefficient                  0.2504
+Kendall's tau                            0.1579
+Spearman's rho                           0.2453
+Mean absolute error                      0.0231
+Root mean squared error                  0.0296
+Relative absolute error                109.7945 %
+Root relative squared error            111.7488 %
+
+___________________________________________________________
+reg_rter_joy =
+
+      0      * big_oter_anger +
+      0.3907 * big_rter_fear +
+      0.5241 * big_rter_joy +
+      0.2243 * big_rted_joy +
+      0.0868 * big_tmed_fear +
+     -0.095  * big_tmed_sadness +
+     -2.1483
+
+Correlation coefficient                  0.4159
+Kendall's tau                            0.2065
+Spearman's rho                           0.2877
+Mean absolute error                      0.0174
+Root mean squared error                  0.0209
+Relative absolute error                112.7693 %
+Root relative squared error            107.0545 %
+
+___________________________________________________________
+PLAYERS: 503759
+
+
+#{oter => 578253,
+  rter => 1073110,
+  rted => 1073110,
+  tmed => 615139,
+  tter => 1651363}
+
+
+[{tter,{0.11125597461006453,183724,
+        [<<"eco_ec">>,<<"world_dang">>,<<"climate_ch">>,
+         <<"green_conc">>,<<"aroundomedia">>,<<"leadingwpassion">>,
+         <<"eljmkt_daily">>,<<"annemariayritys">>,
+         <<"gccthinkacttank">>,<<"ehfoundation237">>]}},
+ {oter,{0.20714635289397548,119783,
+        [<<"kwamegilbert">>,<<"masscreativity">>,<<"beingfarhad">>,
+         <<"brand_2_market">>,<<"eljmkt_climate">>,
+         <<"aroundomedia">>,<<"leadingwpassion">>,<<"eljmkt_daily">>,
+         <<"annemariayritys">>,<<"gccthinkacttank">>]}},
+ {rter,{0.11684543057095731,125388,
+        [<<"trumpvsscience">>,<<"molecular_en">>,<<"irxcellent">>,
+         <<"earthmineyours">>,<<"natural_sci">>,<<"eco_ec">>,
+         <<"world_dang">>,<<"climate_ch">>,<<"green_conc">>,
+         <<"ehfoundation237">>]}},
+ {rted,{0.1953136211571973,209593,
+        [<<"jackthelad1947">>,<<"infoclimatecoin">>,<<"who">>,
+         <<"greenpeace">>,<<"belugasolar">>,<<"gccthinkacttank">>,
+         <<"annemariayritys">>,<<"climatereality">>,<<"unfccc">>,
+         <<"pauledawson">>]}},
+ {tmed,{0.07469368711787092,45947,
+        [<<"guardian">>,
+         <<226,128,166>>,
+         <<"unep:">>,<<"unfccc">>,<<"leodicaprio">>,<<"wef">>,
+         <<"potus">>,<<"epascottpruitt">>,<<"un">>,
+         <<"realdonaldtrump">>]}}]

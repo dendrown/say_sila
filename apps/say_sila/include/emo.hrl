@@ -14,15 +14,17 @@
 -ifndef(_emo_included).
 -define(_emo_included, ack).
 
--define(EMOTIONS,       [anger, fear, sadness, joy]).
+-define(EMOTIONS,   [anger, fear, sadness, joy]).
+-type emotion()  ::  anger| fear| sadness| joy.
+-type emotions() :: [emotion()].
 
 
 %%%-------------------------------------------------------------------
--record(emotions, {count   = 0   :: integer(),
-                   levels  = #{} :: map() }).
--type emotions()     :: #emotions{}.
--type rec_emotions() :: undefined | #emotions{}.
+-record(emos, {count   = 0   :: integer(),      % Text source count
+               levels  = #{} :: map() }).
+-type emos()     :: #emos{}.
+-type rec_emos() :: undefined | emos().
 
--define(emo_level(Emo, Rec),    maps:get(Emo, Rec#emotions.levels)).
+-define(emo_level(Emo, Rec),    maps:get(Emo, Rec#emos.levels)).
 
 -endif.

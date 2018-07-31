@@ -15,33 +15,33 @@
 -define(_player_included, ack).
 
 -include("emo.hrl").
+-include("twitter.hrl").
 
 -define(MIN_COMMS_COUNT,    3).                 % Minimum user activity for processing
 
--define(COMM_TYPES,     [tweet, original, retweet, mention]).
--define(COMM_CODES,     [tt,    ot,       rt,      tm     ]).
--type comm_code() ::     tt|    ot|       rt|      tm.
+-define(COMM_TYPES,     [tweeter, originater, retweeter, retweeted, mentioned]).
+-define(COMM_CODES,     [tter,    oter,       rter,      rted,      tmed     ]).
+-type comm_code()   ::   tter|    oter|       rter|      rted|      tmed.
+-type comm_codes()  ::  [comm_code()].
 
 
 %%--------------------------------------------------------------------
 -type count_tree()  :: gb_trees:tree(integer(), list()).
 
--record(counts, {tt = 0 :: non_neg_integer() | count_tree(),    % Tweets sent from a user
-                 ot = 0 :: non_neg_integer() | count_tree(),    % Original tweets sent (not retweets)
-                 rt = 0 :: non_neg_integer() | count_tree(),    % Times retweeted be another user
-                 tm = 0 :: non_neg_integer() | count_tree()}).  % Times mentioned by another user
--type counts() :: #counts{}.
+-record(comm, {cnt  :: non_neg_integer(),   % FIXME: We already have a count in emos
+              %msgs :: tweets(),
+               emos :: emos() }).
+-type comm()  :: #comm{}.
+-type comms() :: [comm()].
 
--define(prop_counts(Fld), {Fld, #counts.Fld}).
+-define(NEW_COMM,   #comm{cnt  = 0,
+                         %msgs = [],
+                          emos = emo:stoic(0) }).
 
 
 %%--------------------------------------------------------------------
--record(profile, {cnts :: counts(),
-                  emos :: emotions() }).
--type profile() :: #profile{}.
-
--define(profile_cnts(Rec, Fld), Rec#profile.cnts#counts.Fld).
--define(profile_emos(Rec, Fld), Rec#profile.emos#emotions.Fld).
-
+-record(profile, {comms = #{} :: map(),     % Comms totals for user
+                  lots  = #{} :: map()}).   % map(key=day, val=map(comms))
+%type profile() :: #profile{}.
 
 -endif.

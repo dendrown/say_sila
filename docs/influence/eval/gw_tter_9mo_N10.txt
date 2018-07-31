@@ -1,0 +1,108 @@
+reg_tter_anger =
+
+      1.0321 * big_oter_fear +
+     -0.6257 * big_rter_joy +
+      1.626  * big_rted_anger +
+     -0.2579 * big_tmed_anger +
+     -0.0471
+
+Correlation coefficient                 -0.0089
+Kendall's tau                           -0.0634
+Spearman's rho                          -0.069 
+Mean absolute error                      0.1247
+Root mean squared error                  0.1584
+Relative absolute error                140.277  %
+Root relative squared error            132.1786 %
+
+___________________________________________________________
+reg_tter_fear =
+
+      0.4359 * big_oter_fear +
+      0.3082 * big_rter_fear +
+     -0.1913 * big_rter_sadness +
+      0.1102 * big_rted_fear +
+      0.0781 * big_rted_sadness +
+      0.0315
+
+Correlation coefficient                  0.3744
+Kendall's tau                            0.3414
+Spearman's rho                           0.4656
+Mean absolute error                      0.0199
+Root mean squared error                  0.0294
+Relative absolute error                 99.875  %
+Root relative squared error            119.6311 %
+
+___________________________________________________________
+reg_tter_sadness =
+
+      0.5954 * big_oter_fear +
+     -0.0895 * big_rted_fear +
+      0.2313 * big_rted_sadness +
+     -0.2002 * big_tmed_fear +
+     -0.0671 * big_tmed_sadness +
+      0.2618 * big_tmed_joy +
+      0.0633
+
+Correlation coefficient                  0.667
+Kendall's tau                            0.4656
+Spearman's rho                           0.6488
+Mean absolute error                      0.02
+Root mean squared error                  0.0251
+Relative absolute error                 76.9102 %
+Root relative squared error             76.1226 %
+
+___________________________________________________________
+
+reg_tter_joy =
+
+      0.1618 * big_oter_sadness +
+      0.2736 * big_rter_joy +
+      0.2291 * big_rted_joy +
+      0.15   * big_tmed_fear +
+      0.0073
+
+Correlation coefficient                  0.2793
+Kendall's tau                            0.193
+Spearman's rho                           0.2739
+Mean absolute error                      0.0276
+Root mean squared error                  0.038
+Relative absolute error                112.8426 %
+Root relative squared error            130.7654 %
+
+___________________________________________________________
+Instances: 39
+Players:   106651
+
+
+#{oter => 85397,rted => 105812,rter => 105812,tmed => 60929,
+  tter => 191209},
+
+
+[{tter,{0.083092323060107,15888,
+        [<<"creativecivil">>,<<"russelcowell905">>,<<"iluvco2">>,
+         <<"timmelino">>,<<"gridpointwx">>,<<"joyfullyeco">>,
+         <<"scientific_me">>,<<"denybot6000">>,<<"ehfoundation237">>,
+         <<"erroldmoody">>]}},
+ {oter,{0.14248744101080835,12168,
+        [<<"katherynhale15">>,<<"greens_meagan">>,
+         <<"creativecivil">>,<<"russelcowell905">>,<<"iluvco2">>,
+         <<"timmelino">>,<<"gridpointwx">>,<<"joyfullyeco">>,
+         <<"denybot6000">>,<<"erroldmoody">>]}},
+ {rter,{0.07503874796809436,7940,
+        [<<"natural_sci">>,<<"stephencgill">>,<<"earthmineyours">>,
+         <<"world_dang">>,<<"climate_ch">>,<<"green_conc">>,
+         <<"arnabch01">>,<<"piers_corbyn">>,<<"scientific_me">>,
+         <<"ehfoundation237">>]}},
+ {rted,{0.21864249801534796,23135,
+        [<<"protect_wldlife">>,<<"kevpluck">>,<<"_cfj_">>,
+         <<"jwspry">>,<<"greenfraud">>,<<"healthranger">>,
+         <<"climatereality">>,<<"chuckwoolery">>,<<"kushykush">>,
+         <<"joyfullyeco">>]}},
+ {tmed,{0.14882896486073954,9068,
+        [<<226,128,166>>,
+         <<"cnn">>,<<"berkeleyearth">>,<<"carbonbrief">>,
+         <<"cathmckenna">>,<<"potus">>,<<"jwspry">>,
+         <<"galacticwarming">>,<<"algore">>,<<"realdonaldtrump">>]}}]
+
+
+00:15:33.157 [warning] <weka> Missing lot: grp[big] comm[rter] ms[1529798400000] dts[2018-06-24T00:00:00]

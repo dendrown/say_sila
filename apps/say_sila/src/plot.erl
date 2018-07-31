@@ -18,12 +18,12 @@
 
 
 -include("sila.hrl").
+-include("ioo.hrl").
 -include_lib("llog/include/llog.hrl").
 
 -define(PLOT_DIR, "/tmp/sila/plot").
 -define(TERM_DIR, ?str_fmt("~s/plot", [code:priv_dir(say_sila)])).
 
--define(fmt(Fmt, Args), io_lib:format(Fmt, Args)).
 
 %%====================================================================
 %% API

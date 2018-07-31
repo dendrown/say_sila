@@ -15,7 +15,7 @@
 %%      referring to Twitter hashtags, and not to hashtables or
 %%      related structures.
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(twitter).
@@ -36,14 +36,23 @@
          get_tweets/2,
          get_tweets/3,
          has_hashtag/2,
+         ontologize/1,
+         ontologize/2,
          to_hashtag/1]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
+-include("ioo.hrl").
 -include("types.hrl").
 -include("twitter.hrl").
 -include_lib("llog/include/llog.hrl").
 
+-define(STATUS_TABLE,   <<"tbl_statuses">>).
+-define(STATUS_TABLES,  #{start   => <<"tbl_statuses_2017_q4">>,
+                          q4_2017 => <<"tbl_statuses_2017_q4">>,
+                          q1_2018 => <<"tbl_statuses_2018_q1">>,
+                          q2_2018 => <<"tbl_statuses_2018_q2">>}).
+-define(status_table(X), maps:get(X, ?STATUS_TABLES, ?STATUS_TABLE)).
 
 
 %%====================================================================
@@ -80,8 +89,7 @@
                 oauth_token  :: rec_string(),
                 oauth_secret :: rec_string(),
                 track        :: rec_string() | binary(),
-                db_conn      :: rec_pid(),
-                status_tbl   :: rec_string() }).
+                db_conn      :: rec_pid() }).
 -type state() :: #state{}.
 
 
@@ -198,9 +206,9 @@ get_first_dts(Tracker) ->
 %           - `calendar' :  Gives the result as a tuple: {{year,mon,day},{hour,min,sec}}
 % @end  --
 get_first_dts(Tracker, Options) ->
-    DTS = gen_server:call(?MODULE, {get_first_dts, Tracker}),
+    DTS = gen_server:call(?MODULE, {get_first_dts, Tracker}, ?TWITTER_DB_TIMEOUT),
     case proplists:get_value(calendar, Options) of
-        true      -> dts:unix_to_datetime(DTS, millisecond);
+        true      -> dts:to_datetime(DTS, millisecond);
         undefined -> DTS
     end.
 
@@ -305,7 +313,9 @@ get_tweets(Tracker, ScreenName, Options) when is_binary(ScreenName) ->
 
 
 get_tweets(Tracker, ScreenNames, Options) ->
-    gen_server:call(?MODULE, {get_tweets, Tracker, listify_string(ScreenNames), Options}, ?TWITTER_DB_TIMEOUT).
+    gen_server:call(?MODULE,
+                    {get_tweets, Tracker, listify_string(ScreenNames), Options},
+                    ?TWITTER_DB_TIMEOUT).
 
 
 
@@ -328,6 +338,62 @@ has_hashtag(Hash, Text) ->
 
 
 %%--------------------------------------------------------------------
+-spec ontologize(Tweet :: tweet()) -> [map()].
+%%
+% @doc  Converts the specified `Tweet' into a map with components
+%       of interest for the say-sila ontology.
+% @end  --
+ontologize(Tweet) ->
+    ontologize(Tweet, map).
+
+
+
+%%--------------------------------------------------------------------
+-spec ontologize(Tweet  :: tweet(),
+                 Format :: map | json) -> [map()]
+                                        | json_binary().
+%%
+% @doc  Converts the specified `Tweet' into a map with components
+%       of interest for the say-sila ontology.
+%
+%       NOTE: The object property definitions are in say.sila.clj
+% @end  --
+ontologize(#tweet{id             = ID,
+                  screen_name    = Tweeter,
+                  type           = Type,
+                  rt_screen_name = Author}, Format) ->
+    %
+    % Add `t' prefix to the tweet ID so it can be a Clojure variable
+    TwID = list_to_binary(?str_fmt("t~s", [ID])),
+
+    % The object property is an action-based role
+    Action = case Type of
+        tweet   -> tweets;
+        retweet -> retweets
+    end,
+
+    % We always have the Tweeter tweeting|retweeting a tweet
+    TweeterTweets = #{domain   => Tweeter,
+                      property => Action,
+                      range    => TwID},
+
+    % Listify that, plus on a retweet,
+    % also capture the Retweet retweeting the Retweeted Author (ha!)
+    OntMaps = case Action of
+        tweets   -> [TweeterTweets];
+        retweets -> [TweeterTweets, #{domain   => TwID,
+                                      property => isRetweetFrom,
+                                      range    => Author}]
+    end,
+
+    % Format the ontology role mapping as requested
+    case Format of
+        map  -> OntMaps;
+        json -> jsx:encode(OntMaps)
+    end.
+
+
+%%--------------------------------------------------------------------
 -spec to_hashtag(Tracker :: atom()) -> string()
                                      | undefined.
 %%
@@ -336,6 +402,7 @@ has_hashtag(Hash, Text) ->
 % @end  --
 to_hashtag(Tracker) ->
     ?hashtag(Tracker).
+
 
 
 
@@ -348,18 +415,14 @@ to_hashtag(Tracker) ->
 % @end  --
 init([DBConfig, ConsKey, ConsSecret, AccessKey, AccessSecret]) ->
     %
-    % IMPORTANT: Note that we pull results from the twitter<gen_server> state variable,
-    %            but for now we always write new tweets to the main statuses table.
-    StatusTbl = proplists:get_value(status_tbl, DBConfig, <<"tbl_statuses">>),
     ?notice("Initializing access to Twitter: push[tbl_statuses] pull[~s]",
-            [StatusTbl]),
+            [?STATUS_TABLE]),
     process_flag(trap_exit, true),
 
     gen_server:cast(self(), {request_token, AccessKey, AccessSecret}),
     gen_server:cast(self(), {db_connect, DBConfig}),
 
-    {ok, #state{consumer   = {ConsKey, ConsSecret, hmac_sha1},
-                status_tbl = StatusTbl}}.
+    {ok, #state{consumer   = {ConsKey, ConsSecret, hmac_sha1}}}.
 
 
 
@@ -423,13 +486,12 @@ handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
     {reply, ok, NewState};
 
 
-handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn    = DBConn,
-                                                            status_tbl = StatusTbl}) ->
+handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn = DBConn}) ->
     Query = io_lib:format("SELECT status->>'timestamp_ms' AS timestamp_ms "
                           "FROM ~s "
                           "WHERE track = '~s' AND hash_~s AND status->>'lang' = '~s'"
                           "ORDER BY status->'timestamp_ms' LIMIT 1",
-                          [StatusTbl, ?DB_TRACK, Tracker, ?DB_LANG]),
+                          [?status_table(start), ?DB_TRACK, Tracker, ?DB_LANG]),
     %?debug("QUERY: ~s", [Query]),
     Reply = case epgsql:squery(DBConn, Query) of
         {ok, _, [{DTS}]} -> binary_to_integer(DTS);
@@ -438,11 +500,11 @@ handle_call({get_first_dts, Tracker}, _From, State = #state{db_conn    = DBConn,
     {reply, Reply, State};
 
 
-handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn    = DBConn,
-                                                                   status_tbl = StatusTbl}) ->
+handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBConn}) ->
     %
     % Prepare additions to the query according to the specified Options
-    AndWhere = get_timestamp_ms_sql("AND", Options),
+    StatusTbl = get_status_table(Options),
+    AndWhere  = get_timestamp_ms_sql("AND", Options),
     Having = case proplists:get_value(min_tweets, Options) of
         undefined -> "";
         MinTweets -> io_lib:format("HAVING COUNT(1) >= ~B ", [MinTweets])
@@ -470,11 +532,11 @@ handle_call({get_tweets, Tracker, Players = [#player{} | _], Options}, From, Sta
     handle_call({get_tweets, Tracker, ScreenNames, Options}, From, State);
 
 
-handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{db_conn    = DBConn,
-                                                                               status_tbl = StatusTbl}) ->
+handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{db_conn = DBConn}) ->
     %
     % Note: This pulls only classic 140|280-char tweets and does not consider the extended_text field.
     %       Also, we're going to want to move the list_to_sql line to a DB module
+    StatusTbl     = get_status_table(Options),
     TimestampCond = get_timestamp_ms_sql("AND", Options),
     %
     % Have they asked to exclude retweets?
@@ -878,6 +940,39 @@ is_prefix_in_parts(Lookup, [Part|Rest]) ->
 
 
 %%--------------------------------------------------------------------
+-spec get_status_table(Options :: atom()
+                                | list()) -> binary().
+%%
+% @doc  Returns the table holding the tweet data between the `start'
+%       and `stop' elements from `Options'.  Currently, we require that
+%       the time period be covered by a single status table.
+% @end  --
+get_status_table(Key) when is_atom(Key) ->
+   ?status_table(Key);
+
+
+get_status_table(Options) ->
+    %
+    % Get start/stop date-times
+    Tabler = fun(Key) ->
+                 case proplists:lookup(Key, Options) of
+                     none         -> undefined;
+                     {start, DTS} -> ?status_table(dts:quarter(DTS));
+                     {stop,  DTS} -> ?status_table(dts:quarter(dts:sub(DTS, 1, second)))
+                 end end,
+    Tables = lists:map(Tabler, [start, stop]),
+
+    % Make sure we didn't get two different tables
+    % TODO: We'll probably want to handle this eventually
+    case lists:filter(fun(P) -> P =/= undefined end, Tables) of
+        []          -> ?STATUS_TABLE;
+        [Tbl]       -> Tbl;
+        [Tbl, Tbl]  -> Tbl
+    end.
+
+
+
+%%--------------------------------------------------------------------
 -spec get_timestamp_ms_sql(Prefix   :: string()
                                      | binary(),
                            Options  :: list()) -> string().
@@ -893,7 +988,7 @@ get_timestamp_ms_sql(Prefix, Options) ->
     GetPeriod = fun({undefined, _})    -> undefined;
                    ({DateTime, CmpOp}) -> io_lib:format("(status->>'timestamp_ms' ~s '~B')",
                                                         [CmpOp,
-                                                         dts:datetime_to_unix(DateTime, millisecond)])
+                                                         dts:to_unix(DateTime, millisecond)])
                                           end,
     Period = lists:map(GetPeriod, [{proplists:get_value(start, Options), <<">=">>},     % Inclusive
                                    {proplists:get_value(stop,  Options), <<"<">>}]),    % Exclusive

@@ -10,7 +10,8 @@
   {modules, [adhoc, %% DEBUG
              dts,
              emo,
-             llog,
+             influence,
+             ioo,
              player,
              plot,
              r,

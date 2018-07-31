@@ -24,6 +24,7 @@
          get_big_percent/1,
          get_big_players/2,
          get_big_players/3,
+         get_jvm_node/1,
          report/2,
          reset/1,
          run_tweet_csv/1]).     %% DEBUG!
@@ -55,17 +56,12 @@
 
 
 % FIXME: Merge tweet_slot functionality into tweet_lot
-%        This is the current Mnesia-based design (in process)
--record(tweet_lot, {dts      :: datetime(),
-                    tweets   :: tweets() }).
-%type tweet_lot() :: #tweet_lot{}.
-
 -record(state, {tracker           :: atom(),
                 big_percent       :: float(),
                 emo_report        :: rec_map(),
                 tweet_slots = #{} :: map(),     % TODO: deprecated...remove soon
                 tweet_todo  = #{} :: map(),     % Tweets waiting on weka processing
-                weka_node         :: atom() }).
+                jvm_node          :: atom() }).
 -type state() :: #state{}.
 
 
@@ -81,11 +77,12 @@
 % @end  --
 start_link(Tracker) ->
     {ok, App} = application:get_application(),
-    WekaNode  = application:get_env(App, weka_node,   undefined),
-    BigP100   = application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
+    Args      = [Tracker,
+                 application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
+                 application:get_env(App, jvm_node,    undefined)],
 
     init_mnesia(Tracker, App),
-    gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Tracker, BigP100, WekaNode], []).
+    gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, Args, []).
 
 
 
@@ -248,6 +245,17 @@ get_big_players(Players, BigP100, _) ->
 
 
 %%--------------------------------------------------------------------
+-spec get_jvm_node(Tracker :: atom()) -> atom().
+%%
+% @doc  Returns the official JVM node as specified in the application
+%       configuration.
+%%--------------------------------------------------------------------
+get_jvm_node(Tracker) ->
+    gen_server:call(?reg(Tracker), get_jvm_node).
+
+
+
+%%--------------------------------------------------------------------
 -spec report(Tracker :: atom(),
              Period  :: atom()) -> {ok, integer()}.
 %%
@@ -303,10 +311,10 @@ run_tweet_csv(FName) ->
 %%
 % @doc  Handles placing the first twig in Raven's data nest.
 % @end  --
-init([Tracker, BigP100, WekaNode]) ->
-    ?notice("The raven is taking flight: track[~s] big[~6.3f%] weka[~s]", [Tracker,
-                                                                           BigP100 * 100,
-                                                                           WekaNode]),
+init([Tracker, BigP100, JVM]) ->
+    ?notice("The raven is taking flight: trk[~s] big[~6.3f%] jvm[~s]", [Tracker,
+                                                                        BigP100 * 100,
+                                                                        JVM]),
     process_flag(trap_exit, true),
 
     % The big-player percentage range is: 0.0 (inclusive) to 1.0 (inclusive).
@@ -315,7 +323,7 @@ init([Tracker, BigP100, WekaNode]) ->
         BigP100 =< 1.0 ->
             {ok, #state{tracker     = Tracker,
                         big_percent = BigP100,
-                        weka_node   = WekaNode}};
+                        jvm_node    = JVM}};
         true ->
             ?error("Big player percentage must be between 0 and 1"),
             {stop, badarg}
@@ -351,7 +359,7 @@ code_change(OldVsn, State, _Extra) ->
 % @end  --
 handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
                                                         tweet_todo = Todo,
-                                                        weka_node  = WekaNode}) ->
+                                                        jvm_node   = JVM}) ->
     LotDay = proplists:get_value(start, Options),
     DayTxt = dts:date_str(LotDay),
     ?debug("Pulling tweet lot from DB: day[~s]", [DayTxt]),
@@ -375,7 +383,7 @@ handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
     NewTodo = maps:put(Lookup,
                        #tweet_lot{dts = LotDay, tweets = Tweets},
                        Todo),
-    {weka, WekaNode} ! {self(), Lookup, WekaCmd, FPath},
+    {say, JVM} ! {self(), Lookup, WekaCmd, FPath},
 
     {reply, ok, State#state{tweet_todo = NewTodo}};
 
@@ -384,10 +392,14 @@ handle_call(get_big_percent, _From, State) ->
     {reply, State#state.big_percent, State};
 
 
+handle_call(get_jvm_node, _From, State) ->
+    {reply, State#state.jvm_node, State};
+
+
 handle_call(reset, _From, State) ->
     {reply, ok, #state{tracker     = State#state.tracker,
                        big_percent = State#state.big_percent,
-                       weka_node   = State#state.weka_node}};
+                       jvm_node    = State#state.jvm_node}};
 
 
 handle_call({report, Period}, _From, State = #state{
@@ -432,41 +444,6 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-% FIXME: deprecated/reference version of emote
-%        DELETE VERY SOON...
-handle_cast({emote, Tracker, Options}, State = #state{big_percent = BigP100,
-                                                      tweet_todo  = TodoMap,
-                                                      weka_node   = WekaNode}) ->
-    ?notice("Preparing big-vs-regular player tweets"),
-    {BigPlayers,
-     RegPlayers} = get_big_players(Tracker, BigP100, Options),
-    ?info("Player counts: big[~B] reg[~B]", [length(BigPlayers), length(RegPlayers)]),
-
-    % Usually, we want to call weka (via clojure) with `emote', but allow for an override
-    WekaCmd = proplists:get_value(context, Options, emote),
-    PlayPct = round(100 * BigP100),
-    NewTodo = lists:map(fun({Size, Players}) ->
-                            % Pull the actual tweets for these players from the DB
-                            ?debug("Pulling ~s-player tweets", [Size]),
-                            Tweets = twitter:get_tweets(Tracker, Players, Options),
-
-                            ?debug("Packaging tweets for Weka"),
-                            FStub  = io_lib:format("tweets.~s.~B.~s", [Tracker, PlayPct, Size]),
-                            {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
-
-                            % Send to Weka to apply embedding/emotion filters
-                            Lookup = make_ref(),
-                            {weka, WekaNode} ! {self(), Lookup, WekaCmd, FPath},
-                            {Lookup, #tweet_slot{category = Size,
-                                                 players  = Players,
-                                                 tweets   = Tweets}}
-                            end,
-                        [{big, BigPlayers}, {reg, RegPlayers}]),
-    NewTodoMap = maps:from_list(NewTodo),
-    {noreply, State#state{tracker    = Tracker,
-                          tweet_todo = maps:merge(TodoMap, NewTodoMap)}};
-
-
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.
@@ -824,7 +801,7 @@ report_aux([Tweet = #tweet{timestamp_ms = Millis1970} | RestTweets],
             Period,
             Reports) ->
     % Tweet emotion calculations go into buckets representing the period
-    DTS = dts:unix_to_datetime(Millis1970, millisecond),
+    DTS = dts:to_datetime(Millis1970, millisecond),
     Key = case Period of
         day  -> dts:dayize(DTS);
         hour -> dts:hourize(DTS)

@@ -322,8 +322,8 @@ fill_emotion_files(Period, CurrDTS, EndDTS, BigMap, RegMap, EmoOuts) ->
     RegEmos = emo:average(maps:get(CurrDTS, RegMap, emo:stoic())),
     lists:foreach(fun({Emo, Out}) ->
                       io:format(Out#emo_file.io, "~.6f,~.6f~n",
-                               [maps:get(Emo, BigEmos#emotions.levels),
-                                maps:get(Emo, RegEmos#emotions.levels)])
+                               [maps:get(Emo, BigEmos#emos.levels),
+                                maps:get(Emo, RegEmos#emos.levels)])
                       end,
                   maps:to_list(EmoOuts)),
     fill_emotion_files(Period, dts:add(CurrDTS, 1, Period), EndDTS, BigMap, RegMap, EmoOuts).
