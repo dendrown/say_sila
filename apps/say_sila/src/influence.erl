@@ -43,6 +43,8 @@
 %define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
 %define(DELTA_CUTS,     [0.1]).
 -define(DELTA_CUTS,     []).
+-define(INIT_BIG_PCT,   0.01).
+-define(INIT_TOP_N,     10).
 
 
 %%--------------------------------------------------------------------
@@ -79,7 +81,7 @@
 % @doc  Startup function for a daily Twitter influence model
 % @end  --
 start_link(Tracker, RunTag, RegComm, RegEmo) ->
-    start_link(Tracker, RunTag, RegComm, RegEmo, 1).
+    start_link(Tracker, RunTag, RegComm, RegEmo, []).
 
 
 
@@ -88,13 +90,13 @@ start_link(Tracker, RunTag, RegComm, RegEmo) ->
                  RunTag  :: stringy(),
                  RegComm :: comm_code(),
                  RegEmo  :: atom(),
-                 Period  :: non_neg_integer()) -> gen_statem:start_ret().
+                 Options :: proplist()) -> gen_statem:start_ret().
 %%
 % @doc  Startup function for Twitter influence model
 % @end  --
-start_link(Tracker, RunTag, RegComm, RegEmo, Period) ->
+start_link(Tracker, RunTag, RegComm, RegEmo, Options) ->
     gen_statem:start_link(?MODULE,
-                          [Tracker, RunTag, RegComm, RegEmo, Period],
+                          [Tracker, RunTag, RegComm, RegEmo, Options],
                           []).
 
 
@@ -176,13 +178,17 @@ report_line(Model, FOut, Line) ->
 %%
 % @doc  Initialization for the back-off timer.
 % @end  --
-init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
+init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
 
     process_flag(trap_exit, true),
     Players = player:get_players(Tracker),
-    Biggies = player:get_biggies(Tracker, 0.01),
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
     Attrs   = init_attributes(),
+    Period  = proplists:get_value(period, Options, 1),
+    Biggies = case proplists:get_value(method, Options, {biggies, ?INIT_BIG_PCT}) of
+                  {biggies, Pct} -> player:get_biggies(Tracker, Pct);
+                  {top_n,   N}   -> player:get_top_n(Tracker, N)
+              end,
 
     BigInfo = fun({Comm, {P100, Cnt, Accts}}) ->
                   ?str_FMT("{~s:~B%,tw=~B,cnt=~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
