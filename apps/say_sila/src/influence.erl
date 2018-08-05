@@ -20,7 +20,7 @@
          reset/1,
          go/1,
          get_models/1,
-         report_open/1,
+         report_open/2,
          report_line/3]).
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
 -export([idle/3,
@@ -45,6 +45,7 @@
 -define(DELTA_CUTS,     []).
 -define(INIT_BIG_PCT,   0.01).
 -define(INIT_TOP_N,     10).
+-define(INIT_METHOD,    {biggies, ?INIT_BIG_PCT}).
 
 
 %%--------------------------------------------------------------------
@@ -142,16 +143,17 @@ get_models(Model) ->
 
 
 %%--------------------------------------------------------------------
--spec report_open(Name :: stringy()) -> {ok, file:io_device(), string()}
-                                      | {error, file:posix() | badarg | system_limit}.
+-spec report_open(Name :: stringy(),
+                  Opts :: proplist()) -> {ok, file:io_device(), string()}
+                                       | {error, file:posix() | badarg | system_limit}.
 %%
 % @doc  Opens a report file and writes a CSV header with the
 %       column names for a report on influence as modelled by
 %       this FSM.
 % @end  --
-report_open(Name) ->
+report_open(Name, Opts) ->
     Attrs = init_attributes(),
-    report_open(Name, Attrs).
+    report_open(Name, Attrs, Opts).
 
 
 
@@ -185,7 +187,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
     Attrs   = init_attributes(),
     Period  = proplists:get_value(period, Options, 1),
-    Biggies = case proplists:get_value(method, Options, {biggies, ?INIT_BIG_PCT}) of
+    Biggies = case proplists:get_value(method, Options, ?INIT_METHOD) of
                   {biggies, Pct} -> player:get_biggies(Tracker, Pct);
                   {top_n,   N}   -> player:get_top_n(Tracker, N)
               end,
@@ -530,19 +532,26 @@ eval_params(#data{name      = Name,
 
 %%--------------------------------------------------------------------
 -spec report_open(Name  :: stringy(),
-                  Attrs :: [atom()]) -> {ok, file:io_device(), string()}.
+                  Attrs :: [atom()],
+                  Opts  :: proplist()) -> {ok, file:io_device(), string()}.
 %%
 % @doc  Opens a report file and writes a CSV header with the
 %       column names for a report on influence as modelled by
 %       this FSM.
 % @end  --
-report_open(Name, Attrs) ->
+report_open(Name, Attrs, Opts) ->
+
+    % Select heading text based on the report
+    LineTag = case proplists:get_value(method, Opts, ?INIT_METHOD) of
+                  {biggies, _} -> <<"run">>;
+                  {top_n,   _} -> <<"N">>
+              end,
 
     FPath = ioo:make_fpath(?REPORT_DIR, Name, <<"csv">>),
     {ok, FOut} = file:open(FPath, [write]),
 
     % Create a CSV header with all possible model attributes
-    ?io_put(FOut, "run,tracker,reg_comm,reg_emo,Correlation,samples"),
+    ?io_fmt(FOut, "~s,tracker,reg_comm,reg_emo,Correlation,samples", [LineTag]),
     lists:foreach(fun(A) -> ?io_fmt(FOut, ",~s", [A]) end, Attrs),
     ?io_put(FOut, ",intercept\n"),
 

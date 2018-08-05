@@ -16,7 +16,7 @@
 
 -export([one/0, two/0, full/0, q1/0, q2/0, q4/0, q4q1/0, today/0,
          influence/0, influence/2, influence/3,
-         influence_n/3]).
+         influence_n/3, influence_n/4]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -24,6 +24,7 @@
 -include("player.hrl").
 -include("types.hrl").
 -include("twitter.hrl").
+-include_lib("llog/include/llog.hrl").
 
 -define(twitter(Acct),  io_lib:format("[~s](https://twitter.com/~s)", [Acct, Acct])).
 
@@ -48,7 +49,6 @@ q4q1() -> [{start, {2017, 10,  1}}, {stop, {2018, 4, 1}}].
 today() ->
     Today = dts:dayize(calendar:local_time()),
     [{start, Today}, {stop, dts:add(Today, 1, day)}].
-%%--------------------------------------------------------------------
 
 
 
@@ -85,30 +85,7 @@ influence(Tracker, RunTag) ->
 % @doc  Do the Twitter/Emo influence experiments
 % @end  --
 influence(Tracker, RunTag, Options) ->
-    % Start up a modelling FSM for all regular emo/comm combos
-    % (The usual hierarchy is comm/emo, but we're switching around
-    % for an easier-to-analyze report.)
-    Report  = ?str_fmt("~s_~s", [Tracker, RunTag]),
-    Runner  = fun(RegEmo, RegComm) ->
-                  {ok,
-                   Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, Options),
-                  influence:go(Pid),
-                  Pid end,
-    Models  = [Runner(Emo, Comm) || Emo <- ?EMOTIONS, Comm <- [tter, oter, rter]],
-
-    % Create an overview report
-    {ok, FOut, FPath} = influence:report_open(Report),
-    Reporter = fun(Model, Line) ->
-                   % Note the FSM may block until it finishes modelling
-                   influence:report_line(Model, FOut, Line),
-                   Line+1 end,
-
-    lists:foldl(Reporter, 0, Models),
-
-    % Close the report, and shutdown the modelling FSMs
-    FStatus = file:close(FOut),
-    lists:foreach(fun(M) -> influence:stop(M) end, Models),
-    {FStatus, FPath}.
+    run_influence(Tracker, RunTag, ?EMOTIONS, [tter, oter, rter], Options).
 
 
 
@@ -122,5 +99,91 @@ influence(Tracker, RunTag, Options) ->
 %       category.  This function uses weekly periods.
 % @end  --
 influence_n(Tracker, RunTag, N) ->
-    influence(Tracker, RunTag, [{method, {top_n, N}},
-                                {period, 7}]).
+    Options = [{method, {top_n, N}},
+               {period, 7}],
+    influence(Tracker, RunTag, Options).
+
+
+
+%%--------------------------------------------------------------------
+-spec influence_n(Tracker :: tracker(),
+                  RunTag  :: stringy(),
+                  Emo     :: emotion(),
+                  Comm    :: comm_code()) -> term().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.
+%
+%       This function uses weekly periods.
+% @end  --
+influence_n(Tracker, RunTag, Emo, Comm) ->
+    FromN   = 5,
+    UpToN   = 20,
+    Options = [{method, {top_n, FromN, UpToN}},
+               {period, 7}],
+    run_influence(Tracker, RunTag, [Emo], [Comm], Options).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_influence(Tracker   :: tracker(),
+                    RunTag    :: stringy(),
+                    Emotions  :: emotions(),
+                    CommCodes :: comm_codes(),
+                    Options   :: proplist()) -> term().
+%%
+% @doc  Run the Twitter/Emo influence experiments per the specified
+%       parameters.  This function is the generalized work-horse for
+%       the more user-friendly wrapper functions.
+% @end  --
+run_influence(Tracker, RunTag, Emotions, CommCodes, Options) ->
+
+    % Each influence modeller handles an emo/comm pair for the regular players
+    Pairs   = [{Emo, Comm} || Emo <- Emotions, Comm <- CommCodes],
+    PairCnt = length(Pairs),
+
+    % In spite of the variable name, the `method' is not optional here:
+    {Method,
+     Inputs} = case proplists:get_value(method, Options) of
+
+                   % The Top-N range report assumes a single emo/comm pair
+                   {top_n, Lo, Hi} ->
+                       {next_n, lists:zip(lists:seq(Lo, Hi),
+                                          lists:duplicate(Hi-Lo+1, hd(Pairs)))};
+
+                   % Otherwise, we have a biggie or single-Top-N report
+                   _ ->
+                       {normal, lists:zip(lists:seq(1, PairCnt), Pairs)}
+               end,
+    ?debug("Influence by ~s: ~p", [Method, Pairs]),
+
+    Runner  = fun({N, {RegEmo, RegComm}}) ->
+                  % Top-N range options need to be prefixed with the current Top-N
+                  RunOpts = case Method of
+                                normal -> Options;
+                                next_n -> [{top_n, N} | Options]
+                            end,
+                  {ok, Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts),
+                  influence:go(Pid),
+                  {N, Pid} end,
+
+    Models  = lists:map(Runner, Inputs),
+
+    % Create an overview report:
+    % The index number is either a general model counter OR the N in a Top-N range report
+    Report = ?str_fmt("~s_~s", [Tracker, RunTag]),
+    {ok, FOut,
+         FPath} = influence:report_open(Report, Options),
+    Reporter = fun({Ndx, Model}) ->
+                   % Note the FSM may block until it finishes modelling
+                   influence:report_line(Model, FOut, Ndx),
+                   Ndx+1 end,
+
+    lists:foreach(Reporter, Models),
+
+    % Close the report, and shutdown the modelling FSMs
+    FStatus = file:close(FOut),
+    lists:foreach(fun(M) -> influence:stop(M) end, Models),
+    {FStatus, FPath}.
+
