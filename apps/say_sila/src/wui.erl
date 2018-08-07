@@ -31,6 +31,7 @@
 
 -include("sila.hrl").
 -include("raven.hrl").
+-include("types.hrl").
 -include("wui.hrl").
 -include_lib("llog/include/llog.hrl").
 
@@ -263,8 +264,7 @@ get_track(Arg) ->
 
 %%--------------------------------------------------------------------
 -spec get_track(Arg  :: arg(),
-                Type :: atom | binary | atom | string) -> atom()
-                                                        | string().
+                Type :: atom | binary | atom | string) -> stringable().
 %%
 % @doc  Returns the tracking code requested in the URL `querydata'
 %       in the form of the specified data type.
