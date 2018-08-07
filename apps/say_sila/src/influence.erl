@@ -187,6 +187,8 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
     Attrs   = init_attributes(),
     Period  = proplists:get_value(period, Options, 1),
+
+    %?debug("Influence for ~s: ~p", [Name, Options]),
     Biggies = case proplists:get_value(method, Options, ?INIT_METHOD) of
                   {biggies, Pct} -> player:get_biggies(Tracker, Pct);
                   {top_n,   N}   -> player:get_top_n(Tracker, N)
@@ -543,8 +545,8 @@ report_open(Name, Attrs, Opts) ->
 
     % Select heading text based on the report
     LineTag = case proplists:get_value(method, Opts, ?INIT_METHOD) of
-                  {biggies, _} -> <<"run">>;
-                  {top_n,   _} -> <<"N">>
+                  {top_n,_,_} -> <<"N">>;
+                  _           -> <<"run">>
               end,
 
     FPath = ioo:make_fpath(?REPORT_DIR, Name, <<"csv">>),

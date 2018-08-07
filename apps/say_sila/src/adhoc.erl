@@ -162,7 +162,7 @@ run_influence(Tracker, RunTag, Emotions, CommCodes, Options) ->
                   % Top-N range options need to be prefixed with the current Top-N
                   RunOpts = case Method of
                                 normal -> Options;
-                                next_n -> [{top_n, N} | Options]
+                                next_n -> [{method, {top_n, N}} | Options]
                             end,
                   {ok, Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts),
                   influence:go(Pid),
@@ -184,6 +184,6 @@ run_influence(Tracker, RunTag, Emotions, CommCodes, Options) ->
 
     % Close the report, and shutdown the modelling FSMs
     FStatus = file:close(FOut),
-    lists:foreach(fun(M) -> influence:stop(M) end, Models),
+    lists:foreach(fun({_,M}) -> influence:stop(M) end, Models),
     {FStatus, FPath}.
 
