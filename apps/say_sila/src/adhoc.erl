@@ -92,13 +92,23 @@ influence(Tracker, RunTag, Options) ->
 %%--------------------------------------------------------------------
 -spec influence_n(Tracker :: tracker(),
                   RunTag  :: stringy(),
-                  N       :: non_neg_integer()) -> term().
+                  Emo_N   :: emotion()
+                           | non_neg_integer()) -> term().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts in each
 %       category.  This function uses weekly periods.
 % @end  --
-influence_n(Tracker, RunTag, N) ->
+influence_n(Tracker, RunTag, Emo) when is_atom(Emo) ->
+    Comms  = [tter, oter, rter],
+    Runner = fun(Comm) ->
+                 Tag = ?str_fmt("~s_~s_~s", [RunTag, Comm, Emo]),
+                 influence_n(Tracker, Tag, Emo, Comm)
+                 end,
+    lists:map(Runner, Comms);
+
+
+influence_n(Tracker, RunTag, N) when is_integer(N) ->
     Options = [{method, {top_n, N}},
                {period, 7}],
     influence(Tracker, RunTag, Options).
@@ -119,7 +129,7 @@ influence_n(Tracker, RunTag, N) ->
 % @end  --
 influence_n(Tracker, RunTag, Emo, Comm) ->
     FromN   = 5,
-    UpToN   = 20,
+    UpToN   = 25,
     Options = [{method, {top_n, FromN, UpToN}},
                {period, 7}],
     run_influence(Tracker, RunTag, [Emo], [Comm], Options).
