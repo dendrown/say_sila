@@ -128,6 +128,7 @@
   `(let [{cmd# :cmd
           arg# :arg} ~msg]
 
+    (log/notice '~parms)
     (log/info "->> weka<" cmd# ">:" (str arg#))
     (future
       (let [wfun# (ns-resolve 'say.weka (symbol '~fun))
@@ -148,8 +149,9 @@
   "
   :cmd)
 
-(defmethod dispatch "emote"   [msg] (do-weka msg filter-arff :bws))
-(defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff '(:embed :bws)))
+;defmethod dispatch "emote"   [msg] (do-weka msg filter-arff '(:bws :poles)))
+(defmethod dispatch "emote"   [msg] (do-weka msg filter-arff [:bws :poles]))
+(defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff [:embed :bws]))
 (defmethod dispatch "regress" [msg] (do-weka msg regress))
 
 (defmethod dispatch "sila" [msg]

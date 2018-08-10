@@ -68,6 +68,11 @@
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}      ; Normalize URLs/@users
+                        :poles  {:filter  '(weka.filters.unsupervised.attribute.TweetToLexiconFeatureVector.)
+                                 :options ["-I" +ARFF-TEXT-ATTR+
+                                           "-L"        ; NRC-10 Emotion [EmoLex]
+                                           "-U"        ; Lowercase (not upper)
+                                           "-O"]}      ; Normalize URLs/@users
                         :lex    {:filter  '(weka.filters.unsupervised.attribute.TweetToLexiconFeatureVector.)
                                  :options ["-I" +ARFF-TEXT-ATTR+
                                            "-A"        ; MPQA Lexicon
@@ -211,7 +216,8 @@
   Returns a vector of the output filenames.
   "
   [fpath flt-keys]
-  (let [filters    (!!/listify flt-keys)
+  (log/notice "FILTER:" flt-keys)
+  (let [filters    (if (seqable? flt-keys) flt-keys [flt-keys])
         data-in    (load-arff fpath)
         data-mid   (reduce #(filter-instances %1 %2) data-in filters)   ; Apply filter(s)
         data-out   (filter-instances data-mid :attrs)                   ; Remove text attr
