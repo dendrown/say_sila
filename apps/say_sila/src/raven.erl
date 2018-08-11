@@ -10,7 +10,7 @@
 %%      high level look at the emotions surrounding Climate Change
 %%      using Twitter.
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(raven).
@@ -286,7 +286,10 @@ reset(Tracker) ->
 %%--------------------------------------------------------------------
 run_tweet_csv(FName) ->
     Separator = "-----------------------------------------------------~n",
-    LineFn = fun({newline, [ID, ScreenName, Anger, Fear, Sadness, Joy]}, Cnt) ->
+    LineFn = fun({newline, [ID, ScreenName,
+                            Anger, Fear, Sadness, Joy,
+                            _, _, _, _, _, _, _, _,
+                            Neg, Pos]}, Cnt) ->
                  io:format(Separator),
                  io:format("   tweet id : ~p~n", [ID]),
                  io:format("screen name : ~p~n", [ScreenName]),
@@ -294,6 +297,8 @@ run_tweet_csv(FName) ->
                  io:format("       fear : ~p~n", [Fear]),
                  io:format("    sadness : ~p~n", [Sadness]),
                  io:format("        joy : ~p~n", [Joy]),
+                 io:format("        neg : ~p~n", [Neg]),
+                 io:format("        pos : ~p~n", [Pos]),
                  Cnt + 1;
                 ({eof}, Cnt) -> Cnt end,
     {ok, In} = file:open(FName, [read]),
@@ -701,14 +706,33 @@ emote_tweets(Tracker, Tweets, FPathCSV) ->
 emote_tweets_csv({newline,
                   ["id",
                    "screen_name",
+                   %------------------------------------
+                   % Use NRC-BWS Affect emotions
+                   %------------------------------------
                    "NRC-Affect-Intensity-anger_Score",
                    "NRC-Affect-Intensity-fear_Score",
                    "NRC-Affect-Intensity-sadness_Score",
-                   "NRC-Affect-Intensity-joy_Score"]},
-                 Acc = {_, 0, _, _}) ->
+                   "NRC-Affect-Intensity-joy_Score",
+                   %------------------------------------
+                   % NRC-10 emotions (currently ignored)
+                   %------------------------------------
+                   "NRC-10-anger",
+                   "NRC-10-anticipation",
+                   "NRC-10-disgust",
+                   "NRC-10-fear",
+                   "NRC-10-joy",
+                   "NRC-10-sadness",
+                   "NRC-10-surprise",
+                   "NRC-10-trust",
+                   %------------------------------------
+                   % Use NRC-10 polarity
+                   %------------------------------------
+                   "NRC-10-negative",
+                   "NRC-10-positive"]},
+                   Acc = {_, 0, _, _}) ->
     %
     % This clause checks that the first line is correct
-    ?debug("CSV file is correct for emote"),
+    ?debug("CSV file is correct for emote [BWS/poles]"),
     Acc;
 
 
@@ -720,10 +744,14 @@ emote_tweets_csv({eof}, {Tracker, Cnt, Unprocessed, EmoTweets}) ->
     {Cnt, EmoTweets};
 
 
-emote_tweets_csv({newline, [ID, _ScreenName, Anger, Fear, Sadness, Joy]},
+emote_tweets_csv({newline, [ID, ScreenName,
+                            Anger, Fear, Sadness, Joy,
+                            _, _, _, _, _, _, _, _,
+                            Neg, Pos]},
                  {Tracker, Cnt, [Tweet | RestTweets], EmoTweets}) ->
     %
-    %?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),
+    ?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s N:~-4s P:~-4s~n",
+          [ScreenName, Anger, Fear, Sadness, Joy, Neg, Pos]),
     %
     % Do a sanity check on the IDs
     case (Tweet#tweet.id =:= list_to_binary(ID)) of
