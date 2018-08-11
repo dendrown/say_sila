@@ -19,8 +19,8 @@
          average/2,
          clip_stoic/1,
          do_top_hits/2,
-         emote/4,
-         emote/5,
+         emote/6,
+         emote/7,
          is_stoic/1,
          relevel/1,
          stoic/0,
@@ -137,15 +137,17 @@ do_top_hits(Tweet = #tweet{emotions = TweetEmos}, TopHits) ->
 -spec emote(Anger   :: float(),
             Fear    :: float(),
             Sadness :: float(),
-            Joy     :: float()) -> emos().
+            Joy     :: float(),
+            Neg     :: float(),
+            Pos     :: float()) -> emos().
 %
 % @doc  Returns an `emotion' record representing a single communication
 %       at the specifed levels of emotion.
 %
-%       Equivalent to emote(1, Anger, Fear, Sadness, Joy).
+%       Equivalent to emote(1, Anger, Fear, Sadness, Joy, Neg, Pos).
 % @end  --
-emote(Anger, Fear, Sadness, Joy) ->
-    emote(1, Anger, Fear, Sadness, Joy).
+emote(Anger, Fear, Sadness, Joy, Neg, Pos) ->
+    emote(1, Anger, Fear, Sadness, Joy, Neg, Pos).
 
 
 
@@ -154,17 +156,21 @@ emote(Anger, Fear, Sadness, Joy) ->
             Anger   :: float(),
             Fear    :: float(),
             Sadness :: float(),
-            Joy     :: float()) -> emos().
+            Joy     :: float(),
+            Neg     :: float(),
+            Pos     :: float()) -> emos().
 %
 % @doc  Returns an `emotion' record representing `Count' communications
 %       of the specifed levels of emotion.
 % @end  --
-emote(Count, Anger, Fear, Sadness, Joy) ->
+emote(Count, Anger, Fear, Sadness, Joy, Neg, Pos) ->
     #emos{count   = Count,
           levels  = #{anger   => Anger,
                       fear    => Fear,
                       sadness => Sadness,
-                      joy     => Joy}}.
+                      joy     => Joy,
+                      neg     => Neg,
+                      pos     => Pos}}.
 
 
 
@@ -230,7 +236,7 @@ stoic() ->
 %       specified communication count.
 % @end  --
 stoic(Count) ->
-    emote(Count, 0.0, 0.0, 0.0, 0.0).
+    emote(Count, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0).
 
 
 

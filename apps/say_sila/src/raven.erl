@@ -744,15 +744,15 @@ emote_tweets_csv({eof}, {Tracker, Cnt, Unprocessed, EmoTweets}) ->
     {Cnt, EmoTweets};
 
 
-emote_tweets_csv({newline, [ID, ScreenName,
+emote_tweets_csv({newline, [ID, _ScreenName,
                             Anger, Fear, Sadness, Joy,
                             _, _, _, _, _, _, _, _,
                             Neg, Pos]},
                  {Tracker, Cnt, [Tweet | RestTweets], EmoTweets}) ->
-    %
-    ?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s N:~-4s P:~-4s~n",
-          [ScreenName, Anger, Fear, Sadness, Joy, Neg, Pos]),
-    %
+
+    %?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s N:~-4s P:~-4s~n",
+    %      [_ScreenName, Anger, Fear, Sadness, Joy, Neg, Pos]),
+
     % Do a sanity check on the IDs
     case (Tweet#tweet.id =:= list_to_binary(ID)) of
 
@@ -764,7 +764,9 @@ emote_tweets_csv({newline, [ID, ScreenName,
             EmoTweet = Tweet#tweet{emotions = emo:emote(string_to_float(Anger),
                                                         string_to_float(Fear),
                                                         string_to_float(Sadness),
-                                                        string_to_float(Joy))},
+                                                        string_to_float(Joy),
+                                                        string_to_float(Neg),
+                                                        string_to_float(Pos))},
            %EmoTweet = emo:clip_stoic(Tweet#tweet{emotions = Emotions}),
 
             % Keep track of who's tweeting what!
