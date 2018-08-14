@@ -6,7 +6,7 @@
   :main say.core
   :plugins [[lein-localrepo "0.5.4"]]
   :dependencies [[org.clojure/clojure                   "1.9.0" ]
-                 [org.erlang.otp/jinterface             "1.8.1" ]
+                 [org.erlang.otp/jinterface             "1.9.0" ]
                  [org.clojure/data.json                 "0.2.6" ]
                  [clj-time                              "0.14.2"]
                  ; Weka + libs
