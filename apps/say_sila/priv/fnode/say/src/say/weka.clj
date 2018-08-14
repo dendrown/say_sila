@@ -18,16 +18,18 @@
   (:import  [java.util  Random]
             [weka.core  Instance
                         Instances]
-            [weka.filters Filter]
             [weka.classifiers Evaluation]
             [weka.classifiers.functions LinearRegression]
             [weka.core.converters AbstractSaver
                                   ArffLoader
                                   ArffSaver
                                   CSVSaver]
+            [weka.core.stemmers LovinsStemmer]
+            [weka.filters Filter]
             [weka.filters.unsupervised.attribute RemoveByName
                                                  Reorder
                                                  TweetToEmbeddingsFeatureVector
+                                                 TweetToFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
                                                  TweetToSentiStrengthFeatureVector]))
@@ -304,16 +306,25 @@
 ;;; ┗━╸╹ ╹┗━┛ ╹ ┗━╸   ╹ ╹╹┗╸╹  ╹
 ;;; --------------------------------------------------------------------------
 (defn emote-arff
-	"
-	Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
-	as needed for «Say Sila», and then outputs the results in ARFF and CSV formats.
+  "
+  Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
+  as needed for «Say Sila», and then outputs the results in ARFF and CSV formats.
 
   NOTE: This will be the main point of definition of what (Erlang) Sila wants,
         until such time as it starts sending us its specific configurations.
-	"
+  "
   [fpath]
-  ;(log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
-  (filter-arff fpath +EMOTE-FILTER+))
+  (let [stemmer   (LovinsStemmer.)
+        emoter    (doto (TweetToInputLexiconFeatureVector.)
+                        (.setStemmer stemmer))
+        data-in   (load-arff fpath)
+        data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
+        data-out  (filter-instances data-mid :attrs)
+        tag-fpath (tag-filename fpath "emote")]
+
+    (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
+    {:arff (save-file (:arff tag-fpath) data-out :arff)
+     :csv  (save-file (:csv  tag-fpath) data-out :csv)}))
 
 
 

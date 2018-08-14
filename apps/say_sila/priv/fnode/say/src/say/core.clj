@@ -148,7 +148,7 @@
   "
   :cmd)
 
-(defmethod dispatch "emote"   [msg] (do-weka msg filter-arff :bws))
+(defmethod dispatch "emote"   [msg] (do-weka msg emote-arff))
 (defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff '(:embed :bws)))
 (defmethod dispatch "regress" [msg] (do-weka msg regress))
 
