@@ -124,6 +124,7 @@
     fpath))
 
 
+
 ;;; --------------------------------------------------------------------------
 ;;; ╺┳╸┏━┓┏━╸   ┏━╸╻╻  ┏━╸┏┓╻┏━┓┏┳┓┏━╸
 ;;;  ┃ ┣━┫┃╺┓╺━╸┣╸ ┃┃  ┣╸ ┃┗┫┣━┫┃┃┃┣╸
@@ -143,6 +144,21 @@
      :csv    (str stub ".csv")}))
 
 
+
+;;; --------------------------------------------------------------------------
+;;; ┏━┓┏━┓╻ ╻┏━╸   ┏━┓┏━╸┏━┓╻ ╻╻  ╺┳╸┏━┓
+;;; ┗━┓┣━┫┃┏┛┣╸ ╺━╸┣┳┛┣╸ ┗━┓┃ ┃┃   ┃ ┗━┓
+;;; ┗━┛╹ ╹┗┛ ┗━╸   ╹┗╸┗━╸┗━┛┗━┛┗━╸ ╹ ┗━┛
+;;; --------------------------------------------------------------------------
+(defn- save-results
+  "
+  Writes out the given Instances as tagged ARFF and CSV files and returns a
+  filetype-keyed map with the corresponding filename values.
+  "
+  [fpath tag data]
+  (let [tag-fpaths (tag-filename fpath tag)]
+    {:arff (save-file (:arff tag-fpaths) data :arff)
+     :csv  (save-file (:csv  tag-fpaths) data :csv)}))
 
 ;;; --------------------------------------------------------------------------
 ;;; ┏━╸╻╻  ╺┳╸┏━╸┏━┓   ╻┏┓╻┏━┓╺┳╸┏━┓┏┓╻┏━╸┏━╸┏━┓
@@ -219,12 +235,10 @@
         data-in    (load-arff fpath)
         data-mid   (reduce #(filter-instances %1 %2) data-in filters)   ; Apply filter(s)
         data-out   (filter-instances data-mid :attrs)                   ; Remove text attr
-        tag        (str/join "." (map #(str (name %)) filters))
-        tag-fpaths (tag-filename fpath tag)]
+        tag        (str/join "." (map #(str (name %)) filters))]
     (log/debug "Filter<" tag ">:" (.numAttributes data-in)  "x" (.size data-in)
                "==>"              (.numAttributes data-out) "x" (.size data-out))
-    {:arff (save-file (:arff tag-fpaths) data-out :arff)
-     :csv  (save-file (:csv  tag-fpaths) data-out :csv)}))
+    (save-results fpath tag data-out)))
 
 
 
@@ -324,12 +338,10 @@
                         (.setStemmer stemmer))
         data-in   (load-arff fpath)
         data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
-        data-out  (filter-instances data-mid :attrs)
-        tag-fpath (tag-filename fpath "emote")]
+        data-out  (filter-instances data-mid :attrs)]
 
     (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
-    {:arff (save-file (:arff tag-fpath) data-out :arff)
-     :csv  (save-file (:csv  tag-fpath) data-out :csv)}))
+    (save-results fpath "emote" data-out)))
 
 
 
