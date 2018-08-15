@@ -24,7 +24,7 @@
                                   ArffLoader
                                   ArffSaver
                                   CSVSaver]
-            [weka.core.stemmers LovinsStemmer]
+            [weka.core.stemmers SnowballStemmer]
             [weka.filters Filter]
             [weka.filters.unsupervised.attribute RemoveByName
                                                  Reorder
@@ -314,7 +314,7 @@
         until such time as it starts sending us its specific configurations.
   "
   [fpath]
-  (let [stemmer   (LovinsStemmer.)
+  (let [stemmer   (SnowballStemmer. "english")
         emoter    (doto (TweetToInputLexiconFeatureVector.)
                         (.setStemmer stemmer))
         data-in   (load-arff fpath)
