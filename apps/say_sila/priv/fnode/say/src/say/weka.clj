@@ -25,6 +25,7 @@
                                   ArffSaver
                                   CSVSaver]
             [weka.core.stemmers SnowballStemmer]
+            [weka.core.stopwords WordsFromFile]
             [weka.filters Filter]
             [weka.filters.unsupervised.attribute RemoveByName
                                                  Reorder
@@ -36,10 +37,11 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const RNG-SEED 1)                ; Weka's default random seed
-(def ^:const CV-FOLDS 10)               ; Folds for cross-validation evaluation
-(def ^:const ACK      {:status :ack})   ; Positive acknowledgement response
-(def ^:const NAK      {:status :nak})   ; Negative acknowledgement response
+(def ^:const RNG-SEED    1)                             ; Weka's default random seed
+(def ^:const CV-FOLDS    10)                            ; Folds for cross-validation evaluation
+(def ^:const ACK         {:status :ack})                ; Positive acknowledgement response
+(def ^:const NAK         {:status :nak})                ; Negative acknowledgement response
+(def ^:const STOPLIST-EN "resources/stoplist_en.txt")   ; Lucene 7.2.1 ENGLISH_STOP_WORDS_SET
 
 
 ;; ---------------------------------------------------------------------------
@@ -314,8 +316,11 @@
         until such time as it starts sending us its specific configurations.
   "
   [fpath]
-  (let [stemmer   (SnowballStemmer. "english")
+  (let [;stoplist  (doto (WordsFromFile.)
+        ;                (.setStopwords (io/file STOPLIST-EN))
+        stemmer   (SnowballStemmer. "english")
         emoter    (doto (TweetToInputLexiconFeatureVector.)
+                       ;(.setStopwordsHandler stoplist)
                         (.setStemmer stemmer))
         data-in   (load-arff fpath)
         data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
