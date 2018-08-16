@@ -714,21 +714,10 @@ emote_tweets_csv({newline,
                    "NRC-Affect-Intensity-sadness_Score",
                    "NRC-Affect-Intensity-joy_Score",
                    %------------------------------------
-                   % NRC-10 emotions (currently ignored)
+                   % Senti-Strength polarity
                    %------------------------------------
-                   "NRC-10-anger",
-                   "NRC-10-anticipation",
-                   "NRC-10-disgust",
-                   "NRC-10-fear",
-                   "NRC-10-joy",
-                   "NRC-10-sadness",
-                   "NRC-10-surprise",
-                   "NRC-10-trust",
-                   %------------------------------------
-                   % Use NRC-10 polarity
-                   %------------------------------------
-                   "NRC-10-negative",
-                   "NRC-10-positive"]},
+                   "SentiStrength-posScore",
+                   "SentiStrength-negScore"]},
                    Acc = {_, 0, _, _}) ->
     %
     % This clause checks that the first line is correct
@@ -746,8 +735,7 @@ emote_tweets_csv({eof}, {Tracker, Cnt, Unprocessed, EmoTweets}) ->
 
 emote_tweets_csv({newline, [ID, _ScreenName,
                             Anger, Fear, Sadness, Joy,
-                            _, _, _, _, _, _, _, _,
-                            Neg, Pos]},
+                            Pos, Neg]},
                  {Tracker, Cnt, [Tweet | RestTweets], EmoTweets}) ->
 
     %?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s N:~-4s P:~-4s~n",
