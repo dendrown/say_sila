@@ -15,7 +15,8 @@
             [say.log         :as log]
             [clojure.java.io :as io]
             [clojure.string  :as str])
-  (:import  [java.util  Random]
+  (:import  [affective.core ArffLexiconEvaluator]
+            [java.util  Random]
             [weka.core  Instance
                         Instances]
             [weka.classifiers Evaluation]
@@ -330,12 +331,14 @@
         until such time as it starts sending us its specific configurations.
   "
   [fpath]
-  (let [;stoplist  (doto (WordsFromFile.)
-        ;                (.setStopwords (io/file STOPLIST-EN))
-        stemmer   (SnowballStemmer. "english")
+  (let [stoplist  (doto (WordsFromFile.)
+                        (.setStopwords (io/file STOPLIST-EN)))
+        lexer     (doto (ArffLexiconEvaluator.)
+                        (.setStemmer (SnowballStemmer. "english")))
         emoter    (doto (TweetToInputLexiconFeatureVector.)
-                       ;(.setStopwordsHandler stoplist)
-                        (.setStemmer stemmer))
+                        (.setLexiconEval (into-array ^ArffLexiconEvaluator [lexer]))
+                        (.setStopwordsHandler stoplist)
+                        (.setStemmer (SnowballStemmer. "english")))
         data-in   (load-arff fpath)
         data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
         data-out  (filter-instances data-mid :attrs)]
