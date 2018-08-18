@@ -1,0 +1,36 @@
+# Lucene 7.2.1 StandardAnalyzer.ENGLISH_STOP_WORDS_SET
+#
+# NOTE: remove [no,not] when using negation lexica
+a
+an
+and
+are
+as
+at
+be
+but
+by
+for
+if
+in
+into
+is
+it
+no
+not
+of
+on
+or
+such
+that
+the
+their
+then
+there
+these
+they
+this
+to
+was
+will
+with

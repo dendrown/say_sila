@@ -15,29 +15,34 @@
             [say.log         :as log]
             [clojure.java.io :as io]
             [clojure.string  :as str])
-  (:import  [java.util  Random]
+  (:import  [affective.core ArffLexiconEvaluator]
+            [java.util  Random]
             [weka.core  Instance
                         Instances]
-            [weka.filters Filter]
             [weka.classifiers Evaluation]
             [weka.classifiers.functions LinearRegression]
             [weka.core.converters AbstractSaver
                                   ArffLoader
                                   ArffSaver
                                   CSVSaver]
+            [weka.core.stemmers SnowballStemmer]
+            [weka.core.stopwords WordsFromFile]
+            [weka.filters Filter]
             [weka.filters.unsupervised.attribute RemoveByName
                                                  Reorder
                                                  TweetToEmbeddingsFeatureVector
+                                                 TweetToFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
                                                  TweetToSentiStrengthFeatureVector]))
 
 (set! *warn-on-reflection* true)
 
-(def ^:const RNG-SEED 1)                ; Weka's default random seed
-(def ^:const CV-FOLDS 10)               ; Folds for cross-validation evaluation
-(def ^:const ACK      {:status :ack})   ; Positive acknowledgement response
-(def ^:const NAK      {:status :nak})   ; Negative acknowledgement response
+(def ^:const RNG-SEED    1)                             ; Weka's default random seed
+(def ^:const CV-FOLDS    10)                            ; Folds for cross-validation evaluation
+(def ^:const ACK         {:status :ack})                ; Positive acknowledgement response
+(def ^:const NAK         {:status :nak})                ; Negative acknowledgement response
+(def ^:const STOPLIST-EN "resources/stoplist_en.txt")   ; Lucene 7.2.1 ENGLISH_STOP_WORDS_SET
 
 
 ;; ---------------------------------------------------------------------------
@@ -125,6 +130,7 @@
     fpath))
 
 
+
 ;;; --------------------------------------------------------------------------
 ;;; ╺┳╸┏━┓┏━╸   ┏━╸╻╻  ┏━╸┏┓╻┏━┓┏┳┓┏━╸
 ;;;  ┃ ┣━┫┃╺┓╺━╸┣╸ ┃┃  ┣╸ ┃┗┫┣━┫┃┃┃┣╸
@@ -144,6 +150,21 @@
      :csv    (str stub ".csv")}))
 
 
+
+;;; --------------------------------------------------------------------------
+;;; ┏━┓┏━┓╻ ╻┏━╸   ┏━┓┏━╸┏━┓╻ ╻╻  ╺┳╸┏━┓
+;;; ┗━┓┣━┫┃┏┛┣╸ ╺━╸┣┳┛┣╸ ┗━┓┃ ┃┃   ┃ ┗━┓
+;;; ┗━┛╹ ╹┗┛ ┗━╸   ╹┗╸┗━╸┗━┛┗━┛┗━╸ ╹ ┗━┛
+;;; --------------------------------------------------------------------------
+(defn- save-results
+  "
+  Writes out the given Instances as tagged ARFF and CSV files and returns a
+  filetype-keyed map with the corresponding filename values.
+  "
+  [fpath tag data]
+  (let [tag-fpaths (tag-filename fpath tag)]
+    {:arff (save-file (:arff tag-fpaths) data :arff)
+     :csv  (save-file (:csv  tag-fpaths) data :csv)}))
 
 ;;; --------------------------------------------------------------------------
 ;;; ┏━╸╻╻  ╺┳╸┏━╸┏━┓   ╻┏┓╻┏━┓╺┳╸┏━┓┏┓╻┏━╸┏━╸┏━┓
@@ -221,12 +242,10 @@
         data-in    (load-arff fpath)
         data-mid   (reduce #(filter-instances %1 %2) data-in filters)   ; Apply filter(s)
         data-out   (filter-instances data-mid :attrs)                   ; Remove text attr
-        tag        (str/join "." (map #(str (name %)) filters))
-        tag-fpaths (tag-filename fpath tag)]
+        tag        (str/join "." (map #(str (name %)) filters))]
     (log/debug "Filter<" tag ">:" (.numAttributes data-in)  "x" (.size data-in)
                "==>"              (.numAttributes data-out) "x" (.size data-out))
-    {:arff (save-file (:arff tag-fpaths) data-out :arff)
-     :csv  (save-file (:csv  tag-fpaths) data-out :csv)}))
+    (save-results fpath tag data-out)))
 
 
 
@@ -310,16 +329,28 @@
 ;;; ┗━╸╹ ╹┗━┛ ╹ ┗━╸   ╹ ╹╹┗╸╹  ╹
 ;;; --------------------------------------------------------------------------
 (defn emote-arff
-	"
-	Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
-	as needed for «Say Sila», and then outputs the results in ARFF and CSV formats.
+  "
+  Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
+  as needed for «Say Sila», and then outputs the results in ARFF and CSV formats.
 
   NOTE: This will be the main point of definition of what (Erlang) Sila wants,
         until such time as it starts sending us its specific configurations.
-	"
+  "
   [fpath]
-  ;(log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
-  (filter-arff fpath +EMOTE-FILTER+))
+  (let [stoplist  (doto (WordsFromFile.)
+                        (.setStopwords (io/file STOPLIST-EN)))
+        lexer     (doto (ArffLexiconEvaluator.)
+                        (.setStemmer (SnowballStemmer. "english")))
+        emoter    (doto (TweetToInputLexiconFeatureVector.)
+                        (.setLexiconEval (into-array ^ArffLexiconEvaluator [lexer]))
+                        (.setStopwordsHandler stoplist)
+                        (.setStemmer (SnowballStemmer. "english")))
+        data-in   (load-arff fpath)
+        data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
+        data-out  (filter-instances data-mid :attrs)]
+
+    (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
+    (save-results fpath "emote" data-out)))
 
 
 
