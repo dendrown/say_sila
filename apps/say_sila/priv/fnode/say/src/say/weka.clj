@@ -347,7 +347,7 @@
                         (.setStemmer (SnowballStemmer. "english")))
         data-in   (load-arff fpath)
         data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
-        data-out  (filter-instances data-mid :attrs)]
+        data-out  (reduce #(filter-instances %1 %2) data-mid [:senti :attrs])]
 
     (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
     (save-results fpath "emote" data-out)))
