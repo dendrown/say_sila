@@ -1,0 +1,13 @@
+run,tracker,reg_comm,reg_emo,Correlation,samples,big_oter_anger,big_oter_fear,big_oter_sadness,big_oter_joy,big_rter_anger,big_rter_fear,big_rter_sadness,big_rter_joy,big_rted_anger,big_rted_fear,big_rted_sadness,big_rted_joy,big_tmed_anger,big_tmed_fear,big_tmed_sadness,big_tmed_joy,intercept
+0,gw,tter,anger,0.380919,39,0.411510,,,,,,,,,,,,,,,,0.061971
+1,gw,oter,anger,-0.345455,39,,,,,,,,,,,,,,,,,0.095264
+2,gw,rter,anger,-0.000842,39,0.357360,,,,,,,,,,,,,,,,0.072578
+3,gw,tter,fear,0.762453,39,0.580009,,,,,,,,,0.254323,,,,,,,0.052922
+4,gw,oter,fear,0.681704,39,,0.385915,,,,,,,,,,,,,,,0.063919
+5,gw,rter,fear,0.757989,39,,,,,-0.242367,,0.336959,,,0.412963,,,,,,,0.086724
+6,gw,tter,sadness,0.101756,39,,,,,,,0.211657,,,,,,,,,,0.076040
+7,gw,oter,sadness,-0.444993,39,,,,,,,,,,,,,,,,,0.091719
+8,gw,rter,sadness,0.612650,39,,,,,-0.228739,,0.421414,,,,0.386463,,,,,,0.055151
+9,gw,tter,joy,0.585398,39,-0.607497,0.217441,,,,,,0.338655,,,,0.274072,0.375412,,,,0.035576
+10,gw,oter,joy,0.507054,39,,,,0.344136,,,,,,,,,,,,,0.066851
+11,gw,rter,joy,0.650201,39,-0.627397,,,,,,,0.415666,,,,0.451602,0.564847,,,,0.040297
