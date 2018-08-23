@@ -20,6 +20,7 @@
          reset/1,
          go/1,
          get_models/1,
+         get_outcome/1,
          report_open/2,
          report_line/3]).
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
@@ -96,9 +97,20 @@ start_link(Tracker, RunTag, RegComm, RegEmo) ->
 % @doc  Startup function for Twitter influence model
 % @end  --
 start_link(Tracker, RunTag, RegComm, RegEmo, Options) ->
-    gen_statem:start_link(?MODULE,
-                          [Tracker, RunTag, RegComm, RegEmo, Options],
-                          []).
+    %
+    % It's too easy to get the comm/emo backwards, and the model goes haywire!
+    case {lists:member(RegComm, ?COMM_CODES),
+          lists:member(RegEmo,  ?EMOTIONS)} of
+
+        {true, true} ->
+            gen_statem:start_link(?MODULE,
+                                  [Tracker, RunTag, RegComm, RegEmo, Options],
+                                  []);
+
+        _ ->
+            ?error("Invalid parameter: comm[~s] emo[~s]", [RegComm, RegEmo]),
+            {error, badarg}
+    end.
 
 
 
@@ -129,6 +141,18 @@ reset(Model) ->
 % @end  --
 go(Model) ->
     gen_statem:cast(Model, go).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_outcome(Model :: gen_statem:server_ref()) -> {float(),
+                                                        [atom()]}.
+%%
+% @doc  Returns a tuple containing the correlation coefficient and
+%       the attributes that were actually used in the final model.
+% @end  --
+get_outcome(Model) ->
+    gen_statem:call(Model, get_outcome).
 
 
 
@@ -257,6 +281,11 @@ code_change(OldVsn, _State, Data, _Extra) ->
 %%
 % @doc  Synchronous messages for Coinigy services
 % @end  --
+handle_event({call, _From}, get_outcome, Data = #data{name = Name}) ->
+    ?debug("Waiting for outcome: ~s", [Name]),
+    {keep_state, Data, [postpone]};
+
+
 handle_event({call, From}, get_models, Data = #data{models = Models}) ->
     {keep_state, Data, [{reply, From, Models}]};
 
@@ -477,6 +506,16 @@ done(enter, _OldState, Data = #data{name = Name}) ->
      RptFPath} = report_all(Data),
     ?info("Reported ~s created: path[~s] stat[~p]", [Name, RptFPath, RptStat]),
     keep_state_and_data;
+
+
+done({call, From}, get_outcome, #data{name       = Name,
+                                      incl_attrs = InclAttrs,
+                                      results    = Results}) ->
+    %
+    CorrScore = maps:get(correlation, Results, 0.0),
+    ?info("Model ~s outcome: score[~.4f] attrs~p", [Name, CorrScore, InclAttrs]),
+
+    {keep_state_and_data, [{reply, From, {CorrScore, InclAttrs}}]};
 
 
 done({call, From}, {report_line, FOut, Line}, Data = #data{name       = Name,

@@ -119,7 +119,7 @@ influence_n(Tracker, RunTag, N) when is_integer(N) ->
 -spec influence_n(Tracker :: tracker(),
                   RunTag  :: stringy(),
                   Emo     :: emotion(),
-                  Comm    :: comm_code()) -> term().
+                  Comm    :: comm_code()) -> proplist().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -141,7 +141,7 @@ influence_n(Tracker, RunTag, Emo, Comm) ->
                     RunTag    :: stringy(),
                     Emotions  :: emotions(),
                     CommCodes :: comm_codes(),
-                    Options   :: proplist()) -> term().
+                    Options   :: proplist()) -> proplist().
 %%
 % @doc  Run the Twitter/Emo influence experiments per the specified
 %       parameters.  This function is the generalized work-horse for
@@ -189,11 +189,15 @@ run_influence(Tracker, RunTag, Emotions, CommCodes, Options) ->
                    % Note the FSM may block until it finishes modelling
                    influence:report_line(Model, FOut, Ndx),
                    Ndx+1 end,
-
     lists:foreach(Reporter, Models),
 
-    % Close the report, and shutdown the modelling FSMs
+    % Close the report, collect attributes, and shutdown the modelling FSMs
     FStatus = file:close(FOut),
-    lists:foreach(fun({_,M}) -> influence:stop(M) end, Models),
-    {FStatus, FPath}.
+    ?info("Results: file[~s] stat[~p]", [FPath, FStatus]),
+
+    Attribber = fun({Ndx, Model}) ->
+                    Attrs = influence:get_outcome(Model),
+                    influence:stop(Model),
+                    {Ndx, Attrs} end,
+    lists:map(Attribber, Models).
 
