@@ -209,8 +209,10 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
     process_flag(trap_exit, true),
     Players = player:get_players(Tracker),
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
-    Attrs   = init_attributes(),
     Period  = proplists:get_value(period, Options, 1),
+
+    {InclAttrs,
+     ExclAttrs} = incl_excl_attributes(proplists:get_value(init_attrs, Options, all)),
 
     %?debug("Influence for ~s: ~p", [Name, Options]),
     Biggies = case proplists:get_value(method, Options, ?INIT_METHOD) of
@@ -231,9 +233,9 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
     {ok, idle, #data{tracker    = Tracker,
                      name       = Name,
                      arff       = list_to_binary(ARFF),
-                     attributes = Attrs,
-                     incl_attrs = Attrs,
-                     excl_attrs = [?ATTR_DTS],
+                     attributes = InclAttrs,                % Full copy for resets
+                     incl_attrs = InclAttrs,
+                     excl_attrs = ExclAttrs,
                      reg_comm   = RegComm,
                      reg_emo    = RegEmo,
                      period     = Period,
@@ -302,8 +304,11 @@ handle_event(cast, reset, Data = #data{name = Name}) ->
         none -> ok;
         Work -> ?warning("Abandoning ourstanding model: ~p", [Work])
     end,
-    {next_state, idle, Data#data{incl_attrs = init_attributes(),
-                                 excl_attrs = ?EXCLUDED_ATTRS,
+    {InclAttrs,
+     ExclAttrs} = incl_excl_attributes(Data#data.attributes),
+
+    {next_state, idle, Data#data{incl_attrs = InclAttrs,
+                                 excl_attrs = ExclAttrs,
                                  delta_cnt  = 0,
                                  delta_cut  = ?EPSILON,
                                  delta_cuts = ?DELTA_CUTS,
@@ -540,11 +545,30 @@ done(Type, Evt, Data) ->
 %%--------------------------------------------------------------------
 -spec init_attributes() -> [atom()].
 %%
-% @doc  Initializes the independent attribute list.
+% @doc  Initializes the independent attribute lists.
 % @end  --
 init_attributes() ->
     [weka:make_attribute(big, Code, Emo) || Code <- weka:get_big_comm_codes(),
                                             Emo  <- ?EMOTIONS].
+
+
+
+%%--------------------------------------------------------------------
+-spec incl_excl_attributes(Attrs :: [atom()] | all) -> {[atom()],
+                                                        [atom()]}.
+%%
+% @doc  Initializes the include/exclude independent attribute lists
+%       when the caller already knows what should be included.
+% @end  --
+incl_excl_attributes(Attrs) ->
+
+    InitAttrs = init_attributes(),
+    case Attrs of
+        all   -> {InitAttrs, ?EXCLUDED_ATTRS};
+        Incls ->
+            Excls = lists:filter(fun(A) -> not(lists:member(A, Incls)) end, InitAttrs),
+            {Incls, ?EXCLUDED_ATTRS ++ Excls}
+    end.
 
 
 

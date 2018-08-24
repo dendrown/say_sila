@@ -15,8 +15,9 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([one/0, two/0, full/0, q1/0, q2/0, q4/0, q4q1/0, today/0,
-         influence/0, influence/2, influence/3,
-         influence_n/3, influence_n/4]).
+         influence/0,       influence/2,    influence/3,
+         influence_n/3,     influence_n/4,
+         influence_nn/4]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -128,11 +129,88 @@ influence_n(Tracker, RunTag, N) when is_integer(N) ->
 %       This function uses weekly periods.
 % @end  --
 influence_n(Tracker, RunTag, Emo, Comm) ->
+    influence_n(Tracker, RunTag, Emo, Comm, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec influence_n(Tracker  :: tracker(),
+                  RunTag   :: stringy(),
+                  Emo      :: emotion(),
+                  Comm     :: comm_code(),
+                  IndAttrs :: [atom()]) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.  This
+%       version of `influence_n' accepts an override for the initial
+%       independent attributes.
+%
+%       This function uses weekly periods.
+% @end  --
+influence_n(Tracker, RunTag, Emo, Comm, IndAttrs) ->
     FromN   = 5,
     UpToN   = 25,
-    Options = [{method, {top_n, FromN, UpToN}},
+    TopOpts = [{method, {top_n, FromN, UpToN}},
                {period, 7}],
+
+    Options = case IndAttrs of
+        []   -> TopOpts;
+        Inds -> [{init_attrs, Inds} | TopOpts]
+    end,
     run_influence(Tracker, RunTag, [Emo], [Comm], Options).
+
+
+
+%%--------------------------------------------------------------------
+-spec influence_nn(Tracker :: tracker(),
+                   RunTag  :: stringy(),
+                   Emo     :: emotion(),
+                   Comm    :: comm_code()) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.
+%
+%       This `nn' function goes through the Top-N twice, using only
+%       the emo/comm attributes from the higher ranking models.
+%
+%       This function uses weekly periods.
+% @end  --
+influence_nn(Tracker, RunTag, Emo, Comm) ->
+
+    % Do An initial run, keeping the results above a minimum correlation score
+    MinScore = 0.6,
+    BaseRun  = lists:filter(fun({_, {Score, _}}) ->
+                                Score >= MinScore
+                                end,
+                            influence_n(Tracker, RunTag, Emo, Comm)),
+
+    % Function to tally up attribute usage across the models
+    Counter = fun Recur([], Cnts) ->
+                      Cnts;
+                  Recur([A|RestAttrs], Cnts) ->
+                      % Add/update this attribute on the counts list
+                      NewCnts = case sila:split_on_prop(A, Cnts) of
+                          {undefined, _ } -> [{A, 1} | Cnts];
+                          {Cnt, RestCnts} -> [{A, Cnt+1} | RestCnts]
+                      end,
+                      Recur(RestAttrs, NewCnts) end,
+
+    % Keep the attributes that occur in at least half of the better models
+    MinCount = round(length(BaseRun) / 2),
+    RunTagNN = ?str_FMT("~s_NN", [RunTag]),
+
+    AttrCnts = lists:foldl(fun({_, {_, Attrs}}, Acc) -> Counter(Attrs, Acc) end,
+                           [],
+                           BaseRun),
+
+    AttrsNN  = [Attr || {Attr, _} <- lists:filter(fun({_, Cnt}) -> Cnt >= MinCount end,
+                                                  AttrCnts)],
+
+    %?debug("~s: ~p", [RunTagNN, AttrCnts]),
+    %?debug("~s: ~p", [RunTagNN, AttrsNN]),
+    influence_n(Tracker, RunTagNN, Emo, Comm, AttrsNN).
 
 
 
