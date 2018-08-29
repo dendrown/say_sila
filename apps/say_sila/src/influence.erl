@@ -54,8 +54,9 @@
                name                     :: binary(),
                arff                     :: binary(),
                attributes               :: [atom()],
-               incl_attrs               :: [atom()],            % Info-purposes only
-               excl_attrs               :: [atom()],            % Info-purposes only
+               init_attrs               :: [atom()],
+               incl_attrs               :: [atom()],
+               excl_attrs               :: [atom()],
                reg_comm                 :: comm_code(),
                reg_emo                  :: emotion(),
                period                   :: non_neg_integer(),
@@ -211,8 +212,11 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
     Period  = proplists:get_value(period, Options, 1),
 
-    {InclAttrs,
-     ExclAttrs} = incl_excl_attributes(proplists:get_value(init_attrs, Options, all)),
+    % Our invoker may want to use a subset of the attributes
+    InitAttrs = proplists:get_value(init_attrs, Options, all),
+    {AllAttrs,
+     InclAttrs,
+     ExclAttrs} = incl_excl_attributes(InitAttrs),
 
     %?debug("Influence for ~s: ~p", [Name, Options]),
     Biggies = case proplists:get_value(method, Options, ?INIT_METHOD) of
@@ -233,7 +237,8 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
     {ok, idle, #data{tracker    = Tracker,
                      name       = Name,
                      arff       = list_to_binary(ARFF),
-                     attributes = InclAttrs,                % Full copy for resets
+                     attributes = AllAttrs,
+                     init_attrs = InitAttrs,
                      incl_attrs = InclAttrs,
                      excl_attrs = ExclAttrs,
                      reg_comm   = RegComm,
@@ -304,8 +309,9 @@ handle_event(cast, reset, Data = #data{name = Name}) ->
         none -> ok;
         Work -> ?warning("Abandoning ourstanding model: ~p", [Work])
     end,
-    {InclAttrs,
-     ExclAttrs} = incl_excl_attributes(Data#data.attributes),
+    {_,
+     InclAttrs,
+     ExclAttrs} = incl_excl_attributes(Data#data.init_attrs),
 
     {next_state, idle, Data#data{incl_attrs = InclAttrs,
                                  excl_attrs = ExclAttrs,
@@ -555,6 +561,7 @@ init_attributes() ->
 
 %%--------------------------------------------------------------------
 -spec incl_excl_attributes(Attrs :: [atom()] | all) -> {[atom()],
+                                                        [atom()],
                                                         [atom()]}.
 %%
 % @doc  Initializes the include/exclude independent attribute lists
@@ -562,12 +569,12 @@ init_attributes() ->
 % @end  --
 incl_excl_attributes(Attrs) ->
 
-    InitAttrs = init_attributes(),
+    AllAttrs = init_attributes(),
     case Attrs of
-        all   -> {InitAttrs, ?EXCLUDED_ATTRS};
+        all   -> {AllAttrs, AllAttrs, ?EXCLUDED_ATTRS};
         Incls ->
-            Excls = lists:filter(fun(A) -> not(lists:member(A, Incls)) end, InitAttrs),
-            {Incls, ?EXCLUDED_ATTRS ++ Excls}
+            Excls = lists:filter(fun(A) -> not(lists:member(A, Incls)) end, AllAttrs),
+            {AllAttrs, Incls, ?EXCLUDED_ATTRS ++ Excls}
     end.
 
 
