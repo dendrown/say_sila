@@ -182,7 +182,7 @@ influence_nn(Tracker, RunTag, Comm, Emo) ->
     % Do An initial run, keeping the results above a minimum correlation score
     MinScore = 0.6,
     BaseRun  = lists:filter(fun({_, {Score, _}}) ->
-                                Score >= MinScore
+                                abs(Score) >= MinScore
                                 end,
                             influence_n(Tracker, RunTag, Comm, Emo)),
 
