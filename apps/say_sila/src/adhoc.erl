@@ -86,7 +86,7 @@ influence(Tracker, RunTag) ->
 % @doc  Do the Twitter/Emo influence experiments
 % @end  --
 influence(Tracker, RunTag, Options) ->
-    run_influence(Tracker, RunTag, ?EMOTIONS, [tter, oter, rter], Options).
+    run_influence(Tracker, RunTag, [tter, oter, rter], ?EMOTIONS, Options).
 
 
 
@@ -119,8 +119,8 @@ influence_n(Tracker, RunTag, N) when is_integer(N) ->
 %%--------------------------------------------------------------------
 -spec influence_n(Tracker :: tracker(),
                   RunTag  :: stringy(),
-                  Emo     :: emotion(),
-                  Comm    :: comm_code()) -> proplist().
+                  Comm    :: comm_code(),
+                  Emo     :: emotion()) -> proplist().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -128,16 +128,16 @@ influence_n(Tracker, RunTag, N) when is_integer(N) ->
 %
 %       This function uses weekly periods.
 % @end  --
-influence_n(Tracker, RunTag, Emo, Comm) ->
-    influence_n(Tracker, RunTag, Emo, Comm, []).
+influence_n(Tracker, RunTag, Comm, Emo) ->
+    influence_n(Tracker, RunTag, Comm, Emo, []).
 
 
 
 %%--------------------------------------------------------------------
 -spec influence_n(Tracker  :: tracker(),
                   RunTag   :: stringy(),
-                  Emo      :: emotion(),
                   Comm     :: comm_code(),
+                  Emo      :: emotion(),
                   IndAttrs :: [atom()]) -> proplist().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
@@ -148,7 +148,7 @@ influence_n(Tracker, RunTag, Emo, Comm) ->
 %
 %       This function uses weekly periods.
 % @end  --
-influence_n(Tracker, RunTag, Emo, Comm, IndAttrs) ->
+influence_n(Tracker, RunTag, Comm, Emo, IndAttrs) ->
     FromN   = 5,
     UpToN   = 25,
     TopOpts = [{method, {top_n, FromN, UpToN}},
@@ -158,15 +158,15 @@ influence_n(Tracker, RunTag, Emo, Comm, IndAttrs) ->
         []   -> TopOpts;
         Inds -> [{init_attrs, Inds} | TopOpts]
     end,
-    run_influence(Tracker, RunTag, [Emo], [Comm], Options).
+    run_influence(Tracker, RunTag, [Comm], [Emo], Options).
 
 
 
 %%--------------------------------------------------------------------
 -spec influence_nn(Tracker :: tracker(),
                    RunTag  :: stringy(),
-                   Emo     :: emotion(),
-                   Comm    :: comm_code()) -> proplist().
+                   Comm    :: comm_code(),
+                   Emo     :: emotion()) -> proplist().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -177,14 +177,14 @@ influence_n(Tracker, RunTag, Emo, Comm, IndAttrs) ->
 %
 %       This function uses weekly periods.
 % @end  --
-influence_nn(Tracker, RunTag, Emo, Comm) ->
+influence_nn(Tracker, RunTag, Comm, Emo) ->
 
     % Do An initial run, keeping the results above a minimum correlation score
     MinScore = 0.6,
     BaseRun  = lists:filter(fun({_, {Score, _}}) ->
                                 Score >= MinScore
                                 end,
-                            influence_n(Tracker, RunTag, Emo, Comm)),
+                            influence_n(Tracker, RunTag, Comm, Emo)),
 
     % Function to tally up attribute usage across the models
     Counter = fun Recur([], Cnts) ->
@@ -210,22 +210,22 @@ influence_nn(Tracker, RunTag, Emo, Comm) ->
 
     %?debug("~s: ~p", [RunTagNN, AttrCnts]),
     %?debug("~s: ~p", [RunTagNN, AttrsNN]),
-    influence_n(Tracker, RunTagNN, Emo, Comm, AttrsNN).
+    influence_n(Tracker, RunTagNN, Comm, Emo, AttrsNN).
 
 
 
 %%--------------------------------------------------------------------
 -spec run_influence(Tracker   :: tracker(),
                     RunTag    :: stringy(),
-                    Emotions  :: emotions(),
                     CommCodes :: comm_codes(),
+                    Emotions  :: emotions(),
                     Options   :: proplist()) -> proplist().
 %%
 % @doc  Run the Twitter/Emo influence experiments per the specified
 %       parameters.  This function is the generalized work-horse for
 %       the more user-friendly wrapper functions.
 % @end  --
-run_influence(Tracker, RunTag, Emotions, CommCodes, Options) ->
+run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
 
     % Each influence modeller handles an emo/comm pair for the regular players
     Pairs   = [{Emo, Comm} || Emo <- Emotions, Comm <- CommCodes],
