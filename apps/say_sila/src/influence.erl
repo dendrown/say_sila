@@ -68,7 +68,8 @@
                delta_cnt  = 0           :: non_neg_integer(),   % Num changes since last evaluation
                work_ref   = none        :: none|reference(),
                results    = none        :: none|map(),
-               models                   :: queue:queue()}).
+               models                   :: queue:queue(),
+               report                   :: boolean()}).
 -type data() :: #data{}.                                        % FSM internal state data
 
 
@@ -211,6 +212,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
     Players = player:get_players(Tracker),
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
     Period  = proplists:get_value(period, Options, 1),
+    Report  = proplists:get_value(report, Options, false),
 
     % Our invoker may want to use a subset of the attributes
     InitAttrs = proplists:get_value(init_attrs, Options, all),
@@ -247,7 +249,8 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
                      players    = Players,
                      biggies    = Biggies,
                      jvm_node   = raven:get_jvm_node(Tracker),
-                     models     = queue:new()}}.
+                     models     = queue:new(),
+                     report     = Report}}.
 
 
 
@@ -513,9 +516,13 @@ eval(Type, Evt, Data) ->
 % @end  --
 done(enter, _OldState, Data = #data{name = Name}) ->
     %
-    {RptStat,
-     RptFPath} = report_all(Data),
-    ?info("Reported ~s created: path[~s] stat[~p]", [Name, RptFPath, RptStat]),
+    case Data#data.report of
+        false -> ok;
+        true  ->
+            {RptStat,
+             RptFPath} = report_all(Data),
+            ?info("Reported ~s created: path[~s] stat[~p]", [Name, RptFPath, RptStat])
+    end,
     keep_state_and_data;
 
 

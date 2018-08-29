@@ -74,7 +74,8 @@ influence() ->
 % @end  --
 influence(Tracker, RunTag) ->
     influence(Tracker, RunTag, [{method, {biggies, 0.01}},
-                                {period, 7}]).
+                                {period, 7},
+                                report]).
 
 
 
