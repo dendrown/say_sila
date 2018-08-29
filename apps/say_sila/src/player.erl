@@ -291,7 +291,8 @@ get_top_n(Tracker, N) ->
                      if AcctCnt =:= N ->
                             {TweetCnt/TweetTotal, TweetCnt, Accts};
                         AcctCnt > N ->
-                            ?warning("Same activity rate, returning ~B accounts", [AcctCnt]),
+                            ?warning("Same activity rate for N=~B, returning ~B accounts",
+                                     [N, AcctCnt]),
                             {TweetCnt/TweetTotal, TweetCnt, Accts};
                         true ->
                             {RankTweets,
