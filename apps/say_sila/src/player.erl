@@ -27,6 +27,7 @@
          get_top_n/2,
          get_totals/1,
          plot/1,            plot/2, plot/3,
+         report_top_n/2,
          reset/1,
          tweet/2,
          update_comm/2,
@@ -418,6 +419,42 @@ update_comm(Comm = #comm{cnt = Cnt1, emos = Emos1},
     Comm#comm{cnt  = Cnt1 + Cnt2,
               emos = emo:average(Emos1, Emos2)}.
 
+
+
+%%--------------------------------------------------------------------
+-spec report_top_n(Tracker :: atom(),
+                   N       :: pos_integer()) -> ok.
+%%
+% @doc  Produces a markdown report of the Top `N' players by category.
+%%--------------------------------------------------------------------
+report_top_n(Tracker, N) ->
+    %
+    Players = get_players(Tracker),
+    Biggies = get_top_n(Tracker, N),
+
+    Commer = fun(Code, #profile{comms = Comms}) ->
+                 case maps:get(Code, Comms, none) of
+                    none -> 0;
+                    Comm -> Comm#comm.cnt
+                 end end,
+
+    Liner  = fun(Acct) ->
+                 Player = maps:get(Acct, Players),
+                 Counts = [Commer(Code, Player) || Code <- ?COMM_CODES],
+                 ?fmt("[~s](https://twitter.com/~s)|~B|~B|~B|~B|~B|~n", [Acct, Acct | Counts])
+                 end,
+
+    Ganger = fun(Code) ->
+                 {Pct, Cnt, Accts} = proplists:get_value(Code, Biggies),
+
+                 ?fmt("### ~s: ~B tweets (~.1f%)~n~n", [Code, Cnt, 100*Pct]),
+                 ?fmt("| Screen Name                                             |TTER|OTER|RTER|RTED|TMED|~n"),
+                 ?fmt("| --------------------------------------------------------|---:|---:|---:|---:|---:|~n"),
+                 lists:foreach(Liner, lists:reverse(Accts)),
+                 ?fmt("~n~n")
+                 end,
+
+    lists:foreach(Ganger, ?COMM_CODES).
 
 
 %%--------------------------------------------------------------------
