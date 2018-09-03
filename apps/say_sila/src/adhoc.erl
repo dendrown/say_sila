@@ -17,7 +17,7 @@
 -export([one/0, two/0, full/0, q1/0, q2/0, q4/0, q4q1/0, today/0,
          influence/0,       influence/2,    influence/3,
          influence_n/3,     influence_n/4,
-         influence_nn/4]).
+         influence_nn/3,    influence_nn/4]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -170,6 +170,27 @@ influence_n(Tracker, RunTag, Comm, Emo, IndAttrs) ->
         Inds -> [{init_attrs, Inds} | TopOpts]
     end,
     run_influence(Tracker, RunTag, [Comm], [Emo], Options).
+
+
+
+%%--------------------------------------------------------------------
+-spec influence_nn(Tracker :: tracker(),
+                   RunTag  :: stringy(),
+                   Emo     :: emotion()) -> ok.
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.
+%
+%       This `nn' function goes through the Top-N twice, using only
+%       the emo/comm attributes from the higher ranking models.
+%
+%       This function runs `tter', `oter' and `rter' communications
+%       using weekly periods.
+% @end  --
+influence_nn(Tracker, RunTag, Emo) ->
+    lists:foreach(fun(C) -> influence_nn(Tracker, RunTag, C, Emo) end,
+                  [tter, oter, rter]).
 
 
 
