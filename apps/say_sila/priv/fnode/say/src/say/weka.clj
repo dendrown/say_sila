@@ -11,7 +11,8 @@
 ;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.weka
-  (:require [say.genie       :as !!]
+  (:require [say.config      :as cfg]
+            [say.genie       :as !!]
             [say.log         :as log]
             [clojure.java.io :as io]
             [clojure.string  :as str])
@@ -331,20 +332,27 @@
         until such time as it starts sending us its specific configurations.
   "
   [fpath]
-  (let [stoplist  (doto (WordsFromFile.)
-                        (.setStopwords (io/file STOPLIST-EN)))
-        lexer     (doto (ArffLexiconEvaluator.)
-                        (.setStemmer (SnowballStemmer. "english")))
-        emoter    (doto (TweetToInputLexiconFeatureVector.)
+  (letfn [(make-emoter [opt]
+            (let [emoter (TweetToInputLexiconFeatureVector.)]
+              ; Our only defined NLP option is English-Stoplist-Porter
+              (when (= opt :english)
+                (let [stoplist (doto (WordsFromFile.)
+                                     (.setStopwords (io/file STOPLIST-EN)))
+                      lexer    (doto (ArffLexiconEvaluator.)
+                                     (.setStemmer (SnowballStemmer. "english")))]
+                  (doto emoter
                         (.setLexiconEval (into-array ^ArffLexiconEvaluator [lexer]))
                         (.setStopwordsHandler stoplist)
-                        (.setStemmer (SnowballStemmer. "english")))
-        data-in   (load-arff fpath)
-        data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
-        data-out  (filter-instances data-mid :attrs)]
+                        (.setStemmer (SnowballStemmer. "english")))))
+              emoter))]
 
-    (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
-    (save-results fpath "emote" data-out)))
+    (let [emoter    (make-emoter (cfg/?? :emote :nlp))
+          data-in   (load-arff fpath)
+          data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
+          data-out  (filter-instances data-mid :attrs)]
+
+      (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
+      (save-results fpath "emote" data-out))))
 
 
 

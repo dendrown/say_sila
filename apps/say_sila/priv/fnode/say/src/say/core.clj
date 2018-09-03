@@ -11,7 +11,8 @@
 ;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.core
-  (:require [say.log    :as log]
+  (:require [say.config :as cfg]
+            [say.log    :as log]
             [say.sila   :as sila]
             [say.weka   :as weka]
             [clojure.string    :as str]
