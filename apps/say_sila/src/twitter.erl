@@ -48,7 +48,8 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(STATUS_TABLE,   <<"tbl_statuses">>).
--define(STATUS_TABLES,  #{start   => <<"tbl_statuses_2017_q4">>,
+-define(STATUS_TABLES,  #{start   => <<"tbl_statuses_2017_q3_part">>,
+                          q3_2017 => <<"tbl_statuses_2017_q3_part">>,
                           q4_2017 => <<"tbl_statuses_2017_q4">>,
                           q1_2018 => <<"tbl_statuses_2018_q1">>,
                           q2_2018 => <<"tbl_statuses_2018_q2">>}).
