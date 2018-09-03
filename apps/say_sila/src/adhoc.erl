@@ -34,6 +34,16 @@
                {stop,  {2017, 11, 1}}]).
 
 
+%%--------------------------------------------------------------------
+% Influence reports
+%
+% TODO: These are firming up to the point we should probably move the
+%       functionality over to the `influence' module.
+-define(MIN_TOP_N,      5).
+-define(MAX_TOP_N,      25).
+-define(MIN_NN_SCORE,   0.6).
+
+
 
 %%--------------------------------------------------------------------
 %% Period shortcuts
@@ -150,8 +160,8 @@ influence_n(Tracker, RunTag, Comm, Emo) ->
 %       This function uses weekly periods.
 % @end  --
 influence_n(Tracker, RunTag, Comm, Emo, IndAttrs) ->
-    FromN   = 5,
-    UpToN   = 25,
+    FromN   = ?MIN_TOP_N,
+    UpToN   = ?MAX_TOP_N,
     TopOpts = [{method, {top_n, FromN, UpToN}},
                {period, 7}],
 
@@ -180,12 +190,17 @@ influence_n(Tracker, RunTag, Comm, Emo, IndAttrs) ->
 % @end  --
 influence_nn(Tracker, RunTag, Comm, Emo) ->
 
+    % Extend the run tag to capture all important information.
+    % Note that the tracker gets prepended later in run_influence
+    TagTopN  = ?str_FMT("~s_n~B-~B_~s_~s",
+                        [RunTag, ?MIN_TOP_N, ?MAX_TOP_N, Comm, Emo]),
+
     % Do An initial run, keeping the results above a minimum correlation score
-    MinScore = 0.6,
+    MinScore = ?MIN_NN_SCORE,
     BaseRun  = lists:filter(fun({_, {Score, _}}) ->
                                 abs(Score) >= MinScore
                                 end,
-                            influence_n(Tracker, RunTag, Comm, Emo)),
+                            influence_n(Tracker, TagTopN, Comm, Emo)),
 
     % Function to tally up attribute usage across the models
     Counter = fun Recur([], Cnts) ->
@@ -200,7 +215,7 @@ influence_nn(Tracker, RunTag, Comm, Emo) ->
 
     % Keep the attributes that occur in at least half of the better models
     MinCount = round(length(BaseRun) / 2),
-    RunTagNN = ?str_FMT("~s_NN", [RunTag]),
+    TagTopNN = ?str_FMT("~s_NN", [TagTopN]),
 
     AttrCnts = lists:foldl(fun({_, {_, Attrs}}, Acc) -> Counter(Attrs, Acc) end,
                            [],
@@ -209,9 +224,7 @@ influence_nn(Tracker, RunTag, Comm, Emo) ->
     AttrsNN  = [Attr || {Attr, _} <- lists:filter(fun({_, Cnt}) -> Cnt >= MinCount end,
                                                   AttrCnts)],
 
-    %?debug("~s: ~p", [RunTagNN, AttrCnts]),
-    %?debug("~s: ~p", [RunTagNN, AttrsNN]),
-    influence_n(Tracker, RunTagNN, Comm, Emo, AttrsNN).
+    influence_n(Tracker, TagTopNN, Comm, Emo, AttrsNN).
 
 
 
