@@ -52,7 +52,7 @@
 %% Plotting definitions
 -define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
 -define(PLOT_BP_RATES,          [0.0025, 0.0050, 0.0075, 0.0100, 0.0125, 0.0150, 0.0175, 0.0200]).
--define(PLOT_MIN_DECEL,         0.0008).
+-define(PLOT_MIN_DECEL,         1.0e09).
 -define(PLOT_NUM_PLAYERS,       #{cc => 300,
                                   gw => 300}).
 -define(plot_num_players(Trk),  maps:get(Trk, ?PLOT_NUM_PLAYERS)).
