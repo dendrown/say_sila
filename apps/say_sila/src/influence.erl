@@ -119,7 +119,7 @@ start_link(Tracker, RunTag, RegComm, RegEmo, Options) ->
 
         _ ->
             ?error("Invalid parameter: comm[~s] emo[~s]", [RegComm, RegEmo]),
-            {error, badarg}
+            {stop, badarg}
     end.
 
 
@@ -192,9 +192,9 @@ report_open(Name, Opts) ->
 
 
 %%--------------------------------------------------------------------
--spec report_line(Model :: gen_statem:server_ref(),
+-spec report_line(Model :: gen_statem:server_ref() | none,
                   FOut  :: file:io_device(),
-                  Line  ::  non_neg_integer()) -> ok.
+                  Line  :: non_neg_integer()) -> ok.
 %%
 % @doc  Writes out a CSV line describing the final version of the
 %       model this FSM represents.
@@ -202,6 +202,10 @@ report_open(Name, Opts) ->
 %       NOTE: If the FSM is still processing models, this function
 %             will block until the final model is processed.
 % @end  --
+report_line(none, FOut, Line) ->
+    ?io_fmt(FOut, "~B,,,,,,,,,,,,,,,,,,,,,,~n", [Line]);
+
+
 report_line(Model, FOut, Line) ->
     gen_statem:call(Model, {report_line, FOut, Line}).
 
@@ -380,7 +384,6 @@ run_top_nn(Tracker, RunTag, Comm, Emo) ->
 % @end  --
 init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
 
-    process_flag(trap_exit, true),
     Players = player:get_players(Tracker),
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
     Period  = proplists:get_value(period, Options, 1),
@@ -406,23 +409,32 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
                                                       maps:size(Players),
                                                       [BigInfo(Grp) || Grp <- Biggies]]),
 
-    {ok, ARFF} = weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period),
+    % Prepare Weka modelling input
+    try weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period) of
 
-    {ok, idle, #data{tracker    = Tracker,
-                     name       = Name,
-                     arff       = list_to_binary(ARFF),
-                     attributes = AllAttrs,
-                     init_attrs = InitAttrs,
-                     incl_attrs = InclAttrs,
-                     excl_attrs = ExclAttrs,
-                     reg_comm   = RegComm,
-                     reg_emo    = RegEmo,
-                     period     = Period,
-                     players    = Players,
-                     biggies    = Biggies,
-                     jvm_node   = raven:get_jvm_node(Tracker),
-                     models     = queue:new(),
-                     report     = Report}}.
+        {ok, ARFF} ->
+            % We are good to go...!
+            process_flag(trap_exit, true),
+            {ok, idle, #data{tracker    = Tracker,
+                             name       = Name,
+                             arff       = list_to_binary(ARFF),
+                             attributes = AllAttrs,
+                             init_attrs = InitAttrs,
+                             incl_attrs = InclAttrs,
+                             excl_attrs = ExclAttrs,
+                             reg_comm   = RegComm,
+                             reg_emo    = RegEmo,
+                             period     = Period,
+                             players    = Players,
+                             biggies    = Biggies,
+                             jvm_node   = raven:get_jvm_node(Tracker),
+                             models     = queue:new(),
+                             report     = Report}}
+    catch
+        error:Why ->
+            ?error("Cannot run influence machine: ~p", [Why]),
+            ignore
+    end.
 
 
 
@@ -918,9 +930,13 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
                                 normal -> Options;
                                 next_n -> [{method, {top_n, N}} | Options]
                             end,
-                  {ok, Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts),
-                  influence:go(Pid),
-                  {N, Pid} end,
+
+                  % The model startup may fail if we don't have full data for all comm codes
+                  Model = case influence:start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts) of
+                      {ok, Pid} -> influence:go(Pid), Pid;
+                      ignore    -> none
+                  end,
+                  {N, Model} end,
 
     Models  = lists:map(Runner, Inputs),
 
@@ -939,7 +955,8 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
     FStatus = file:close(FOut),
     ?info("Results: file[~s] stat[~p]", [FPath, FStatus]),
 
-    Attribber = fun({Ndx, Model}) ->
+    Attribber = fun({Ndx, none})  -> {Ndx, []};
+                   ({Ndx, Model}) ->
                     Attrs = influence:get_outcome(Model),
                     influence:stop(Model),
                     {Ndx, Attrs} end,
