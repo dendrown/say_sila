@@ -23,7 +23,7 @@
          get_outcome/1,
          report_open/2,
          report_line/3,
-         run_biggies/2,
+         run_biggies/2, run_biggies/3,
          run_top_n/3,   run_top_n/4,
          run_top_nn/3,  run_top_nn/4]).
 
@@ -48,7 +48,7 @@
 %define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
 %define(DELTA_CUTS,     [0.1]).
 -define(DELTA_CUTS,     []).
--define(INIT_BIG_PCT,   0.01).
+-define(INIT_BIG_PCT,   0.01).                  % Contribution rate (without deceleration)
 -define(INIT_TOP_N,     10).
 -define(INIT_METHOD,    {biggies, ?INIT_BIG_PCT}).
 
@@ -220,7 +220,21 @@ report_line(Model, FOut, Line) ->
 %       1% over weekly periods.
 % @end  --
 run_biggies(Tracker, RunTag) ->
-    run_influence(Tracker, RunTag, [{method, {biggies, 0.01}},
+    run_biggies(Tracker, RunTag, ?INIT_BIG_PCT).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_biggies(Tracker :: tracker(),
+                  RunTag  :: stringy(),
+                  BigPct  :: float()) -> term().
+%%
+% @doc  Do the Twitter/Emo influence experiments.  The caller must
+%       specify the tracker, but we default to biggie velocity at
+%       1% over weekly periods.
+% @end  --
+run_biggies(Tracker, RunTag, BigPct) ->
+    run_influence(Tracker, RunTag, [{method, {biggies, BigPct}},
                                     {period, 7},
                                     report]).
 
