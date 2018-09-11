@@ -775,8 +775,8 @@ pull_biggies(MinRate, MinDecel, Total, TallyIn, RanksIn, CountIn, AcctsIn) ->
                             % We got a group of biggies, add 'em and try to pull more...
                             Count    = CountIn + (Tally * length(Accts)),
                             NewAccts = AcctsIn ++ Accts,
-                            ?debug("Pulling biggies: rate[~6.4f] decel[~6.4f] cnt[~B => ~B] tree[~B => ~B]",
-                                   [Rate, Decel, CountIn, Count, gb_trees:size(RanksIn), gb_trees:size(Ranks)]),
+                            %?debug("Pulling biggies: rate[~6.4f] decel[~6.4f] cnt[~B => ~B] tree[~B => ~B]",
+                            %       [Rate, Decel, CountIn, Count, gb_trees:size(RanksIn), gb_trees:size(Ranks)]),
 
                             pull_biggies(MinRate, MinDecel, Total, Tally, Ranks, Count, NewAccts);
                         false ->

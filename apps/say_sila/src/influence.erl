@@ -23,7 +23,7 @@
          get_outcome/1,
          report_open/2,
          report_line/3,
-         run_biggies/2, run_biggies/3,
+         run_biggies/2, run_biggies/3,  run_biggies/4,
          run_top_n/3,   run_top_n/4,
          run_top_nn/3,  run_top_nn/4]).
 
@@ -48,13 +48,19 @@
 %define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
 %define(DELTA_CUTS,     [0.1]).
 -define(DELTA_CUTS,     []).
--define(INIT_BIG_PCT,   0.01).                  % Contribution rate (without deceleration)
+-define(INIT_BIG_PCT,   0.004).                 % Contribution rate (without deceleration)
 -define(INIT_TOP_N,     10).
 -define(INIT_METHOD,    {biggies, ?INIT_BIG_PCT}).
+
+-define(MIN_BIG_PCT,    0.001).
+-define(MAX_BIG_PCT,    0.004).
+-define(INC_BIG_PCT,    0.0005).
+-define(INIT_BIG_RANGE, {biggies, ?MIN_BIG_PCT, ?MAX_BIG_PCT}).
 
 -define(MIN_TOP_N,      5).
 -define(MAX_TOP_N,      25).
 -define(MIN_NN_SCORE,   0.6).
+-define(INIT_TOP_RANGE, {top_n, ?MIN_TOP_N, ?MAX_TOP_N}).
 
 
 %%--------------------------------------------------------------------
@@ -78,8 +84,11 @@
                results    = none        :: none|map(),
                models                   :: queue:queue(),
                report                   :: boolean()}).
--type data() :: #data{}.                                        % FSM internal state data
+-type data()    :: #data{}.                                     % FSM internal state data
 
+%type method()       :: biggies | top_n.
+-type method_range() :: {biggies, float(), float()}
+                      | {top_n, non_neg_integer(), non_neg_integer()}.
 
 
 %%====================================================================
@@ -227,16 +236,39 @@ run_biggies(Tracker, RunTag) ->
 %%--------------------------------------------------------------------
 -spec run_biggies(Tracker :: tracker(),
                   RunTag  :: stringy(),
-                  BigPct  :: float()) -> term().
+                  Emo_Pct :: emotion
+                           | float()) -> term().
 %%
 % @doc  Do the Twitter/Emo influence experiments.  The caller must
 %       specify the tracker, but we default to biggie velocity at
-%       1% over weekly periods.
+%       .4% over weekly periods.
 % @end  --
+%run_biggies(Tracker, RunTag, Emo) when is_atom(Emo) ->
+
+
+
 run_biggies(Tracker, RunTag, BigPct) ->
     run_influence(Tracker, RunTag, [{method, {biggies, BigPct}},
                                     {period, 7},
                                     report]).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_biggies(Tracker :: tracker(),
+                  RunTag  :: stringy(),
+                  Comm    :: comm_code(),
+                  Emo     :: emotion()) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments for one communication
+%       code and one emotion.  The caller must specify the tracker, but
+%       we default to biggie velocity at .4% over weekly periods.
+%
+%       This function uses weekly periods.
+% @end  --
+run_biggies(Tracker, RunTag, Comm, Emo) ->
+    BigTag  = extend_run_tag(RunTag, Comm, Emo, ?INIT_BIG_RANGE),
+    run_series(Tracker, BigTag, Comm, Emo, ?INIT_BIG_RANGE, []).
 
 
 
@@ -279,36 +311,7 @@ run_top_n(Tracker, RunTag, N) when is_integer(N) ->
 %       This function uses weekly periods.
 % @end  --
 run_top_n(Tracker, RunTag, Comm, Emo) ->
-    run_top_n(Tracker, RunTag, Comm, Emo, []).
-
-
-
-%%--------------------------------------------------------------------
--spec run_top_n(Tracker  :: tracker(),
-                RunTag   :: stringy(),
-                Comm     :: comm_code(),
-                Emo      :: emotion(),
-                IndAttrs :: [atom()]) -> proplist().
-%%
-% @doc  Do the Twitter/Emo influence experiments using the specified
-%       tracker and selecting the Top N big-player accounts across a
-%       range of Ns for one emotion and communication type.  This
-%       version of `run_top_n' accepts an override for the initial
-%       independent attributes.
-%
-%       This function uses weekly periods.
-% @end  --
-run_top_n(Tracker, RunTag, Comm, Emo, IndAttrs) ->
-    FromN   = ?MIN_TOP_N,
-    UpToN   = ?MAX_TOP_N,
-    TopOpts = [{method, {top_n, FromN, UpToN}},
-               {period, 7}],
-
-    Options = case IndAttrs of
-        []   -> TopOpts;
-        Inds -> [{init_attrs, Inds} | TopOpts]
-    end,
-    run_influence(Tracker, RunTag, [Comm], [Emo], Options).
+    run_series(Tracker, RunTag, Comm, Emo, ?INIT_TOP_RANGE, []).
 
 
 
@@ -350,12 +353,8 @@ run_top_nn(Tracker, RunTag, Emo) ->
 % @end  --
 run_top_nn(Tracker, RunTag, Comm, Emo) ->
 
-    % Extend the run tag to capture all important information.
-    % Note that the tracker gets prepended later in run_influence
-    TagTopN  = ?str_FMT("~s_n~B-~B_~s_~s",
-                        [RunTag, ?MIN_TOP_N, ?MAX_TOP_N, Comm, Emo]),
-
     % Do An initial run, keeping the results above a minimum correlation score
+    TagTopN  = extend_run_tag(RunTag, Comm, Emo, ?INIT_TOP_RANGE),
     MinScore = ?MIN_NN_SCORE,
     BaseRun  = lists:filter(fun({_, {Score, _}}) ->
                                 abs(Score) >= MinScore
@@ -384,7 +383,7 @@ run_top_nn(Tracker, RunTag, Comm, Emo) ->
     AttrsNN  = [Attr || {Attr, _} <- lists:filter(fun({_, Cnt}) -> Cnt >= MinCount end,
                                                   AttrCnts)],
 
-    run_top_n(Tracker, TagTopNN, Comm, Emo, AttrsNN).
+    run_series(Tracker, TagTopNN, Comm, Emo, ?INIT_TOP_RANGE, AttrsNN).
 
 
 
@@ -821,7 +820,7 @@ report_open(Name, Attrs, Opts) ->
     % Select heading text based on the report
     LineTag = case proplists:get_value(method, Opts, ?INIT_METHOD) of
                   {top_n,_,_} -> <<"N">>;
-                  _           -> <<"run">>
+                  _           -> <<"Pct">>
               end,
 
     FPath = ioo:make_fpath(?REPORT_DIR, Name, <<"csv">>),
@@ -895,6 +894,53 @@ report_line(#{coefficients := Coeffs,
 
 
 %%--------------------------------------------------------------------
+-spec extend_run_tag(RunTag   :: stringy(),
+                     Comm     :: comm_code(),
+                     Emo      :: emotion(),
+                     MethRng  :: method_range()) -> string().
+%%
+% @doc  Pack all the information we can into a run tag.  Note that the
+%       tracker gets prepended later in run_influence
+% @end  --
+extend_run_tag(RunTag, Comm, Emo, {Method, From, UpTo}) ->
+
+    case Method of
+        biggies -> ?str_FMT("~s_big~f-~f_~s_~s", [RunTag, 100*From, 100*UpTo, Comm, Emo]);
+        top_n   -> ?str_FMT("~s_n~B-~B_~s_~s", [RunTag, From, UpTo, Comm, Emo])
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec run_series(Tracker  :: tracker(),
+                 RunTag   :: stringy(),
+                 Comm     :: comm_code(),
+                 Emo      :: emotion(),
+                 MethRng  :: method_range(),
+                 IndAttrs :: [atom()]) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.  This
+%       runner accepts an override for the initial set of independent
+%       attributes.
+%
+%       This function uses weekly periods.
+% @end  --
+run_series(Tracker, RunTag, Comm, Emo, MethRng, IndAttrs) ->
+
+    TopOpts = [{method, MethRng},
+               {period, 7}],
+
+    Options = case IndAttrs of
+        []   -> TopOpts;
+        Inds -> [{init_attrs, Inds} | TopOpts]
+    end,
+    run_influence(Tracker, RunTag, [Comm], [Emo], Options).
+
+
+
+%%--------------------------------------------------------------------
 -spec run_influence(Tracker :: tracker(),
                     RunTag  :: stringy(),
                     Options :: proplist()) -> term().
@@ -924,25 +970,33 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
     PairCnt = length(Pairs),
 
     % In spite of the variable name, the `method' is not optional here:
+    % Check for biggie|top_n range reports & setup a single emo/comm pair
     {Method,
      Inputs} = case proplists:get_value(method, Options) of
 
-                   % The Top-N range report assumes a single emo/comm pair
-                   {top_n, Lo, Hi} ->
-                       {next_n, lists:zip(lists:seq(Lo, Hi),
-                                          lists:duplicate(Hi-Lo+1, hd(Pairs)))};
+                    {biggies, Lo, Hi} ->
+                        Pair  = hd(Pairs),
+                        Mults = lists:seq(0, trunc((Hi - Lo) / ?INC_BIG_PCT)),
+                        P100s = [?MIN_BIG_PCT + (M * ?INC_BIG_PCT) || M <- Mults],
+                        {biggies,
+                            lists:zip(P100s, lists:duplicate(length(P100s), Pair))};
 
-                   % Otherwise, we have a biggie or single-Top-N report
-                   _ ->
-                       {normal, lists:zip(lists:seq(1, PairCnt), Pairs)}
-               end,
+                    {top_n, Lo, Hi} ->
+                        {next_n, lists:zip(lists:seq(Lo, Hi),
+                                           lists:duplicate(Hi-Lo+1, hd(Pairs)))};
+
+                    % Otherwise, we have a single report
+                    _ ->
+                        {normal, lists:zip(lists:seq(1, PairCnt), Pairs)}
+    end,
     ?debug("Influence by ~s: ~p", [Method, Pairs]),
 
-    Runner  = fun({N, {RegEmo, RegComm}}) ->
+    Runner  = fun({Param, {RegEmo, RegComm}}) ->
                   % Top-N range options need to be prefixed with the current Top-N
                   RunOpts = case Method of
-                                normal -> Options;
-                                next_n -> [{method, {top_n, N}} | Options]
+                                normal  -> Options;
+                                biggies -> [{method, {biggies, Param}} | Options];
+                                next_n  -> [{method, {top_n,   Param}} | Options]
                             end,
 
                   % The model startup may fail if we don't have full data for all comm codes
@@ -950,7 +1004,7 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
                       {ok, Pid} -> influence:go(Pid), Pid;
                       ignore    -> none
                   end,
-                  {N, Model} end,
+                  {Param, Model} end,
 
     Models  = lists:map(Runner, Inputs),
 
