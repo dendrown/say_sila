@@ -19,7 +19,7 @@
 (set! *warn-on-reflection* true)
 
 
-(def ^:const CONFIG-FPATHS  {:stub   "config/say"
+(def ^:const CONFIG-FPATHS  {:stub   "config/say."
                              :extn   ".config"
                              :base   "config/say.config"
                              :sample "config/say.config.sample"})
@@ -43,12 +43,30 @@
 
 
 
+;;; --------------------------------------------------------------------------
+(defn get-fpath
+  "
+  Returns the local filepath for the current configuration.
+  "
+  []
+  @CONFIG-FPATH)
 
 
 ;;; --------------------------------------------------------------------------
-(defn set-config!
+(defn get-config
   "
-  Changes the active configuration for the specified market.
+  Returns the running instance's sibyl-weka configuration as a map.
+  "
+  []
+  (clojure.edn/read-string (slurp @CONFIG-FPATH)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn set!
+  "
+  Changes the active configuration for the specified market and returns the
+  new configuration (local) filepath.
   "
   [key & keys]
   (let [fpval (CONFIG-FPATHS key)
@@ -58,18 +76,21 @@
                        (str/join "." (map name (conj keys key)))
                        (:extn CONFIG-FPATHS)))]
 
+    (log/debug "Config:" fpath)
     (when (.exists (io/file fpath))
       (swap! CONFIG-FPATH (fn [_] fpath)))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn get-config
+(defn set-config!
   "
-  Returns the running instance's configuration as a map.
+  Changes the active configuration for the specified market and returns the
+  map representing the new configuration.
   "
-  []
-  (clojure.edn/read-string (slurp @CONFIG-FPATH)))
+  [key & keys]
+  (apply set! key keys)
+  (get-config))
 
 
 
