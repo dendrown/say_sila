@@ -286,7 +286,7 @@ run_top_n(Tracker, RunTag, Emo) when is_atom(Emo) ->
     Comms  = [tter, oter, rter],
     Runner = fun(Comm) ->
                  Tag = ?str_fmt("~s_~s_~s", [RunTag, Comm, Emo]),
-                 run_top_n(Tracker, Tag, Emo, Comm)
+                 run_top_n(Tracker, Tag, Comm, Emo)
                  end,
     lists:map(Runner, Comms);
 
@@ -799,7 +799,9 @@ eval_params(#data{name      = Name,
     Caster = fun(Param) ->
                  gen_statem:cast(FSM, {eval_param, Param})
                  end,
-    lists:foreach(Caster, maps:keys(Coeffs)),
+
+    % Important: sort the keys so we always remove parameters in the same order
+    lists:foreach(Caster, lists:sort(maps:keys(Coeffs))),
 
     % Signal model run start|finalization
     Caster(ready).

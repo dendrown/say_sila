@@ -629,7 +629,7 @@ new_ranking() ->
 %%--------------------------------------------------------------------
 -spec reset_state(Tracker :: atom()) -> state().
 %%
-% @doc  Process out-of-band messages
+% @doc  (Re)initialize the server state data
 % @end  --
 reset_state(Tracker) ->
 
