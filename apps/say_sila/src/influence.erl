@@ -881,14 +881,14 @@ report_line(#{coefficients := Coeffs,
     Attribber = fun(Attr) ->
                     case maps:get(Attr, Coeffs, no_param) of
                         no_param -> ?io_put(FOut, ",");
-                        Coeff    -> ?io_fmt(FOut, ",~f", [Coeff])
+                        Coeff    -> ?io_fmt(FOut, ",~.4f", [Coeff])
                     end,
                     Coeffs end,
 
-    ?io_fmt(FOut, "~B,~s,~s,~s,~f,~B",
+    ?io_fmt(FOut, "~B,~s,~s,~s,~.4f,~B",
             [Line, Tracker, RegComm, RegEmo, CorrScore,InstCnt]),
     lists:foreach(Attribber, Attrs),
-    ?io_fmt(FOut, ",~f~n", [Intercept]),
+    ?io_fmt(FOut, ",~.4f~n", [Intercept]),
 
     % Only the line number changes in the accumulator
     {FOut, Line+1, Attrs, Data}.
