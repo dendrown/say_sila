@@ -655,6 +655,10 @@ handle_info({track_headers, Headers}, State) ->
                   Headers),
     {noreply, State};
 
+handle_info({track, <<>>}, State) ->
+    ?debug("Silent tweet"),
+    {noreply, State};
+
 
 handle_info({track, DataIn}, State) ->
 
