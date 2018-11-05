@@ -9,6 +9,8 @@
                  [org.erlang.otp/jinterface             "1.9.0" ]
                  [org.clojure/data.json                 "0.2.6" ]
                  [clj-time                              "0.14.2"]
+                 [incanter/incanter-core                "1.9.3" ]
+                 [incanter/incanter-charts              "1.9.3" ]
                  ; Weka + libs
                  [nz.ac.waikato.cms.weka/weka-stable    "3.8.2" ]
                  [edu.cmu.cs/ark-tweet-nlp              "0.3.2" ]
