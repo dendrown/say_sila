@@ -170,7 +170,9 @@ login() ->
 
 
 %%--------------------------------------------------------------------
--spec track(KeyWords :: string() | binary()) -> ok.
+-spec track(KeyWords :: [atom()]
+                      | string()
+                      | binary()) -> ok.
 %%
 % @doc  Tracks status/tweets on Twitter for the specified `KeyWords'
 % @end  --
