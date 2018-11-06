@@ -95,6 +95,25 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro fmt
+  "
+  Wrapper for clojure.pprint/cl-format for logging ease.  Output is always
+  in string form.
+  "
+  [text & args]
+  `(prt/cl-format nil ~text ~@args))
+
+
+(defmacro fmt-panic  [text & args] `(log PANIC  (fmt ~text ~@args)))
+(defmacro fmt-crit   [text & args] `(log CRIT   (fmt ~text ~@args)))
+(defmacro fmt-error  [text & args] `(log ERROR  (fmt ~text ~@args)))
+(defmacro fmt-warn   [text & args] `(log WARN   (fmt ~text ~@args)))
+(defmacro fmt-notice [text & args] `(log NOTICE (fmt ~text ~@args)))
+(defmacro fmt-info   [text & args] `(log INFO   (fmt ~text ~@args)))
+(defmacro fmt-debug  [text & args] `(log DEBUG  (fmt ~text ~@args)))
+
+
+;;; --------------------------------------------------------------------------
 (defmacro <>
   "
   Creates a string of the form «boss<sub>:»
