@@ -253,21 +253,21 @@
   "
   Runs a Linear Regression model on the ARFF at the specified filepath.
   "
-  ([msg]
-  (let [{arff :arff
-         excl :exclude} msg]
+  [{arff      :arff
+   target     :target
+   excl-attrs :exclude
+   work-csv   :work_csv}]
 
-    ;; The target will be the last attribute
-    (regress arff nil excl)))
-
-
-  ([arff target & excl-attrs]
   (log/info "Excluding attributes:" excl-attrs)
   (try
     (let [insts0 (load-arff arff target)
           insts  (if excl-attrs
-                     (filter-instances insts0 (RemoveByName.) ["-E" (first excl-attrs)])    ; FIXME!
+                     (filter-instances insts0 (RemoveByName.) ["-E" excl-attrs])
                      insts0)]
+
+      ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
+      (when work-csv
+        (save-file work-csv insts :csv))
 
       ;; If they didn't send a target, select the last attribute
       (when-not target
@@ -314,7 +314,7 @@
 
     (catch Exception ex
            (log/fail ex "Linear regression failed")
-           (assoc NAK :info  (.getMessage ex))))))
+           (assoc NAK :info  (.getMessage ex)))))
 
 
 

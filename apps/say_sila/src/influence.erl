@@ -67,6 +67,7 @@
 -record(data, {tracker                  :: tracker(),
                name                     :: binary(),
                arff                     :: binary(),
+               work_csv                 :: binary(),            % Weka can save filtered data for incanter
                attributes               :: [atom()],
                init_attrs               :: [atom()],
                incl_attrs               :: [atom()],
@@ -316,9 +317,9 @@ run_top_n(Tracker, RunTag, Comm, Emo) ->
 
 
 %%--------------------------------------------------------------------
--spec run_top_nn(Tracker :: tracker(),
-                 RunTag  :: stringy(),
-                 Emo     :: emotion()) -> ok.
+-spec run_top_nn(Tracker   :: tracker(),
+                 RunTag    :: stringy(),
+                 CommOrEmo :: comm_code() | emotion()) -> ok.
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -327,12 +328,36 @@ run_top_n(Tracker, RunTag, Comm, Emo) ->
 %       This `nn' function goes through the Top-N twice, using only
 %       the emo/comm attributes from the higher ranking models.
 %
-%       This function runs `tter', `oter' and `rter' communications
-%       using weekly periods.
+%       This function runs weekly periods for either one of the
+%       `tter', `oter' or `rter' communication codes, or an emotion.
 % @end  --
-run_top_nn(Tracker, RunTag, Emo) ->
-    lists:foreach(fun(C) -> run_top_nn(Tracker, RunTag, C, Emo) end,
-                  [tter, oter, rter]).
+run_top_nn(Tracker, RunTag, CommOrEmo) ->
+
+    % We don't currently do this for passive communication categories
+    ActComms = [tter, oter, rter],
+
+    % Did they specify a comm code?
+    case lists:member(CommOrEmo, ActComms) of
+
+        % Run through all the emotions for the requested comm
+        true ->
+            lists:foreach(fun(Emo) -> run_top_nn(Tracker, RunTag, CommOrEmo, Emo) end,
+                          ?EMOTIONS);
+
+        % So, it should be an emotion...
+        false ->
+            case lists:member(CommOrEmo, ?EMOTIONS) of
+
+                % Run through all active comm codes
+                true ->
+                    lists:foreach(fun(Comm) -> run_top_nn(Tracker, RunTag, Comm, CommOrEmo) end,
+                                  ActComms);
+
+                % We probably tried a passive communication category and forgot we don't support it
+                false ->
+                    ?warning("Unsupported communication code or emotion: ~p", [CommOrEmo])
+            end
+    end.
 
 
 
@@ -409,10 +434,11 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
      ExclAttrs} = incl_excl_attributes(InitAttrs),
 
     %?debug("Influence for ~s: ~p", [Name, Options]),
-    Biggies = case proplists:get_value(method, Options, ?INIT_METHOD) of
-                  {biggies, Pct} -> player:get_biggies(Tracker, Pct);
-                  {top_n,   N}   -> player:get_top_n(Tracker, N)
-              end,
+    {Biggies,
+     BigTag} = case proplists:get_value(method, Options, ?INIT_METHOD) of
+        {biggies, Pct} -> {player:get_biggies(Tracker, Pct), ?str_fmt("p~B", [round(100*Pct)])};
+        {top_n,   N}   -> {player:get_top_n(Tracker, N),     ?str_fmt("n~B", [N])}
+    end,
 
     BigInfo = fun({Comm, {P100, Cnt, Accts}}) ->
                   ?str_FMT("{~s:~B%,tw=~B,cnt=~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
@@ -421,6 +447,13 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
     ?info("Modelling '~s' influence: usr[~B] big~p", [Name,
                                                       maps:size(Players),
                                                       [BigInfo(Grp) || Grp <- Biggies]]),
+
+    % Function to name a working CSV file for Weka
+    TagCSV = fun(ARFF, Tag) ->
+                 Parts = string:split(ARFF, ".", trailing),
+                 CSV   = ?str_fmt("~s_~s.csv", [hd(Parts), Tag]),
+                 list_to_binary(CSV)
+                 end,
 
     % Prepare Weka modelling input
     try weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period) of
@@ -431,6 +464,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
             {ok, idle, #data{tracker    = Tracker,
                              name       = Name,
                              arff       = list_to_binary(ARFF),
+                             work_csv   = TagCSV(ARFF, BigTag),
                              attributes = AllAttrs,
                              init_attrs = InitAttrs,
                              incl_attrs = InclAttrs,
@@ -563,6 +597,7 @@ idle(Type, Evt, Data) ->
 run(enter, _OldState, Data = #data{name       = Name,
                                    arff       = ARFF,
                                    excl_attrs = ExclAttrs,
+                                   work_csv   = WorkCSV,
                                    jvm_node   = JVM}) ->
 
     ?info("Model ~s running on Weka", [Name]),
@@ -577,8 +612,9 @@ run(enter, _OldState, Data = #data{name       = Name,
                            [?str_fmt("|~s", [Attr]) || Attr <- tl(ExclAttrs)]),
 
     ?debug("Attribute filter: ~s", [ExclRE]),
-    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff    => ARFF,
-                                                         exclude => list_to_binary(ExclRE)})},
+    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff     => ARFF,
+                                                         exclude  => list_to_binary(ExclRE),
+                                                         work_csv => WorkCSV})},
 
     {keep_state, Data#data{work_ref = WorkRef,
                            results  = none}};
