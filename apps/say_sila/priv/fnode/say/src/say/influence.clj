@@ -63,7 +63,7 @@
         [intc-ci & coefs-ci] (:coefs-ci lmod)
         anames               (col-names inds)
         acnt                 (inc (count anames))
-        places               "&&&&"]
+        places               "&&&"]
 
     (letfn [;; ---------------------------------------------------------------
             (attribber [a]
@@ -81,29 +81,30 @@
     (println "\\midrule %--------------------------------------------------------------------")
 
     ;; Start with all the multirow values
-    (apply log/fmt! "~a &\n~a &\n~a &\n~a" (map multirow [emo
-                                                          (second (:df lmod))
-                                                          (numeric :r-square)
-                                                          (numeric :f-prob   "~8$")]))
+    (apply log/fmt! "~a &\n~a &\n~a\n" (map multirow [emo
+                                                      (second (:df lmod))
+                                                      (numeric :r-square)]))
     ;; Finish that line with the first attribute
-    (log/fmt! " & ~a & ~4$ & ~4$ -- ~4$ \\\\\n" (attribber (first anames)) 
-                                                (first  coefs)
-                                                (first  (first coefs-ci))
-                                                (second (first coefs-ci)))
+    (log/fmt! "   & ~a & ~4$ & ~4$ & ~4$ -- ~4$ \\\\\n" (attribber (first anames)) 
+                                                        (first  coefs)
+                                                        (first  coefs-t)
+                                                        (first  (first coefs-ci))
+                                                        (second (first coefs-ci)))
     (println "%----")
 
     ;; Add the single liners for this model
     (doseq [values (map vector (map attribber (rest anames))
                                (rest coefs)
+                               (rest coefs-t)
                                (rest coefs-ci))]
 
-      (apply (fn [attr coef [lo hi]] (log/fmt! "~a ~a & ~4$ & ~4$ -- ~4$ \\\\\n%----\n"
-                                               places attr coef lo hi))
+      (apply (fn [attr coef p [lo hi]] (log/fmt! "~a ~a & ~4$ & ~4$ & ~4$ -- ~4$ \\\\\n%----\n"
+                                                 places attr coef p lo hi))
              values))
 
     ; Incanter likes the intercept first, but we want it last
-    (log/fmt! "~a intercept & ~4$ & ~4$ -- ~4$ \\\\\n"
-              places intc (first intc-ci) (second intc-ci))
+    (log/fmt! "~a intercept & ~4$ & ~4$ & ~4$ -- ~4$ \\\\\n"
+              places intc intc-t (first intc-ci) (second intc-ci))
     (println))))
 
 
