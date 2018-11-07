@@ -95,13 +95,23 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defmacro fmt
+(defn fmt
   "
   Wrapper for clojure.pprint/cl-format for logging ease.  Output is always
   in string form.
   "
   [text & args]
-  `(prt/cl-format nil ~text ~@args))
+  (apply prt/cl-format nil text args))
+
+
+;;; --------------------------------------------------------------------------
+(defn fmt!
+  "
+  Wrapper for clojure.pprint/cl-format for logging ease.  The results always
+  go to standard output.
+  "
+  [text & args]
+  (apply prt/cl-format true text args))
 
 
 (defmacro fmt-panic  [text & args] `(log PANIC  (fmt ~text ~@args)))

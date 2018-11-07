@@ -15,6 +15,7 @@
             [say.log    :as log]
             [say.sila   :as sila]
             [say.weka   :as weka]
+            [say.influence]                 ; NOTE: article
             [clojure.string    :as str]
             [clojure.data.json :as json])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
