@@ -12,16 +12,47 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.influence
   (:require [say.log        :as log]
+            [say.weka       :as weka]
             [clojure.string :as str]
             [incanter.core  :refer :all]
             [incanter.io    :refer :all]
-            [incanter.stats :refer :all]))
+            [incanter.stats :refer :all])
+  (:import  [weka.core Instances]))
+
 
 (set! *warn-on-reflection* true)
 
 (def ^:const TOP-N      12)
 (def ^:const EMOTIONS   [:anger :fear :sadness :joy])
 (def ^:const FMT-CSV    "/srv/say_sila/weka/gw_full_nlp_n5-25_oter_~a_NN_oter_~a_n~a.csv")
+
+
+;;; --------------------------------------------------------------------------
+(defn attr-stats
+  "
+  Run generation scripts for influence article.
+  "
+  ([]
+  (doseq [emo EMOTIONS]
+    (attr-stats emo)))
+
+
+  ([emotion]
+  (let [emo   (name emotion)
+        arff  (log/fmt "/srv/say_sila/weka/gw_full_nlp_n5-25_oter_~a_oter_~a.arff" emo emo)
+        insts (weka/load-arff arff)]
+
+    ;; Skip first DTS attribute (minute)
+    (log/fmt! "~8a" emo)
+    (doseq [ai (range 1 (.numAttributes insts))]
+      ;; Only do attributes for this emotion
+      (when (= emo
+              (last (str/split (.name (.attribute insts (int ai))) #"_" 3)))
+        (let [stats (.numericStats (.attributeStats insts ai))]
+          (log/fmt! " & ~3$ & ~3$" (.mean   stats)
+                                 (.stdDev stats)))))
+    (println " \\\\"))))
+
 
 
 ;;; --------------------------------------------------------------------------
