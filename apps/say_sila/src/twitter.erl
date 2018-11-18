@@ -106,22 +106,10 @@
 % @end  --
 start_link() ->
     {ok, App} = application:get_application(),
-    case lists:map(fun(Param) -> application:get_env(App, Param, nak) end,
-                   [twitter_consumer_key,
-                    twitter_consumer_secret,
-                    twitter_access_token,
-                    twitter_access_secret]) of
+    Args = [application:get_env(App, ?MODULE,   undefined),
+            application:get_env(App, db_config, undefined)],
 
-        [nak, _, _, _]  -> {error, "Missing Twitter consumer key"};
-        [_, nak, _, _]  -> {error, "Missing Twitter consumer secret"};
-        [_, _, nak, _]  -> {error, "Missing Twitter access key"};
-        [_, _, _, nak]  -> {error, "Missing Twitter access secret"};
-
-        Twitter ->
-            % TODO: The DB functionality will be moving to its own module
-            Args = [application:get_env(App, db_config, undefined) | Twitter],
-            gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, Args, [])
-    end.
+    gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, Args, []).
 
 
 
@@ -416,16 +404,33 @@ to_hashtag(Tracker) ->
 %%
 % @doc  Initialization for the Twitter access server.
 % @end  --
-init([DBConfig, ConsKey, ConsSecret, AccessKey, AccessSecret]) ->
+init([ArgsTw, ArgsDB]) ->
     %
     ?notice("Initializing access to Twitter: push[tbl_statuses] pull[~s]",
             [?STATUS_TABLE]),
     process_flag(trap_exit, true),
 
-    gen_server:cast(self(), {request_token, AccessKey, AccessSecret}),
-    gen_server:cast(self(), {db_connect, DBConfig}),
+    % Make sure we've got what we need to open a connection to Twitter
+    case check_twitter_config(ArgsTw) of
 
-    {ok, #state{consumer   = {ConsKey, ConsSecret, hmac_sha1}}}.
+        {ok, [ConsKey, ConsSecret, AccessKey, AccessSecret]} ->
+
+            ?notice("Initializing access to Twitter"),
+            gen_server:cast(self(), {request_token, AccessKey, AccessSecret}),
+            gen_server:cast(self(), {db_connect, ArgsDB}),
+
+            % Are we supposed to auto-initiciate the login process??
+            case proplists:get_value(login, ArgsTw) of
+                true -> gen_server:cast(self(), login);
+                _    -> ok
+            end,
+
+            {ok,
+             #state{consumer = {ConsKey, ConsSecret, hmac_sha1}}};
+
+        {error, Why} ->
+            {stop, Why}
+    end.
 
 
 
@@ -600,10 +605,6 @@ handle_call(Msg, _From, State) ->
 handle_cast(login, State) ->
     URL = get_pin(),
     ?notice("Please retrieve your PIN from ~s~n", [URL]),
-
-    % TODO: We need a proper UI for PIN entry
-    % {ok, PIN} = io:fread("PIN> ", "~s"),
-    % authenticate(PIN),
     {noreply, State};
 
 
@@ -691,6 +692,33 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
+%%--------------------------------------------------------------------
+-spec check_twitter_config(TwappCfg :: list()) -> {ok, list()}
+                                                | {error, string()}.
+%%
+% @doc  Verifies that our configuration has all the twitter it needs.
+%       If so, we return just the parameter values in a list.
+%
+%       The idea is to not just "let it fail" in the middle of a Twitter
+%       handshake, as we might get cut off after so many failed attempts.
+% @end  --
+check_twitter_config(TwappCfg) ->
+    case lists:map(fun(Param) -> proplists:get_value(Param, TwappCfg, nak) end,
+                   [consumer_key,
+                    consumer_secret,
+                    access_token,
+                    access_secret]) of
+
+        [nak, _, _, _]  -> {error, "Missing Twitter consumer key"};
+        [_, nak, _, _]  -> {error, "Missing Twitter consumer secret"};
+        [_, _, nak, _]  -> {error, "Missing Twitter access key"};
+        [_, _, _, nak]  -> {error, "Missing Twitter access secret"};
+
+        Params          -> {ok, Params}
+    end.
+
+
+
 %%--------------------------------------------------------------------
 -spec listify_string(S :: string()
                         | term()) -> list() | term().
