@@ -175,7 +175,7 @@
   (let [flt-map (flt-key  +FILTERS+)
         sieve   (eval (:filter  flt-map))
         opts    (:options flt-map)]
-    (filter-instances data sieve opts)) )
+    (filter-instances data sieve opts)))
 
 
   ([^Instances data
