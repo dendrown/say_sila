@@ -25,6 +25,7 @@
 (def ^:const TOP-N      12)
 (def ^:const EMOTIONS   [:anger :fear :sadness :joy])
 (def ^:const FMT-CSV    "/srv/say_sila/weka/gw_full_nlp_n5-25_oter_~a_NN_oter_~a_n~a.csv")
+(def ^:const MIDRULE     "\\midrule %--------------------------------------------------------------------")
 
 
 ;;; --------------------------------------------------------------------------
@@ -90,31 +91,48 @@
   "
   ([]
   (let [dsets (map #(read-data :anger %) (range 5 26))
-        inds  (reduce #(distinct (concat %2 %1))
+        cols  (reduce #(distinct (concat %2 %1))
                        (map #(col-names (:inds %)) dsets))]
 
-    ;; TODO: Find the union of coefficients
+    ;; Let logging finish up, then do the table heading
+    (log/wait)
+    (println)
+    (println)
     (log/fmt! "N  &  PCC ")
-    (doseq [ind inds]
-      (log/fmt!" & ~a" (name ind)))
+    (doseq [col cols]
+      (log/fmt!" & ~a" (name col)))
 
-    (log/fmt! "~%")
-    (log/fmt! "\\midrule %--------------------------------------------------------------------~%")
+    (log/fmt! " \\\\~%~a~%" MIDRULE)
     (doseq [ds dsets]
-    (model-nn ds))))
+    (model-nn ds cols))))
 
 
-  ([{:keys [pred dep inds n]}]
+  ([{:keys [dep inds n]} all-cols]
   (let [lmod            (linear-model dep inds)
         [intc & coefs]  (:coefs    lmod)
-        anames          (col-names inds)]
+        cols            (col-names inds)
+        liner          #(when (= n TOP-N)
+                          (log/fmt! "~a~%" MIDRULE))]
 
     ;; Start with all the multirow values
+    (liner)
     (log/fmt! "~2@a &  0.PCC" n)
-    (doseq [coef coefs]
-      (log/fmt! " & ~3$" coef))
+    (loop [mod-cols  (map #(some #{%} cols) all-cols)
+           mod-coefs coefs]
+      ;; Process once per column in the complete column list
+      (when mod-cols
+        (if (first mod-cols)
+            ;;
+            ;; Model has the column, print its coefficient
+            (do (log/fmt! " & ~3,,6$" (first mod-coefs))
+                (recur (next mod-cols) (next mod-coefs)))
 
-    (log/fmt! " & ~3$ \\\\~%" intc))))
+            ;; Model doesn't use this coefficient, print a placeholder
+            (do (log/fmt! " &       ")
+                (recur (next mod-cols) mod-coefs)))))
+
+    (log/fmt! " & ~3,,6$ \\\\~%" intc)
+    (liner))))
 
 
 

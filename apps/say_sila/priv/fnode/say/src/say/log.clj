@@ -52,13 +52,24 @@
 
 ;;; --------------------------------------------------------------------------
 (defn- send-log
-   "
-   Define agent alice's logging behaviour.
-   "
-   [alice msg]
-   (let [cnt (:count alice)]
-     (apply println msg)
-     (assoc alice :count (inc cnt))))
+  "
+  Define agent alice's logging behaviour.
+  "
+  [alice msg]
+  (let [cnt (:count alice)]
+    (apply println msg)
+    (assoc alice :count (inc cnt))))
+
+
+;;; --------------------------------------------------------------------------
+(defn wait
+  "
+  Flushes the logger agent's output stream so that normal #'println has a
+  chance of working.
+  "
+  []
+  (await-for 1000 Logger))
+
 
 
 ;;; --------------------------------------------------------------------------
