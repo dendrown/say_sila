@@ -14,6 +14,7 @@
   (:require [say.log        :as log]
             [say.weka       :as weka]
             [clojure.string :as str]
+            [say.genie      :refer :all]
             [incanter.core  :refer :all]
             [incanter.io    :refer :all]
             [incanter.stats :refer :all])
@@ -22,10 +23,13 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const TOP-N      12)
-(def ^:const EMOTIONS   [:anger :fear :sadness :joy])
-(def ^:const FMT-CSV    "/srv/say_sila/weka/gw_full_nlp_n5-25_oter_~a_NN_oter_~a_n~a.csv")
+(def ^:const TOP-N       12)
+(def ^:const FIRST-N     5)
+(def ^:const LAST-N      25)
+(def ^:const EMOTIONS    [:anger :fear :sadness :joy])
 (def ^:const MIDRULE     "\\midrule %--------------------------------------------------------------------")
+(def ^:const FMT-CSV     "/srv/say_sila/weka/gw_full_nlp_n5-25_oter_~a_NN_oter_~a_n~a.csv")
+(def ^:const FMT-ERL-CSV "/srv/say_sila/influence/gw_full_nlp_n5-25_oter_~a_NN.csv")
 
 
 ;;; --------------------------------------------------------------------------
@@ -90,24 +94,33 @@
   Creates an OLS linear regression model and turns it into a LaTeX table line.
   "
   ([]
-  (let [dsets (map #(read-data :anger %) (range 5 26))
-        cols  (reduce #(distinct (concat %2 %1))
-                       (map #(col-names (:inds %)) dsets))]
+  (model-nn :anger))
+
+
+  ([emo]
+  (let [dsets   (map #(read-data emo %) (range FIRST-N (inc LAST-N)))
+        cols    (reduce #(distinct (concat %2 %1))
+                         (map #(col-names (:inds %)) dsets))
+        erl-csv (log/fmt FMT-ERL-CSV (name emo))
+        erl-out (read-dataset erl-csv :header true)
+        pccs    ($ :Correlation erl-out)]
 
     ;; Let logging finish up, then do the table heading
+    (log/notice "LaTeX~a: inf[~a]" emo erl-csv)
     (log/wait)
     (println)
     (println)
-    (log/fmt! "N  &  PCC ")
+    (log/fmt! " N &     PCC")
     (doseq [col cols]
-      (log/fmt!" & ~a" (name col)))
+      (log/fmt!" & ~15@a" (name col)))
 
-    (log/fmt! " \\\\~%~a~%" MIDRULE)
-    (doseq [ds dsets]
-    (model-nn ds cols))))
+    (log/fmt! " & intercept \\\\~%~a~%" MIDRULE)
+    (doseq [[dset
+             pcc]  (zip dsets pccs)]
+    (model-nn dset pcc cols))))
 
 
-  ([{:keys [dep inds n]} all-cols]
+  ([{:keys [dep inds n]} pcc all-cols]
   (let [lmod            (linear-model dep inds)
         [intc & coefs]  (:coefs    lmod)
         cols            (col-names inds)
@@ -116,7 +129,7 @@
 
     ;; Start with all the multirow values
     (liner)
-    (log/fmt! "~2@a &  0.PCC" n)
+    (log/fmt! "~2@a &  ~3,,6$" n pcc)
     (loop [mod-cols  (map #(some #{%} cols) all-cols)
            mod-coefs coefs]
       ;; Process once per column in the complete column list
@@ -124,14 +137,14 @@
         (if (first mod-cols)
             ;;
             ;; Model has the column, print its coefficient
-            (do (log/fmt! " & ~3,,6$" (first mod-coefs))
+            (do (log/fmt! " & ~3,,15$" (first mod-coefs))
                 (recur (next mod-cols) (next mod-coefs)))
 
             ;; Model doesn't use this coefficient, print a placeholder
-            (do (log/fmt! " &       ")
+            (do (log/fmt! " &                ")
                 (recur (next mod-cols) mod-coefs)))))
 
-    (log/fmt! " & ~3,,6$ \\\\~%" intc)
+    (log/fmt! " &    ~3,,6$ \\\\~%" intc)
     (liner))))
 
 

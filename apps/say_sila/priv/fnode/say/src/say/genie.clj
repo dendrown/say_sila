@@ -51,3 +51,17 @@
   [arg]
   (if (list? arg) arg (list arg)))
 
+
+
+;;; --------------------------------------------------------------------------
+;;; ╺━┓╻┏━┓
+;;; ┏━┛┃┣━┛
+;;; ┗━╸╹╹
+;;; --------------------------------------------------------------------------
+(defmacro zip
+  "
+  Returns a sequence of the zipped up elements from the specified collections.
+  "
+  [& colls]
+  `(map vector ~@colls))
+
