@@ -78,7 +78,37 @@
     (log/info "Independents:" (map name (col-names inds)))
     {:pred  pred
      :dep   dep
-     :inds  inds})))
+     :inds  inds
+     :n     n})))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn model-nn
+  "
+  Creates an OLS linear regression model and turns it into a LaTeX table line.
+  "
+  ([]
+  (let [dsets (map #(read-data :anger %) (range 5 26))]
+
+    ;; TODO: Find the union of coefficients
+    (println "\\midrule %--------------------------------------------------------------------")
+    (doseq [ds dsets]
+    (model-nn ds))))
+
+
+  ([{:keys [pred dep inds n]}]
+  (let [lmod            (linear-model dep inds)
+        [intc & coefs]  (:coefs    lmod)
+        anames          (col-names inds)]
+
+    ;; Start with all the multirow values
+    (log/fmt! "~2@a &  0.PCC" n)
+    (doseq [coef coefs]
+      (log/fmt! " & ~3$" coef))
+
+    (log/fmt! " & ~3$ \\\\~%" intc))))
+
 
 
 ;;; --------------------------------------------------------------------------
