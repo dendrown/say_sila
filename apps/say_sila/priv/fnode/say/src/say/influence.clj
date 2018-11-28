@@ -89,10 +89,17 @@
   Creates an OLS linear regression model and turns it into a LaTeX table line.
   "
   ([]
-  (let [dsets (map #(read-data :anger %) (range 5 26))]
+  (let [dsets (map #(read-data :anger %) (range 5 26))
+        inds  (reduce #(distinct (concat %2 %1))
+                       (map #(col-names (:inds %)) dsets))]
 
     ;; TODO: Find the union of coefficients
-    (println "\\midrule %--------------------------------------------------------------------")
+    (log/fmt! "N  &  PCC ")
+    (doseq [ind inds]
+      (log/fmt!" & ~a" (name ind)))
+
+    (log/fmt! "~%")
+    (log/fmt! "\\midrule %--------------------------------------------------------------------~%")
     (doseq [ds dsets]
     (model-nn ds))))
 
