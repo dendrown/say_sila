@@ -84,7 +84,7 @@
     {:pred  pred
      :dep   dep
      :inds  inds
-     :n     n})))
+     :N     n})))
 
 
 
@@ -94,7 +94,7 @@
   Creates an OLS linear regression model and turns it into a LaTeX table line.
   "
   ([]
-  (model-nn :anger))
+  (doseq [emo EMOTIONS] (model-nn emo)))
 
 
   ([emo]
@@ -106,7 +106,7 @@
         pccs    ($ :Correlation erl-out)]
 
     ;; Let logging finish up, then do the table heading
-    (log/notice "LaTeX~a: inf[~a]" emo erl-csv)
+    (log/fmt-notice "LaTeX~a: inf[~a]" emo erl-csv)
     (log/wait)
     (println)
     (println)
@@ -115,21 +115,25 @@
       (log/fmt!" & ~15@a" (name col)))
 
     (log/fmt! " & intercept \\\\~%~a~%" MIDRULE)
-    (doseq [[dset
-             pcc]  (zip dsets pccs)]
-    (model-nn dset pcc cols))))
+
+    ;; Check all the models and output the statistics
+    (doseq [[n rpt] (doall (map (fn [[dset pcc]] (model-nn dset pcc cols))
+                            (zip dsets pccs)))]
+      ;; TODO: Just print for TOP-N
+      (log/fmt! "~a~2@a: ~a~%" (if (= n TOP-N) "*" " ") n rpt))))
 
 
-  ([{:keys [dep inds n]} pcc all-cols]
+  ([{:keys [dep inds N]} pcc all-cols]
   (let [lmod            (linear-model dep inds)
-        [intc & coefs]  (:coefs    lmod)
+        [intc & coefs]  (:coefs lmod)
+        [df1    df2]    (:df    lmod)
         cols            (col-names inds)
-        liner          #(when (= n TOP-N)
+        liner          #(when (= N TOP-N)
                           (log/fmt! "~a~%" MIDRULE))]
 
     ;; Start with all the multirow values
     (liner)
-    (log/fmt! "~2@a &  ~3,,6$" n pcc)
+    (log/fmt! "~2@a &  ~3,,6$" N pcc)
     (loop [mod-cols  (map #(some #{%} cols) all-cols)
            mod-coefs coefs]
       ;; Process once per column in the complete column list
@@ -145,7 +149,13 @@
                 (recur (next mod-cols) mod-coefs)))))
 
     (log/fmt! " &    ~3,,6$ \\\\~%" intc)
-    (liner))))
+    (liner)
+
+    ;; Prepare the model's statistical description
+    [N (log/fmt "$F(~a,~a) = ~3,,6$, p < ~,2,2e R_{adj}^{2} = ~3$" df1 df2
+                                                                  (:f-stat lmod)
+                                                                  (:f-prob lmod)
+                                                                  (:adj-r-square lmod))])))
 
 
 
