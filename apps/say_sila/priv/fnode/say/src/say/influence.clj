@@ -198,7 +198,11 @@
   "
   Creates an OLS linear regression model and evaluates it.
   "
-  [{:keys [pred dep inds]}]
+  ([]
+  (doseq [emo EMOTIONS] (model (read-data emo))))
+
+
+  ([{:keys [pred dep inds]}]
   (let [lmod                 (linear-model dep inds)
         [regs comm emo]      (str/split (name pred) #"_" 3)  
         [intc    & coefs]    (:coefs    lmod)
@@ -217,7 +221,7 @@
               (log/fmt "\\multirow{~a}{*}{~a}" acnt x))
 
             ;; ---------------------------------------------------------------
-            (numeric ([chk]     (numeric chk "~4$"))
+            (numeric ([chk]     (numeric chk "~3$"))
                      ([chk fmt] (log/fmt fmt (lmod chk))))]
 
     ;(log/fmt-notice "Model for ~a:" emo)
@@ -228,7 +232,7 @@
                                                       (second (:df lmod))
                                                       (numeric :r-square)]))
     ;; Finish that line with the first attribute
-    (log/fmt! "   & ~a & ~4$ & ~4$ & ~4$ -- ~4$ \\\\\n" (attribber (first anames)) 
+    (log/fmt! "   & ~a & ~3$ & ~3$ & ~3$ -- ~3$ \\\\\n" (attribber (first anames))
                                                         (first  coefs)
                                                         (first  coefs-t)
                                                         (first  (first coefs-ci))
@@ -241,21 +245,12 @@
                                (rest coefs-t)
                                (rest coefs-ci))]
 
-      (apply (fn [attr coef p [lo hi]] (log/fmt! "~a ~a & ~4$ & ~4$ & ~4$ -- ~4$ \\\\\n%----\n"
+      (apply (fn [attr coef p [lo hi]] (log/fmt! "~a ~a & ~3$ & ~3$ & ~3$ -- ~3$ \\\\\n%----\n"
                                                  places attr coef p lo hi))
              values))
 
     ; Incanter likes the intercept first, but we want it last
-    (log/fmt! "~a intercept & ~4$ & ~4$ & ~4$ -- ~4$ \\\\\n"
+    (log/fmt! "~a intercept & ~3$ & ~3$ & ~3$ -- ~3$ \\\\\n"
               places intc intc-t (first intc-ci) (second intc-ci))
-    (println))))
-
-
-;;; --------------------------------------------------------------------------
-(defn start
-  "
-  Run generation scripts for influence article.
-  "
-  []
-  (doseq [emo EMOTIONS] (model (read-data emo))))
+    (println)))))
 
