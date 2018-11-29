@@ -26,10 +26,37 @@
 (def ^:const TOP-N       12)
 (def ^:const FIRST-N     7)
 (def ^:const LAST-N      25)
+(def ^:const PLAYERS     [:big   :reg])
+(def ^:const COMM-CODES  [:oter  :rter :rted    :tmed])
 (def ^:const EMOTIONS    [:anger :fear :sadness :joy])
 (def ^:const MIDRULE     "\\midrule %--------------------------------------------------------------------")
 (def ^:const FMT-CSV     "/srv/say_sila/weka/gw_full_nlp_n5-25_oter_~a_NN_oter_~a_n~a.csv")
 (def ^:const FMT-ERL-CSV "/srv/say_sila/influence/gw_full_nlp_n5-25_oter_~a_NN.csv")
+
+
+;;; --------------------------------------------------------------------------
+(defn cmp-attrs
+  "
+  Compares two attributes for ordering.
+  "
+  [attr1 attr2]
+  ;; Pair up the parts of the attributes
+  (loop [parts   (apply #(zip %1 %2) (map #(str/split (name %) #"_")  [attr1 attr2]))
+         cmps    [PLAYERS COMM-CODES EMOTIONS]]
+
+    (if (seq? parts)
+      ;;
+      ;; Figure out where the parts are in the comparator sequences
+      (let [cmp  ^clojure.lang.PersistentVector (first cmps)
+            ndxs (map #(.indexOf cmp (keyword %)) (first parts))]
+        (cond
+          (apply > ndxs) +1
+          (apply < ndxs) -1
+          :else          (recur (next parts) (next cmps))))
+
+      ;; Nothing more to compare...they were equal!
+      0)))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -105,8 +132,9 @@
 
   ([emo]
   (let [dsets   (map #(read-data emo %) (range FIRST-N (inc LAST-N)))
-        cols    (reduce #(distinct (concat %2 %1))
-                         (map #(col-names (:inds %)) dsets))
+        cols    (sort cmp-attrs
+                      (reduce #(distinct (concat %1 %2))
+                                         (map #(col-names (:inds %)) dsets)))
         erl-csv (log/fmt FMT-ERL-CSV (name emo))
         erl-out (read-dataset erl-csv :header true)
         pccs    ($ :Correlation erl-out)]
@@ -116,9 +144,9 @@
     (log/wait)
     (println)
     (println)
-    (log/fmt! " N &     PCC")
+    (log/fmt! "N & PCC")
     (doseq [col cols]
-      (log/fmt!" & ~15@a" (name col)))
+      (log/fmt!" & ~a" (name col)))
 
     (log/fmt! " & intercept \\\\~%~a~%" MIDRULE)
 
@@ -126,7 +154,7 @@
     (doseq [[n rpt] (doall (map (fn [[dset pcc]] (model-nn dset pcc cols))
                             (zip dsets pccs)))]
       ;; TODO: Just print for TOP-N
-      (log/fmt! "~a~2@a: ~a~%" (if (= n TOP-N) "*" " ") n rpt))))
+      (log/fmt! "~an=~2@a: ~a~%" (if (= n TOP-N) "*" " ") n rpt))))
 
 
   ([{:keys [dep inds N]} pcc all-cols]
@@ -147,14 +175,14 @@
         (if (first mod-cols)
             ;;
             ;; Model has the column, print its coefficient
-            (do (log/fmt! " & ~3,,15$" (first mod-coefs))
+            (do (log/fmt! " & ~3,,6$" (first mod-coefs))
                 (recur (next mod-cols) (next mod-coefs)))
 
             ;; Model doesn't use this coefficient, print a placeholder
-            (do (log/fmt! " &                ")
+            (do (log/fmt! " &       ")
                 (recur (next mod-cols) mod-coefs)))))
 
-    (log/fmt! " &    ~3,,6$ \\\\~%" intc)
+    (log/fmt! " & ~3,,6$ \\\\~%" intc)
     (liner)
 
     ;; Prepare the model's statistical description
