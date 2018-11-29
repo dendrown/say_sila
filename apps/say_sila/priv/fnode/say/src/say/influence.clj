@@ -24,7 +24,7 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const TOP-N       12)
-(def ^:const FIRST-N     5)
+(def ^:const FIRST-N     7)
 (def ^:const LAST-N      25)
 (def ^:const EMOTIONS    [:anger :fear :sadness :joy])
 (def ^:const MIDRULE     "\\midrule %--------------------------------------------------------------------")
@@ -74,17 +74,23 @@
         data (read-dataset csv :header true)
         cols (col-names data)
         pred (last cols)
-        dcol (dec (count cols))
-        dep  (sel data :cols dcol)
-        inds (sel data :cols (range dcol))]
+        dcol (dec (count cols))]
 
-    (log/info "Reading data:" csv)
-    (log/info "Prediction  :" (name pred))
-    (log/info "Independents:" (map name (col-names inds)))
-    {:pred  pred
-     :dep   dep
-     :inds  inds
-     :N     n})))
+    ;; Make sure there are independents to process
+    (if (pos? dcol)
+      (let [dep  (sel data :cols dcol)
+            inds (sel data :cols (range dcol))]
+
+        (log/info "Reading data:" csv)
+        (log/info "Prediction  :" (name pred))
+        (log/info "Independents:" (map name (col-names inds)))
+        {:pred  pred
+         :dep   dep
+         :inds  inds
+         :N     n})
+
+      (do (log/warn "No independent attributes in" csv)
+          nil)))))
 
 
 
