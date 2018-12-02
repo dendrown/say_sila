@@ -24,7 +24,7 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const TOP-N       12)
-(def ^:const FIRST-N     7)
+(def ^:const FIRST-N     5)
 (def ^:const LAST-N      25)
 (def ^:const PLAYERS     [:big   :reg])
 (def ^:const COMM-CODES  [:oter  :rter :rted    :tmed])
@@ -126,12 +126,22 @@
   "
   Creates an OLS linear regression model and turns it into a LaTeX table line.
   "
+  ;;; Run through all emotions
   ([]
-  (doseq [emo EMOTIONS] (model-nn emo)))
+  (model-nn FIRST-N))
 
 
-  ([emo]
-  (let [dsets   (map #(read-data emo %) (range FIRST-N (inc LAST-N)))
+  ;;; Accept emotion keyword or a starting value for N
+  ([arg]
+  (cond
+    (keyword? arg) (model-nn arg FIRST-N)
+    (number?  arg) (doseq [emo EMOTIONS] (model-nn emo arg))
+    :else          (log/error "Bad argument")))
+
+
+  ;;; Report on an emotion across a range of values for N
+  ([emo first-N]
+  (let [dsets   (map #(read-data emo %) (range first-N (inc LAST-N)))
         cols    (sort cmp-attrs
                       (reduce #(distinct (concat %1 %2))
                                          (map #(col-names (:inds %)) dsets)))
@@ -158,20 +168,27 @@
       (log/fmt! "~an=~2@a: ~a~%" (if (= n TOP-N) "*" " ") n rpt))))
 
 
+  ;;; Report on an emotion for a specific value for N
   ([{:keys [dep inds N]} all-cols pcc pcc!]
   (let [lmod            (linear-model dep inds)
         [intc & coefs]  (:coefs lmod)
         [df1    df2]    (:df    lmod)
+        [fstat
+         fprob
+         adj-r2]        (map #(lmod %) [:f-stat :f-prob :adj-r-square])
         cols            (col-names inds)
+        fmt-fprob      #(cond (<= fprob 0.01) "$^{**}$      "
+                              (<= fprob 0.05) "$^{*\\ \\ \\!}$ "
+                              :else           "$^{\\ \\ \\ \\!}$")
         fmt-pcc        #(log/fmt (if (= pcc pcc!)
                                      "\\textbf{~3,,6$}"
-                                     "        ~3,,6$ ") %)
+                                     "        ~3,,6$ ") pcc)
         liner          #(when (= N TOP-N)
                           (log/fmt! "~a~%" MIDRULE))]
 
     ;; Start with all the multirow values
     (liner)
-    (log/fmt! "~2@a & ~a" N (fmt-pcc pcc))
+    (log/fmt! "~2@a ~a & ~a" N (fmt-fprob) (fmt-pcc))
     (loop [mod-cols  (map #(some #{%} cols) all-cols)
            mod-coefs coefs]
       ;; Process once per column in the complete column list
@@ -190,10 +207,8 @@
     (liner)
 
     ;; Prepare the model's statistical description
-    [N (log/fmt "$F(~a,~a) = ~3,,6$, p < ~,2,2e R_{adj}^{2} = ~3$" df1 df2
-                                                                  (:f-stat lmod)
-                                                                  (:f-prob lmod)
-                                                                  (:adj-r-square lmod))])))
+    [N (log/fmt "$F(~a,~a) = ~3,,6$, p < ~,2,2e R_{adj}^{2} = ~3$"
+                df1 df2 fstat fprob adj-r2)])))
 
 
 
