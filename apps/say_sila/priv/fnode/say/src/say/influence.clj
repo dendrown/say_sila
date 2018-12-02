@@ -147,8 +147,9 @@
                                          (map #(col-names (:inds %)) dsets)))
         erl-csv (log/fmt FMT-ERL-CSV (name emo))
         erl-out (read-dataset erl-csv :header true)
-        pccs    ($ :Correlation erl-out)                    ; PCCs for all values of N
-        pcc!    (reduce #(if (> %1 %2) %1 %2) pccs)]        ; Best of all PCCs
+        pccs    (drop (- first-N
+                         FIRST-N) ($ :Correlation erl-out))     ; Skip PCCs for skipped N values
+        pcc!    (reduce #(if (> %1 %2) %1 %2) pccs)]            ; Best of all PCCs
 
     ;; Let logging finish up, then do the table heading
     (log/fmt-notice "LaTeX~a: inf[~a]" emo erl-csv)
