@@ -137,7 +137,8 @@
                                          (map #(col-names (:inds %)) dsets)))
         erl-csv (log/fmt FMT-ERL-CSV (name emo))
         erl-out (read-dataset erl-csv :header true)
-        pccs    ($ :Correlation erl-out)]
+        pccs    ($ :Correlation erl-out)                    ; PCCs for all values of N
+        pcc!    (reduce #(if (> %1 %2) %1 %2) pccs)]        ; Best of all PCCs
 
     ;; Let logging finish up, then do the table heading
     (log/fmt-notice "LaTeX~a: inf[~a]" emo erl-csv)
@@ -151,23 +152,26 @@
     (log/fmt! " & intercept \\\\~%~a~%" MIDRULE)
 
     ;; Check all the models and output the statistics
-    (doseq [[n rpt] (doall (map (fn [[dset pcc]] (model-nn dset pcc cols))
+    (doseq [[n rpt] (doall (map (fn [[dset pcc]] (model-nn dset cols pcc pcc!))
                             (zip dsets pccs)))]
       ;; TODO: Just print for TOP-N
       (log/fmt! "~an=~2@a: ~a~%" (if (= n TOP-N) "*" " ") n rpt))))
 
 
-  ([{:keys [dep inds N]} pcc all-cols]
+  ([{:keys [dep inds N]} all-cols pcc pcc!]
   (let [lmod            (linear-model dep inds)
         [intc & coefs]  (:coefs lmod)
         [df1    df2]    (:df    lmod)
         cols            (col-names inds)
+        fmt-pcc        #(log/fmt (if (= pcc pcc!)
+                                     "\\textbf{~3,,6$}"
+                                     "        ~3,,6$ ") %)
         liner          #(when (= N TOP-N)
                           (log/fmt! "~a~%" MIDRULE))]
 
     ;; Start with all the multirow values
     (liner)
-    (log/fmt! "~2@a &  ~3,,6$" N pcc)
+    (log/fmt! "~2@a & ~a" N (fmt-pcc pcc))
     (loop [mod-cols  (map #(some #{%} cols) all-cols)
            mod-coefs coefs]
       ;; Process once per column in the complete column list
