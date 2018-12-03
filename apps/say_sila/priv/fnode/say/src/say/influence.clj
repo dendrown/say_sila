@@ -166,7 +166,7 @@
     (doseq [[n rpt] (doall (map (fn [[dset pcc]] (model-nn dset cols pcc pcc!))
                             (zip dsets pccs)))]
       ;; TODO: Just print for TOP-N
-      (log/fmt! "~an=~2@a: ~a~%" (if (= n TOP-N) "*" " ") n rpt))))
+      (log/fmt! "% ~a N=~2@a: ~a~%" (if (= n TOP-N) "*" " ") n rpt))))
 
 
   ;;; Report on an emotion for a specific value for N
@@ -178,9 +178,10 @@
          fprob
          adj-r2]        (map #(lmod %) [:f-stat :f-prob :adj-r-square])
         cols            (col-names inds)
-        fmt-fprob      #(cond (<= fprob 0.01) "$^{**}$      "
-                              (<= fprob 0.05) "$^{*\\ \\ \\!}$ "
-                              :else           "$^{\\ \\ \\ \\!}$")
+        fmt-fprob      #(cond (<= fprob 0.001) "$^{***}$"
+                              (<= fprob 0.010) "$^{**}$ "
+                              (<= fprob 0.050) "$^{*}$  "
+                              :else            "        ")
         fmt-pcc        #(log/fmt (if (= pcc pcc!)
                                      "\\textbf{~3,,6$}"
                                      "        ~3,,6$ ") pcc)
@@ -189,7 +190,7 @@
 
     ;; Start with all the multirow values
     (liner)
-    (log/fmt! "~2@a ~a & ~a" N (fmt-fprob) (fmt-pcc))
+    (log/fmt! "~a ~a ~a & ~a" (if (< N 10) "\\" "") N (fmt-fprob) (fmt-pcc))
     (loop [mod-cols  (map #(some #{%} cols) all-cols)
            mod-coefs coefs]
       ;; Process once per column in the complete column list
@@ -208,7 +209,7 @@
     (liner)
 
     ;; Prepare the model's statistical description
-    [N (log/fmt "$F(~a,~a) = ~3,,6$, p < ~,2,2e R_{adj}^{2} = ~3$"
+    [N (log/fmt "$F(~a,~a) = ~3,,6$, p < ~,2,2e, R_{adj}^{2} = ~3$$"
                 df1 df2 fstat fprob adj-r2)])))
 
 
