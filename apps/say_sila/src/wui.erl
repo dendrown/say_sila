@@ -264,6 +264,7 @@ get_track(Arg) ->
 %%--------------------------------------------------------------------
 -spec get_track(Arg  :: arg(),
                 Type :: atom | binary | atom | string) -> atom()
+                                                        | binary()
                                                         | string().
 %%
 % @doc  Returns the tracking code requested in the URL `querydata'
