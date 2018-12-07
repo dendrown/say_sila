@@ -26,9 +26,6 @@
 -export([start_link/0,
          stop/0,
          authenticate/1,
-         get_pin/0,
-         login/0,
-         track/1,
          get_first_dts/1,
          get_first_dts/2,
          get_players/1,
@@ -36,12 +33,19 @@
          get_tweets/2,
          get_tweets/3,
          has_hashtag/2,
+         login/0,
          ontologize/1,
          ontologize/2,
-         to_hashtag/1]).
+         reset/0,
+         retrack/0,
+         to_hashtag/1,
+         track/0,
+         track/1,
+         untrack/0]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include("sila.hrl").
+-include("dts.hrl").
 -include("ioo.hrl").
 -include("types.hrl").
 -include("twitter.hrl").
@@ -86,13 +90,18 @@
 -define(DB_TRACK, << ?HASH_CC "," ?HASH_GW >>).
 
 
--record(state, {consumer     :: tuple(),
+-record(state, {access       :: tuple(),
+                consumer     :: tuple(),
                 oauth_token  :: rec_string(),
                 oauth_secret :: rec_string(),
                 track        :: rec_string() | binary(),
+                tracker      :: rec_pid(),
                 db_conn      :: rec_pid() }).
 -type state() :: #state{}.
 
+
+-define(TWEET_TIMEOUT,    (5 * ?MILLIS_IN_MIN)).
+-define(tweet_timeout(S), case S#state.tracker of undefined -> infinity; _ -> ?TWEET_TIMEOUT end).
 
 
 %%====================================================================
@@ -130,47 +139,6 @@ stop() ->
 % @end  --
 authenticate(PIN) ->
     gen_server:call(?MODULE, {authenticate, PIN}).
-
-
-
-%%--------------------------------------------------------------------
--spec get_pin() -> string()
-                 | undefined.
-%%
-% @doc  Returns the Twitter URL for the access PIN.
-% @end  --
-get_pin() ->
-    gen_server:call(?MODULE, get_pin).
-
-
-
-%%--------------------------------------------------------------------
--spec login() -> ok.
-%%
-% @doc  Logs the application into twitter.
-%
-%       NOTE: Currently, we just announce a PIN authentication URL and 
-%             prompt the sysadmin to complete the login procedure.
-% @end  --
-login() ->
-    gen_server:cast(?MODULE, login).
-
-
-
-%%--------------------------------------------------------------------
--spec track(KeyWords :: [atom()]
-                      | string()
-                      | binary()) -> ok.
-%%
-% @doc  Tracks status/tweets on Twitter for the specified `KeyWords'
-% @end  --
-track([Nickname | Rest]) when is_atom(Nickname)->
-    KeyWords = [?hashtag(Nickname), [ io_lib:format(",~s", [?hashtag(Nick)]) || Nick <- Rest]],
-    track(lists:flatten(KeyWords));
-
-
-track(KeyWords) ->
-    gen_server:cast(?MODULE, {track, KeyWords}).
 
 
 
@@ -329,6 +297,19 @@ has_hashtag(Hash, Text) ->
 
 
 %%--------------------------------------------------------------------
+-spec login() -> ok.
+%%
+% @doc  Logs the application into twitter.
+%
+%       NOTE: Currently, we just announce a PIN authentication URL and
+%             prompt the sysadmin to complete the login procedure.
+% @end  --
+login() ->
+    gen_server:cast(?MODULE, login).
+
+
+
+%%--------------------------------------------------------------------
 -spec ontologize(Tweet :: tweet()) -> [map()].
 %%
 % @doc  Converts the specified `Tweet' into a map with components
@@ -384,6 +365,28 @@ ontologize(#tweet{id             = ID,
     end.
 
 
+
+%%--------------------------------------------------------------------
+-spec reset() -> ok.
+%%
+% @doc  Reinitializes this server's state, and reinitializes Twitter
+%       connectivity if it was previously connected.
+% @end  --
+reset() ->
+    gen_server:cast(?MODULE, reset).
+
+
+
+%%--------------------------------------------------------------------
+-spec retrack() -> ok.
+%%
+% @doc  Restarts the current Twitter tracking process if one exists.
+% @end  --
+retrack() ->
+    gen_server:cast(?MODULE, retrack).
+
+
+
 %%--------------------------------------------------------------------
 -spec to_hashtag(Tracker :: atom()) -> string()
                                      | undefined.
@@ -394,6 +397,42 @@ ontologize(#tweet{id             = ID,
 to_hashtag(Tracker) ->
     ?hashtag(Tracker).
 
+
+
+%%--------------------------------------------------------------------
+-spec track() -> ok.
+%%
+% @doc  Tracks status/tweets on Twitter for Sila's main keywords.
+% @end  --
+track() ->
+    track(?TRACKERS).
+
+
+
+%%--------------------------------------------------------------------
+-spec track(KeyWords :: [atom()]
+                      | string()
+                      | binary()) -> ok.
+%%
+% @doc  Tracks status/tweets on Twitter for the specified `KeyWords'
+% @end  --
+track([Nickname | Rest]) when is_atom(Nickname)->
+    KeyWords = [?hashtag(Nickname), [ io_lib:format(",~s", [?hashtag(Nick)]) || Nick <- Rest]],
+    track(lists:flatten(KeyWords));
+
+
+track(KeyWords) ->
+    gen_server:cast(?MODULE, {track, KeyWords}).
+
+
+
+%%--------------------------------------------------------------------
+-spec untrack() -> ok.
+%%
+% @doc  Stops tracking Twitter status messages.
+% @end  --
+untrack() ->
+    gen_server:cast(?MODULE, untrack).
 
 
 
@@ -426,7 +465,8 @@ init([ArgsTw, ArgsDB]) ->
             end,
 
             {ok,
-             #state{consumer = {ConsKey, ConsSecret, hmac_sha1}}};
+             #state{access   = {AccessKey, AccessSecret},
+                    consumer = {ConsKey, ConsSecret, hmac_sha1}}};
 
         {error, Why} ->
             {stop, Why}
@@ -464,11 +504,6 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call(get_pin, _From, State = #state{oauth_token = Token}) ->
-    URL = oauth:uri(?twitter_oauth_url("authenticate"), [{oauth_token, Token}]),
-    {reply, URL, State};
-
-
 handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
                                                        oauth_token = ReqToken}) ->
 
@@ -602,8 +637,8 @@ handle_call(Msg, _From, State) ->
 %%
 % @doc  Process async messages
 % @end  --
-handle_cast(login, State) ->
-    URL = get_pin(),
+handle_cast(login, State = #state{oauth_token = Token}) ->
+    URL = oauth:uri(?twitter_oauth_url("authenticate"), [{oauth_token, Token}]),
     ?notice("Please retrieve your PIN from ~s~n", [URL]),
     {noreply, State};
 
@@ -636,10 +671,51 @@ handle_cast({db_connect, DBConfig}, State) ->
     {noreply, State#state{db_conn = DBConn}};
 
 
+handle_cast(reset, State = #state{access       = Access,
+                                  oauth_secret = Secret}) ->
+
+    % Stop current tracking activity
+    {_,
+     MidState} = handle_cast(untrack, State),
+
+    % Restart the OAUTH process
+    gen_server:cast(self(), erlang:insert_element(1, Access, request_token)),
+
+    % Reinitiate a login if we're connected now
+    NewState = case Secret of
+        undefined -> MidState;
+        _         -> gen_server:cast(self(), login),
+                     MidState#state{oauth_token  = undefined,
+                                    oauth_secret = undefined}
+    end,
+    {noreply, NewState};
+
+
+handle_cast(retrack, State) ->
+    case State#state.tracker of
+        undefined -> ok;
+        Pid       -> exit(Pid, retrack)
+    end,
+    {noreply, State};
+
+
 handle_cast({track, KeyWords}, State) ->
-    PID = spawn_link(fun() -> track(KeyWords, State) end),
-    ?debug("Tracking on ~p: ~s", [PID, KeyWords]),
-    {noreply, State#state{track = KeyWords}};
+    TrackPid = case KeyWords of
+        undefined -> undefined;
+        _         -> spawn_link(fun() -> track(KeyWords, State) end)
+    end,
+    {noreply,
+     State#state{track   = KeyWords,
+                 tracker = TrackPid},
+     ?tweet_timeout(State)};
+
+
+handle_cast(untrack, State = #state{tracker = Pid}) ->
+    case Pid of
+        undefined -> ok;
+        _         -> exit(Pid, untrack)
+    end,
+    {noreply, State#state{track = undefined}};
 
 
 handle_cast(Msg, State) ->
@@ -652,6 +728,17 @@ handle_cast(Msg, State) ->
 %%
 % @doc  Process out-of-band messages
 % @end  --
+handle_info(timeout, State) ->
+    %
+    case State#state.tracker of
+        undefined -> ok;
+        Pid ->
+            ?warning("Twitter feed stalled on ~p", [Pid]),
+            gen_server:cast(self(), retrack)
+    end,
+    {noreply, State};
+
+
 handle_info({track_headers, Headers}, State) ->
     lists:foreach(fun({Hdr, Val}) ->
                       ?info("Track header ~s: ~s", [Hdr, Val]) end,
@@ -681,8 +768,26 @@ handle_info({track, DataIn}, State) ->
     catch
         Exc:Why -> ?warning("Bad JSON: why[~p:~p] data[~p]", [Exc, Why, DataIn])
     end,
-    ?notice("END OF TWEET"),
+    ?info("END OF TWEET"),
     {noreply, State};
+
+
+handle_info({'EXIT', Pid, Why}, State = #state{tracker = Tracker}) ->
+
+    NewState = case Pid of
+        Tracker ->
+            % Check if we need to restart the tracker process
+            ?info("Stopped tracker on ~p: why[~p]", [Pid, Why]),
+            case Why of
+                retrack -> gen_server:cast(self(), {track, State#state.track});
+                _       -> ok
+            end,
+            State#state{tracker = undefined};
+        _ ->
+            ?warning("Unknown tracker exited: pid[~p]", [Pid]),
+            State
+    end,
+    {noreply, NewState};
 
 
 handle_info(Msg, State) ->
@@ -872,7 +977,7 @@ log_tweet(Indent, {Key, Val}) ->
         is_list(Val)        -> "~s~s: ~p"
     end,
     case Key of
-        <<"text">>  -> ?info(Fmt, [Indent, Key, Val]);      % Tweet text
+        <<"text">>  -> ?notice(Fmt,[Indent, Key, Val]);     % Tweet text
         _           -> ?debug(Fmt, [Indent, Key, Val])
     end.
 
