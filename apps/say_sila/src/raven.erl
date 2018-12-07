@@ -402,8 +402,7 @@ handle_call(reset, _From, State) ->
                        jvm_node    = State#state.jvm_node}};
 
 
-handle_call({report, Period}, _From, State = #state{
-                                                    emo_report  = undefined,
+handle_call({report, Period}, _From, State = #state{emo_report  = undefined,
                                                     tracker     = Tracker,
                                                     big_percent = BigP100,
                                                     tweet_slots = SlotMap}) ->

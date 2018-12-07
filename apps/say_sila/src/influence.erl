@@ -15,13 +15,18 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -behaviour(gen_statem).
--export([start_link/4, start_link/5,
+-export([start_link/4,  start_link/5,
          stop/1,
          reset/1,
          go/1,
          get_models/1,
-         report_open/1,
-         report_line/3]).
+         get_outcome/1,
+         report_open/2,
+         report_line/3,
+         run_biggies/2, run_biggies/3,  run_biggies/4,
+         run_top_n/3,   run_top_n/4,
+         run_top_nn/3,  run_top_nn/4]).
+
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
 -export([idle/3,
          run/3,
@@ -43,15 +48,30 @@
 %define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
 %define(DELTA_CUTS,     [0.1]).
 -define(DELTA_CUTS,     []).
+-define(INIT_BIG_PCT,   0.004).                 % Contribution rate (without deceleration)
+-define(INIT_TOP_N,     10).
+-define(INIT_METHOD,    {biggies, ?INIT_BIG_PCT}).
+
+-define(MIN_BIG_PCT,    0.001).
+-define(MAX_BIG_PCT,    0.004).
+-define(INC_BIG_PCT,    0.0005).
+-define(INIT_BIG_RANGE, {biggies, ?MIN_BIG_PCT, ?MAX_BIG_PCT}).
+
+-define(MIN_TOP_N,      5).
+-define(MAX_TOP_N,      25).
+-define(MIN_NN_SCORE,   0.6).
+-define(INIT_TOP_RANGE, {top_n, ?MIN_TOP_N, ?MAX_TOP_N}).
 
 
 %%--------------------------------------------------------------------
 -record(data, {tracker                  :: tracker(),
                name                     :: binary(),
                arff                     :: binary(),
+               work_csv                 :: binary(),            % Weka can save filtered data for incanter
                attributes               :: [atom()],
-               incl_attrs               :: [atom()],            % Info-purposes only
-               excl_attrs               :: [atom()],            % Info-purposes only
+               init_attrs               :: [atom()],
+               incl_attrs               :: [atom()],
+               excl_attrs               :: [atom()],
                reg_comm                 :: comm_code(),
                reg_emo                  :: emotion(),
                period                   :: non_neg_integer(),
@@ -63,9 +83,13 @@
                delta_cnt  = 0           :: non_neg_integer(),   % Num changes since last evaluation
                work_ref   = none        :: none|reference(),
                results    = none        :: none|map(),
-               models                   :: queue:queue()}).
--type data() :: #data{}.                                        % FSM internal state data
+               models                   :: queue:queue(),
+               report                   :: boolean()}).
+-type data()    :: #data{}.                                     % FSM internal state data
 
+%type method()       :: biggies | top_n.
+-type method_range() :: {biggies, float(), float()}
+                      | {top_n, non_neg_integer(), non_neg_integer()}.
 
 
 %%====================================================================
@@ -79,7 +103,7 @@
 % @doc  Startup function for a daily Twitter influence model
 % @end  --
 start_link(Tracker, RunTag, RegComm, RegEmo) ->
-    start_link(Tracker, RunTag, RegComm, RegEmo, 1).
+    start_link(Tracker, RunTag, RegComm, RegEmo, []).
 
 
 
@@ -88,14 +112,25 @@ start_link(Tracker, RunTag, RegComm, RegEmo) ->
                  RunTag  :: stringy(),
                  RegComm :: comm_code(),
                  RegEmo  :: atom(),
-                 Period  :: non_neg_integer()) -> gen_statem:start_ret().
+                 Options :: proplist()) -> gen_statem:start_ret().
 %%
 % @doc  Startup function for Twitter influence model
 % @end  --
-start_link(Tracker, RunTag, RegComm, RegEmo, Period) ->
-    gen_statem:start_link(?MODULE,
-                          [Tracker, RunTag, RegComm, RegEmo, Period],
-                          []).
+start_link(Tracker, RunTag, RegComm, RegEmo, Options) ->
+    %
+    % It's too easy to get the comm/emo backwards, and the model goes haywire!
+    case {lists:member(RegComm, ?COMM_CODES),
+          lists:member(RegEmo,  ?EMOTIONS)} of
+
+        {true, true} ->
+            gen_statem:start_link(?MODULE,
+                                  [Tracker, RunTag, RegComm, RegEmo, Options],
+                                  []);
+
+        _ ->
+            ?error("Invalid parameter: comm[~s] emo[~s]", [RegComm, RegEmo]),
+            {stop, badarg}
+    end.
 
 
 
@@ -130,6 +165,18 @@ go(Model) ->
 
 
 %%--------------------------------------------------------------------
+-spec get_outcome(Model :: gen_statem:server_ref()) -> {float(),
+                                                        [atom()]}.
+%%
+% @doc  Returns a tuple containing the correlation coefficient and
+%       the attributes that were actually used in the final model.
+% @end  --
+get_outcome(Model) ->
+    gen_statem:call(Model, get_outcome).
+
+
+
+%%--------------------------------------------------------------------
 -spec get_models(Model :: gen_statem:server_ref()) -> queue:queue().
 %%
 % @doc  Returns a queue of historical models for this FSM.
@@ -140,23 +187,24 @@ get_models(Model) ->
 
 
 %%--------------------------------------------------------------------
--spec report_open(Name :: stringy()) -> {ok, file:io_device(), string()}
-                                      | {error, file:posix() | badarg | system_limit}.
+-spec report_open(Name :: stringy(),
+                  Opts :: proplist()) -> {ok, file:io_device(), string()}
+                                       | {error, file:posix() | badarg | system_limit}.
 %%
 % @doc  Opens a report file and writes a CSV header with the
 %       column names for a report on influence as modelled by
 %       this FSM.
 % @end  --
-report_open(Name) ->
+report_open(Name, Opts) ->
     Attrs = init_attributes(),
-    report_open(Name, Attrs).
+    report_open(Name, Attrs, Opts).
 
 
 
 %%--------------------------------------------------------------------
--spec report_line(Model :: gen_statem:server_ref(),
+-spec report_line(Model :: gen_statem:server_ref() | none,
                   FOut  :: file:io_device(),
-                  Line  ::  non_neg_integer()) -> ok.
+                  Line  :: non_neg_integer()) -> ok.
 %%
 % @doc  Writes out a CSV line describing the final version of the
 %       model this FSM represents.
@@ -164,8 +212,204 @@ report_open(Name) ->
 %       NOTE: If the FSM is still processing models, this function
 %             will block until the final model is processed.
 % @end  --
+report_line(none, FOut, Line) ->
+    ?io_fmt(FOut, "~B,,,,,,,,,,,,,,,,,,,,,,~n", [Line]);
+
+
 report_line(Model, FOut, Line) ->
     gen_statem:call(Model, {report_line, FOut, Line}).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_biggies(Tracker :: tracker(),
+                  RunTag  :: stringy()) -> term().
+%%
+% @doc  Do the Twitter/Emo influence experiments.  The caller must
+%       specify the tracker, but we default to biggie velocity at
+%       1% over weekly periods.
+% @end  --
+run_biggies(Tracker, RunTag) ->
+    run_biggies(Tracker, RunTag, ?INIT_BIG_PCT).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_biggies(Tracker :: tracker(),
+                  RunTag  :: stringy(),
+                  Emo_Pct :: emotion
+                           | float()) -> term().
+%%
+% @doc  Do the Twitter/Emo influence experiments.  The caller must
+%       specify the tracker, but we default to biggie velocity at
+%       .4% over weekly periods.
+% @end  --
+%run_biggies(Tracker, RunTag, Emo) when is_atom(Emo) ->
+
+
+
+run_biggies(Tracker, RunTag, BigPct) ->
+    run_influence(Tracker, RunTag, [{method, {biggies, BigPct}},
+                                    {period, 7},
+                                    report]).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_biggies(Tracker :: tracker(),
+                  RunTag  :: stringy(),
+                  Comm    :: comm_code(),
+                  Emo     :: emotion()) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments for one communication
+%       code and one emotion.  The caller must specify the tracker, but
+%       we default to biggie velocity at .4% over weekly periods.
+%
+%       This function uses weekly periods.
+% @end  --
+run_biggies(Tracker, RunTag, Comm, Emo) ->
+    BigTag  = extend_run_tag(RunTag, Comm, Emo, ?INIT_BIG_RANGE),
+    run_series(Tracker, BigTag, Comm, Emo, ?INIT_BIG_RANGE, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_top_n(Tracker :: tracker(),
+                RunTag  :: stringy(),
+                Emo_N   :: emotion()
+                         | non_neg_integer()) -> term().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts in each
+%       category.  This function uses weekly periods.
+% @end  --
+run_top_n(Tracker, RunTag, Emo) when is_atom(Emo) ->
+    Comms  = [tter, oter, rter],
+    Runner = fun(Comm) ->
+                 Tag = ?str_fmt("~s_~s_~s", [RunTag, Comm, Emo]),
+                 run_top_n(Tracker, Tag, Comm, Emo)
+                 end,
+    lists:map(Runner, Comms);
+
+
+run_top_n(Tracker, RunTag, N) when is_integer(N) ->
+    Options = [{method, {top_n, N}},
+               {period, 7}],
+    run_influence(Tracker, RunTag, Options).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_top_n(Tracker :: tracker(),
+                RunTag  :: stringy(),
+                Comm    :: comm_code(),
+                Emo     :: emotion()) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.
+%
+%       This function uses weekly periods.
+% @end  --
+run_top_n(Tracker, RunTag, Comm, Emo) ->
+    run_series(Tracker, RunTag, Comm, Emo, ?INIT_TOP_RANGE, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_top_nn(Tracker   :: tracker(),
+                 RunTag    :: stringy(),
+                 CommOrEmo :: comm_code() | emotion()) -> ok.
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.
+%
+%       This `nn' function goes through the Top-N twice, using only
+%       the emo/comm attributes from the higher ranking models.
+%
+%       This function runs weekly periods for either one of the
+%       `tter', `oter' or `rter' communication codes, or an emotion.
+% @end  --
+run_top_nn(Tracker, RunTag, CommOrEmo) ->
+
+    % We don't currently do this for passive communication categories
+    ActComms = [tter, oter, rter],
+
+    % Did they specify a comm code?
+    case lists:member(CommOrEmo, ActComms) of
+
+        % Run through all the emotions for the requested comm
+        true ->
+            lists:foreach(fun(Emo) -> run_top_nn(Tracker, RunTag, CommOrEmo, Emo) end,
+                          ?EMOTIONS);
+
+        % So, it should be an emotion...
+        false ->
+            case lists:member(CommOrEmo, ?EMOTIONS) of
+
+                % Run through all active comm codes
+                true ->
+                    lists:foreach(fun(Comm) -> run_top_nn(Tracker, RunTag, Comm, CommOrEmo) end,
+                                  ActComms);
+
+                % We probably tried a passive communication category and forgot we don't support it
+                false ->
+                    ?warning("Unsupported communication code or emotion: ~p", [CommOrEmo])
+            end
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec run_top_nn(Tracker :: tracker(),
+                 RunTag  :: stringy(),
+                 Comm    :: comm_code(),
+                 Emo     :: emotion()) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.
+%
+%       This `nn' function goes through the Top-N twice, using only
+%       the emo/comm attributes from the higher ranking models.
+%
+%       This function uses weekly periods.
+% @end  --
+run_top_nn(Tracker, RunTag, Comm, Emo) ->
+
+    % Do An initial run, keeping the results above a minimum correlation score
+    TagTopN  = extend_run_tag(RunTag, Comm, Emo, ?INIT_TOP_RANGE),
+    MinScore = ?MIN_NN_SCORE,
+    BaseRun  = lists:filter(fun({_, {Score, _}}) ->
+                                abs(Score) >= MinScore
+                                end,
+                            run_top_n(Tracker, TagTopN, Comm, Emo)),
+
+    % Function to tally up attribute usage across the models
+    Counter = fun Recur([], Cnts) ->
+                      Cnts;
+                  Recur([A|RestAttrs], Cnts) ->
+                      % Add/update this attribute on the counts list
+                      NewCnts = case sila:split_on_prop(A, Cnts) of
+                          {undefined, _ } -> [{A, 1} | Cnts];
+                          {Cnt, RestCnts} -> [{A, Cnt+1} | RestCnts]
+                      end,
+                      Recur(RestAttrs, NewCnts) end,
+
+    % Keep the attributes that occur in at least half of the better models
+    MinCount = round(length(BaseRun) / 2),
+    TagTopNN = ?str_FMT("~s_NN", [TagTopN]),
+
+    AttrCnts = lists:foldl(fun({_, {_, Attrs}}, Acc) -> Counter(Attrs, Acc) end,
+                           [],
+                           BaseRun),
+
+    AttrsNN  = [Attr || {Attr, _} <- lists:filter(fun({_, Cnt}) -> Cnt >= MinCount end,
+                                                  AttrCnts)],
+
+    run_series(Tracker, TagTopNN, Comm, Emo, ?INIT_TOP_RANGE, AttrsNN).
+
 
 
 
@@ -176,13 +420,25 @@ report_line(Model, FOut, Line) ->
 %%
 % @doc  Initialization for the back-off timer.
 % @end  --
-init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
+init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
 
-    process_flag(trap_exit, true),
     Players = player:get_players(Tracker),
-    Biggies = player:get_biggies(Tracker, 0.01),
     Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
-    Attrs   = init_attributes(),
+    Period  = proplists:get_value(period, Options, 1),
+    Report  = proplists:get_value(report, Options, false),
+
+    % Our invoker may want to use a subset of the attributes
+    InitAttrs = proplists:get_value(init_attrs, Options, all),
+    {AllAttrs,
+     InclAttrs,
+     ExclAttrs} = incl_excl_attributes(InitAttrs),
+
+    %?debug("Influence for ~s: ~p", [Name, Options]),
+    {Biggies,
+     BigTag} = case proplists:get_value(method, Options, ?INIT_METHOD) of
+        {biggies, Pct} -> {player:get_biggies(Tracker, Pct), ?str_fmt("p~B", [round(100*Pct)])};
+        {top_n,   N}   -> {player:get_top_n(Tracker, N),     ?str_fmt("n~B", [N])}
+    end,
 
     BigInfo = fun({Comm, {P100, Cnt, Accts}}) ->
                   ?str_FMT("{~s:~B%,tw=~B,cnt=~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
@@ -192,21 +448,40 @@ init([Tracker, RunTag, RegComm, RegEmo, Period]) ->
                                                       maps:size(Players),
                                                       [BigInfo(Grp) || Grp <- Biggies]]),
 
-    {ok, ARFF} = weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period),
+    % Function to name a working CSV file for Weka
+    TagCSV = fun(ARFF, Tag) ->
+                 Parts = string:split(ARFF, ".", trailing),
+                 CSV   = ?str_fmt("~s_~s.csv", [hd(Parts), Tag]),
+                 list_to_binary(CSV)
+                 end,
 
-    {ok, idle, #data{tracker    = Tracker,
-                     name       = Name,
-                     arff       = list_to_binary(ARFF),
-                     attributes = Attrs,
-                     incl_attrs = Attrs,
-                     excl_attrs = [?ATTR_DTS],
-                     reg_comm   = RegComm,
-                     reg_emo    = RegEmo,
-                     period     = Period,
-                     players    = Players,
-                     biggies    = Biggies,
-                     jvm_node   = raven:get_jvm_node(Tracker),
-                     models     = queue:new()}}.
+    % Prepare Weka modelling input
+    try weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period) of
+
+        {ok, ARFF} ->
+            % We are good to go...!
+            process_flag(trap_exit, true),
+            {ok, idle, #data{tracker    = Tracker,
+                             name       = Name,
+                             arff       = list_to_binary(ARFF),
+                             work_csv   = TagCSV(ARFF, BigTag),
+                             attributes = AllAttrs,
+                             init_attrs = InitAttrs,
+                             incl_attrs = InclAttrs,
+                             excl_attrs = ExclAttrs,
+                             reg_comm   = RegComm,
+                             reg_emo    = RegEmo,
+                             period     = Period,
+                             players    = Players,
+                             biggies    = Biggies,
+                             jvm_node   = raven:get_jvm_node(Tracker),
+                             models     = queue:new(),
+                             report     = Report}}
+    catch
+        error:Why ->
+            ?error("Cannot run influence machine: ~p", [Why]),
+            ignore
+    end.
 
 
 
@@ -247,6 +522,11 @@ code_change(OldVsn, _State, Data, _Extra) ->
 %%
 % @doc  Synchronous messages for Coinigy services
 % @end  --
+handle_event({call, _From}, get_outcome, Data = #data{name = Name}) ->
+    ?debug("Waiting for outcome: ~s", [Name]),
+    {keep_state, Data, [postpone]};
+
+
 handle_event({call, From}, get_models, Data = #data{models = Models}) ->
     {keep_state, Data, [{reply, From, Models}]};
 
@@ -263,8 +543,12 @@ handle_event(cast, reset, Data = #data{name = Name}) ->
         none -> ok;
         Work -> ?warning("Abandoning ourstanding model: ~p", [Work])
     end,
-    {next_state, idle, Data#data{incl_attrs = init_attributes(),
-                                 excl_attrs = ?EXCLUDED_ATTRS,
+    {_,
+     InclAttrs,
+     ExclAttrs} = incl_excl_attributes(Data#data.init_attrs),
+
+    {next_state, idle, Data#data{incl_attrs = InclAttrs,
+                                 excl_attrs = ExclAttrs,
                                  delta_cnt  = 0,
                                  delta_cut  = ?EPSILON,
                                  delta_cuts = ?DELTA_CUTS,
@@ -313,6 +597,7 @@ idle(Type, Evt, Data) ->
 run(enter, _OldState, Data = #data{name       = Name,
                                    arff       = ARFF,
                                    excl_attrs = ExclAttrs,
+                                   work_csv   = WorkCSV,
                                    jvm_node   = JVM}) ->
 
     ?info("Model ~s running on Weka", [Name]),
@@ -327,8 +612,9 @@ run(enter, _OldState, Data = #data{name       = Name,
                            [?str_fmt("|~s", [Attr]) || Attr <- tl(ExclAttrs)]),
 
     ?debug("Attribute filter: ~s", [ExclRE]),
-    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff    => ARFF,
-                                                         exclude => list_to_binary(ExclRE)})},
+    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{arff     => ARFF,
+                                                         exclude  => list_to_binary(ExclRE),
+                                                         work_csv => WorkCSV})},
 
     {keep_state, Data#data{work_ref = WorkRef,
                            results  = none}};
@@ -463,10 +749,24 @@ eval(Type, Evt, Data) ->
 % @end  --
 done(enter, _OldState, Data = #data{name = Name}) ->
     %
-    {RptStat,
-     RptFPath} = report_all(Data),
-    ?info("Reported ~s created: path[~s] stat[~p]", [Name, RptFPath, RptStat]),
+    case Data#data.report of
+        false -> ok;
+        true  ->
+            {RptStat,
+             RptFPath} = report_all(Data),
+            ?info("Reported ~s created: path[~s] stat[~p]", [Name, RptFPath, RptStat])
+    end,
     keep_state_and_data;
+
+
+done({call, From}, get_outcome, #data{name       = Name,
+                                      incl_attrs = InclAttrs,
+                                      results    = Results}) ->
+    %
+    CorrScore = maps:get(correlation, Results, 0.0),
+    ?info("Model ~s outcome: score[~.4f] attrs~p", [Name, CorrScore, InclAttrs]),
+
+    {keep_state_and_data, [{reply, From, {CorrScore, InclAttrs}}]};
 
 
 done({call, From}, {report_line, FOut, Line}, Data = #data{name       = Name,
@@ -491,11 +791,31 @@ done(Type, Evt, Data) ->
 %%--------------------------------------------------------------------
 -spec init_attributes() -> [atom()].
 %%
-% @doc  Initializes the independent attribute list.
+% @doc  Initializes the independent attribute lists.
 % @end  --
 init_attributes() ->
     [weka:make_attribute(big, Code, Emo) || Code <- weka:get_big_comm_codes(),
                                             Emo  <- ?EMOTIONS].
+
+
+
+%%--------------------------------------------------------------------
+-spec incl_excl_attributes(Attrs :: [atom()] | all) -> {[atom()],
+                                                        [atom()],
+                                                        [atom()]}.
+%%
+% @doc  Initializes the include/exclude independent attribute lists
+%       when the caller already knows what should be included.
+% @end  --
+incl_excl_attributes(Attrs) ->
+
+    AllAttrs = init_attributes(),
+    case Attrs of
+        all   -> {AllAttrs, AllAttrs, ?EXCLUDED_ATTRS};
+        Incls ->
+            Excls = lists:filter(fun(A) -> not(lists:member(A, Incls)) end, AllAttrs),
+            {AllAttrs, Incls, ?EXCLUDED_ATTRS ++ Excls}
+    end.
 
 
 
@@ -515,7 +835,9 @@ eval_params(#data{name      = Name,
     Caster = fun(Param) ->
                  gen_statem:cast(FSM, {eval_param, Param})
                  end,
-    lists:foreach(Caster, maps:keys(Coeffs)),
+
+    % Important: sort the keys so we always remove parameters in the same order
+    lists:foreach(Caster, lists:sort(maps:keys(Coeffs))),
 
     % Signal model run start|finalization
     Caster(ready).
@@ -524,19 +846,26 @@ eval_params(#data{name      = Name,
 
 %%--------------------------------------------------------------------
 -spec report_open(Name  :: stringy(),
-                  Attrs :: [atom()]) -> {ok, file:io_device(), string()}.
+                  Attrs :: [atom()],
+                  Opts  :: proplist()) -> {ok, file:io_device(), string()}.
 %%
 % @doc  Opens a report file and writes a CSV header with the
 %       column names for a report on influence as modelled by
 %       this FSM.
 % @end  --
-report_open(Name, Attrs) ->
+report_open(Name, Attrs, Opts) ->
+
+    % Select heading text based on the report
+    LineTag = case proplists:get_value(method, Opts, ?INIT_METHOD) of
+                  {top_n,_,_} -> <<"N">>;
+                  _           -> <<"Pct">>
+              end,
 
     FPath = ioo:make_fpath(?REPORT_DIR, Name, <<"csv">>),
     {ok, FOut} = file:open(FPath, [write]),
 
     % Create a CSV header with all possible model attributes
-    ?io_put(FOut, "run,tracker,reg_comm,reg_emo,Correlation,samples"),
+    ?io_fmt(FOut, "~s,tracker,reg_comm,reg_emo,Correlation,samples", [LineTag]),
     lists:foreach(fun(A) -> ?io_fmt(FOut, ",~s", [A]) end, Attrs),
     ?io_put(FOut, ",intercept\n"),
 
@@ -588,14 +917,153 @@ report_line(#{coefficients := Coeffs,
     Attribber = fun(Attr) ->
                     case maps:get(Attr, Coeffs, no_param) of
                         no_param -> ?io_put(FOut, ",");
-                        Coeff    -> ?io_fmt(FOut, ",~f", [Coeff])
+                        Coeff    -> ?io_fmt(FOut, ",~.4f", [Coeff])
                     end,
                     Coeffs end,
 
-    ?io_fmt(FOut, "~B,~s,~s,~s,~f,~B",
+    ?io_fmt(FOut, "~B,~s,~s,~s,~.4f,~B",
             [Line, Tracker, RegComm, RegEmo, CorrScore,InstCnt]),
     lists:foreach(Attribber, Attrs),
-    ?io_fmt(FOut, ",~f~n", [Intercept]),
+    ?io_fmt(FOut, ",~.4f~n", [Intercept]),
 
     % Only the line number changes in the accumulator
     {FOut, Line+1, Attrs, Data}.
+
+
+
+%%--------------------------------------------------------------------
+-spec extend_run_tag(RunTag   :: stringy(),
+                     Comm     :: comm_code(),
+                     Emo      :: emotion(),
+                     MethRng  :: method_range()) -> string().
+%%
+% @doc  Pack all the information we can into a run tag.  Note that the
+%       tracker gets prepended later in run_influence
+% @end  --
+extend_run_tag(RunTag, Comm, Emo, {Method, From, UpTo}) ->
+
+    case Method of
+        biggies -> ?str_FMT("~s_big~f-~f_~s_~s", [RunTag, 100*From, 100*UpTo, Comm, Emo]);
+        top_n   -> ?str_FMT("~s_n~B-~B_~s_~s", [RunTag, From, UpTo, Comm, Emo])
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec run_series(Tracker  :: tracker(),
+                 RunTag   :: stringy(),
+                 Comm     :: comm_code(),
+                 Emo      :: emotion(),
+                 MethRng  :: method_range(),
+                 IndAttrs :: [atom()]) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.  This
+%       runner accepts an override for the initial set of independent
+%       attributes.
+%
+%       This function uses weekly periods.
+% @end  --
+run_series(Tracker, RunTag, Comm, Emo, MethRng, IndAttrs) ->
+
+    TopOpts = [{method, MethRng},
+               {period, 7}],
+
+    Options = case IndAttrs of
+        []   -> TopOpts;
+        Inds -> [{init_attrs, Inds} | TopOpts]
+    end,
+    run_influence(Tracker, RunTag, [Comm], [Emo], Options).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_influence(Tracker :: tracker(),
+                    RunTag  :: stringy(),
+                    Options :: proplist()) -> term().
+%%
+% @doc  Do the Twitter/Emo influence experiments
+% @end  --
+run_influence(Tracker, RunTag, Options) ->
+    run_influence(Tracker, RunTag, [tter, oter, rter], ?EMOTIONS, Options).
+
+
+
+%%--------------------------------------------------------------------
+-spec run_influence(Tracker   :: tracker(),
+                    RunTag    :: stringy(),
+                    CommCodes :: comm_codes(),
+                    Emotions  :: emotions(),
+                    Options   :: proplist()) -> proplist().
+%%
+% @doc  Run the Twitter/Emo influence experiments per the specified
+%       parameters.  This function is the generalized work-horse for
+%       the more user-friendly wrapper functions.
+% @end  --
+run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
+
+    % Each influence modeller handles an emo/comm pair for the regular players
+    Pairs   = [{Emo, Comm} || Emo <- Emotions, Comm <- CommCodes],
+    PairCnt = length(Pairs),
+
+    % In spite of the variable name, the `method' is not optional here:
+    % Check for biggie|top_n range reports & setup a single emo/comm pair
+    {Method,
+     Inputs} = case proplists:get_value(method, Options) of
+
+                    {biggies, Lo, Hi} ->
+                        Pair  = hd(Pairs),
+                        Mults = lists:seq(0, trunc((Hi - Lo) / ?INC_BIG_PCT)),
+                        P100s = [?MIN_BIG_PCT + (M * ?INC_BIG_PCT) || M <- Mults],
+                        {biggies,
+                            lists:zip(P100s, lists:duplicate(length(P100s), Pair))};
+
+                    {top_n, Lo, Hi} ->
+                        {next_n, lists:zip(lists:seq(Lo, Hi),
+                                           lists:duplicate(Hi-Lo+1, hd(Pairs)))};
+
+                    % Otherwise, we have a single report
+                    _ ->
+                        {normal, lists:zip(lists:seq(1, PairCnt), Pairs)}
+    end,
+    ?debug("Influence by ~s: ~p", [Method, Pairs]),
+
+    Runner  = fun({Param, {RegEmo, RegComm}}) ->
+                  % Top-N range options need to be prefixed with the current Top-N
+                  RunOpts = case Method of
+                                normal  -> Options;
+                                biggies -> [{method, {biggies, Param}} | Options];
+                                next_n  -> [{method, {top_n,   Param}} | Options]
+                            end,
+
+                  % The model startup may fail if we don't have full data for all comm codes
+                  Model = case influence:start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts) of
+                      {ok, Pid} -> influence:go(Pid), Pid;
+                      ignore    -> none
+                  end,
+                  {Param, Model} end,
+
+    Models  = lists:map(Runner, Inputs),
+
+    % Create an overview report:
+    % The index number is either a general model counter OR the N in a Top-N range report
+    Report = ?str_fmt("~s_~s", [Tracker, RunTag]),
+    {ok, FOut,
+         FPath} = influence:report_open(Report, Options),
+    Reporter = fun({Ndx, Model}) ->
+                   % Note the FSM may block until it finishes modelling
+                   influence:report_line(Model, FOut, Ndx),
+                   Ndx+1 end,
+    lists:foreach(Reporter, Models),
+
+    % Close the report, collect attributes, and shutdown the modelling FSMs
+    FStatus = file:close(FOut),
+    ?info("Results: file[~s] stat[~p]", [FPath, FStatus]),
+
+    Attribber = fun({Ndx, none})  -> {Ndx, []};
+                   ({Ndx, Model}) ->
+                    Attrs = influence:get_outcome(Model),
+                    influence:stop(Model),
+                    {Ndx, Attrs} end,
+    lists:map(Attribber, Models).

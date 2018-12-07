@@ -11,9 +11,11 @@
 ;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.core
-  (:require [say.log    :as log]
+  (:require [say.config :as cfg]
+            [say.log    :as log]
             [say.sila   :as sila]
             [say.weka   :as weka]
+            [say.influence]                 ; NOTE: article
             [clojure.string    :as str]
             [clojure.data.json :as json])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
@@ -148,7 +150,7 @@
   "
   :cmd)
 
-(defmethod dispatch "emote"   [msg] (do-weka msg filter-arff :bws))
+(defmethod dispatch "emote"   [msg] (do-weka msg emote-arff))
 (defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff '(:embed :bws)))
 (defmethod dispatch "regress" [msg] (do-weka msg regress))
 

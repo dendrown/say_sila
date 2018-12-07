@@ -1,0 +1,4 @@
+run,tracker,reg_comm,reg_emo,Correlation,samples,big_oter_anger,big_oter_fear,big_oter_sadness,big_oter_joy,big_rter_anger,big_rter_fear,big_rter_sadness,big_rter_joy,big_rted_anger,big_rted_fear,big_rted_sadness,big_rted_joy,big_tmed_anger,big_tmed_fear,big_tmed_sadness,big_tmed_joy,intercept
+0,cc,oter,anger,0.351223,39,0.000000,0.000000,0.000000,0.317619,0.457562,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,-0.035418,-0.011607
+1,cc,oter,anger,0.590576,39,,,,0.317619,0.457562,,,,,,,,,,,-0.035418,-0.011607
+2,cc,oter,anger,0.572047,39,,,,0.311052,0.433798,,,,,,,,,,,,-0.011507

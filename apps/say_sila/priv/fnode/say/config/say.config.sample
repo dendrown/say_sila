@@ -1,0 +1,9 @@
+;; -*- mode: clojure -*-
+{
+  :erlang
+    {:cookie        "say_cookie"
+     :sname         "say"}
+
+  :emote
+    {:nlp           :affective}                 ; Options: affective|english
+}
