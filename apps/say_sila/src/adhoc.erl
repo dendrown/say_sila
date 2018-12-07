@@ -14,8 +14,7 @@
 -module(adhoc).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([one/0, two/0, full/0, q1/0, q2/0, q4/0, q4q1/0, today/0,
-         influence/0, influence/2]).
+-export([one/0, two/0, year/0, full/0, q1/0, q2/0, q4/0, q4q1/0, today/0]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -23,6 +22,7 @@
 -include("player.hrl").
 -include("types.hrl").
 -include("twitter.hrl").
+-include_lib("llog/include/llog.hrl").
 
 -define(twitter(Acct),  io_lib:format("[~s](https://twitter.com/~s)", [Acct, Acct])).
 
@@ -38,6 +38,7 @@
 one()  -> [{start, {2017, 12, 31}}, {stop, {2018, 1, 1}}].
 two()  -> [{start, {2017, 12, 30}}, {stop, {2018, 1, 1}}].
 
+year() -> [{start, {2017, 08,  1}}, {stop, {2018, 8, 1}}].
 full() -> [{start, {2017, 10,  1}}, {stop, {2018, 7, 1}}].
 q4()   -> [{start, {2017, 10,  1}}, {stop, {2018, 1, 1}}].   % Gonna need the year
 q1()   -> [{start, {2018, 01,  1}}, {stop, {2018, 4, 1}}].
@@ -47,49 +48,4 @@ q4q1() -> [{start, {2017, 10,  1}}, {stop, {2018, 4, 1}}].
 today() ->
     Today = dts:dayize(calendar:local_time()),
     [{start, Today}, {stop, dts:add(Today, 1, day)}].
-%%--------------------------------------------------------------------
 
-
-
-%%--------------------------------------------------------------------
--spec influence() -> ok.
-%%
-% @doc  Do the Twitter/Emo influence experiments
-% @end  --
-influence() ->
-    Tag = sila,
-    lists:foreach(fun(Trk) -> influence(Trk, Tag) end, ?TRACKERS).
-
-
-
-%%--------------------------------------------------------------------
--spec influence(Tracker :: tracker(),
-                RunTag  :: stringy()) -> term().
-%%
-% @doc  Do the Twitter/Emo influence experiments
-% @end  --
-influence(Tracker, RunTag) ->
-    % Start up a modelling FSM for all regular emo/comm combos
-    % (The usual hierarchy is comm/emo, but we're switching around
-    % for an easier-to-analyze report.)
-    Report  = ?str_fmt("~s_~s", [Tracker, RunTag]),
-    Runner  = fun(RegEmo, RegComm) ->
-                  {ok,
-                   Pid} = influence:start_link(Tracker, RunTag, RegComm, RegEmo, 7),
-                  influence:go(Pid),
-                  Pid end,
-    Models  = [Runner(Emo, Comm) || Emo <- ?EMOTIONS, Comm <- [tter, oter, rter]],
-
-    % Create an overview report
-    {ok, FOut, FPath} = influence:report_open(Report),
-    Reporter = fun(Model, Line) ->
-                   % Note the FSM may block until it finishes modelling
-                   influence:report_line(Model, FOut, Line),
-                   Line+1 end,
-
-    lists:foldl(Reporter, 0, Models),
-
-    % Close the report, and shutdown the modelling FSMs
-    FStatus = file:close(FOut),
-    lists:foreach(fun(M) -> influence:stop(M) end, Models),
-    {FStatus, FPath}.

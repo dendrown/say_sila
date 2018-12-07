@@ -13,6 +13,7 @@ pom.xml.asc
 .project
 .settings/
 bin/
+config/*.config
+java/
 resources/KB/*.owl
 resources/KB/catalog-*.xml
-java/

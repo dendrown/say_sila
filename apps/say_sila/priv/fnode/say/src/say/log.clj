@@ -52,13 +52,24 @@
 
 ;;; --------------------------------------------------------------------------
 (defn- send-log
-   "
-   Define agent alice's logging behaviour.
-   "
-   [alice msg]
-   (let [cnt (:count alice)]
-     (apply println msg)
-     (assoc alice :count (inc cnt))))
+  "
+  Define agent alice's logging behaviour.
+  "
+  [alice msg]
+  (let [cnt (:count alice)]
+    (apply println msg)
+    (assoc alice :count (inc cnt))))
+
+
+;;; --------------------------------------------------------------------------
+(defn wait
+  "
+  Flushes the logger agent's output stream so that normal #'println has a
+  chance of working.
+  "
+  []
+  (await-for 1000 Logger))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -92,6 +103,35 @@
   "
   [text & args]
   `(prt/cl-format nil ~text ~@args))
+
+
+;;; --------------------------------------------------------------------------
+(defn fmt
+  "
+  Wrapper for clojure.pprint/cl-format for logging ease.  Output is always
+  in string form.
+  "
+  [text & args]
+  (apply prt/cl-format nil text args))
+
+
+;;; --------------------------------------------------------------------------
+(defn fmt!
+  "
+  Wrapper for clojure.pprint/cl-format for logging ease.  The results always
+  go to standard output.
+  "
+  [text & args]
+  (apply prt/cl-format true text args))
+
+
+(defmacro fmt-panic  [text & args] `(log PANIC  (fmt ~text ~@args)))
+(defmacro fmt-crit   [text & args] `(log CRIT   (fmt ~text ~@args)))
+(defmacro fmt-error  [text & args] `(log ERROR  (fmt ~text ~@args)))
+(defmacro fmt-warn   [text & args] `(log WARN   (fmt ~text ~@args)))
+(defmacro fmt-notice [text & args] `(log NOTICE (fmt ~text ~@args)))
+(defmacro fmt-info   [text & args] `(log INFO   (fmt ~text ~@args)))
+(defmacro fmt-debug  [text & args] `(log DEBUG  (fmt ~text ~@args)))
 
 
 ;;; --------------------------------------------------------------------------

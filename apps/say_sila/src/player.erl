@@ -52,7 +52,7 @@
 %% Plotting definitions
 -define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
 -define(PLOT_BP_RATES,          [0.0025, 0.0050, 0.0075, 0.0100, 0.0125, 0.0150, 0.0175, 0.0200]).
--define(PLOT_MIN_DECEL,         0.0008).
+-define(PLOT_MIN_DECEL,         1.0e09).
 -define(PLOT_NUM_PLAYERS,       #{cc => 300,
                                   gw => 300}).
 -define(plot_num_players(Trk),  maps:get(Trk, ?PLOT_NUM_PLAYERS)).
@@ -291,7 +291,8 @@ get_top_n(Tracker, N) ->
                      if AcctCnt =:= N ->
                             {TweetCnt/TweetTotal, TweetCnt, Accts};
                         AcctCnt > N ->
-                            ?warning("Same activity rate, returning ~B accounts", [AcctCnt]),
+                            ?warning("Same activity rate for N=~B, returning ~B accounts",
+                                     [N, AcctCnt]),
                             {TweetCnt/TweetTotal, TweetCnt, Accts};
                         true ->
                             {RankTweets,
@@ -628,7 +629,7 @@ new_ranking() ->
 %%--------------------------------------------------------------------
 -spec reset_state(Tracker :: atom()) -> state().
 %%
-% @doc  Process out-of-band messages
+% @doc  (Re)initialize the server state data
 % @end  --
 reset_state(Tracker) ->
 
@@ -774,8 +775,8 @@ pull_biggies(MinRate, MinDecel, Total, TallyIn, RanksIn, CountIn, AcctsIn) ->
                             % We got a group of biggies, add 'em and try to pull more...
                             Count    = CountIn + (Tally * length(Accts)),
                             NewAccts = AcctsIn ++ Accts,
-                            ?debug("Pulling biggies: rate[~6.4f] decel[~6.4f] cnt[~B => ~B] tree[~B => ~B]",
-                                   [Rate, Decel, CountIn, Count, gb_trees:size(RanksIn), gb_trees:size(Ranks)]),
+                            %?debug("Pulling biggies: rate[~6.4f] decel[~6.4f] cnt[~B => ~B] tree[~B => ~B]",
+                            %       [Rate, Decel, CountIn, Count, gb_trees:size(RanksIn), gb_trees:size(Ranks)]),
 
                             pull_biggies(MinRate, MinDecel, Total, Tally, Ranks, Count, NewAccts);
                         false ->
