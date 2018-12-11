@@ -628,7 +628,7 @@ handle_call(stop, _From, State) ->
 
 handle_call(Msg, _From, State) ->
     ?warning("Unknown call: ~p", [Msg]),
-    {noreply, State}.
+    {noreply, State, ?tweet_timeout(State)}.
 
 
 
@@ -720,7 +720,7 @@ handle_cast(untrack, State = #state{tracker = Pid}) ->
 
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
-    {noreply, State}.
+    {noreply, State, ?tweet_timeout(State)}.
 
 
 %%--------------------------------------------------------------------
@@ -743,11 +743,12 @@ handle_info({track_headers, Headers}, State) ->
     lists:foreach(fun({Hdr, Val}) ->
                       ?info("Track header ~s: ~s", [Hdr, Val]) end,
                   Headers),
-    {noreply, State};
+    {noreply, State, ?tweet_timeout(State)};
+
 
 handle_info({track, <<>>}, State) ->
     ?debug("Silent tweet"),
-    {noreply, State};
+    {noreply, State, ?tweet_timeout(State)};
 
 
 handle_info({track, DataIn}, State) ->
@@ -769,7 +770,7 @@ handle_info({track, DataIn}, State) ->
         Exc:Why -> ?warning("Bad JSON: why[~p:~p] data[~p]", [Exc, Why, DataIn])
     end,
     ?info("END OF TWEET"),
-    {noreply, State};
+    {noreply, State, ?tweet_timeout(State)};
 
 
 handle_info({'EXIT', Pid, Why}, State = #state{tracker = Tracker}) ->
@@ -792,7 +793,7 @@ handle_info({'EXIT', Pid, Why}, State = #state{tracker = Tracker}) ->
 
 handle_info(Msg, State) ->
     ?warning("Unknown info: ~p", [Msg]),
-    {noreply, State}.
+    {noreply, State, ?tweet_timeout(State)}.
 
 
 %%====================================================================
