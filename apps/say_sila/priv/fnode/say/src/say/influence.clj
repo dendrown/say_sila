@@ -156,7 +156,7 @@
     (log/wait)
     (println)
     (println)
-    (log/fmt! "N & PCC")
+    (log/fmt! "N & PCC % ADJ-R2")
     (doseq [col cols]
       (log/fmt!" & ~a" (name col)))
 
@@ -178,10 +178,10 @@
          fprob
          adj-r2]        (map #(lmod %) [:f-stat :f-prob :adj-r-square])
         cols            (col-names inds)
-        fmt-fprob      #(cond (<= fprob 0.001) "$^{***}$"
-                              (<= fprob 0.010) "$^{**}$ "
-                              (<= fprob 0.050) "$^{*}$  "
-                              :else            "        ")
+        fmt-fprob      #(cond (<= fprob 0.001) "^{\\ddagger}"
+                              (<= fprob 0.010) "^{\\dagger} "
+                              (<= fprob 0.050) "^{*}       "
+                              :else            "           ")
         fmt-pcc        #(log/fmt (if (= pcc pcc!)
                                      "\\textbf{~3,,6$}"
                                      "        ~3,,6$ ") pcc)
@@ -190,7 +190,8 @@
 
     ;; Start with all the multirow values
     (liner)
-    (log/fmt! "~a ~a ~a & ~a" (if (< N 10) "\\" "") N (fmt-fprob) (fmt-pcc))
+    (log/fmt! "$~a~a~a$ &~a&       ~3,,6$"
+              (if (< N 10) "\\ " " ") N (fmt-fprob) (fmt-pcc) adj-r2)
     (loop [mod-cols  (map #(some #{%} cols) all-cols)
            mod-coefs coefs]
       ;; Process once per column in the complete column list
@@ -231,7 +232,7 @@
         [intc-ci & coefs-ci] (:coefs-ci lmod)
         anames               (col-names inds)
         acnt                 (inc (count anames))
-        places               "&&&"]
+        places               "&&"]
 
     (letfn [;; ---------------------------------------------------------------
             (attribber [a]
@@ -249,9 +250,8 @@
     (println "\\midrule %--------------------------------------------------------------------")
 
     ;; Start with all the multirow values
-    (apply log/fmt! "~a &\n~a &\n~a\n" (map multirow [emo
-                                                      (second (:df lmod))
-                                                      (numeric :r-square)]))
+    (apply log/fmt! "~a &\n~a\n" (map multirow [emo
+                                                      (numeric :adj-r-square)]))
     ;; Finish that line with the first attribute
     (log/fmt! "   & ~a & ~3$ & ~3$ & ~3$ -- ~3$ \\\\\n" (attribber (first anames))
                                                         (first  coefs)
