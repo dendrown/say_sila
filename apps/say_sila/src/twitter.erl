@@ -1,4 +1,4 @@
-%%%-------------------------------------------------------------------
+%%-------------------------------------------------------------------
 %%
 %%        _/_/_/  _/_/_/  _/          _/_/
 %%     _/          _/    _/        _/    _/
@@ -978,8 +978,11 @@ log_tweet(Indent, {Key, Val}) ->
         is_list(Val)        -> "~s~s: ~p"
     end,
     case Key of
-        <<"text">>  -> ?notice(Fmt,[Indent, Key, Val]);     % Tweet text
-        _           -> ?debug(Fmt, [Indent, Key, Val])
+        <<"text">> ->
+            SaneText = re:replace(Val, "[^\ -~]", ".", [global]),
+            ?notice(Fmt,[Indent, Key, SaneText]);
+        _ ->
+            ?debug(Fmt, [Indent, Key, Val])
     end.
 
 
