@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Friend-of-a-friend (foaf) ontology
 ;;;;
-;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.foaf
   (:require [say.ontology    :as ont]
@@ -31,6 +31,7 @@
 
 ; Create access variables only for the foaf classes we need
 (ont/redefclass Document ONT-IRI)
+(ont/redefclass Group    ONT-IRI)
 
 
 
