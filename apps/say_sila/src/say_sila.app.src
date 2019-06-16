@@ -1,7 +1,7 @@
 %% -*- mode: erlang -*-
 {application, say_sila,
  [{description, "Analysis of Sentiment on Climate Change"},
-  {vsn, "0.1.0"},
+  {vsn, "0.2.0-SNAPSHOT"},
   {registered, []},
   {mod, { say_sila_app, []}},
   {applications, [kernel, stdlib ]},
