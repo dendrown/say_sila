@@ -971,19 +971,20 @@ log_tweet(Indent, {Key, MapList = [MapVal | _]}) when is_map(MapVal) ->
 
 
 log_tweet(Indent, {Key, Val}) ->
-    Fmt = if
-        is_binary(Val) orelse
-        is_atom(Val)        -> "~s~s: ~s";
-        is_integer(Val)     -> "~s~s: ~B";
-        is_list(Val)        -> "~s~s: ~p"
+
+    % Highlight the actual tweet text
+    Level = case Key of
+        <<"text">> -> notice;
+        _          -> debug
     end,
-    case Key of
-        <<"text">> ->
-            SaneText = re:replace(Val, "[^\ -~]", ".", [global]),
-            ?notice(Fmt,[Indent, Key, SaneText]);
-        _ ->
-            ?debug(Fmt, [Indent, Key, Val])
-    end.
+
+    % Tame any UTF8 because lager doesn't handle it well
+    {Format, SaneValue} = if
+        is_binary(Val) -> {"~s~s: ~s", re:replace(Val, "[^\ -~]", ".", [global])};
+        true           -> {"~s~s: ~p", Val}
+    end,
+
+    ?llog(Level, Format, [Indent, Key, SaneValue]).
 
 
 
