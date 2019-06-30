@@ -1,18 +1,18 @@
-(defproject say "0.0.1-SNAPSHOT"
+(defproject say "0.2.0-SNAPSHOT"
   :description  "Bridge to JVM-based utilities for sila"
   :url          "http://dendrown.net"
   :license {:name "BSD 3-clause License"
             :url "https://spdx.org/licenses/BSD-3-Clause.html"}
   :main say.core
   :plugins [[lein-localrepo "0.5.4"]]
-  :dependencies [[org.clojure/clojure                   "1.9.0" ]
+  :dependencies [[org.clojure/clojure                   "1.10.1"]
                  [org.erlang.otp/jinterface             "1.9.1" ]
                  [org.clojure/data.json                 "0.2.6" ]
                  [clj-time                              "0.14.2"]
                  [incanter/incanter-core                "1.9.3" ]
                  [incanter/incanter-charts              "1.9.3" ]
                  ; Weka + libs
-                 [nz.ac.waikato.cms.weka/weka-stable    "3.8.2" ]
+                 [nz.ac.waikato.cms.weka/weka-stable    "3.8.3" ]
                  [edu.cmu.cs/ark-tweet-nlp              "0.3.2" ]
                  [it.unimi.dsi/fastutil                 "7.0.13"]
                  [uk.ac.wlv/sentistrength               "0.1.0" ]
