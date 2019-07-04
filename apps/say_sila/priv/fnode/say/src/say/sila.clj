@@ -11,13 +11,14 @@
 ;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
-  (:require [say.foaf         :as foaf]
+  (:require [say.bfo          :as bfo]
+            [say.foaf         :as foaf]
             [say.sioc         :as sioc]
             [say.log          :as log]
             [clojure.java.io  :as io]
             [tawny.english    :as dl]
             [tawny.reasoner   :as rsn]
-           ;[tawny.repl       :as repl]         ; <= DEBUG
+            [tawny.repl       :as repl]             ; <= DEBUG
             [tawny.owl :refer :all])
   (:import  [org.semanticweb.owlapi.model IRI
                                           OWLOntologyID]))
@@ -40,6 +41,18 @@
 
 
 ;;; Top level:
+;;;
+;;; TBox: building on BFO
+(owl-class bfo/continuant
+  :super bfo/entity)
+
+(defclass TestEntity
+  :super   bfo/entity
+  :label   "test entity"
+  :comment "This is a class to test building on BFO.")
+
+
+;;; DEPRECATED: we are moving off the foaf/sioc onto BFO-based ontologies
 ;;;
 ;;; TBox: building on foaf:Group ⊑ foaf:Agent
 (owl-class foaf/Group

@@ -14,6 +14,7 @@
   (:require [say.ontology    :as ont]
             [clojure.java.io :as io]
             [tawny.owl       :as owl]
+            [tawny.repl      :as repl]              ; <= DEBUG
             [tawny.read      :as rd])
   (:import  [org.semanticweb.owlapi.model IRI]))
 
