@@ -43,12 +43,12 @@
 ;;; Top level:
 ;;;
 ;;; TBox: building on BFO
-(owl-class bfo/continuant
-  :super bfo/entity)
+(owl-class bfo/continuant       :super bfo/entity)
+(owl-class bfo/material-entity  :super bfo/continuant)
 
-(defclass TestEntity
-  :super   bfo/entity
-  :label   "test entity"
+(defclass Tester
+  :super   bfo/material-entity
+  :label   "tester"
   :comment "This is a class to test building on BFO.")
 
 

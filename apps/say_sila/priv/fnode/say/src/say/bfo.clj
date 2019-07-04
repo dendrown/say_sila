@@ -40,6 +40,7 @@
 
 
 ; Create access variables only for the classes we need
-(redefclass-bfo entity      1)
-(redefclass-bfo continuant  2)
+(redefclass-bfo entity            1)
+(redefclass-bfo continuant        2)
+(redefclass-bfo material-entity  40)
 
