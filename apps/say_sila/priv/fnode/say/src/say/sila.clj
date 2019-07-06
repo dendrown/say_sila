@@ -12,6 +12,7 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
   (:require [say.bfo          :as bfo]
+            [say.mfoem        :as mfoem]
             [say.foaf         :as foaf]
             [say.sioc         :as sioc]
             [say.log          :as log]
@@ -43,11 +44,14 @@
 ;;; Top level:
 ;;;
 ;;; TBox: building on BFO
-(owl-class bfo/continuant       :super bfo/entity)
-(owl-class bfo/material-entity  :super bfo/continuant)
+(owl-class bfo/continuant               :super bfo/entity)
+(owl-class bfo/independent-continuant   :super bfo/continuant)
+(owl-class bfo/material-entity          :super bfo/independent-continuant)
+(owl-class mfoem/extended-organism      :super bfo/material-entity)
+(owl-class mfoem/human-being            :super mfoem/extended-organism)
 
-(defclass Tester
-  :super   bfo/material-entity
+(defclass tester
+  :super   mfoem/human-being
   :label   "tester"
   :comment "This is a class to test building on BFO.")
 
@@ -374,5 +378,6 @@
   ([] (save ONT-FPATH))
 
   ([^String fpath]
+  (log/info "Saving ontology:" fpath)
   (save-ontology say-sila fpath :owl)))
 
