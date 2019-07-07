@@ -16,6 +16,7 @@
             [say.foaf         :as foaf]
             [say.sioc         :as sioc]
             [say.log          :as log]
+            [clojure.string   :as str]
             [clojure.java.io  :as io]
             [tawny.english    :as dl]
             [tawny.reasoner   :as rsn]
@@ -41,6 +42,22 @@
 (rsn/reasoner-factory :hermit)
 
 
+;;; --------------------------------------------------------------------------
+(defmacro redefclass
+  "
+  Add a class from another ontology namespace to the say-sila ontology
+  and create variables to reference the class.
+  "
+  ([ns-var]
+  (let [var (eval `(:name (meta #'~ns-var)))]
+    `(redefclass ~(symbol var) ~ns-var)))
+
+
+  ([var ns-var]
+  `(do (def ~var ~ns-var)
+       (refine ~var :label (str/replace (name '~var) #"-" " ")))))
+
+
 ;;; Top level:
 ;;;
 ;;; TBox: building on BFO
@@ -49,6 +66,13 @@
 (owl-class bfo/material-entity          :super bfo/independent-continuant)
 (owl-class mfoem/extended-organism      :super bfo/material-entity)
 (owl-class mfoem/human-being            :super mfoem/extended-organism)
+
+(redefclass bfo/entity)
+(redefclass bfo/continuant)
+(redefclass bfo/independent-continuant)
+(redefclass bfo/material-entity)
+(redefclass mfoem/extended-organism)
+
 
 (defclass tester
   :super   mfoem/human-being
