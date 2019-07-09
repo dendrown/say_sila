@@ -28,11 +28,14 @@
   Creates a Clojure variable which corresponds to an existing class in the
   current ontology.
 
-    iri     : IRI of the ontology, assumed to be a prefix to the IRI of the class
     var     : Symbolic name of the variable, and the short name of the class
+    iri     : IRI of the ontology, assumed to be a prefix to the IRI of the class
     suffix  : Identifier appended to the IRI prefix to create the full IRI
               (defaults to the string value of var)
   "
+  ([var]
+  `(redefclass ~var ~(deref (ns-resolve *ns* 'ONT-IRI))))   ; Caller's namespace
+
   ([var iri]
   `(redefclass ~var ~iri (str '~var)))
 

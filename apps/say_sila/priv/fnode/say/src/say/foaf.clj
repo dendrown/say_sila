@@ -51,3 +51,7 @@
     :transform
       (comp rd/stop-characters-transform
             rd/exception-nil-label-transform)))
+
+
+;;; --------------------------------------------------------------------------
+(load-fully)
