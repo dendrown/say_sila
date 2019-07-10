@@ -20,8 +20,8 @@
             [clojure.java.io  :as io]
             [tawny.english    :as dl]
             [tawny.reasoner   :as rsn]
-            [tawny.repl       :as repl]             ; <= DEBUG
-            [tawny.owl :refer :all])
+            [tawny.repl :refer :all]                ; <= DEBUG
+            [tawny.owl  :refer :all])
   (:import  [org.semanticweb.owlapi.model IRI
                                           OWLOntologyID]))
 
@@ -50,10 +50,16 @@
              foaf/foaf]]
   (owl-import imp))
 
-;;; TBox: building on Dolce+D&S Ultralite
+;;; Top-level ontology: Dolce+D&S Ultralite
 (defcopy dul/Entity)
 (defcopy dul/Agent)
+
+;;; Tie-in to FOAF
+;;; TODO: Searching citations and examples...
+;;;       - HCLS/POMR Ontology (predecessor of Bio-zen plus \cite{samwald2008}
 (refine Agent :equivalent foaf/Agent)
+(defcopy foaf/gender)                                   ; TODO: Consider Gender ⊑ dul/Quality
+
 
 (defclass Tester
   :super   dul/Person
@@ -103,14 +109,57 @@
                   "who are actively engaged but in opposition to people in the alarmed segment.")))
 
 
+;;; We will be comparing Twitter users to prototypes of the Audience Segments.
+;;; Qualities and values are presented in segment Person Prototypes.
+;;; TODO: Make the Person Prototype classes distinct
+(defclass AlarmedPersonPrototype
+  :label   "Alarmed Person Prototype"
+  :comment "A member of the Alarmed Segment who embodies all qualities of that Audience Segment."
+  :equivalent (dl/and AlarmedSegment
+                      (has-value gender "female")))                     ; 61%
+
+(defclass ConcernedPersonPrototype
+  :label   "Concerned Person Prototype"
+  :comment "A member of the Concerned Segment who embodies all qualities of that Audience Segment."
+  :equivalent (dl/and ConcernedSegment
+                      (has-value gender "female")))                     ; 52% - TODO: remove
+
+(defclass CautiousPersonPrototype
+  :label   "Cautious Person Prototype"
+  :comment "A member of the Cautious Segment who embodies all qualities of that Audience Segment."
+  :equivalent (dl/and CautiousSegment
+                      (has-value gender "male")))                       ; 53% - TODO: remove
+
+(defclass DisengagedPersonPrototype
+  :label   "Disengaged Person Prototype"
+  :comment "A member of the Disengaged Segment who embodies all qualities of that Audience Segment."
+  :equivalent (dl/and DisengagedSegment
+                      (has-value gender "female")))                     ; 62%
+
+(defclass DoubtfulPersonPrototype
+  :label   "Doubtful Person Prototype"
+  :comment "A member of the Doubtful Segment who embodies all qualities of that Audience Segment."
+  :equivalent (dl/and DoubtfulSegment
+                      (has-value gender "male")))                       ; 59%
+
+(defclass DismissivePersonPrototype
+  :label   "Dismissive Person Prototype"
+  :comment "A member of the Dismissive Segment who embodies all qualities of that Audience Segment."
+  :equivalent (dl/and DismissiveSegment
+                      (has-value gender "male")))                       ; 63%
+
+;;; Created punned individuals to represent the prototypes for each segment
+(ont/defpun AlarmedPersonPrototype)
+(ont/defpun ConcernedPersonPrototype)
+(ont/defpun CautiousPersonPrototype)
+(ont/defpun DisengagedPersonPrototype)
+(ont/defpun DoubtfulPersonPrototype)
+(ont/defpun DismissivePersonPrototype)
 
 
-;;; DEPRECATED: we are moving off the foaf/sioc onto BFO-based ontologies
+
+;;; DEPRECATED: FOAF/SIOC are no longer primary as we move onto DOLCE-based ontologies
 ;;;
-;;; TBox: building on foaf:Group ⊑ foaf:Agent
-(owl-class foaf/Group
-  (comment :super foaf/Agent))
-
 ;;; TBox: building on sioc:Post ⊑ foaf:Document
 (owl-class sioc/Post
   :super foaf/Document)

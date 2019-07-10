@@ -15,9 +15,10 @@
             [tawny.owl       :refer :all]
             [tawny.english   :as dl]
             [clojure.java.io :as io])
-  (:import  [org.semanticweb.owlapi.model IRI
-                                          OWLDataFactory
-                                          OWLOntologyID]))
+  (:import  [org.semanticweb.owlapi.model   IRI
+                                            OWLDataFactory
+                                            OWLOntologyID]
+            [uk.ac.manchester.cs.owl.owlapi OWLClassImpl]))
 
 
 (set! *warn-on-reflection* true)
@@ -50,6 +51,19 @@
 
 (defmacro redefclass     [& args] `(redef :class     ~@args))
 (defmacro redefdproperty [& args] `(redef :dproperty ~@args))
+
+
+;;; --------------------------------------------------------------------------
+(defmacro defpun
+  "
+  Creates an individual with the same IRI as the specified class.  The class
+  must already exist and the variable representing the individual is prepended
+  with an « i ». (MyThing becomes iMyThing.)
+  "
+  [^OWLClassImpl c]
+  `(def ~(symbol (str "i" (name  `~c)))
+     (individual (.getIRI ~c) :type ~c)))
+
 
 
 ;;; --------------------------------------------------------------------------
