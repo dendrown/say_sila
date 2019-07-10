@@ -39,4 +39,6 @@
 
 (redefclass Agent)
 (redefclass Person)
+(redefclass Collective)
 
+(redefdproperty gender)

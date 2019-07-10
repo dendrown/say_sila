@@ -22,27 +22,34 @@
 
 (set! *warn-on-reflection* true)
 
+(defonce Factory (.getOWLDataFactory (owl-ontology-manager)))
+
+
 ;;; --------------------------------------------------------------------------
-(defmacro redefclass
+(defmacro redef
   "
   Creates a Clojure variable which corresponds to an existing class in the
   current ontology.
 
+    otype   : Keyword indicating OWL entity (:class, :dpropert, ...)
     var     : Symbolic name of the variable, and the short name of the class
     iri     : IRI of the ontology, assumed to be a prefix to the IRI of the class
     suffix  : Identifier appended to the IRI prefix to create the full IRI
               (defaults to the string value of var)
   "
-  ([var]
-  `(redefclass ~var ~(deref (ns-resolve *ns* 'ONT-IRI))))   ; Caller's namespace
+  ([otype var]
+  `(redef ~otype ~var ~(deref (ns-resolve *ns* 'ONT-IRI))))   ; Caller's namespace
 
-  ([var iri]
-  `(redefclass ~var ~iri (str '~var)))
+  ([otype var iri]
+  `(redef ~otype ~var ~iri (str '~var)))
 
 
-  ([var iri suffix]
-  `(def ~var (get-class ~iri ~suffix))))
+  ([otype var iri suffix]
+  `(def ~var (->owl ~otype ~iri ~suffix))))
 
+
+(defmacro redefclass     [& args] `(redef :class     ~@args))
+(defmacro redefdproperty [& args] `(redef :dproperty ~@args))
 
 
 ;;; --------------------------------------------------------------------------
@@ -60,20 +67,34 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn ->owl
+  "
+  Returns the OWL entity for the specified IRI
+  "
+  ([otype ^String tbox]
+  ;; Use a local alias to handle the Factory type hint in one place
+  (let [fct     ^OWLDataFactory Factory
+        iri     (IRI/create tbox)
+        entity  (case otype :class     (.getOWLClass        fct iri)
+                            :dproperty (.getOWLDataProperty fct iri))
+        change  (owl-import iri)]
+    (log/fmt-debug "Importing ~a: ~a" tbox (str change))
+    entity))
+
+
+  ([otype iri tbox]
+  (->owl otype (str iri tbox))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn get-class
   "
   Returns a class with the specified IRI
   "
-  ([^String tbox]
-  (let [iri     (IRI/create tbox)
-        manager (owl-ontology-manager)
-        factory (.getOWLDataFactory manager)
-        clazz   (.getOWLClass factory iri)
-        change  (owl-import iri)]
-    (log/fmt-debug "Importing ~a: ~a" tbox (str change))
-    clazz))
+  [iri & args]
+  (apply ->owl :class iri args))
 
 
-  ([iri tbox] (get-class (str iri tbox))))
 
 

@@ -52,13 +52,57 @@
 
 ;;; TBox: building on Dolce+D&S Ultralite
 (defcopy dul/Entity)
-(defcopy dul/Agent)                     ; The super dul/Object conflicts with java.lang.Object
+(defcopy dul/Agent)
+(refine Agent :equivalent foaf/Agent)
 
 (defclass Tester
- ;:super   mfoem/human-being
-  :super   dul/Agent
+  :super   dul/Person
   :label   "Tester"
   :comment "This is a class to test building on BFO.")
+
+(defclass AudienceSegment
+  :super   dul/Collective
+  :label   "Audience Segment"
+  :comment "A collective that is a potential target for an information campaign")
+
+(as-subclasses AudienceSegment
+  :cover
+  ;:disjoint
+  (defclass AlarmedSegment
+    :label  "Alarmed Segment"
+    :comment (str "An Audience Segment of people "
+                  "who are sure anthropogenic climate change is occurring, "
+                  "who support a strong response from government and "
+                  "who enact changes in their own lives."))
+  (defclass ConcernedSegment
+    :label  "Concerned Segment"
+    :comment (str "An Audience Segment of people "
+                  "who see climate change as a serious problem and "
+                  "who support government initiatives but generally do not take personal action."))
+  (defclass CautiousSegment
+    :label  "Cautious Segment"
+    :comment (str "An Audience Segment of people "
+                  "who are not completely sure climate change exists and "
+                  "who generally see no need for urgent action, "
+                  "though they do consider it a problem."))
+  (defclass DisengagedSegment
+    :label  "Disengaged Segment"
+    :comment (str "An Audience Segment of people "
+                  "who do not stay informed about climate change and"
+                  "who self-report as not knowing much on the subject."))
+  (defclass DoubtfulSegment
+    :label  "Doubtful Segment"
+    :comment (str "An Audience Segment of people "
+                  "who either do not think climmate change is happening; "
+                  "who do not know; or "
+                  "who believe it is due to natural causes and that there is no immediate danger."))
+  (defclass DismissiveSegment
+    :label  "Dismissive Segment"
+    :comment (str "An Audience Segment of people "
+                  "who generally do not believe sure climate change is happening and "
+                  "who are actively engaged but in opposition to people in the alarmed segment.")))
+
+
 
 
 ;;; DEPRECATED: we are moving off the foaf/sioc onto BFO-based ontologies
@@ -66,42 +110,6 @@
 ;;; TBox: building on foaf:Group ⊑ foaf:Agent
 (owl-class foaf/Group
   (comment :super foaf/Agent))
-
-(defclass AudienceSegment
-  :super   foaf/Group
-  :label   "Audience Segment"
-  :comment "A potential target for an information campaign")
-
-(as-subclasses AudienceSegment
-  :cover
-  :disjoint
-  (defclass AlarmedSegment
-    :label  "Alarmed Segment"
-    :comment (str "People in the alarmed segement are sure anthropogenic climate change is occurring. "
-                  "They support a strong response from government and enact changes in their own lives."))
-  (defclass ConcernedSegment
-    :label  "Concerned Segment"
-    :comment (str "People in the concerned segment see climate change as a serious problem. "
-                  "They support government initiatives, but generally do not take personal action."))
-  (defclass CautiousSegment
-    :label  "Cautious Segment"
-    :comment (str "People in the cautious segment are not completely sure climate change exists, "
-                  "though they do consider it a problem. They generally see no need for urgent action."))
-  (defclass DisengagedSegment
-    :label  "Disengaged Segment"
-    :comment (str "People in the disengaged segment do not stay informed about climate change."
-                  "They self-report as not knowing much on the subject."))
-  (defclass DoubtfulSegment
-    :label  "Doubtful Segment"
-    :comment (str "People in the doubtful segment either do not think climmate change is happening; "
-                  "they do not know; "
-                  "or they believe it is due to natural causes, and there is no immediate danger."))
-  (defclass DismissiveSegment
-    :label  "Dismissive Segment"
-    :comment (str "People in the dismissive segment generally do not believe sure climate change is happening. "
-                  "They are actively engaged, but in opposition to people in the alarmed segment.")))
-
-
 
 ;;; TBox: building on sioc:Post ⊑ foaf:Document
 (owl-class sioc/Post
