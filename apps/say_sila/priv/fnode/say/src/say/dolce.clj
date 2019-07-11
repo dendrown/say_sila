@@ -41,4 +41,4 @@
 (redefclass Person)
 (redefclass Collective)
 
-(redefdproperty gender)
+(redefoproperty isMemberOf)

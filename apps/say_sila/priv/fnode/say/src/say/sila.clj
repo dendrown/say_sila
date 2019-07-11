@@ -11,19 +11,19 @@
 ;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
-  (:require [say.ontology     :as ont]
-            [say.dolce        :as dul]
-            [say.foaf         :as foaf]
-            [say.sioc         :as sioc]
-            [say.log          :as log]
-            [clojure.string   :as str]
-            [clojure.java.io  :as io]
-            [tawny.english    :as dl]
-            [tawny.reasoner   :as rsn]
-            [tawny.repl :refer :all]                ; <= DEBUG
-            [tawny.owl  :refer :all])
-  (:import  [org.semanticweb.owlapi.model IRI
-                                          OWLOntologyID]))
+  (:require [say.ontology    :refer :all]
+            [say.dolce       :as dul]
+            [say.foaf        :as foaf]
+            [say.sioc        :as sioc]
+            [say.log         :as log]
+            [clojure.string  :as str]
+            [clojure.java.io :as io]
+            [tawny.english   :as dl]
+            [tawny.reasoner  :as rsn]
+            [tawny.repl      :as repl]                      ; <= DEBUG
+            [tawny.owl       :refer :all])
+  (:import  [org.semanticweb.owlapi.model   IRI
+                                            OWLOntologyID]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -53,6 +53,7 @@
 ;;; Top-level ontology: Dolce+D&S Ultralite
 (defcopy dul/Entity)
 (defcopy dul/Agent)
+(defcopy dul/isMemberOf)
 
 ;;; Tie-in to FOAF
 ;;; TODO: Searching citations and examples...
@@ -64,7 +65,7 @@
 (defclass Tester
   :super   dul/Person
   :label   "Tester"
-  :comment "This is a class to test building on BFO.")
+  :comment "This is a class to test building on DOLCE")
 
 (defclass AudienceSegment
   :super   dul/Collective
@@ -149,12 +150,12 @@
                       (has-value gender "male")))                       ; 63%
 
 ;;; Created punned individuals to represent the prototypes for each segment
-(ont/defpun AlarmedPersonPrototype)
-(ont/defpun ConcernedPersonPrototype)
-(ont/defpun CautiousPersonPrototype)
-(ont/defpun DisengagedPersonPrototype)
-(ont/defpun DoubtfulPersonPrototype)
-(ont/defpun DismissivePersonPrototype)
+(defpun AlarmedPersonPrototype)
+(defpun ConcernedPersonPrototype)
+(defpun CautiousPersonPrototype)
+(defpun DisengagedPersonPrototype)
+(defpun DoubtfulPersonPrototype)
+(defpun DismissivePersonPrototype)
 
 
 

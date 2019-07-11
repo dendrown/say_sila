@@ -11,7 +11,7 @@
 ;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.foaf
-  (:require [say.ontology    :as ont]
+  (:require [say.ontology    :refer :all]
             [say.dolce       :as dul]
             [tawny.owl       :refer :all]
             [tawny.repl      :as repl]              ; <= DEBUG
@@ -25,19 +25,19 @@
 
 (def ^:const ONT-IRI    "http://xmlns.com/foaf/0.1/")
 (def ^:const ONT-FPATH  "resources/KB/foaf.owl")
-(def ^:const ONTOLOGY   (ont/load-ontology ONT-IRI ONT-FPATH))
+(def ^:const ONTOLOGY   (load-ontology ONT-IRI ONT-FPATH))
 
 (defontology foaf
   :iri    ONT-IRI
   :prefix "foaf")
 
 ; Create access variables only for the foaf classes we need
-(ont/redefclass Agent)
+(redefclass Agent)
 
-(ont/redefclass Document ONT-IRI)
-(ont/redefclass Group    ONT-IRI)
+(redefclass Document ONT-IRI)
+(redefclass Group    ONT-IRI)
 
-(ont/redefdproperty gender)
+(redefdproperty gender)
 
 ;;; --------------------------------------------------------------------------
 (defn load-fully

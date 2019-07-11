@@ -23,7 +23,44 @@
 
 (set! *warn-on-reflection* true)
 
+(def ^:const Getters {:class     'getOWLClass
+                      :aproperty 'getOWLAnnotationProperty
+                      :dproperty 'getOWLDataProperty
+                      :oproperty 'getOWLObjectProperty})
+
 (defonce Factory (.getOWLDataFactory (owl-ontology-manager)))
+
+
+;;; --------------------------------------------------------------------------
+(defmacro ->owl-getter
+  "
+  Returns an OWLDataFactory getter function for the OWL entity of the specified
+  type. Note that the argument to the returned function should be an IRI object
+  (as opposed to a string).
+  "
+  [otype]
+  `(fn [iri#] (. ^OWLDataFactory Factory ~(Getters otype) iri#)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defmacro ->owl
+  "
+  Returns the OWL entity for the specified IRI
+  "
+  ([otype tbox]
+  ;; Use a local alias to handle the Factory type hint in one place
+  `(let [lookup# (->owl-getter ~otype)
+         iri#    (IRI/create ~tbox)
+         entity# (lookup# iri#)
+         change# (owl-import iri#)]
+    (log/fmt-debug "Importing ~a: ~a" ~tbox (str change#))
+    entity#))
+
+
+  ([otype iri tbox]
+  `(->owl ~otype (str ~iri ~tbox))))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -50,7 +87,9 @@
 
 
 (defmacro redefclass     [& args] `(redef :class     ~@args))
+(defmacro redefaproperty [& args] `(redef :aproperty ~@args))
 (defmacro redefdproperty [& args] `(redef :dproperty ~@args))
+(defmacro redefoproperty [& args] `(redef :oproperty ~@args))
 
 
 ;;; --------------------------------------------------------------------------
@@ -60,9 +99,11 @@
   must already exist and the variable representing the individual is prepended
   with an « i ». (MyThing becomes iMyThing.)
   "
-  [^OWLClassImpl c]
-  `(def ~(symbol (str "i" (name  `~c)))
-     (individual (.getIRI ~c) :type ~c)))
+  [clazz]
+  (let [mclazz (vary-meta clazz
+                          assoc :tag 'uk.ac.manchester.cs.owl.owlapi.OWLClassImpl)]
+    `(def ~(symbol (str "i" (name `~clazz)))
+       (individual (. ~mclazz getIRI) :type ~clazz))))
 
 
 
@@ -78,37 +119,4 @@
         man (owl-ontology-manager)]
     (remove-ontology-maybe id)
     (.loadOntologyFromOntologyDocument man (IRI/create rsc))))
-
-
-;;; --------------------------------------------------------------------------
-(defn ->owl
-  "
-  Returns the OWL entity for the specified IRI
-  "
-  ([otype ^String tbox]
-  ;; Use a local alias to handle the Factory type hint in one place
-  (let [fct     ^OWLDataFactory Factory
-        iri     (IRI/create tbox)
-        entity  (case otype :class     (.getOWLClass        fct iri)
-                            :dproperty (.getOWLDataProperty fct iri))
-        change  (owl-import iri)]
-    (log/fmt-debug "Importing ~a: ~a" tbox (str change))
-    entity))
-
-
-  ([otype iri tbox]
-  (->owl otype (str iri tbox))))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn get-class
-  "
-  Returns a class with the specified IRI
-  "
-  [iri & args]
-  (apply ->owl :class iri args))
-
-
-
 
