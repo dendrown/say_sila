@@ -53,6 +53,7 @@
 ;;; Top-level ontology: Dolce+D&S Ultralite
 (defcopy dul/Entity)
 (defcopy dul/Agent)
+(defcopy dul/Organization)
 (defcopy dul/isMemberOf)
 
 ;;; Tie-in to FOAF
@@ -67,6 +68,27 @@
   :label   "Tester"
   :comment "This is a class to test building on DOLCE")
 
+
+;;; --------------------------------------------------------------------------
+;;; Politics
+(defclass PoliticalParty
+  :super   Organization
+  :label   "Political Party"
+  :comment "An organization that represents a group of Persons with similar political ideals.")
+
+(defindividual DemocraticParty
+  :type PoliticalParty
+  :comment "The Political Party representing the Left in the United States.")
+
+(defindividual RepublicanParty
+  :type PoliticalParty
+  :comment "The Political Party representing the Right in the United States.")
+
+; TODO: How do Independents fit in with Dems/Reps ?
+
+
+;;; --------------------------------------------------------------------------
+;;; Six Americas
 (defclass AudienceSegment
   :super   dul/Collective
   :label   "Audience Segment"

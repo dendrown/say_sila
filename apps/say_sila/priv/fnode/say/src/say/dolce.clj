@@ -40,5 +40,6 @@
 (redefclass Agent)
 (redefclass Person)
 (redefclass Collective)
+(redefclass Organization)
 
 (redefoproperty isMemberOf)
