@@ -35,6 +35,7 @@
 ;;; --------------------------------------------------------------------------
 ; Create access variables only for the classes we need
 (redefclass Entity)
+(redefclass Quality)
 (owl/owl-import (str ONT-IRI "Object"))     ; Var conflicts with java.lang.Object
 
 (redefclass Agent)
@@ -42,4 +43,5 @@
 (redefclass Collective)
 (redefclass Organization)
 
+(redefoproperty associatedWith)
 (redefoproperty isMemberOf)

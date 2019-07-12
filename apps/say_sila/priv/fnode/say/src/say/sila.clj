@@ -12,6 +12,7 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
   (:require [say.ontology    :refer :all]
+            [say.config      :as cfg]
             [say.dolce       :as dul]
             [say.foaf        :as foaf]
             [say.sioc        :as sioc]
@@ -20,7 +21,7 @@
             [clojure.java.io :as io]
             [tawny.english   :as dl]
             [tawny.reasoner  :as rsn]
-            [tawny.repl      :as repl]                      ; <= DEBUG
+            [tawny.repl      :as repl]                  ; <= DEBUG
             [tawny.owl       :refer :all])
   (:import  [org.semanticweb.owlapi.model   IRI
                                             OWLOntologyID]))
@@ -35,6 +36,11 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; TODO: we have a number of decisions that are not yet final...
+(def ^:const FOAF?      true)
+
+
+;;; --------------------------------------------------------------------------
 (defontology say-sila
   :iri    ONT-IRI
   :prefix "sila")
@@ -46,22 +52,16 @@
 ;;; Top level:
 ;;;
 ;;; Imports foundational & reference ontologies
-(doseq [imp [dul/dul
-             foaf/foaf]]
+(doseq [imp (filter some? [dul/dul
+                           (when FOAF? foaf/foaf)])]
   (owl-import imp))
 
 ;;; Top-level ontology: Dolce+D&S Ultralite
 (defcopy dul/Entity)
 (defcopy dul/Agent)
+(defcopy dul/Person)
 (defcopy dul/Organization)
 (defcopy dul/isMemberOf)
-
-;;; Tie-in to FOAF
-;;; TODO: Searching citations and examples...
-;;;       - HCLS/POMR Ontology (predecessor of Bio-zen plus \cite{samwald2008}
-(refine Agent :equivalent foaf/Agent)
-(defcopy foaf/gender)                                   ; TODO: Consider Gender ⊑ dul/Quality
-
 
 (defclass Tester
   :super   dul/Person
@@ -70,7 +70,48 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; Demographics:
+;;;
+;;; TODO: make final decision on whether or not to utilise FOAF
+(if FOAF?
+  ;; TODO: Evaluating HCLS/POMR Ontology (predecessor of Bio-zen plus \cite{samwald2008})
+  (do
+    (refine Agent :equivalent foaf/Agent)
+    (defcopy foaf/gender)
+
+    (def Female "female")
+    (def Male   "male"))
+
+  ;; TODO: Evaluating Gender ⊑ dul/Quality
+  (do
+    (defclass Gender
+      :super    dul/Quality
+      :label    "Gender"
+      :comment  (str "The Quality of being a specific biological sex and/or being part of the corresponding"
+                     "social group"))
+
+    (defindividual Female
+      :type     Gender
+      :label    "Female"
+      :comment  (str "The Gender associated with having female reproductive organs and/or "
+                     "fulfilling a feminine role in society."))
+
+    (defindividual Male
+      :type     Gender
+      :label    "Male"
+      :comment  (str "The Gender associated with having male reproductive organs and/or "
+                     "fulfilling a masculine role in society."))
+
+    (defoproperty gender                            ; TODO: Change to isOfGender if !FOAF
+      :super    dul/associatedWith
+      :domain   Agent
+      :range    Gender)))
+
+
+;;; --------------------------------------------------------------------------
 ;;; Politics
+;;;
+;;; NOTE: We may be moving towards \cite{porello2014} for modelling social groups
 (defclass PoliticalParty
   :super   Organization
   :label   "Political Party"
@@ -79,6 +120,7 @@
 (defindividual DemocraticParty
   :type PoliticalParty
   :comment "The Political Party representing the Left in the United States.")
+
 
 (defindividual RepublicanParty
   :type PoliticalParty
@@ -93,6 +135,8 @@
   :super   dul/Collective
   :label   "Audience Segment"
   :comment "A collective that is a potential target for an information campaign")
+
+(defoproperty inAudienceSegment :domain Person :range AudienceSegment)
 
 (as-subclasses AudienceSegment
   :cover
@@ -139,37 +183,38 @@
   :label   "Alarmed Person Prototype"
   :comment "A member of the Alarmed Segment who embodies all qualities of that Audience Segment."
   :equivalent (dl/and AlarmedSegment
-                      (has-value gender "female")))                     ; 61%
+                      (has-value gender Female)))                       ; 61%
 
 (defclass ConcernedPersonPrototype
   :label   "Concerned Person Prototype"
   :comment "A member of the Concerned Segment who embodies all qualities of that Audience Segment."
   :equivalent (dl/and ConcernedSegment
-                      (has-value gender "female")))                     ; 52% - TODO: remove
+                      (has-value gender Female)))                       ; 52% - TODO: remove
 
 (defclass CautiousPersonPrototype
   :label   "Cautious Person Prototype"
   :comment "A member of the Cautious Segment who embodies all qualities of that Audience Segment."
   :equivalent (dl/and CautiousSegment
-                      (has-value gender "male")))                       ; 53% - TODO: remove
+                      (has-value gender Male)))                         ; 53% - TODO: remove
 
 (defclass DisengagedPersonPrototype
   :label   "Disengaged Person Prototype"
   :comment "A member of the Disengaged Segment who embodies all qualities of that Audience Segment."
   :equivalent (dl/and DisengagedSegment
-                      (has-value gender "female")))                     ; 62%
+                      (has-value gender Female)))                       ; 62%
 
 (defclass DoubtfulPersonPrototype
   :label   "Doubtful Person Prototype"
   :comment "A member of the Doubtful Segment who embodies all qualities of that Audience Segment."
   :equivalent (dl/and DoubtfulSegment
-                      (has-value gender "male")))                       ; 59%
+                      (has-value gender Male)))                         ; 59%
 
 (defclass DismissivePersonPrototype
   :label   "Dismissive Person Prototype"
   :comment "A member of the Dismissive Segment who embodies all qualities of that Audience Segment."
   :equivalent (dl/and DismissiveSegment
-                      (has-value gender "male")))                       ; 63%
+                      (has-value gender Male)))                         ; 63%
+
 
 ;;; Created punned individuals to represent the prototypes for each segment
 (defpun AlarmedPersonPrototype)
