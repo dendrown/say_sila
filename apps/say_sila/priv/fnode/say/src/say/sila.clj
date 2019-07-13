@@ -37,7 +37,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const FOAF?      true)
+(def ^:const FOAF?      false)
 
 
 ;;; --------------------------------------------------------------------------
@@ -105,7 +105,8 @@
     (defoproperty gender                            ; TODO: Change to isOfGender if !FOAF
       :super    dul/associatedWith
       :domain   Agent
-      :range    Gender)))
+      :range    Gender
+      :characteristic :functional)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -179,51 +180,41 @@
 ;;; We will be comparing Twitter users to prototypes of the Audience Segments.
 ;;; Qualities and values are presented in segment Person Prototypes.
 ;;; TODO: Make the Person Prototype classes distinct
-(defclass AlarmedPersonPrototype
-  :label   "Alarmed Person Prototype"
-  :comment "A member of the Alarmed Segment who embodies all qualities of that Audience Segment."
-  :equivalent (dl/and AlarmedSegment
-                      (has-value gender Female)))                       ; 61%
+(defindividual AlarmedPersonPrototype
+  :type     AlarmedSegment
+  :label    "Alarmed Person Prototype"
+  :comment  "A hypothetical member of the Alarmed Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Female))                                         ; 61%
 
-(defclass ConcernedPersonPrototype
-  :label   "Concerned Person Prototype"
-  :comment "A member of the Concerned Segment who embodies all qualities of that Audience Segment."
-  :equivalent (dl/and ConcernedSegment
-                      (has-value gender Female)))                       ; 52% - TODO: remove
+(defindividual ConcernedPersonPrototype
+  :type     ConcernedSegment
+  :label    "Concerned Person Prototype"
+  :comment  "A hypothetical member of the Concerned Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Female))                                         ; 52% - TODO: remove
 
-(defclass CautiousPersonPrototype
-  :label   "Cautious Person Prototype"
-  :comment "A member of the Cautious Segment who embodies all qualities of that Audience Segment."
-  :equivalent (dl/and CautiousSegment
-                      (has-value gender Male)))                         ; 53% - TODO: remove
+(defindividual CautiousPersonPrototype
+  :type     CautiousSegment
+  :label    "Cautious Person Prototype"
+  :comment  "A hypothetical member of the Cautious Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Male))                                           ; 53% - TODO: remove
 
-(defclass DisengagedPersonPrototype
-  :label   "Disengaged Person Prototype"
-  :comment "A member of the Disengaged Segment who embodies all qualities of that Audience Segment."
-  :equivalent (dl/and DisengagedSegment
-                      (has-value gender Female)))                       ; 62%
+(defindividual DisengagedPersonPrototype
+  :type     DisengagedSegment
+  :label    "Disengaged Person Prototype"
+  :comment  "A hypothetical member of the Disengaged Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Female))                                         ; 62%
 
-(defclass DoubtfulPersonPrototype
-  :label   "Doubtful Person Prototype"
-  :comment "A member of the Doubtful Segment who embodies all qualities of that Audience Segment."
-  :equivalent (dl/and DoubtfulSegment
-                      (has-value gender Male)))                         ; 59%
+(defindividual DoubtfulPersonPrototype
+  :type     DoubtfulSegment
+  :label    "Doubtful Person Prototype"
+  :comment  "A hypothetical member of the Doubtful Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Male))                                           ; 59%
 
-(defclass DismissivePersonPrototype
-  :label   "Dismissive Person Prototype"
-  :comment "A member of the Dismissive Segment who embodies all qualities of that Audience Segment."
-  :equivalent (dl/and DismissiveSegment
-                      (has-value gender Male)))                         ; 63%
-
-
-;;; Created punned individuals to represent the prototypes for each segment
-(defpun AlarmedPersonPrototype)
-(defpun ConcernedPersonPrototype)
-(defpun CautiousPersonPrototype)
-(defpun DisengagedPersonPrototype)
-(defpun DoubtfulPersonPrototype)
-(defpun DismissivePersonPrototype)
-
+(defindividual DismissivePersonPrototype
+  :type     DismissiveSegment
+  :label    "Dismissive Person Prototype"
+  :comment  "A hypothetical member of the Dismissive Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Male))                                           ; 63%
 
 
 ;;; DEPRECATED: FOAF/SIOC are no longer primary as we move onto DOLCE-based ontologies
