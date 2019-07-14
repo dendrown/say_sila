@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Semantically-interlinked online communities (sioc) ontology
 ;;;;
-;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sioc
   (:require [say.ontology :as ont]

@@ -1,5 +1,5 @@
 (defproject say "0.2.0-SNAPSHOT"
-  :description  "Bridge to JVM-based utilities for sila"
+  :description  "Bridge to JVM-based utilities for Say-Sila"
   :url          "http://dendrown.net"
   :license {:name "BSD 3-clause License"
             :url "https://spdx.org/licenses/BSD-3-Clause.html"}
@@ -19,7 +19,7 @@
                  [affective/affectivetweets             "1.0.1" ]
                  [org.tartarus/snowball                 "1.0.0" ]
                  ; Ontologies
-                 [uk.org.russet/tawny-owl               "1.6.0"]
+                 [uk.org.russet/tawny-owl               "2.0.0"]
                  [com.google.guava/guava                "25.0-jre"]])  ; OWL caching dep
 
 ; NOTE for external JARs:

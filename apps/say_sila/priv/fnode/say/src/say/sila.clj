@@ -8,19 +8,23 @@
 ;;;;
 ;;;; Say-Sila ontology
 ;;;;
-;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
-  (:require [say.foaf         :as foaf]
-            [say.sioc         :as sioc]
-            [say.log          :as log]
-            [clojure.java.io  :as io]
-            [tawny.english    :as dl]
-            [tawny.reasoner   :as rsn]
-            [tawny.repl       :as repl]         ; <= DEBUG
-            [tawny.owl :refer :all])
-  (:import  [org.semanticweb.owlapi.model IRI
-                                          OWLOntologyID]))
+  (:require [say.ontology    :refer :all]
+            [say.config      :as cfg]
+            [say.dolce       :as dul]
+            [say.foaf        :as foaf]
+            [say.sioc        :as sioc]
+            [say.log         :as log]
+            [clojure.string  :as str]
+            [clojure.java.io :as io]
+            [tawny.english   :as dl]
+            [tawny.reasoner  :as rsn]
+            [tawny.repl      :as repl]                  ; <= DEBUG
+            [tawny.owl       :refer :all])
+  (:import  [org.semanticweb.owlapi.model   IRI
+                                            OWLOntologyID]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -32,6 +36,11 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; TODO: we have a number of decisions that are not yet final...
+(def ^:const FOAF?      false)
+
+
+;;; --------------------------------------------------------------------------
 (defontology say-sila
   :iri    ONT-IRI
   :prefix "sila")
@@ -39,11 +48,185 @@
 (rsn/reasoner-factory :hermit)
 
 
+;;; --------------------------------------------------------------------------
 ;;; Top level:
+;;;
+;;; Imports foundational & reference ontologies
+(doseq [imp (filter some? [dul/dul
+                           (when FOAF? foaf/foaf)])]
+  (owl-import imp))
+
+;;; Top-level ontology: Dolce+D&S Ultralite
+(defcopy dul/Entity)
+(defcopy dul/Agent)
+(defcopy dul/Person)
+(defcopy dul/Organization)
+(defcopy dul/isMemberOf)
+
+(defclass Tester
+  :super   dul/Person
+  :label   "Tester"
+  :comment "This is a class to test building on DOLCE")
+
+
+;;; --------------------------------------------------------------------------
+;;; Demographics:
+;;;
+;;; TODO: make final decision on whether or not to utilise FOAF
+(if FOAF?
+  ;; TODO: Evaluating HCLS/POMR Ontology (predecessor of Bio-zen plus \cite{samwald2008})
+  (do
+    (refine Agent :equivalent foaf/Agent)
+    (defcopy foaf/gender)
+
+    (def Female "female")
+    (def Male   "male"))
+
+  ;; TODO: Evaluating Gender ⊑ dul/Quality
+  (do
+    (defclass Gender
+      :super    dul/Quality
+      :label    "Gender"
+      :comment  (str "The Quality of being a specific biological sex and/or being part of the corresponding"
+                     "social group"))
+
+    (defindividual Female
+      :type     Gender
+      :label    "Female"
+      :comment  (str "The Gender associated with having female reproductive organs and/or "
+                     "fulfilling a feminine role in society."))
+
+    (defindividual Male
+      :type     Gender
+      :label    "Male"
+      :comment  (str "The Gender associated with having male reproductive organs and/or "
+                     "fulfilling a masculine role in society."))
+
+    (defoproperty gender                            ; TODO: Change to isOfGender if !FOAF
+      :super    dul/associatedWith
+      :domain   Agent
+      :range    Gender
+      :characteristic :functional)))
+
+
+;;; --------------------------------------------------------------------------
+;;; Politics
+;;;
+;;; NOTE: We may be moving towards \cite{porello2014} for modelling social groups
+(defclass PoliticalParty
+  :super   Organization
+  :label   "Political Party"
+  :comment "An organization that represents a group of Persons with similar political ideals.")
+
+(defindividual DemocraticParty
+  :type PoliticalParty
+  :comment "The Political Party representing the Left in the United States.")
+
+
+(defindividual RepublicanParty
+  :type PoliticalParty
+  :comment "The Political Party representing the Right in the United States.")
+
+; TODO: How do Independents fit in with Dems/Reps ?
+
+
+;;; --------------------------------------------------------------------------
+;;; Six Americas
+(defclass AudienceSegment
+  :super   dul/Collective
+  :label   "Audience Segment"
+  :comment "A collective that is a potential target for an information campaign")
+
+(defoproperty inAudienceSegment :domain Person :range AudienceSegment)
+
+(as-subclasses AudienceSegment
+  :cover
+  ;:disjoint
+  (defclass AlarmedSegment
+    :label  "Alarmed Segment"
+    :comment (str "An Audience Segment of people "
+                  "who are sure anthropogenic climate change is occurring, "
+                  "who support a strong response from government and "
+                  "who enact changes in their own lives."))
+  (defclass ConcernedSegment
+    :label  "Concerned Segment"
+    :comment (str "An Audience Segment of people "
+                  "who see climate change as a serious problem and "
+                  "who support government initiatives but generally do not take personal action."))
+  (defclass CautiousSegment
+    :label  "Cautious Segment"
+    :comment (str "An Audience Segment of people "
+                  "who are not completely sure climate change exists and "
+                  "who generally see no need for urgent action, "
+                  "though they do consider it a problem."))
+  (defclass DisengagedSegment
+    :label  "Disengaged Segment"
+    :comment (str "An Audience Segment of people "
+                  "who do not stay informed about climate change and"
+                  "who self-report as not knowing much on the subject."))
+  (defclass DoubtfulSegment
+    :label  "Doubtful Segment"
+    :comment (str "An Audience Segment of people "
+                  "who either do not think climmate change is happening; "
+                  "who do not know; or "
+                  "who believe it is due to natural causes and that there is no immediate danger."))
+  (defclass DismissiveSegment
+    :label  "Dismissive Segment"
+    :comment (str "An Audience Segment of people "
+                  "who generally do not believe sure climate change is happening and "
+                  "who are actively engaged but in opposition to people in the alarmed segment.")))
+
+
+;;; We will be comparing Twitter users to prototypes of the Audience Segments.
+;;; Qualities and values are presented in segment Person Prototypes.
+;;; TODO: Make the Person Prototype classes distinct
+(defindividual AlarmedPersonPrototype
+  :type     AlarmedSegment
+  :label    "Alarmed Person Prototype"
+  :comment  "A hypothetical member of the Alarmed Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Female))                                         ; 61%
+
+(defindividual ConcernedPersonPrototype
+  :type     ConcernedSegment
+  :label    "Concerned Person Prototype"
+  :comment  "A hypothetical member of the Concerned Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Female))                                         ; 52% - TODO: remove
+
+(defindividual CautiousPersonPrototype
+  :type     CautiousSegment
+  :label    "Cautious Person Prototype"
+  :comment  "A hypothetical member of the Cautious Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Male))                                           ; 53% - TODO: remove
+
+(defindividual DisengagedPersonPrototype
+  :type     DisengagedSegment
+  :label    "Disengaged Person Prototype"
+  :comment  "A hypothetical member of the Disengaged Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Female))                                         ; 62%
+
+(defindividual DoubtfulPersonPrototype
+  :type     DoubtfulSegment
+  :label    "Doubtful Person Prototype"
+  :comment  "A hypothetical member of the Doubtful Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Male))                                           ; 59%
+
+(defindividual DismissivePersonPrototype
+  :type     DismissiveSegment
+  :label    "Dismissive Person Prototype"
+  :comment  "A hypothetical member of the Dismissive Segment who embodies all qualities of that Audience Segment."
+  :fact     (is gender Male))                                           ; 63%
+
+
+;;; DEPRECATED: FOAF/SIOC are no longer primary as we move onto DOLCE-based ontologies
 ;;;
 ;;; TBox: building on sioc:Post ⊑ foaf:Document
 (owl-class sioc/Post
   :super foaf/Document)
+
+(defclass Survey
+  :super   foaf/Document
+  :label   "Survey"
+  :comment "A series of questions intended to extract information from a group of people")
 
 (defclass Tweet
   :super   sioc/Post
@@ -97,6 +280,7 @@
     :comment "A Player (participant) who demonstrates normal activity during a tracking run"))
 
 
+
 ;;; TBox: building on sioc:UserAccount==>sila:TwitterAccount
 (as-subclasses TwitterAccount
   :cover                        ; but not disjoint
@@ -106,6 +290,7 @@
   (defclass Tweeter
     :label   "Tweeter"
     :comment "A Twitter account, considered from the viewpoint of publishing tweets"))
+
 
 
 ; TBox: building on sioc:UserAccount==>sila:TwitterAccount==>sila:Author
@@ -122,6 +307,7 @@
     :comment "A Twitter account whose tweet has been republished by another tweeter"))
 
 
+
 ;;; TBox: building on sioc:UserAccount==>sila:TwitterAccount==>sila:Tweeter
 (as-subclasses Tweeter
   :cover                        ; but not disjoint
@@ -132,6 +318,7 @@
   (defclass Retweeter
     :label   "Retweeter"
     :comment "A Twitter account that republishes a tweet originally authored by a different user"))
+
 
 
 ;;; Roles: Careful, even attempting to reduce ambiguity as much as possible,
@@ -312,5 +499,6 @@
   ([] (save ONT-FPATH))
 
   ([^String fpath]
+  (log/info "Saving ontology:" fpath)
   (save-ontology say-sila fpath :owl)))
 
