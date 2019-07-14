@@ -134,7 +134,6 @@
   :label    "Environmentalism"
   :comment  "The Concept of caring about the evironment and supporting evironmentally-friendly policies.")
 
-
 ;;; --------------------------------------------------------------------------
 ;;; Roles:
 (defindividual Environmentalist
@@ -148,10 +147,37 @@
 ;;; Politics
 ;;;
 ;;; NOTE: We may be moving towards \cite{porello2014} for modelling social groups
+;;;
+;;; TODO: Find and cite source of definitions for political terms
+(defclass PoliticalIdeology
+  :super    Concept
+  :label    "Political Ideology"
+  :comment  "The Concept concerning the ideals of a political system.")
+
+
+(defindividual Conservatism
+  :type     PoliticalIdeology
+  :label    "Conservatism"
+  :comment  "The Political Ideology which seeks to preserve traditional political and social institutions.")
+
+
+(defindividual Liberalism
+  :type     PoliticalIdeology
+  :label    "Liberalism"
+  :comment  "The Political Ideology which supports equality and civil liberty.")
+
+
+(defindividual Moderatism
+  :type     PoliticalIdeology
+  :label    "Moderatism"
+  :comment  (str "The Political Ideology which supports neither Conservativism, nor Liberalism "
+                 "and whose supporters often consider themselves in the middle of both of these ideologies."))
+
+
 (defclass PoliticalParty
-  :super   Organization
+  :super   dul/Collective
   :label   "Political Party"
-  :comment "An organization that represents a group of Persons with similar political ideals.")
+  :comment "An Organization that represents a group of Persons with similar political ideals.")
 
 (defindividual DemocraticParty
   :type PoliticalParty
@@ -162,7 +188,15 @@
   :type PoliticalParty
   :comment "The Political Party representing the Right in the United States.")
 
-; TODO: How do Independents fit in with Dems/Reps ?
+;;; FIXME: Indendent is not a political party...!
+(defindividual Independent
+  :type     PoliticalParty
+  :label    "Independent Political Ideology"
+  :comment  (str "The Political Party of no-party "
+                 "whose members often consider themselves in the middle of Republicans and Democrats. "
+                 "NOTE: We are addressing the fact that independents do not constitute a true Political Party."))
+
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -220,26 +254,33 @@
   :label    "Alarmed Person Prototype"
   :comment  "A hypothetical member of the Alarmed Segment who embodies all qualities of that Audience Segment."
   :fact     (is gender Female)                                          ; 61%
+            (is isMemberOf DemocraticParty)                             ; 58%
+            (is supports Liberalism)                                    ; 48%
             (is hasRole Environmentalist))
 
 (defindividual ConcernedPersonPrototype
   :type     ConcernedSegment
   :label    "Concerned Person Prototype"
   :comment  "A hypothetical member of the Concerned Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Female)                                          ; 52% - TODO: remove
+  :fact     (is gender Female)                                          ; 52% (remove?)
+            (is isMemberOf DemocraticParty)                             ; 47%
+            (is supports Moderatism)                                    ; 45%
             (is hasRole Environmentalist))                              ; "somewhat"
 
 (defindividual CautiousPersonPrototype
   :type     CautiousSegment
   :label    "Cautious Person Prototype"
   :comment  "A hypothetical member of the Cautious Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Male))                                           ; 53% - TODO: remove
+  :fact     (is gender Male)                                            ; 53% (remove?)
+            (is supports Moderatism))                                   ; 40%
 
 (defindividual DisengagedPersonPrototype
   :type     DisengagedSegment
   :label    "Disengaged Person Prototype"
   :comment  "A hypothetical member of the Disengaged Segment who embodies all qualities of that Audience Segment."
   :fact     (is gender Female)                                          ; 62%
+            (is isMemberOf DemocraticParty)                             ; 41%
+            (is supports Moderatism)                                    ; 44%
             (dl/not hasRole Environmentalist))
 
 (defindividual DoubtfulPersonPrototype
@@ -247,6 +288,8 @@
   :label    "Doubtful Person Prototype"
   :comment  "A hypothetical member of the Doubtful Segment who embodies all qualities of that Audience Segment."
   :fact     (is gender Male)                                            ; 59%
+            (is isMemberOf RepublicanParty)                             ; 56%
+            (is supports Conservatism)                                  ; 61%
             (dl/not hasRole Environmentalist))
 
 (defindividual DismissivePersonPrototype
@@ -254,6 +297,8 @@
   :label    "Dismissive Person Prototype"
   :comment  "A hypothetical member of the Dismissive Segment who embodies all qualities of that Audience Segment."
   :fact     (is gender Male)                                            ; 63%
+            (is isMemberOf RepublicanParty)                             ; 64%
+            (is supports Conservatism)                                  ; 75%
             (dl/not hasRole Environmentalist))
 
 
