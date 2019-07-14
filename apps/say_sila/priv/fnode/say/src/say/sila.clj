@@ -57,10 +57,12 @@
   (owl-import imp))
 
 ;;; Top-level ontology: Dolce+D&S Ultralite
-(defcopy dul/Entity)
 (defcopy dul/Agent)
+(defcopy dul/Concept)
 (defcopy dul/Person)
 (defcopy dul/Organization)
+
+(defcopy dul/associatedWith)
 (defcopy dul/isMemberOf)
 
 (defclass Tester
@@ -103,10 +105,43 @@
                      "fulfilling a masculine role in society."))
 
     (defoproperty gender                            ; TODO: Change to isOfGender if !FOAF
-      :super    dul/associatedWith
+      :super    associatedWith
       :domain   Agent
       :range    Gender
       :characteristic :functional)))
+
+
+;;; --------------------------------------------------------------------------
+;;; Object Properties
+(defoproperty hasRole
+  :super    associatedWith
+  :label    "has Role"
+  :domain   dul/Agent
+  :range    dul/Role)
+
+(defoproperty supports
+  :super    associatedWith
+  :label    "supports"
+  :domain   (dl/or dul/Agent
+                   dul/Role)
+  :range    Concept)
+
+
+;;; --------------------------------------------------------------------------
+;;; Concepts:
+(defindividual Environmentalism
+  :type     Concept
+  :label    "Environmentalism"
+  :comment  "The Concept of caring about the evironment and supporting evironmentally-friendly policies.")
+
+
+;;; --------------------------------------------------------------------------
+;;; Roles:
+(defindividual Environmentalist
+  :type     dul/Role
+  :label    "Environmentalist"
+  :comment  "The Role of someone involved in Environmentalism"
+  :fact     (is supports Environmentalism))
 
 
 ;;; --------------------------------------------------------------------------
@@ -184,13 +219,15 @@
   :type     AlarmedSegment
   :label    "Alarmed Person Prototype"
   :comment  "A hypothetical member of the Alarmed Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Female))                                         ; 61%
+  :fact     (is gender Female)                                          ; 61%
+            (is hasRole Environmentalist))
 
 (defindividual ConcernedPersonPrototype
   :type     ConcernedSegment
   :label    "Concerned Person Prototype"
   :comment  "A hypothetical member of the Concerned Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Female))                                         ; 52% - TODO: remove
+  :fact     (is gender Female)                                          ; 52% - TODO: remove
+            (is hasRole Environmentalist))                              ; "somewhat"
 
 (defindividual CautiousPersonPrototype
   :type     CautiousSegment
@@ -202,19 +239,22 @@
   :type     DisengagedSegment
   :label    "Disengaged Person Prototype"
   :comment  "A hypothetical member of the Disengaged Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Female))                                         ; 62%
+  :fact     (is gender Female)                                          ; 62%
+            (dl/not hasRole Environmentalist))
 
 (defindividual DoubtfulPersonPrototype
   :type     DoubtfulSegment
   :label    "Doubtful Person Prototype"
   :comment  "A hypothetical member of the Doubtful Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Male))                                           ; 59%
+  :fact     (is gender Male)                                            ; 59%
+            (dl/not hasRole Environmentalist))
 
 (defindividual DismissivePersonPrototype
   :type     DismissiveSegment
   :label    "Dismissive Person Prototype"
   :comment  "A hypothetical member of the Dismissive Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Male))                                           ; 63%
+  :fact     (is gender Male)                                            ; 63%
+            (dl/not hasRole Environmentalist))
 
 
 ;;; DEPRECATED: FOAF/SIOC are no longer primary as we move onto DOLCE-based ontologies

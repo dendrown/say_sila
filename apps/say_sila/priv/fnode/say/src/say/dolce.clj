@@ -33,15 +33,21 @@
 
 
 ;;; --------------------------------------------------------------------------
-; Create access variables only for the classes we need
+;;; Create access variables only for the classes we need
 (redefclass Entity)
 (redefclass Quality)
-(owl/owl-import (str ONT-IRI "Object"))     ; Var conflicts with java.lang.Object
 
+;;; TBox: building on dul:Object ⊑ dul:Entity
 (redefclass Agent)
 (redefclass Person)
 (redefclass Collective)
 (redefclass Organization)
 
+;;; TBox: building on dul:Concept ⊑ dul:SocialObject
+(redefclass Concept)
+(redefclass Role)
+
+
+;;; Object properties
 (redefoproperty associatedWith)
 (redefoproperty isMemberOf)
