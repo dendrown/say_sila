@@ -16,5 +16,6 @@ pom.xml.asc
 bin/
 config/*.config
 java/
+resources/gender/*.csv
 resources/KB/*.owl
 resources/KB/catalog-*.xml
