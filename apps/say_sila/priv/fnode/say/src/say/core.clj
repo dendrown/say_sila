@@ -16,8 +16,9 @@
             [say.sila   :as sila]
             [say.weka   :as weka]
             [say.influence]                 ; NOTE: article
-            [clojure.string    :as str]
-            [clojure.data.json :as json])
+            [clojure.core.async :as a :refer [>! <! >!! <!! go chan]]
+            [clojure.data.json  :as json]
+            [clojure.string     :as str])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
                                      OtpErlangBinary
                                      OtpErlangDouble
@@ -131,7 +132,7 @@
           arg# :arg} ~msg]
 
     (log/info "->> weka<" cmd# ">:" (str arg#))
-    (future
+    (go
       (let [wfun# (ns-resolve 'say.weka (symbol '~fun))
             rsp#  (apply wfun# arg# '~parms)]
         (log/info "<<- weka<" cmd# ">" rsp# "[OK]")
@@ -284,7 +285,7 @@
 
       ; FIXME:  The ontology functionality in the say.sila namespace requires
       ;         us to be in say.sila so it can create individuals as variables
-      ;         in that name-space. Tawny.owl macros are picky and fragile :(
+      ;         in that name-space. Tawny.owl macros are picky and fragile :/
       (ns say.sila)
 
       ; Receive and process messages from Erlang
@@ -293,5 +294,5 @@
 
       ; Put us back where we're supposed to be
       (ns say.core)
-    'ok)))
+      :ok)))
 

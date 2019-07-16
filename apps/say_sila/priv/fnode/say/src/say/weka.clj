@@ -332,6 +332,7 @@
         until such time as it starts sending us its specific configurations.
   "
   [fpath]
+  (log/debug "Emoting:" fpath)
   (letfn [(make-emoter [opt]
             (let [emoter (TweetToInputLexiconFeatureVector.)]
               ; Our only defined NLP option is English-Stoplist-Porter
