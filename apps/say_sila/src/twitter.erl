@@ -597,6 +597,8 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
     end,
     Query = io_lib:format("SELECT status->>'id' AS id, "
                                  "status->'user'->>'screen_name' AS screen_name, "
+                                 "status->'user'->>'name' AS name, "
+                                 "status->'user'->>'description' AS description, "
                                  "status->>'timestamp_ms' AS timestamp_ms, "
                                  "status->>'text' AS text, "
                                  "status->'retweeted_status'->>'id' AS rt_id, "
@@ -610,14 +612,21 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
 
     %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
-        {ok, _, Rows} -> [#tweet{id             = ID,
-                                 screen_name    = SN,
-                                 timestamp_ms   = binary_to_integer(DTS),
-                                 text           = Text,
-                                 type           = ?null_val_not(RTID, tweet, retweet),
-                                 rt_id          = ?null_to_undef(RTID),
-                                 rt_screen_name = ?null_to_undef(RTSN)} || {ID, SN, DTS, Text, RTID, RTSN} <- Rows];
-        _             -> undefined
+
+        {ok, _, Rows} ->
+            [#tweet{id             = ID,
+                    type           = ?null_val_not(RTID, tweet, retweet),
+                    timestamp_ms   = binary_to_integer(DTS),
+                    screen_name    = SN,
+                    name           = Name,
+                    description    = Descr,
+                    text           = Text,
+                    rt_id          = ?null_to_undef(RTID),
+                    rt_screen_name = ?null_to_undef(RTSN)}
+             || {ID, SN, Name, Descr, DTS, Text, RTID, RTSN} <- Rows];
+
+        _ ->
+            undefined
     end,
     {reply, Reply, State};
 

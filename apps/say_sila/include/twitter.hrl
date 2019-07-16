@@ -19,13 +19,17 @@
 
 -define(TWITTER_DB_TIMEOUT, (10 * 60 * 1000)).      % FIXME: Rework the DB-pull logic
 -record(tweet, {id              :: binary(),
-                rt_id           :: binary(),        % rt_ means "retweet"
-                rt_screen_name  :: binary(),
-                timestamp_ms    :: pos_integer(),
-                screen_name     :: binary(),
-                text            :: ignored | binary(),
                 type            :: tweet | retweet | undefined,
-                emotions        :: rec_emos() }).
+                timestamp_ms    :: pos_integer(),
+                emotions        :: rec_emos(),
+                %---------------------------------- % User
+                screen_name     :: binary(),
+                name            :: binary(),
+                description     :: binary(),
+                text            :: binary() | ignored,
+                %---------------------------------- % Retweeted author
+                rt_id           :: binary(),
+                rt_screen_name  :: binary() }).
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
 

@@ -21,6 +21,7 @@
 
 (def ^:const TOKEN-SPLITTER
              #"_|\s|(?=\p{Lu}\p{Ll})|(?<=\p{Ll})(?=\p{Lu})|(?<=\p{L})(?=\p{N})|(?<=\p{N})(?=\p{L})")
+             ;white|  Upper->lower  |   lower-to-Upper    |  letter-to-digit  |  digit-to-letter
 
 
 ;;; --------------------------------------------------------------------------
@@ -28,6 +29,9 @@
   "
   Attempts to split up a username or similar into component tokens.
   "
-  [txt]
-  (filter seq (str/split txt TOKEN-SPLITTER)))
+  [txt & opts]
+  (let [tokens (filter seq (str/split txt TOKEN-SPLITTER))]
+    (if (some #{:lower-case} opts)
+        (map str/lower-case tokens)
+        tokens)))
 
