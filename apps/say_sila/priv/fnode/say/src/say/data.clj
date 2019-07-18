@@ -26,12 +26,8 @@
 ;;; --------------------------------------------------------------------------
 (defn get-dom
   "Pull the document object model from a web resource."
-  ([]
-  (get-dom URL-FEMALE-NAMES))
-
-
-  ([url]
-  (-> url URL. web/html-resource)))
+  [url]
+  (-> url URL. web/html-resource))
 
 
 ;;; --------------------------------------------------------------------------
@@ -49,21 +45,22 @@
   (loop [x xx]
     (when-let [c (get-content x)]
       (if (string? c)
-           c
+           (str/trim c)
            (recur c))))))
 
 
 
 ;;; --------------------------------------------------------------------------
 (defn get-names
-  "Pull English male and female names from the web."
+  "Pull English male and female names from the http://www.20000-names.com
+  Note that the <ol> lists on the page seem a bit funky, and so we're
+  pulling the names by the colour of the font!"
   []
-  (let [items (-> URL-FEMALE-NAMES
+  (let [COLOR "#9393FF"
+        items (-> URL-FEMALE-NAMES
                   get-dom
-                  (web/select [:body :ol])
-                  first
-                  (web/select [:li]))
-        names (map #(str/trim (get-content! %)) items)]
+                  (web/select [:body [:font (web/attr? :color)]]))
+        names (filter #(= (get-in % [:attrs :color]) COLOR) items)]
 
     ;; We're got some clean-up to do...
-    (filter seq names)))
+    (set (map get-content! names))))
