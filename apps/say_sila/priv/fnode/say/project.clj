@@ -10,6 +10,7 @@
                  [org.clojure/core.async                "0.4.500"]
                  [org.clojure/data.json                 "0.2.6"]
                  [clj-time                              "0.14.2"]
+                 [enlive                                "1.1.6"]
                  [incanter/incanter-core                "1.9.3"]
                  [incanter/incanter-charts              "1.9.3"]
                  ; Weka + libs

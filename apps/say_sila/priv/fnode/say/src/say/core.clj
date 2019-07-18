@@ -12,6 +12,7 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.core
   (:require [say.config :as cfg]
+            [say.data   :as data]
             [say.log    :as log]
             [say.sila   :as sila]
             [say.weka   :as weka]
