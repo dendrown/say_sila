@@ -11,7 +11,8 @@
 ;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.genie
-  (:require [clojure.string :as str])
+  (:require [clojure.pprint :as prt]
+            [clojure.string :as str])
   (:import  [java.util  Random]))
 
 
@@ -39,6 +40,14 @@
   "
   [kw]
   (str/upper-case (keystr kw)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ^String strfmt
+  "Wrapper for clojure.pprint/cl-format to create strings."
+  [text & args]
+  (apply prt/cl-format nil text args))
 
 
 
