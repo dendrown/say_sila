@@ -17,5 +17,7 @@ bin/
 config/*.config
 java/
 resources/gender/*.csv
+resources/gender/*.zip
+resources/gender/pan/
 resources/KB/*.owl
 resources/KB/catalog-*.xml

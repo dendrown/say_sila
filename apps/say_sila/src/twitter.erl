@@ -15,7 +15,7 @@
 %%      referring to Twitter hashtags, and not to hashtables or
 %%      related structures.
 %%
-%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(twitter).
@@ -26,6 +26,7 @@
 -export([start_link/0,
          stop/0,
          authenticate/1,
+         %------------------------- get_* functions are getting info from the database
          get_first_dts/1,
          get_first_dts/2,
          get_players/1,
@@ -36,6 +37,8 @@
          login/0,
          ontologize/1,
          ontologize/2,
+         %------------------------- pull_* functions are pulling info from the Twitter API
+         pull_tweet/1,  pull_tweet/2,
          reset/0,
          retrack/0,
          to_hashtag/1,
@@ -69,6 +72,7 @@
 
 -define(twitter_oauth_url(Cmd),  "https://api.twitter.com/oauth/"  ++ Cmd).
 -define(twitter_stream_url(Cmd), "https://stream.twitter.com/1.1/" ++ Cmd).
+-define(twitter_api_url(Cmd),    "https://api.twitter.com/1.1/" ++ Cmd).
 
 % NOTE: Lookups are hashtags without the hashtag character
 %       Keep lookups/hashtags defined here in all lowercase
@@ -367,6 +371,32 @@ ontologize(#tweet{id             = ID,
 
 
 %%--------------------------------------------------------------------
+-spec pull_tweet(ID  :: integer()
+                       | string()) -> string() | map()
+                                    | bad_get
+                                    | bad_json.
+
+-spec pull_tweet(ID   :: integer()
+                       | string(),
+                 Opts :: options()) -> string() | map()
+                                     | bad_get
+                                     | bad_json.
+%%
+% @doc  Retreives a single tweet from the Twitter API.
+%
+%       Supported options:
+%       - return_maps   : Convert the Tweet JSON to a map
+% @end  --
+pull_tweet(ID) ->
+    pull_tweet(ID, []).
+
+
+pull_tweet(ID, Opts) ->
+    gen_server:call(?MODULE, {pull_tweet, ID, Opts}).
+
+
+
+%%--------------------------------------------------------------------
 -spec reset() -> ok.
 %%
 % @doc  Reinitializes this server's state, and reinitializes Twitter
@@ -627,6 +657,40 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
 
         _ ->
             undefined
+    end,
+    {reply, Reply, State};
+
+
+handle_call({pull_tweet, ID, Opts}, _From, State = #state{consumer     = Consumer,
+                                                          oauth_token  = Token,
+                                                          oauth_secret = Secret}) ->
+
+    ?info("Pulling tweet #~p", [ID]),
+    Reply = case oauth:get(?twitter_api_url("statuses/show.json"),
+                           [{id, ID}],
+                           Consumer,
+                           Token,
+                           Secret) of
+
+        {ok, {{_, 200, _}, _, DataIn}} ->
+
+            % The `jsx' library is having trouble with Twitter's JSON
+            %?debug("Raw Tweet: ~p", [DataIn]),
+            case pprops:get_value(return_maps, Opts, false) of
+                false -> DataIn;
+                true  ->
+                    try jsx:decode(DataIn, [return_maps]) of
+                        Tweet -> Tweet
+                    catch
+                        Exc:Why ->
+                            ?warning("Bad JSON: why[~p:~p] data[~p]", [Exc, Why, DataIn]),
+                            bad_json
+                    end
+            end;
+
+        Bummer ->
+            ?warning("API: ~p", [Bummer]),
+            bad_get
     end,
     {reply, Reply, State};
 

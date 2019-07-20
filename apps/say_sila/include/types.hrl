@@ -19,6 +19,10 @@
 -type property()    :: atom() | {term(), term()}.
 -type proplist()    :: [property()].
 
+% pprops list patterns where we promote singletons to lists
+-type keys()        :: [term()]   | atom().
+-type options()     :: proplist() | atom().
+
 -type stringable()  :: atom() | binary() | string().
 -type stringy()     :: atom() | binary() | string() | io_lib:chars().
 
