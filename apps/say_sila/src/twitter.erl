@@ -372,13 +372,13 @@ ontologize(#tweet{id             = ID,
 
 %%--------------------------------------------------------------------
 -spec pull_tweet(ID  :: integer()
-                       | string()) -> string() | map()
+                       | string()) -> binary() | map()
                                     | bad_get
                                     | bad_json.
 
 -spec pull_tweet(ID   :: integer()
                        | string(),
-                 Opts :: options()) -> string() | map()
+                 Opts :: options()) -> binary() | map()
                                      | bad_get
                                      | bad_json.
 %%
