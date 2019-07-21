@@ -6,13 +6,13 @@
 %%         _/    _/    _/        _/    _/
 %%  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 %%
-%% @doc Sila Weka functionality
+%% @doc Sila ARFF utilities for Weka models
 %%
-%%      Weka runs on the JVM and Sila uses a Clojure/OTP node to
-%%      communicate with it.  This module contains the utilities to
-%%      prepare for handoffs to Weka.
+%%      Note that Weka runs on the JVM and Sila uses a Clojure/OTP node
+%%      to communicate with it.  This module contains the utilities to
+%%      prepare datasets for handoff to Weka.
 %%
-%%      ARFF formatting corresponds to the requirements of the package
+%%      Tweet-related ARFF formatting corresponds to the requirements of the package
 %%      AffectiveTweets, a plugin for Weka:
 %%
 %%      REF: https://github.com/felipebravom/AffectiveTweets
@@ -20,17 +20,17 @@
 %% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
--module(weka).
+-module(arff).
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([biggies_to_arff/4,
-         biggies_to_arff/6,
+-export([from_biggies/4,
+         from_biggies/6,
+         from_report/2,
+         from_report/3,
+         from_tweets/2,
          get_big_comm_codes/0,
-         make_attribute/3,
-         report_to_arff/2,
-         report_to_arff/3,
-         tweets_to_arff/2]).
+         make_attribute/3]).
 
 -include("sila.hrl").
 -include("ioo.hrl").
@@ -49,11 +49,11 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec biggies_to_arff(Name    :: stringy(),
-                      RegCode :: comm_code(),
-                      Biggies :: proplist(),
-                      Players :: any()) ->  {ok, string()}
-                                         |  {{error, term()}, string()}.
+-spec from_biggies(Name    :: stringy(),
+                   RegCode :: comm_code(),
+                   Biggies :: proplist(),
+                   Players :: any()) ->  {ok, string()}
+                                      |  {{error, term()}, string()}.
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for the output of `players:get_biggies'.  Each output instance
@@ -61,20 +61,20 @@
 %       (target) attributes for all defined emotions.
 %
 % @end  --
-biggies_to_arff(Name, RegCode, Biggies, Players) ->
-    biggies_to_arff(Name, RegCode, ?EMOTIONS, Biggies, Players, 1).
+from_biggies(Name, RegCode, Biggies, Players) ->
+    from_biggies(Name, RegCode, ?EMOTIONS, Biggies, Players, 1).
 
 
 
 %%--------------------------------------------------------------------
--spec biggies_to_arff(Name    :: stringy(),
-                      RegCode :: comm_code(),
-                      RegEmos :: emotion()
-                               | emotions(),
-                      Biggies :: proplist(),
-                      Players :: any(),
-                      Period  :: integer()) ->  {ok, string()}
-                                             |  {{error, term()}, string()}.
+-spec from_biggies(Name    :: stringy(),
+                   RegCode :: comm_code(),
+                   RegEmos :: emotion()
+                            | emotions(),
+                   Biggies :: proplist(),
+                   Players :: any(),
+                   Period  :: integer()) ->  {ok, string()}
+                                          |  {{error, term()}, string()}.
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for the output of `players:get_biggies'.  Each output instance
@@ -84,11 +84,11 @@ biggies_to_arff(Name, RegCode, Biggies, Players) ->
 %       NOTE: This function is addressing the question of influence in
 %             Twitter communities, and is currently somewhat in flux.
 % @end  --
-biggies_to_arff(Name, RegCode, RegEmo, Biggies, Players, Period) when is_atom(RegEmo) ->
-    biggies_to_arff(Name, RegCode, [RegEmo], Biggies, Players, Period);
+from_biggies(Name, RegCode, RegEmo, Biggies, Players, Period) when is_atom(RegEmo) ->
+    from_biggies(Name, RegCode, [RegEmo], Biggies, Players, Period);
 
 
-biggies_to_arff(Name, RegCode, RegEmos, Biggies, Players, Period) ->
+from_biggies(Name, RegCode, RegEmos, Biggies, Players, Period) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
@@ -125,47 +125,23 @@ biggies_to_arff(Name, RegCode, RegEmos, Biggies, Players, Period) ->
 
 
 %%--------------------------------------------------------------------
--spec get_big_comm_codes() -> comm_codes().
-%%
-% @doc  Returns the list of communication codes we consider for big
-%       player activity.
-% @end  --
-get_big_comm_codes() ->
-    proplists:delete(tter, ?COMM_CODES).
-
-
-
-%%--------------------------------------------------------------------
--spec make_attribute(Group :: big|reg,
-                     Code  :: comm_code(),
-                     Emo   :: emotion()) -> atom().
-%%
-% @doc  Creates a Weka attribute name from the specified player group,
-%       communication code and emotion.
-% @end  --
-make_attribute(Group, Code, Emo) ->
-    list_to_atom(?str_FMT("~s_~s_~s", [Group, Code, Emo])).
-
-
-
-%%--------------------------------------------------------------------
--spec report_to_arff(Name   :: string(),
+-spec from_report(Name   :: string(),
                      RptMap :: map()) -> [{ok, string()}]
                                        | [{{error, term()}, string()}].
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for a Big/Regular player `raven' report.
 % @end  --
-report_to_arff(Name, RptMap = #{big := BigRptPack}) ->
+from_report(Name, RptMap = #{big := BigRptPack}) ->
     %
     % Run each of the big report types (the reg reports should match)
-    lists:map(fun(Type) -> report_to_arff(?str_fmt("~s.~s", [Name, Type]), Type, RptMap) end,
+    lists:map(fun(Type) -> from_report(?str_fmt("~s.~s", [Name, Type]), Type, RptMap) end,
               proplists:get_keys(BigRptPack)).
 
 
 
 %%--------------------------------------------------------------------
--spec report_to_arff(Name   :: string(),
+-spec from_report(Name   :: string(),
                      Type   :: atom(),
                      RptMap :: map()) -> {ok, string()}
                                        | {{error, term()}, string()}.
@@ -173,7 +149,7 @@ report_to_arff(Name, RptMap = #{big := BigRptPack}) ->
 % @doc  Generate an ARFF (Attribute-Relation File Format) relation for
 %       a Big/Regular player `raven' report.
 % @end  --
-report_to_arff(Name, Type, #{big := BigRptPack,
+from_report(Name, Type, #{big := BigRptPack,
                              reg := RegRptPack}) ->
     %
     % TODO: We'll want an ARFF per emotion
@@ -234,9 +210,9 @@ report_to_arff(Name, Type, #{big := BigRptPack,
 
 
 %%--------------------------------------------------------------------
--spec tweets_to_arff(Name   :: string(),
-                     Tweets :: [tweet()]) -> {ok, string()}
-                                           | {{error, term()}, string()}.
+-spec from_tweets(Name   :: string(),
+                  Tweets :: [tweet()]) -> {ok, string()}
+                                        | {{error, term()}, string()}.
 %%
 % @doc  Convert a list of tweets to an ARFF (Attribute-Relation File Format)
 %       file for Weka.
@@ -264,7 +240,7 @@ report_to_arff(Name, Type, #{big := BigRptPack,
 %           -W weka.classifiers.functions.LibLINEAR -- -S 12 -C 1.0 -E 0.001 -B 1.0 -L 0.1 -I 1000
 % '''
 % @end  --
-tweets_to_arff(Name, Tweets) ->
+from_tweets(Name, Tweets) ->
     %
     {FPath, FOut} = open_arff(tweets, Name),
 
@@ -279,6 +255,30 @@ tweets_to_arff(Name, Tweets) ->
     % All ready for some learnin'
     close_arff(FPath, FOut).
 
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_comm_codes() -> comm_codes().
+%%
+% @doc  Returns the list of communication codes we consider for big
+%       player activity.
+% @end  --
+get_big_comm_codes() ->
+    proplists:delete(tter, ?COMM_CODES).
+
+
+
+%%--------------------------------------------------------------------
+-spec make_attribute(Group :: big|reg,
+                     Code  :: comm_code(),
+                     Emo   :: emotion()) -> atom().
+%%
+% @doc  Creates a Weka attribute name from the specified player group,
+%       communication code and emotion.
+% @end  --
+make_attribute(Group, Code, Emo) ->
+    list_to_atom(?str_FMT("~s_~s_~s", [Group, Code, Emo])).
 
 
 

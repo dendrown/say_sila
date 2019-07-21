@@ -375,7 +375,7 @@ handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
     % Send to Weka
     ?debug("Packaging tweets for Weka: day[~s]", [DayTxt]),
     FStub  = io_lib:format("tweets.~s.~s", [Tracker, DayTxt]),
-    {ok, FPath} = weka:tweets_to_arff(FStub, Tweets),
+    {ok, FPath} = arff:from_tweets(FStub, Tweets),
 
     % Send to Weka to apply embedding/emotion filters
     WekaCmd = proplists:get_value(context, Options, emote),     % Allow a command override

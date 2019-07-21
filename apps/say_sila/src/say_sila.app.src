@@ -8,6 +8,7 @@
   %applications, [kernel, stdlib, oauth, hackney ]},
   {env,[]},
   {modules, [adhoc, %% DEBUG
+             arff,
              dts,
              emo,
              influence,
@@ -19,7 +20,6 @@
              raven,
              sila,
              twitter,
-             weka,
              wui, wui_emote, wui_player, wui_report]},
   {maintainers, []},
   {licenses, []},

@@ -8,7 +8,7 @@
 %%
 %% @doc FSM to model influence using Weka.
 %%
-%% @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(influence).
@@ -456,7 +456,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
                  end,
 
     % Prepare Weka modelling input
-    try weka:biggies_to_arff(Name, RegComm, RegEmo, Biggies, Players, Period) of
+    try arff:from_biggies(Name, RegComm, RegEmo, Biggies, Players, Period) of
 
         {ok, ARFF} ->
             % We are good to go...!
@@ -794,7 +794,7 @@ done(Type, Evt, Data) ->
 % @doc  Initializes the independent attribute lists.
 % @end  --
 init_attributes() ->
-    [weka:make_attribute(big, Code, Emo) || Code <- weka:get_big_comm_codes(),
+    [arff:make_attribute(big, Code, Emo) || Code <- arff:get_big_comm_codes(),
                                             Emo  <- ?EMOTIONS].
 
 
