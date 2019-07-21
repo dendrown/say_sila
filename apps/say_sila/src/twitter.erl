@@ -670,7 +670,8 @@ handle_call({pull_tweet, ID, Opts}, _From, State = #state{consumer     = Consume
                            [{id, ID}],
                            Consumer,
                            Token,
-                           Secret) of
+                           Secret,
+                           [{body_format, binary}]) of
 
         {ok, {{_, 200, _}, _, DataIn}} ->
 
