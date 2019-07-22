@@ -126,8 +126,15 @@ genderize(UserFpath, Gender) ->
     % Function to pull the tweet and convert to ARFF-ready data
     Tweeter = fun(ID, Acc) ->
         case twitter:pull_tweet(ID, return_maps) of
-            T when is_map(T) ->
+
+            #{<<"lang">> := <<"en">>} = T ->
                 [tweet:from_map(T)|Acc];
+
+            #{<<"lang">> := Lang} ->
+                % NOTE: This is happening alot...too often?
+                ?warning("Ignoring non-English tweet ~s: lang[~s]", [ID, Lang]),
+                Acc;
+
             Bummer ->
                 ?warning("Problem with tweet ~s: ~p", [ID, Bummer]),
                 Acc
@@ -135,6 +142,6 @@ genderize(UserFpath, Gender) ->
     end,
 
     % TODO: We're starting with a few tweets so we don't freak Twitter out as we develop
-    {TodoTwIDs,_} = lists:split(4, TwIDs),
+    {TodoTwIDs,_} = lists:split(8, TwIDs),
     Tweets = lists:foldl(Tweeter, [], TodoTwIDs),
     arff:from_tweets("gender", Tweets).
