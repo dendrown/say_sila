@@ -23,4 +23,5 @@
 -define(io_put(FOut, Txt),      io:put_chars(FOut, Txt)).
 -define(io_nl(FOut),            io:put_chars(FOut, "\n")).
 
+-define(ternary(Cond,T,F),      if Cond -> T; true -> F end).
 -endif.

@@ -74,6 +74,8 @@
 -define(twitter_stream_url(Cmd), "https://stream.twitter.com/1.1/" ++ Cmd).
 -define(twitter_api_url(Cmd),    "https://api.twitter.com/1.1/" ++ Cmd).
 
+-type api_code() :: bad_get|bad_id|bad_json|no_auth.
+
 % NOTE: Lookups are hashtags without the hashtag character
 %       Keep lookups/hashtags defined here in all lowercase
 -define(LOOK_CC, "climatechange").
@@ -102,6 +104,7 @@
                 tracker      :: rec_pid(),
                 db_conn      :: rec_pid() }).
 -type state() :: #state{}.
+
 
 
 -define(TWEET_TIMEOUT,    (5 * ?MILLIS_IN_MIN)).
@@ -372,15 +375,15 @@ ontologize(#tweet{id             = ID,
 
 %%--------------------------------------------------------------------
 -spec pull_tweet(ID  :: integer()
-                       | string()) -> binary() | map()
-                                    | bad_get
-                                    | bad_json.
+                       | string()) -> binary()
+                                    | map()
+                                    | api_code().
 
 -spec pull_tweet(ID   :: integer()
                        | string(),
-                 Opts :: options()) -> binary() | map()
-                                     | bad_get
-                                     | bad_json.
+                 Opts :: options()) -> binary()
+                                     | map()
+                                     | api_code().
 %%
 % @doc  Retreives a single tweet from the Twitter API.
 %
@@ -651,6 +654,7 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                     name           = Name,
                     description    = Descr,
                     text           = Text,
+                    lang           = ?DB_LANG,                  % Ensured in SQL WHERE clause
                     rt_id          = ?null_to_undef(RTID),
                     rt_screen_name = ?null_to_undef(RTSN)}
              || {ID, SN, Name, Descr, DTS, Text, RTID, RTSN} <- Rows];
@@ -689,9 +693,9 @@ handle_call({pull_tweet, ID, Opts}, _From, State = #state{consumer     = Consume
                     end
             end;
 
-        Bummer ->
-            ?warning("API: ~p", [Bummer]),
-            bad_get
+        {ok, {{_, 401, _}, _, _}} -> ?warning("Not authorized on Twitter"), no_auth;
+        {ok, {{_, 404, _}, _, _}} -> ?warning("Tweet not found: ~p", [ID]), bad_id;
+        Bummer                    -> ?warning("API: ~p", [Bummer]),         bad_get
     end,
     {reply, Reply, State};
 

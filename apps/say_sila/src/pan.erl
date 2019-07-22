@@ -72,7 +72,9 @@ prep_gender(_Year, DataDir) ->
                 [UserCode,
                  Gender, _] = string:split(Line, ":::", all),
                 genderize(?str_fmt("~s/~s.xml", [GenderDir, UserCode]), Gender),
-                Recur(In);
+                % TODO: The rest of the files!
+                % TODO: Recur(In);
+                ok;
 
             eof          -> ok;
             {error, Why} -> LogError(read, Why)
@@ -89,30 +91,50 @@ prep_gender(_Year, DataDir) ->
 
 %%--------------------------------------------------------------------
 -spec genderize(UserFpath :: io_lib:chars(),
-                Gender    :: binary()) -> ok.
+                Gender    :: binary()) -> any().    % FIXME: return()
 %%
 % @doc  Creates an instance as an ARFF line, specifying a user's gender,
 %       for each tweet referenced in the specified User file.
 % @end  --
 genderize(UserFpath, Gender) ->
 
-    ?debug("Processing ~s: gnd[~s]", [UserFpath, Gender]),
+    % Function to extract the tweet IDs out of a single XML
     GetTwIDs = fun
-        ({startElement,_,"document",_,[_,{attribute,"id",_,_,TwID}]}, Acc) ->
-            [TwID|Acc];
+
+        ({startElement,_,"document",_,[_,{attribute,"id",_,_,ID}]}, {C,IDs}) ->
+            %?info("TwID: ~p", [ID]),
+            {C+1, [ID|IDs]};
+
         (_Evt, Acc) ->
             %?debug("XML: ~p", [_Evt]),
             Acc
     end,
 
-    TwIDs = case file:read_file(UserFpath) of
+    % The file they sent is an XML document
+    {Cnt, TwIDs} = case file:read_file(UserFpath) of
         {ok, UserXML} ->
-            {ok, IDs, _} = erlsom:parse_sax(UserXML, [], GetTwIDs),
-            IDs;
+            {ok, Acc, _} = erlsom:parse_sax(UserXML, {0,[]}, GetTwIDs),
+            Acc;
         {error, Why}  ->
             ?error("Cannot read file ~s: ~p", [UserFpath, Why]),
             []
     end,
 
-    ?info("Tweets: ~p", [TwIDs]).
+    ?debug("Parsed ~s ( ~-6s ) cnt[~4B]", [lists:nth(2, string:split(UserFpath, "/", trailing)),
+                                           Gender, Cnt]),
 
+    % Function to pull the tweet and convert to ARFF-ready data
+    Tweeter = fun(ID, Acc) ->
+        case twitter:pull_tweet(ID, return_maps) of
+            T when is_map(T) ->
+                [tweet:from_map(T)|Acc];
+            Bummer ->
+                ?warning("Problem with tweet ~s: ~p", [ID, Bummer]),
+                Acc
+        end
+    end,
+
+    % TODO: We're starting with a few tweets so we don't freak Twitter out as we develop
+    {TodoTwIDs,_} = lists:split(4, TwIDs),
+    Tweets = lists:foldl(Tweeter, [], TodoTwIDs),
+    arff:from_tweets("gender", Tweets).

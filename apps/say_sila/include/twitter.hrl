@@ -16,20 +16,22 @@
 
 -include("dts.hrl").
 -include("raven.hrl").
+-include("types.hrl").
 
 -define(TWITTER_DB_TIMEOUT, (10 * 60 * 1000)).      % FIXME: Rework the DB-pull logic
 -record(tweet, {id              :: binary(),
                 type            :: tweet | retweet | undefined,
-                timestamp_ms    :: pos_integer(),
+                timestamp_ms    :: rec_integer(),
                 emotions        :: rec_emos(),
                 %---------------------------------- % User
                 screen_name     :: binary(),
                 name            :: binary(),
                 description     :: binary(),
                 text            :: binary() | ignored,
+                lang            :: binary(),
                 %---------------------------------- % Retweeted author
-                rt_id           :: binary(),
-                rt_screen_name  :: binary() }).
+                rt_id           :: rec_binary(),
+                rt_screen_name  :: rec_binary() }).
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
 

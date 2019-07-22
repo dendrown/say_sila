@@ -26,6 +26,8 @@
 -type stringable()  :: atom() | binary() | string().
 -type stringy()     :: atom() | binary() | string() | io_lib:chars().
 
+-type rec_binary()  :: undefined | binary().
+-type rec_integer() :: undefined | integer().
 -type rec_map()     :: undefined | map().
 -type rec_pid()     :: undefined | pid().
 -type rec_string()  :: undefined | string().
