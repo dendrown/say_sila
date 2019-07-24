@@ -23,8 +23,9 @@
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(GENDER_DIR, <<"fnode/say/resources/gender/pan">>).
--define(GENDER_TAG, <<"gender">>).
+-define(GENDER_DIR,  <<"fnode/say/resources/gender/pan">>).
+-define(GENDER_TAG,  <<"gender">>).
+-define(GOVERNOR_MS, 100).
 
 
 
@@ -56,13 +57,14 @@ prep_gender(Year) ->
 %       system evaluation.  This involves creating an ARFF which
 %       includes tweets from users whose gender we know.
 % @end  --
-prep_gender(_Year, DataDir) ->
+prep_gender(Year, DataDir) ->
     GenderInfo = [{target, gender}],
+    GenderARFF = ?str_fmt("~s.pan~B", [?GENDER_TAG, Year]),
     GenderDir  = ?str_fmt("~s/~s/~s", [code:priv_dir(say_sila), ?GENDER_DIR, DataDir]),
     TruthFpath = ?str_fmt("~s/truth.txt", [GenderDir]),
 
     % Setup the ARFF for tweets+gender
-    FOutCont = {cont, FOut} = arff:from_tweets(?GENDER_TAG, [], [{mode, start} | GenderInfo]),
+    FOutCont = {cont, FOut} = arff:from_tweets(GenderARFF, [], [{mode, start} | GenderInfo]),
     FOutInfo = [{mode, FOutCont} | GenderInfo],
 
     % Function to complain if something goes wrong
@@ -79,7 +81,7 @@ prep_gender(_Year, DataDir) ->
 
                 Fpath  = ?str_fmt("~s/~s.xml", [GenderDir, UserCode]),
                 Tweets = genderize(Fpath, Gender),
-                arff:from_tweets("gender", Tweets, FOutInfo),
+                arff:from_tweets(GenderARFF, Tweets, FOutInfo),
                 Recur(In);
 
             eof          -> ok;
@@ -97,7 +99,7 @@ prep_gender(_Year, DataDir) ->
         {error, Why} -> LogError(open, Why)
     end,
 
-    arff:from_tweets(?GENDER_TAG, [], [{mode, {stop, FOut}}]).
+    arff:from_tweets(GenderARFF, [], [{mode, {stop, FOut}}]).
 
 
 
@@ -137,7 +139,7 @@ genderize(UserFpath, Gender) ->
 
     % Function to pull the tweet and convert to ARFF-ready data
     Tweeter = fun(ID, Acc) ->
-        timer:sleep(10),
+        timer:sleep(?GOVERNOR_MS),
         case twitter:pull_tweet(ID, return_maps) of
 
             #{<<"lang">> := <<"en">>} = T ->
@@ -155,6 +157,6 @@ genderize(UserFpath, Gender) ->
         end
     end,
 
-    % TODO: We're starting with a few tweets so we don't freak Twitter out as we develop
-    {TodoTwIDs,_} = lists:split(8, TwIDs),
+    % Run that Tweet ID list by the Twitter API
+    TodoTwIDs = TwIDs,                      % DEV:{TodoTwIDs,_} = lists:split(2, TwIDs),
     lists:foldl(Tweeter, [], TodoTwIDs).

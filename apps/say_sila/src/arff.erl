@@ -224,7 +224,8 @@ from_report(Name, Type, #{big := BigRptPack,
 % @doc  Convert a list of tweets to an ARFF (Attribute-Relation File Format)
 %       file for Weka.
 %
-%       Available lections are:
+%       Available options are:
+%       - {mode, single}                : The whole ARFF will be this one list of tweets (default)
 %       - {mode, start}                 : Begin continuous ARFF creation
 %       - {mode, {cont, FOut, FName}}   : Continue ongoing ARFF creation
 %       - {mode, {stop, FOut, FName}    : End and finalize ARFF creation
@@ -268,7 +269,10 @@ from_tweets(Name, Tweets, Opts) ->
 
         ?info("Creating ARFF: ~s", [FP]),
         ?put_attr(Out, id,          string),
+        ?put_attr(Out, lang,        string),
         ?put_attr(Out, screen_name, string),
+        ?put_attr(Out, name,        string),
+        ?put_attr(Out, description, string),
         ?put_attr(Out, text,        string),
 
         % TODO: Add an option setting for non-string target attributes
@@ -282,7 +286,7 @@ from_tweets(Name, Tweets, Opts) ->
     end,
 
     % Did they send us a file device, or are we starting from scratch?
-    {{FPath, FOut} = _Finfo,
+    {{FPath, FOut} = FInfo,
      CloseNow} = case pprops:get_value(mode, Opts, single) of
         single            -> {OpenARFF(), true};
         start             -> {OpenARFF(), false};
@@ -296,7 +300,7 @@ from_tweets(Name, Tweets, Opts) ->
     % Are they going to be sending more, or are we all ready?
     case CloseNow of
         true  -> close_arff(FPath, FOut);
-        false -> {cont, FOut}
+        false -> {cont, FInfo}
     end.
 
 
@@ -384,23 +388,31 @@ write_tweets(_, [], _) ->
 
 write_tweets(Out, [Tweet|Rest], Target) ->
 
-    % The tweet may be in record or raw map form
-    {Text0, TwRec} = case Tweet of
-        #tweet{text = T} = Rec -> {T, Rec};
-        #{<<"text">> := T}     -> {T, tweet:from_map(Tweet)}
+    % TODO: I am considering deprecating the record form because I keep adding to it.
+    %       Therefore, pending a decision, a Target attribute here requires the map form.
+    %
+    % The tweet may be in record or raw map form.
+    TwRec = case Tweet of
+        R = #tweet{}     -> R;
+        M when is_map(M) -> tweet:from_map(M)
     end,
 
-    % So Weka doesn't freak:
-    Text1 = re:replace(Text0, "(\\\\')|(')", [$\\, $\\, $'], [global]),     % Correct/escape single quotes
-    Text  = re:replace(Text1, "[\r\n]", " ", [global, {return, binary}]),   % Linefeeds/newlines to spaces
-    ?io_fmt(Out, "'~s','~s','~s'", [TwRec#tweet.id,
-                                    TwRec#tweet.screen_name,
-                                    Text]),
+    % Function to clean text so that Weka doesn't freak:
+    Clean = fun(T0) ->
+        T1 = re:replace(T0, "(\\\\')|(')", [$\\, $\\, $'], [global]),   % Correct/escape single quotes
+             re:replace(T1, "[\r\n]", " ", [global, {return, binary}])  % Linefeeds/newlines to spaces
+    end,
+    ?io_fmt(Out, "'~s','~s','~s','~s','~s','~s'", [TwRec#tweet.id,
+                                                   TwRec#tweet.lang,
+                                                   TwRec#tweet.screen_name,
+                                                   Clean(TwRec#tweet.name),
+                                                   Clean(TwRec#tweet.description),
+                                                   Clean(TwRec#tweet.text)]),
 
     % Currently, a Target attribute requires the map form
     case Target of
         none -> ?io_put(Out, "\n");
-        _    -> ?io_fmt(Out, ",'~s'", maps:get(Target, Tweet))      % TODO: Support non-string targets
+        _    -> ?io_fmt(Out, ",'~s'~n", [maps:get(Target, Tweet)])      % TODO: Support non-string targets
     end,
     write_tweets(Out, Rest, Target).
 
