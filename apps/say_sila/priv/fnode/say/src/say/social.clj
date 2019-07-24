@@ -30,8 +30,11 @@
   Attempts to split up a username or similar into component tokens.
   "
   [txt & opts]
-  (let [tokens (filter seq (str/split txt TOKEN-SPLITTER))]
+  (as-> (filter seq (str/split txt TOKEN-SPLITTER)) toks
     (if (some #{:lower-case} opts)
-        (map str/lower-case tokens)
-        tokens)))
+        (map str/lower-case toks)
+        toks)
+    (if (some #{:string} opts)
+        (apply str (interpose " " toks))
+        toks)))
 
