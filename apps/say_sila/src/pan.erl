@@ -23,14 +23,15 @@
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(GENDER_DIR, "fnode/say/resources/gender/pan").
+-define(GENDER_DIR, <<"fnode/say/resources/gender/pan">>).
+-define(GENDER_TAG, <<"gender">>).
 
 
 
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec prep_gender(Year :: non_neg_integer()) -> ok.
+-spec prep_gender(Year :: non_neg_integer()) -> term().
 %%
 % @doc  Prepares PAN data for the specified Year for analysis and
 %       system evaluation.  This involves creating an ARFF which
@@ -49,15 +50,20 @@ prep_gender(Year) ->
 %% Internal functions
 %%--------------------------------------------------------------------
 -spec prep_gender(Year    :: non_neg_integer(),
-                  DataDir :: binary()) -> ok.
+                  DataDir :: binary()) -> term().
 %%
 % @doc  Prepares PAN data for the specified Year for analysis and
 %       system evaluation.  This involves creating an ARFF which
 %       includes tweets from users whose gender we know.
 % @end  --
 prep_gender(_Year, DataDir) ->
+    GenderInfo = [{target, gender}],
     GenderDir  = ?str_fmt("~s/~s/~s", [code:priv_dir(say_sila), ?GENDER_DIR, DataDir]),
     TruthFpath = ?str_fmt("~s/truth.txt", [GenderDir]),
+
+    % Setup the ARFF for tweets+gender
+    FOutCont = {cont, FOut} = arff:from_tweets(?GENDER_TAG, [], [{mode, start} | GenderInfo]),
+    FOutInfo = [{mode, FOutCont} | GenderInfo],
 
     % Function to complain if something goes wrong
     LogError  = fun(Tag, Why) ->
@@ -69,32 +75,38 @@ prep_gender(_Year, DataDir) ->
     ReadTruth = fun Recur(In) ->
         case file:read_line(In) of
             {ok, Line} ->
-                [UserCode,
-                 Gender, _] = string:split(Line, ":::", all),
-                genderize(?str_fmt("~s/~s.xml", [GenderDir, UserCode]), Gender),
-                % TODO: The rest of the files!
-                % TODO: Recur(In);
-                ok;
+                [UserCode, Gender, _] = string:split(Line, ":::", all),
+
+                Fpath  = ?str_fmt("~s/~s.xml", [GenderDir, UserCode]),
+                Tweets = genderize(Fpath, Gender),
+                arff:from_tweets("gender", Tweets, FOutInfo),
+                Recur(In);
 
             eof          -> ok;
             {error, Why} -> LogError(read, Why)
         end
     end,
 
+    % Process all the users in the truth file
     case file:open(TruthFpath, [read, binary]) of
 
-        {ok, In}     -> ReadTruth(In);
+        {ok, In} ->
+            ReadTruth(In),
+            file:close(In);
+
         {error, Why} -> LogError(open, Why)
-    end.
+    end,
+
+    arff:from_tweets(?GENDER_TAG, [], [{mode, {stop, FOut}}]).
 
 
 
 %%--------------------------------------------------------------------
 -spec genderize(UserFpath :: io_lib:chars(),
-                Gender    :: binary()) -> any().    % FIXME: return()
+                Gender    :: binary()) -> [map()].
 %%
-% @doc  Creates an instance as an ARFF line, specifying a user's gender,
-%       for each tweet referenced in the specified User file.
+% @doc  Returns a list of all tweets referenced in the specified User
+%       file with the Gender value added to each tweet map.
 % @end  --
 genderize(UserFpath, Gender) ->
 
@@ -125,10 +137,12 @@ genderize(UserFpath, Gender) ->
 
     % Function to pull the tweet and convert to ARFF-ready data
     Tweeter = fun(ID, Acc) ->
+        timer:sleep(10),
         case twitter:pull_tweet(ID, return_maps) of
 
             #{<<"lang">> := <<"en">>} = T ->
-                [tweet:from_map(T)|Acc];
+                Tweet = maps:put(gender, Gender, T),
+                [Tweet|Acc];
 
             #{<<"lang">> := Lang} ->
                 % NOTE: This is happening alot...too often?
@@ -143,5 +157,4 @@ genderize(UserFpath, Gender) ->
 
     % TODO: We're starting with a few tweets so we don't freak Twitter out as we develop
     {TodoTwIDs,_} = lists:split(8, TwIDs),
-    Tweets = lists:foldl(Tweeter, [], TodoTwIDs),
-    arff:from_tweets("gender", Tweets).
+    lists:foldl(Tweeter, [], TodoTwIDs).

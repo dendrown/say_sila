@@ -17,7 +17,7 @@
 %%
 %%      REF: https://github.com/felipebravom/AffectiveTweets
 %%
-%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(arff).
@@ -28,7 +28,7 @@
          from_biggies/6,
          from_report/2,
          from_report/3,
-         from_tweets/2,
+         from_tweets/2,         from_tweets/3,
          get_big_comm_codes/0,
          make_attribute/3]).
 
@@ -44,6 +44,9 @@
 -define(put_attr(FOut, Attrib, Type),   io:format(FOut, "@ATTRIBUTE ~s ~s\n",    [Attrib, Type])).
 -define(put_attr(FOut, A0, A1, Type),   io:format(FOut, "@ATTRIBUTE ~s_~s ~s\n", [A0, A1, Type])).
 
+-type arff_return() :: {ok, string()}
+                     | {cont, file:io_device()}
+                     | {{error, term()}, string()}.
 
 
 %%====================================================================
@@ -210,12 +213,22 @@ from_report(Name, Type, #{big := BigRptPack,
 
 
 %%--------------------------------------------------------------------
--spec from_tweets(Name   :: string(),
-                  Tweets :: [tweet()]) -> {ok, string()}
-                                        | {{error, term()}, string()}.
+-spec from_tweets(Name   :: stringable(),
+                  Tweets :: [tweet()]) -> arff_return().
+
+-spec from_tweets(Name   :: stringable(),
+                  Tweets :: [tweet()]
+                          | [map()],
+                  Opts   :: options()) -> arff_return().
 %%
 % @doc  Convert a list of tweets to an ARFF (Attribute-Relation File Format)
 %       file for Weka.
+%
+%       Available lections are:
+%       - {mode, start}                 : Begin continuous ARFF creation
+%       - {mode, {cont, FOut, FName}}   : Continue ongoing ARFF creation
+%       - {mode, {stop, FOut, FName}    : End and finalize ARFF creation
+%       - {target, attr}                : Append the specified attribute (Tweets must be in map format)
 %
 %       Sample Weka target from https://github.com/felipebravom/EmoInt :
 % ```
@@ -241,20 +254,50 @@ from_report(Name, Type, #{big := BigRptPack,
 % '''
 % @end  --
 from_tweets(Name, Tweets) ->
-    %
-    {FPath, FOut} = open_arff(tweets, Name),
+    from_tweets(Name, Tweets, []).
 
-    ?put_attr(FOut, id,          string),
-    ?put_attr(FOut, screen_name, string),
-    ?put_attr(FOut, text,        string),
+
+from_tweets(Name, Tweets, Opts) ->
+
+    % Are they asking for a specialized target value?
+    Target = pprops:get_value(target, Opts, none),
+
+    % Function to begin the ARFF file
+    OpenARFF = fun() ->
+        {FP, Out} = open_arff(tweets, Name),
+
+        ?info("Creating ARFF: ~s", [FP]),
+        ?put_attr(Out, id,          string),
+        ?put_attr(Out, screen_name, string),
+        ?put_attr(Out, text,        string),
+
+        % TODO: Add an option setting for non-string target attributes
+        case Target of
+            none -> ok;
+            _    -> ?put_attr(Out, Target, string)
+        end,
+
+        ?put_data(Out),
+        {FP, Out}
+    end,
+
+    % Did they send us a file device, or are we starting from scratch?
+    {{FPath, FOut} = _Finfo,
+     CloseNow} = case pprops:get_value(mode, Opts, single) of
+        single            -> {OpenARFF(), true};
+        start             -> {OpenARFF(), false};
+        {cont, {FP, Out}} -> {{FP, Out},  false};
+        {stop, {FP, Out}} -> {{FP, Out},  true}
+    end,
 
     % Fill in the tweet text as attribute data
-    ?put_data(FOut),
-    write_tweets(FOut, Tweets),
+    write_tweets(FOut, Tweets, Target),
 
-    % All ready for some learnin'
-    close_arff(FPath, FOut).
-
+    % Are they going to be sending more, or are we all ready?
+    case CloseNow of
+        true  -> close_arff(FPath, FOut);
+        false -> {cont, FOut}
+    end.
 
 
 
@@ -330,22 +373,36 @@ close_arff(FPath, FOut) ->
 
 %%--------------------------------------------------------------------
 -spec write_tweets(Out    :: pid(),
-                   Tweets :: [[tweet()]]) -> ok.
+                   Tweets :: [tweet()]
+                           | [map()],
+                   Target :: stringable()) -> ok.
 %%
 % @doc  Write out a list of tweets to an ARFF file.
 % @end  --
-write_tweets(_, []) ->
+write_tweets(_, [], _) ->
     ok;
 
-write_tweets(Out, [Tweet = #tweet{text = Text0} | Rest]) ->
-    %
+write_tweets(Out, [Tweet|Rest], Target) ->
+
+    % The tweet may be in record or raw map form
+    {Text0, TwRec} = case Tweet of
+        #tweet{text = T} = Rec -> {T, Rec};
+        #{<<"text">> := T}     -> {T, tweet:from_map(Tweet)}
+    end,
+
     % So Weka doesn't freak:
     Text1 = re:replace(Text0, "(\\\\')|(')", [$\\, $\\, $'], [global]),     % Correct/escape single quotes
     Text  = re:replace(Text1, "[\r\n]", " ", [global, {return, binary}]),   % Linefeeds/newlines to spaces
-    io:format(Out, "'~s','~s','~s'~n", [Tweet#tweet.id,
-                                        Tweet#tweet.screen_name,
-                                        Text]),
-    write_tweets(Out, Rest).
+    ?io_fmt(Out, "'~s','~s','~s'", [TwRec#tweet.id,
+                                    TwRec#tweet.screen_name,
+                                    Text]),
+
+    % Currently, a Target attribute requires the map form
+    case Target of
+        none -> ?io_put(Out, "\n");
+        _    -> ?io_fmt(Out, ",'~s'", maps:get(Target, Tweet))      % TODO: Support non-string targets
+    end,
+    write_tweets(Out, Rest, Target).
 
 
 

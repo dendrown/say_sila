@@ -669,7 +669,7 @@ handle_call({pull_tweet, ID, Opts}, _From, State = #state{consumer     = Consume
                                                           oauth_token  = Token,
                                                           oauth_secret = Secret}) ->
 
-    ?info("Pulling tweet #~p", [ID]),
+    ?debug("Pulling tweet #~p", [ID]),
     Reply = case oauth:get(?twitter_api_url("statuses/show.json"),
                            [{id, ID}],
                            Consumer,

@@ -13,10 +13,9 @@
 %%%-------------------------------------------------------------------
 -module(pprops).
 
--export([get_split/2,
-         get_split/3,
-         get_value/2,
-         get_value/3]).
+-export([get_split/2,       get_split/3,
+         get_first_value/2, get_first_value/3,
+         get_value/2,       get_value/3]).
 
 -include("types.hrl").
 
@@ -56,11 +55,53 @@ get_split(Key, Props, Default) ->
 
 
 %%--------------------------------------------------------------------
+-spec get_first_value(Keys    :: keys(),
+                      List    :: options()) -> undefined|term().
+
+-spec get_first_value(Keys    :: keys(),
+                      List    :: options(),
+                      Default :: term()) -> term().
+%%
+% @doc  Returns the value from a two-level property list.  If the list
+%       contains no value for a key, the function returns `Default'.
+%
+% NOTE: An atom as a singleton key or option (rather than a list) will
+%       be promoted to list for so that the function works as expected.
+% @end  --
+get_first_value(Keys, List) ->
+    get_first_value(Keys, List, undefined).
+
+
+get_first_value(Keys, Option, Default) when is_atom(Option) ->
+    % Promote a singleton option to an option list
+    get_value(Keys, [Option], Default);
+
+
+get_first_value([], _, Default) ->
+    Default;
+
+
+get_first_value([Key|Rest], List, Default) ->
+    case proplist:get_value(Key, List) of
+        undefined -> get_first_value(Rest, List, Default);
+        Value     -> Value
+    end.
+
+
+
+%%--------------------------------------------------------------------
 -spec get_value(Keys :: keys(),
                 List :: options()) -> undefined|term().
+
+-spec get_value(Keys    :: keys(),
+                List    :: options(),
+                Default :: term()) -> term().
 %%
 % @doc  Returns a value from a recursive property list, such that:
-%       [{`Key1', [{`Key2', `ReturnedValue'}|...]|...].
+%       [{`Key1', [{`Key2', `ReturnedValue'}|...]|...].  When a
+%       `Default' is specified and the list contains no value for
+%       the key sequence, the function returns `Default'. Otherwise,
+%       it returns `undefined' when the value is not found.
 %
 % NOTE: An atom as a singleton key or option (rather than a list) will
 %       be promoted to list for so that the function works as expected.
@@ -69,18 +110,6 @@ get_value(Keys, List) ->
     get_value(Keys, List, undefined).
 
 
-
-%%--------------------------------------------------------------------
--spec get_value(Keys    :: keys(),
-                List    :: options(),
-                Default :: term()) -> undefined|term().
-%%
-% @doc  Returns a value from a two-level property list.  If the list
-%       contains no value for a key, the function returns `Default'.
-%
-% NOTE: An atom as a singleton key or option (rather than a list) will
-%       be promoted to list for so that the function works as expected.
-% @end  --
 get_value(Keys, Option, Default) when is_atom(Option) ->
     % Promote a singleton option to an option list
     get_value(Keys, [Option], Default);
