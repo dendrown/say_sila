@@ -25,7 +25,7 @@
 
 -define(GENDER_DIR,  <<"fnode/say/resources/gender/pan">>).
 -define(GENDER_TAG,  <<"gender">>).
--define(GOVERNOR_MS, 100).
+-define(GOVERNOR_MS, 30000).                        % Max rate is 150/hr
 
 
 
