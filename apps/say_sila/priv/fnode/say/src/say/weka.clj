@@ -32,7 +32,7 @@
             [weka.filters.unsupervised.attribute RemoveByName
                                                  Reorder
                                                  TweetToEmbeddingsFeatureVector
-                                                 TweetToFeatureVector
+                                                ;TweetToFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
                                                  TweetToSentiStrengthFeatureVector]))
