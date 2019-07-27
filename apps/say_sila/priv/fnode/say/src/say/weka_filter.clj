@@ -21,11 +21,16 @@
                        Capabilities$Capability
                        DenseInstance
                        Instance
-                       Instances]
-            [weka.filters Filter
-                          SimpleBatchFilter]))
+                       Instances
+                       SingleIndex]
+           ;[weka.filters Filter
+           ;              SimpleBatchFilter]
+            [weka.filters.unsupervised.attribute TweetToFeatureVector]))
 
 (set! *warn-on-reflection* true)
+
+(def ^:const GENDER-GOLD "/srv/say_sila/weka/gender.pan2014.1-2.arff")      ; Subset!!
+(def ^:const NAMES       (read-string (slurp "resources/gender/names.edn")))
 
 
 ;; ---------------------------------------------------------------------------
@@ -43,7 +48,7 @@
                    (.insertAttributeAt attr acnt))))]
 
 
-    (proxy [SimpleBatchFilter] []
+    (proxy [TweetToFeatureVector] []
 
       ;; ---------------------------------------------------------------------
       (globalInfo []
@@ -54,25 +59,21 @@
         (shape-oinsts iinsts))
     
 
-      (getCapabilities []
-        (let [^SimpleBatchFilter this this
-              ^Capabilities      caps (proxy-super getCapabilities)]
-          (doto caps
-                (.enableAllAttributes)
-                (.enableAllClasses)
-                (.enable Capabilities$Capability/NO_CLASS))))
-
-
       (process [^Instances iinsts]
-        (let [oinsts  (Instances. ^Instances (shape-oinsts iinsts) 0)
+        (let [^TweetToFeatureVector this this
+              oinsts  (Instances. ^Instances (shape-oinsts iinsts) 0)
               ocnt    (.numAttributes oinsts)
               icnt    (.numAttributes iinsts)
-              fndx    (dec ocnt)]
+              flt-ndx (dec ocnt)
+              txt-ndx (proxy-super getTextIndex)]   ; FIXME: string value
+          ;; FIXME: No access to parent's m_textIndex via proxy
+          ;;        I was trying to avoid gen-class :(
+          ;;(.setUpper ^SingleIndex txt-ndx (dec icnt))
           (doseq [^Instance iinst (seq iinsts)]
             (let [oattrs (double-array ocnt)]
               (dotimes [i icnt]
                 (aset oattrs i (.value iinst i)))
-              (aset oattrs fndx 0.00)
+              (aset oattrs flt-ndx 0.00)
               (.add oinsts (DenseInstance. 1.0 oattrs))))
           oinsts)))))
 
