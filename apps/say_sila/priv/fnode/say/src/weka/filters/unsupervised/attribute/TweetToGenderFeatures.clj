@@ -13,6 +13,7 @@
 (ns weka.filters.unsupervised.attribute.TweetToGenderFeatures
   (:require [say.genie       :refer :all]
             [say.log         :as log]
+            [say.social      :as soc]
             [clojure.string  :as str])
   (:import  [affective.core ArffLexiconEvaluator]
             [weka.core Attribute
@@ -27,12 +28,47 @@
   (:gen-class
     :name       weka.filters.unsupervised.attribute.TweetToGenderFeatures
     :extends    weka.filters.unsupervised.attribute.TweetToFeatureVector
-    :exposes    {m_textIndex {:get getTextIndex :set setTextIndex}}))
+    :state      state
+    :init       init
+    :exposes    {m_textIndex {:get getTextIndex
+                              :set setTextIndex}}
+    :methods    [[getScreenNameIndex [] String]
+                 [setScreenNameIndex [String] void]]))
 
 (set! *warn-on-reflection* true)
 
-(def ^:const -GENDER-GOLD "/srv/say_sila/weka/gender.pan2014.1-2.arff")      ; Subset!!
-(def ^:const -NAMES       (read-string (slurp "resources/gender/names.edn")))
+(def ^:const GENDER-GOLD "/srv/say_sila/weka/gender.pan2014.1-2.arff")      ; Subset!!
+(def ^:const NAMES       (read-string (slurp "resources/gender/names.edn")))
+
+
+;; ---------------------------------------------------------------------------
+(defn -init
+  "
+  Initializes this filter's state.
+  "
+  []
+  [[] (atom {})])
+
+
+
+;; ---------------------------------------------------------------------------
+(defn get-state
+  "
+  Updates the filter's state with the specified key-value pair.
+  "
+  [^TweetToGenderFeatures this field]
+  (@(.state this) field))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn set-state!
+  "
+  Updates the filter's state with the specified key-value pair.
+  "
+  [^TweetToGenderFeatures this field value]
+  (swap! (.state this) assoc field value))
+
 
 
 ;; ---------------------------------------------------------------------------
@@ -78,9 +114,29 @@
         ondx    (dec ocnt)]
     (doseq [^Instance iinst (seq iinsts)]
       (let [ovals (double-array ocnt)]
+        ;; Just copy in the values across the input columns
         (dotimes [i icnt]
           (aset ovals i (.value iinst i)))
         (aset ovals ondx 0.00)
         (.add oinsts (DenseInstance. 1.0 ovals))))
           oinsts))
+
+
+;; ---------------------------------------------------------------------------
+(defn -getScreenNameIndex
+  "
+  Returns the setting for the (one-based) column index that holds users'
+  screen names.
+  "
+  [this]
+  (get-state this :screen-name-index))
+
+
+;; ---------------------------------------------------------------------------
+(defn -setScreenNameIndex
+  "
+  Sets the (one-based) column index that holds users' screen names.
+  "
+  [this col]
+  (set-state! this :screen-name-index col))
 
