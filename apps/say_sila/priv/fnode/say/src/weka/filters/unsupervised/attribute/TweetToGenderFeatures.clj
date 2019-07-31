@@ -24,6 +24,7 @@
                        Instances
                        Option
                        SingleIndex
+                       Utils
                        WekaEnumeration]
             [weka.filters.unsupervised.attribute TweetToGenderFeatures  ; (this)
                                                  TweetToFeatureVector])
@@ -34,19 +35,22 @@
     :init       init
     :methods    [[getScreenNameIndex [] String]
                  [setScreenNameIndex [String] void]]
-    :exposes    {m_textIndex {:get getTextIndex
-                              :set setTextIndex}}
-    :exposes-methods {getOptions  superGetOptions
-                      listOptions superListOptions}))
+    :exposes-methods {;- weka.filters.Filter ---------------------------------
+                      getOptions    superGetOptions
+                      setOptions    superSetOptions
+                      listOptions   superListOptions
+                      ;- TweetToFeatureVector --------------------------------
+                      setTextIndex  superSetTextIndex}))
 
 (set! *warn-on-reflection* true)
 
 (def ^:const GENDER-GOLD "/srv/say_sila/weka/gender.pan2014.1-2.arff")      ; Subset!!
 (def ^:const NAMES       (read-string (slurp "resources/gender/names.edn")))
 
-(defonce Options    {:screen-name-index (Option. "The column index that holds users' screen names."
-                                                 "s" 1
-                                                 "-s <col>")})
+(def ^:const OPT-SCREEN-NAME-NDX    "S")
+(def ^:const OPT-DESCRIPTION-NDX    "D")
+(defonce Options {OPT-SCREEN-NAME-NDX   (Option. "The column index that holds users' screen names."
+                                                 OPT-SCREEN-NAME-NDX 1 "-S <col>")})
 
 
 ;; ---------------------------------------------------------------------------
@@ -55,7 +59,7 @@
   Initializes this filter's state.
   "
   []
-  [[] (atom {:screen-name-index (SingleIndex.)})])
+  [[] (atom {OPT-SCREEN-NAME-NDX (SingleIndex. "1")})])
 
 
 
@@ -137,7 +141,7 @@
   screen names.
   "
   [this]
-  (let [ndx ^SingleIndex (get-state this :screen-name-index)]
+  (let [ndx ^SingleIndex (get-state this OPT-SCREEN-NAME-NDX)]
     (.getSingleIndex ndx)))
 
 
@@ -147,7 +151,7 @@
   Sets the (one-based) column index that holds users' screen names.
   "
   [this col]
-  (set-state! this :screen-name-index
+  (set-state! this OPT-SCREEN-NAME-NDX
                    #(doto ^SingleIndex % (.setSingleIndex (str col)))))
 
 
@@ -157,11 +161,31 @@
   Returns an enumeration describing the available options.
   "
   [^TweetToGenderFeatures this]
-  (let [sn-opt ^Option      (Options :screen-name-index)
-        sn-ndx ^SingleIndex (get-state this :screen-name-index)]
+  (let [sn-opt ^Option      (Options OPT-SCREEN-NAME-NDX)
+        sn-ndx ^SingleIndex (get-state this OPT-SCREEN-NAME-NDX)]
     (into-array String (conj (seq (.superGetOptions this))
                              (.getSingleIndex sn-ndx)
                              (str "-" (.name sn-opt))))))
+
+
+
+
+;; ---------------------------------------------------------------------------
+(defn -setOptions
+  "
+  Returns an enumeration describing the available options.
+  "
+  [^TweetToGenderFeatures this
+   ^"[Ljava.lang.String;" opts]
+
+  ;; CAREFUL: The calls to Weka Utils will mutate the opts array
+  (let [get-opt #(not-empty (Utils/getOption ^String % opts))]
+
+    (when-let [ndx (get-opt OPT-SCREEN-NAME-NDX)]
+      (.setScreenNameIndex this ndx)))
+
+  ;; Whatever's left is for the parent Filter
+  (.superSetOptions this opts))
 
 
 
