@@ -22,7 +22,9 @@
                        DenseInstance
                        Instance
                        Instances
-                       SingleIndex]
+                       Option
+                       SingleIndex
+                       WekaEnumeration]
             [weka.filters.unsupervised.attribute TweetToGenderFeatures  ; (this)
                                                  TweetToFeatureVector])
   (:gen-class
@@ -30,15 +32,21 @@
     :extends    weka.filters.unsupervised.attribute.TweetToFeatureVector
     :state      state
     :init       init
+    :methods    [[getScreenNameIndex [] String]
+                 [setScreenNameIndex [String] void]]
     :exposes    {m_textIndex {:get getTextIndex
                               :set setTextIndex}}
-    :methods    [[getScreenNameIndex [] String]
-                 [setScreenNameIndex [String] void]]))
+    :exposes-methods {getOptions  superGetOptions
+                      listOptions superListOptions}))
 
 (set! *warn-on-reflection* true)
 
 (def ^:const GENDER-GOLD "/srv/say_sila/weka/gender.pan2014.1-2.arff")      ; Subset!!
 (def ^:const NAMES       (read-string (slurp "resources/gender/names.edn")))
+
+(defonce Options    {:screen-name-index (Option. "The column index that holds users' screen names."
+                                                 "s" 1
+                                                 "-s <col>")})
 
 
 ;; ---------------------------------------------------------------------------
@@ -47,7 +55,7 @@
   Initializes this filter's state.
   "
   []
-  [[] (atom {})])
+  [[] (atom {:screen-name-index (SingleIndex.)})])
 
 
 
@@ -66,8 +74,8 @@
   "
   Updates the filter's state with the specified key-value pair.
   "
-  [^TweetToGenderFeatures this field value]
-  (swap! (.state this) assoc field value))
+  [^TweetToGenderFeatures this field fun]
+  (swap! (.state this) update field fun))
 
 
 
@@ -129,7 +137,8 @@
   screen names.
   "
   [this]
-  (get-state this :screen-name-index))
+  (let [ndx ^SingleIndex (get-state this :screen-name-index)]
+    (.getSingleIndex ndx)))
 
 
 ;; ---------------------------------------------------------------------------
@@ -138,5 +147,31 @@
   Sets the (one-based) column index that holds users' screen names.
   "
   [this col]
-  (set-state! this :screen-name-index col))
+  (set-state! this :screen-name-index
+                   #(doto ^SingleIndex % (.setSingleIndex (str col)))))
+
+
+;; ---------------------------------------------------------------------------
+(defn -getOptions
+  "
+  Returns an enumeration describing the available options.
+  "
+  [^TweetToGenderFeatures this]
+  (let [sn-opt ^Option      (Options :screen-name-index)
+        sn-ndx ^SingleIndex (get-state this :screen-name-index)]
+    (into-array String (conj (seq (.superGetOptions this))
+                             (.getSingleIndex sn-ndx)
+                             (str "-" (.name sn-opt))))))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn -listOptions
+  "
+  Returns an enumeration describing the available options.
+  "
+  [^TweetToGenderFeatures this]
+  (WekaEnumeration. (concat (enumeration-seq (.superListOptions this))
+                            (vals Options))))
+
 
