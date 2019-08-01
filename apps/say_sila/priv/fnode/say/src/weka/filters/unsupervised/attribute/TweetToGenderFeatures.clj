@@ -14,6 +14,7 @@
   (:require [say.genie       :refer :all]
             [say.log         :as log]
             [say.social      :as soc]
+            [clojure.set     :as set]
             [clojure.string  :as str])
   (:import  [affective.core ArffLexiconEvaluator]
             [weka.core Attribute
@@ -33,8 +34,11 @@
     :extends    weka.filters.unsupervised.attribute.TweetToFeatureVector
     :state      state
     :init       init
-    :methods    [[getScreenNameIndex [] String]
-                 [setScreenNameIndex [String] void]]
+    :methods    [[getScreenNameIndex []       String]
+                 [setScreenNameIndex [String] void]
+                 [setUpperIndices    [int]    void]]
+    :exposes    {m_textIndex {:get getSuperTextIndex
+                              :set setSupetTextIndex}}
     :exposes-methods {;- weka.filters.Filter ---------------------------------
                       getOptions    superGetOptions
                       setOptions    superSetOptions
@@ -99,17 +103,27 @@
   processing a set of input Instances.
   "
   [^TweetToGenderFeatures this
-   ^Instances             iinsts]
-  (let [acnt (.numAttributes iinsts)
-        attr (Attribute. "gender-name")
-        tndx (.getTextIndex this)]
+   ^Instances             insts]
+  (let [->tag  #(str "gender-" %1 "-" (name %2))
+        acnt   (.numAttributes insts)
+        acnt-1 (dec acnt)
+        tndx   (.getSuperTextIndex this)
+        result (Instances. insts 0)]
 
     ;; Make sure the user stays in bounds for the tweet text attribute
-    (.setUpper ^SingleIndex tndx (dec acnt))
+    (.setUpper ^SingleIndex tndx acnt-1)
+    (.setUpperIndices this acnt-1)
 
-    ;; TODO: We'll need a better attr naming scheme
-    (doto (Instances. iinsts 0)
-          (.insertAttributeAt attr acnt))))
+    ;; TODO: We're doing double fields for each category.  Compare this format
+    ;;       to a single field using female(pos-vals) and male(neg-vals).
+    (loop [ndx  acnt
+           cols ["screen-name"]]                    ; TODO: more to come
+      (when-let [col (first cols)]
+        (.insertAttributeAt result (Attribute. (->tag col :female)) ndx)
+        (.insertAttributeAt result (Attribute. (->tag col :male)) (inc ndx))
+        (recur (+ ndx 2) (rest cols))))
+
+    result))
 
 
 ;; ---------------------------------------------------------------------------
@@ -118,20 +132,36 @@
   Run the filter on the input instances and return the output instances.
   "
   [^TweetToGenderFeatures this
-   ^Instances             iinsts]
-  (let [oinsts  (Instances. ^Instances (-determineOutputFormat this iinsts) 0)
-        ocnt    (.numAttributes oinsts)
-        icnt    (.numAttributes iinsts)
-        iattr   (.getIndex ^SingleIndex (.getTextIndex this))
-        ondx    (dec ocnt)]
-    (doseq [^Instance iinst (seq iinsts)]
-      (let [ovals (double-array ocnt)]
+   ^Instances             insts]
+
+  ;; NOTE: the result Instances are iteratively mutated in the Java way...
+  (let [result   (Instances. ^Instances (.determineOutputFormat this insts) 0)
+        state    @(.state this)
+        ocnt     (.numAttributes result)
+        icnt     (.numAttributes insts)
+       ;txt-ndx  (.getIndex ^SingleIndex (.getTextIndex this))          ; TODO
+        sn-ndx   (.getIndex ^SingleIndex (get state OPT-SCREEN-NAME-NDX))
+        count-sn (fn [toks gnd]
+                   (count (set/intersection toks (NAMES gnd))))]
+
+    (doseq [^Instance inst (seq insts)]
+      (let [ovals   (double-array ocnt)
+            sn-toks (set (soc/tokenize (.stringValue inst sn-ndx) :upper-case))]
+
         ;; Just copy in the values across the input columns
         (dotimes [i icnt]
-          (aset ovals i (.value iinst i)))
-        (aset ovals ondx 0.00)
-        (.add oinsts (DenseInstance. 1.0 ovals))))
-          oinsts))
+          (aset ovals i (.value inst i)))
+
+        ;; Got F/M names in the screen name?
+        (aset ovals (- ocnt 2) (double (count-sn sn-toks :female)))
+        (aset ovals (- ocnt 1) (double (count-sn sn-toks :male)))
+
+        ;; Append the finished instance to the output dataset
+        (.add result (DenseInstance. 1.0 ovals))))
+
+    ;; ...and we're done!
+    result))
+
 
 
 ;; ---------------------------------------------------------------------------
@@ -153,6 +183,17 @@
   [this col]
   (set-state! this OPT-SCREEN-NAME-NDX
                    #(doto ^SingleIndex % (.setSingleIndex (str col)))))
+
+
+;; ---------------------------------------------------------------------------
+(defn -setUpperIndices
+  "
+  Sets the upper index for anything column-related in the Filter state.
+  "
+  [this ndx]
+  ;; TODO: We'll have more indices to handle here
+  (set-state! this OPT-SCREEN-NAME-NDX
+                   #(doto ^SingleIndex % (.setUpper ndx))))
 
 
 ;; ---------------------------------------------------------------------------
