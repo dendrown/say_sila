@@ -1,0 +1,5 @@
+#!/bin/bash
+
+tokei -t=Erlang,Clojure,ClojureScript ./apps/say_sila
+
+        
