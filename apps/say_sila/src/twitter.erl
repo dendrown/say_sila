@@ -39,6 +39,7 @@
          ontologize/2,
          %------------------------- pull_* functions are pulling info from the Twitter API
          pull_tweet/1,  pull_tweet/2,
+         pull_tweets/3, pull_tweets/4,
          reset/0,
          retrack/0,
          to_hashtag/1,
@@ -58,8 +59,14 @@
 -define(STATUS_TABLES,  #{start   => <<"tbl_statuses_2017_q3_part">>,
                           q3_2017 => <<"tbl_statuses_2017_q3_part">>,
                           q4_2017 => <<"tbl_statuses_2017_q4">>,
+                          %-------------------------------------------
                           q1_2018 => <<"tbl_statuses_2018_q1">>,
-                          q2_2018 => <<"tbl_statuses_2018_q2">>}).
+                          q2_2018 => <<"tbl_statuses_2018_q2">>,
+                          q3_2018 => <<"tbl_statuses_2018_q3">>,
+                          q4_2018 => <<"tbl_statuses_2018_q4">>,
+                          %-------------------------------------------
+                          q1_2019 => <<"tbl_statuses_2019_q1">>,
+                          q2_2019 => <<"tbl_statuses_2019_q2">>}).
 -define(status_table(X), maps:get(X, ?STATUS_TABLES, ?STATUS_TABLE)).
 
 
@@ -385,7 +392,7 @@ ontologize(#tweet{id             = ID,
                                      | map()
                                      | api_code().
 %%
-% @doc  Retreives a single tweet from the Twitter API.
+% @doc  Retreives the tweet with the specified ID from the Twitter API.
 %
 %       Supported options:
 %       - return_maps   : Convert the Tweet JSON to a map
@@ -396,6 +403,68 @@ pull_tweet(ID) ->
 
 pull_tweet(ID, Opts) ->
     gen_server:call(?MODULE, {pull_tweet, ID, Opts}).
+
+
+
+%%--------------------------------------------------------------------
+-spec pull_tweets(Tracker :: atom(),
+                  Start   :: datetime(),
+                  Stop    :: datetime()) -> [tweet()]
+                                          | bad_start|bad_stop|api_code().
+
+-spec pull_tweets(Tracker :: atom(),
+                  Start   :: datetime(),
+                  Stop    :: datetime(),
+                  Options :: options()) -> [tweet()]
+                                         | bad_start|bad_stop|api_code().
+
+%%
+% @doc  Retreives historical tweets via the Twitter API.
+%
+%       Supported options:
+%       - `no_retweet'  Collect original tweets only
+% @end  --
+pull_tweets(Tracker, Start, Stop) ->
+    pull_tweets(Tracker, Start, Stop, []).
+
+
+pull_tweets(Tracker, Start, Stop, Options) ->
+
+    % Function to check our own database for tweets from just Before
+    % and just After the requested point in time.
+    Frame = fun(Before, DTS, After) ->
+        GMT = calendar:local_time_to_universal_time(DTS),
+        Tweets = gen_server:call(?MODULE,
+                                 {get_tweets, Tracker, all, [{start, dts:sub(GMT, Before, minute)},
+                                                             {stop,  dts:add(GMT, After,  minute)}
+                                                             | Options]},
+                                 ?TWITTER_DB_TIMEOUT),
+        ?info("Checking local tweets around ~s: gmt[~s] cnt[~B]", [dts:str(DTS), dts:str(GMT), length(Tweets)]),
+        Tweets
+    end,
+
+    % Determine the tweet IDs that frame the time period we need (DB results are chronological)
+    case {Frame(5, Start, 1),
+          Frame(1, Stop,  5)} of
+
+        {[], _} -> bad_start;
+        {_, []} -> bad_stop;
+
+        {[Left|_], Rights} ->
+            #tweet{id = SinceID,  timestamp_ms = SinceMillis}  = Left,
+            #tweet{id = MaxPlus1, timestamp_ms = UntilMillis} = lists:last(Rights),
+
+            % Yes, the datatypes for since_id and max_id are different. The oauth library doesn't care.
+            MaxID = binary_to_integer(MaxPlus1) - 1,
+            ?info("Since GMT ~s: id[~s]", [dts:str(SinceMillis, millisecond), SinceID]),
+            ?info("Until GMT ~s: id[~B]", [dts:str(UntilMillis, millisecond), MaxID]),
+            ?info("Period: ~.1f hours", [(UntilMillis-SinceMillis)/(60*60*1000)]),
+
+            SearchOpts = [{since_id, SinceID}, {max_id, MaxID} | Options],
+            SearchOpts
+            %gen_server:call(?MODULE, {pull_tweets, ID, Opts})
+    end.
+
 
 
 
@@ -602,14 +671,14 @@ handle_call({get_players, Tracker, Options}, _From, State = #state{db_conn = DBC
 
 
 handle_call({get_tweets, Tracker, Players = [#player{} | _], Options}, From, State) ->
-    %
+
     % Pull a list of screen names from the player recs
     ScreenNames = [Player#player.screen_name || Player <- Players],
     handle_call({get_tweets, Tracker, ScreenNames, Options}, From, State);
 
 
 handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{db_conn = DBConn}) ->
-    %
+
     % Note: This pulls only classic 140|280-char tweets and does not consider the extended_text field.
     %       Also, we're going to want to move the list_to_sql line to a DB module
     StatusTbl     = get_status_table(Options),
@@ -620,7 +689,7 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
         true  -> <<"AND status->'retweeted_status'->>'id' is NULL">>;
         false -> <<"">>
     end,
-    %
+
     %?debug("Screenames: ~p", [ScreenNames]),
     ScreenNamesCond = case ScreenNames =/= all of
         true  -> io_lib:format("AND status->'user'->>'screen_name' IN ('~s'~s) ",
