@@ -77,11 +77,13 @@
 %%  * Handle extended tweets
 %%====================================================================
 
+-define(TWITTER_API_URL,         "https://api.twitter.com/1.1/").
+-define(twitter_api_url(Cmd),    ?TWITTER_API_URL ++ Cmd).
+
 -define(twitter_oauth_url(Cmd),  "https://api.twitter.com/oauth/"  ++ Cmd).
 -define(twitter_stream_url(Cmd), "https://stream.twitter.com/1.1/" ++ Cmd).
--define(twitter_api_url(Cmd),    "https://api.twitter.com/1.1/" ++ Cmd).
 
--type api_code() :: bad_get|bad_id|bad_json|no_auth.
+-type api_code() :: bad_request|bad_json|no_auth.
 
 % NOTE: Lookups are hashtags without the hashtag character
 %       Keep lookups/hashtags defined here in all lowercase
@@ -395,14 +397,14 @@ ontologize(#tweet{id             = ID,
 % @doc  Retreives the tweet with the specified ID from the Twitter API.
 %
 %       Supported options:
-%       - return_maps   : Convert the Tweet JSON to a map
+%       - `return_maps' : Convert the Tweet JSON to a map
 % @end  --
 pull_tweet(ID) ->
     pull_tweet(ID, []).
 
 
 pull_tweet(ID, Opts) ->
-    gen_server:call(?MODULE, {pull_tweet, ID, Opts}).
+    gen_server:call(?MODULE, {api_get, statuses, show, [{id, ID}], Opts}).
 
 
 
@@ -428,7 +430,7 @@ pull_tweets(Tracker, Start, Stop) ->
     pull_tweets(Tracker, Start, Stop, []).
 
 
-pull_tweets(Tracker, Start, Stop, Options) ->
+pull_tweets(Tracker, Start, Stop, Options) when is_list(Options) ->
 
     % Function to check our own database for tweets from just Before
     % and just After the requested point in time.
@@ -469,12 +471,14 @@ pull_tweets(Tracker, Start, Stop, Options) ->
             ?info("Until GMT ~s: id[~B]", [dts:str(UntilMillis, millisecond), MaxID]),
             ?info("Period: ~.1f hours", [(UntilMillis-SinceMillis)/(60*60*1000)]),
 
-            SearchOpts = [{since_id, SinceID}, {max_id, MaxID} | Options],
-            SearchOpts
-            %gen_server:call(?MODULE, {pull_tweets, ID, Opts})
-    end.
+            Body = [{q, ?hashtag(Tracker)}, {since_id, SinceID}, {max_id, MaxID}, {count, 15}
+                    | Options],
+            gen_server:call(?MODULE, {api_get, search, tweets, Body, Options})
+    end;
 
 
+pull_tweets(Tracker, Start, Stop, Option) ->
+    pull_tweets(Tracker, Start, Stop, [Option]).
 
 
 %%--------------------------------------------------------------------
@@ -615,6 +619,35 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call({api_get, API, Cmd, Body, Opts}, _From, State = #state{consumer     = Consumer,
+                                                                   oauth_token  = Token,
+                                                                   oauth_secret = Secret}) ->
+
+    URL = make_api_url(API, Cmd),
+    ?debug("GET ~s: ~p", [URL, Body]),
+    Reply = case oauth:get(URL, Body, Consumer, Token, Secret, [{body_format, binary}]) of
+
+        {ok, {{_, 200, _}, _, DataIn}} ->
+
+            %?debug("Raw Tweet: ~p", [DataIn]),
+            case pprops:get_value(return_maps, Opts, false) of
+                false -> DataIn;
+                true  ->
+                    try jsx:decode(DataIn, [return_maps]) of
+                        Tweet -> Tweet
+                    catch
+                        Exc:Why ->
+                            ?warning("Bad JSON: why[~p:~p] data[~p]", [Exc, Why, DataIn]),
+                            bad_json
+                    end
+            end;
+
+        {ok, {{_, 401, _}, _, _}} -> ?warning("Not authorized on Twitter: http[401]"),      no_auth;
+        {ok, {{_, Err, _}, _, _}} -> ?warning("Cannot process request: http[~B]", [Err]),   bad_request
+    end,
+    {reply, Reply, State};
+
+
 handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
                                                        oauth_token = ReqToken}) ->
 
@@ -739,41 +772,6 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
 
         _ ->
             undefined
-    end,
-    {reply, Reply, State};
-
-
-handle_call({pull_tweet, ID, Opts}, _From, State = #state{consumer     = Consumer,
-                                                          oauth_token  = Token,
-                                                          oauth_secret = Secret}) ->
-
-    ?debug("Pulling tweet #~p", [ID]),
-    Reply = case oauth:get(?twitter_api_url("statuses/show.json"),
-                           [{id, ID}],
-                           Consumer,
-                           Token,
-                           Secret,
-                           [{body_format, binary}]) of
-
-        {ok, {{_, 200, _}, _, DataIn}} ->
-
-            % The `jsx' library is having trouble with Twitter's JSON
-            %?debug("Raw Tweet: ~p", [DataIn]),
-            case pprops:get_value(return_maps, Opts, false) of
-                false -> DataIn;
-                true  ->
-                    try jsx:decode(DataIn, [return_maps]) of
-                        Tweet -> Tweet
-                    catch
-                        Exc:Why ->
-                            ?warning("Bad JSON: why[~p:~p] data[~p]", [Exc, Why, DataIn]),
-                            bad_json
-                    end
-            end;
-
-        {ok, {{_, 401, _}, _, _}} -> ?warning("Not authorized on Twitter"), no_auth;
-        {ok, {{_, 404, _}, _, _}} -> ?warning("Tweet not found: ~p", [ID]), bad_id;
-        Bummer                    -> ?warning("API: ~p", [Bummer]),         bad_get
     end,
     {reply, Reply, State};
 
@@ -994,6 +992,17 @@ listify_string(S) ->
         true  -> [S];                         % ["justOne"]
         false -> S
     end.
+
+
+
+%%--------------------------------------------------------------------
+-spec make_api_url(API :: stringy(),
+                   Cmd :: stringy()) -> io_lib:chars().
+%%
+% @doc  Creates a Twitter API URL for the specified command.
+% @end  --
+make_api_url(API, Cmd) ->
+    ?str_fmt("~s/~s/~s.json", [?TWITTER_API_URL, API, Cmd]).
 
 
 
