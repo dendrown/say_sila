@@ -410,13 +410,13 @@ pull_tweet(ID, Opts) ->
 -spec pull_tweets(Tracker :: atom(),
                   Start   :: datetime(),
                   Stop    :: datetime()) -> [tweet()]
-                                          | bad_start|bad_stop|api_code().
+                                          | bad_dts|bad_start|bad_stop|api_code().
 
 -spec pull_tweets(Tracker :: atom(),
                   Start   :: datetime(),
                   Stop    :: datetime(),
                   Options :: options()) -> [tweet()]
-                                         | bad_start|bad_stop|api_code().
+                                         | bad_dts|bad_start|bad_stop|api_code().
 
 %%
 % @doc  Retreives historical tweets via the Twitter API.
@@ -433,26 +433,35 @@ pull_tweets(Tracker, Start, Stop, Options) ->
     % Function to check our own database for tweets from just Before
     % and just After the requested point in time.
     Frame = fun(Before, DTS, After) ->
-        GMT = calendar:local_time_to_universal_time(DTS),
-        Tweets = gen_server:call(?MODULE,
-                                 {get_tweets, Tracker, all, [{start, dts:sub(GMT, Before, minute)},
-                                                             {stop,  dts:add(GMT, After,  minute)}
-                                                             | Options]},
-                                 ?TWITTER_DB_TIMEOUT),
-        ?info("Checking local tweets around ~s: gmt[~s] cnt[~B]", [dts:str(DTS), dts:str(GMT), length(Tweets)]),
-        Tweets
+        case calendar:local_time_to_universal_time_dst(DTS) of
+            [GMT] ->
+                Tweets = gen_server:call(?MODULE,
+                                         {get_tweets, Tracker, all, [{start, dts:sub(GMT, Before, minute)},
+                                                                     {stop,  dts:add(GMT, After,  minute)}
+                                                                     | Options]},
+                                         ?TWITTER_DB_TIMEOUT),
+                ?info("Checking local tweets around ~s: gmt[~s] cnt[~B]",
+                      [dts:str(DTS), dts:str(GMT), length(Tweets)]),
+                Tweets;
+
+            [_,_] -> ?error("DTS occurs during switch from daylight savings time: ~p", [DTS]),  bad_dst;
+            []    -> ?error("Illegal DTS switching to daylight savings time: ~p", [DTS]),       bad_dst
+        end
     end,
 
     % Determine the tweet IDs that frame the time period we need (DB results are chronological)
     case {Frame(5, Start, 1),
           Frame(1, Stop,  5)} of
 
-        {[], _} -> bad_start;
-        {_, []} -> bad_stop;
+        {[], _}      -> bad_start;
+        {bad_dst, _} -> bad_start;
 
-        {[Left|_], Rights} ->
-            #tweet{id = SinceID,  timestamp_ms = SinceMillis}  = Left,
-            #tweet{id = MaxPlus1, timestamp_ms = UntilMillis} = lists:last(Rights),
+        {_, []}      -> bad_stop;
+        {_, bad_dst} -> bad_stop;
+
+        {Lefts, [Right|_]} ->
+            #tweet{id = SinceID,  timestamp_ms = SinceMillis} = lists:last(Lefts),  % Latest on the left
+            #tweet{id = MaxPlus1, timestamp_ms = UntilMillis} = Right,              % Earliest on the right
 
             % Yes, the datatypes for since_id and max_id are different. The oauth library doesn't care.
             MaxID = binary_to_integer(MaxPlus1) - 1,
