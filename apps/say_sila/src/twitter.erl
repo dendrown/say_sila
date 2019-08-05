@@ -26,6 +26,7 @@
 -export([start_link/0,
          stop/0,
          authenticate/1,
+         date_tweet/2,
          %------------------------- get_* functions are getting info from the database
          get_first_dts/1,
          get_first_dts/2,
@@ -155,6 +156,58 @@ stop() ->
 % @end  --
 authenticate(PIN) ->
     gen_server:call(?MODULE, {authenticate, PIN}).
+
+
+
+%%--------------------------------------------------------------------
+-spec date_tweet(TwMap :: map(),
+                 Type  :: datetime|millisecond|binary) -> datetime()
+                                                        | integer()
+                                                        | binary()
+                                                        | undefined.
+%%
+% @doc  Returns the creation time from a tweet in the requested format.
+%       The function gives preference to the timestamp_ms field when
+%       available.  If it's not, we use created_at.
+% @end  --
+date_tweet(TwMap, Type) ->
+
+    % Function to make sure our date/timestamp value is in the requested format
+    Format = fun
+        Recur(DTS = {_,_}) ->
+            case Type of
+                datetime -> DTS;
+                _        -> Recur(dts:to_unix(DTS, millisecond))
+            end;
+
+        Recur(Millis) ->
+            case Type of
+                millisecond -> Millis;
+                binary      -> integer_to_binary(Millis);
+                datetime    -> dts:to_datetime(Millis, millisecond)
+            end
+        end,
+
+    % We prefer the millisecond timestamp if it's available
+    case maps:get(<<"timestamp_ms">>, TwMap, undefined) of
+
+        undefined ->
+            % Yeah, Twitter doesn't always include that, so convert the text version
+            case maps:get(<<"created_at">>, TwMap, undefined) of
+
+                undefined -> undefined;
+                CreatedAt ->
+                    % Twitter uses a DTS format that's almost but not quite RFC-1123
+                    [DOW,Mon,Day,Time,<<"+0000">>,Year] = string:split(CreatedAt, " ", all),
+                    TwStamp = list_to_binary(io_lib:format("~s, ~s ~s ~s ~s GMT",
+                                                           [DOW, Day, Mon, Year, Time])),
+                    {ok, DateTime} = tempo:parse(rfc1123, {datetime, TwStamp}),
+                    Format(DateTime)
+            end;
+
+        Millis ->
+            Format(Millis)
+    end.
 
 
 
@@ -471,9 +524,13 @@ pull_tweets(Tracker, Start, Stop, Options) when is_list(Options) ->
             ?info("Until GMT ~s: id[~B]", [dts:str(UntilMillis, millisecond), MaxID]),
             ?info("Period: ~.1f hours", [(UntilMillis-SinceMillis)/(60*60*1000)]),
 
-            Body = [{q, ?hashtag(Tracker)}, {since_id, SinceID}, {max_id, MaxID}, {count, 15}
-                    | Options],
-            gen_server:call(?MODULE, {api_get, search, tweets, Body, Options})
+            Body = [{q,                 ?hashtag(Tracker)},
+                    {include_entities,  true},
+                    {since_id,          SinceID},
+                    {max_id,            MaxID},
+                    {count,             15}],
+            Rsp = gen_server:call(?MODULE, {api_get, search, tweets, Body, Options}),
+            [ensure_timestamp_ms(Tw) || Tw <- maps:get(<<"statuses">>, Rsp, [])]
     end;
 
 
@@ -1003,6 +1060,23 @@ listify_string(S) ->
 % @end  --
 make_api_url(API, Cmd) ->
     ?str_fmt("~s/~s/~s.json", [?TWITTER_API_URL, API, Cmd]).
+
+
+
+%%--------------------------------------------------------------------
+-spec ensure_timestamp_ms(TwMap :: map()) -> map().
+%%
+% @doc  In some cases Twitter does not include the timestamp_ms field
+%       in tweets.  If it's missing from the specified tweet, we insert
+%       a millis timestamp corresponding to the value in the created_at
+%       field.
+% @end  --
+ensure_timestamp_ms(TwMap) ->
+
+    case maps:get(<<"timestamp_ms">>, TwMap, none) of
+        none -> maps:put(<<"timestamp_ms">>, date_tweet(TwMap, binary), TwMap);
+        _    -> TwMap
+    end.
 
 
 
