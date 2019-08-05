@@ -965,22 +965,7 @@ handle_info({track, <<>>}, State) ->
 handle_info({track, DataIn}, State) ->
 
     %?info("Tracking in: ~p", [DataIn]),
-    try jsx:decode(DataIn, [return_maps]) of
-        Tweet ->
-            %?debug("Raw Tweet: ~p", [Tweet])
-            log_tweet(Tweet),
-
-            % A real tweet will have a text field
-            case maps:get(<<"text">>, Tweet, undefined) of
-                undefined ->
-                    ok;
-                Text ->
-                    store_tweet(DataIn, has_lookup(cc, Text), has_lookup(gw, Text), State)
-            end
-    catch
-        Exc:Why -> ?warning("Bad JSON: why[~p:~p] data[~p]", [Exc, Why, DataIn])
-    end,
-    ?info("END OF TWEET"),
+    store_tweet(DataIn, State),
     {noreply, State, ?tweet_timeout(State)};
 
 
@@ -1253,27 +1238,53 @@ log_subtweet(Indent, SubTweet) ->
 
 
 %%--------------------------------------------------------------------
+-spec store_tweet(Tweet  :: binary()|map(),
+                  State  :: state()) -> ok.
+
 -spec store_tweet(RawTweet  :: binary(),
-                  IsCC      :: boolean(),
-                  IsGW      :: boolean(),
+                  TwMap     :: map(),
                   State     :: state()) -> ok.
 %%
 % @doc  Inserts the tweet into the database, if we're connected.
 % @end  --
-store_tweet(_, _, _, #state{db_conn = undefined}) ->
+store_tweet(Tweet, State) ->
+
+    % Tracking tweets come in as a binary, historical tweets as a map
+    if  is_binary(Tweet) ->
+            try jsx:decode(Tweet, [return_maps]) of
+                TwMap ->
+                    %?debug("Raw Tweet: ~p", [Tweet])
+                    store_tweet(Tweet, TwMap, State)
+            catch
+                Exc:Why -> ?warning("Bad JSON: why[~p:~p] data[~p]", [Exc, Why, Tweet])
+            end;
+
+        is_map(Tweet) ->
+            TwBin = jsx:encode(Tweet),
+            store_tweet(TwBin, Tweet, State)
+    end.
+
+
+store_tweet(_, _, #state{db_conn = undefined}) ->
     ok;
 
-store_tweet(RawTweet, IsCC, IsGW, #state{db_conn = DBConn,
-                                         track   = Track}) ->
-    %
-    % IMPORTANT: Note that we pull results from the twitter<gen_server> state variable,
-    %            but for now we always write new tweets to the main statuses table.
-    DBResult = epgsql:equery(DBConn,
-                             "INSERT INTO tbl_statuses (status, track, hash_cc, hash_gw) "
-                             "VALUES  ($1, $2, $3, $4)",
-                             [RawTweet, Track, IsCC, IsGW]),
-    ?info("Tweet stored: ~p", [DBResult]).
+store_tweet(RawTweet, TwMap, #state{db_conn = DBConn,
+                                    track   = Track}) ->
 
+    % A real tweet will have a text field
+    case maps:get(<<"text">>, TwMap, none) of
+        none -> ok;
+        Text ->
+            log_tweet(TwMap),
+
+            % IMPORTANT: Note that we pull results from the twitter<gen_server> state variable,
+            %            but for now we always write new tweets to the main statuses table.
+            DBResult = epgsql:equery(DBConn,
+                                     "INSERT INTO tbl_statuses (status, track, hash_cc, hash_gw) "
+                                     "VALUES  ($1, $2, $3, $4)",
+                                     [RawTweet, Track, has_lookup(cc, Text), has_lookup(gw, Text)]),
+            ?info("Tweet stored: ~p", [DBResult])
+    end.
 
 
 
