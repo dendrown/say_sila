@@ -34,9 +34,11 @@
     :extends    weka.filters.unsupervised.attribute.TweetToFeatureVector
     :state      state
     :init       init
-    :methods    [[getScreenNameIndex []       String]
-                 [setScreenNameIndex [String] void]
-                 [setUpperIndices    [int]    void]]
+    :methods    [[getScreenNameIndex    []       String]
+                 [getDescriptionIndex   []       String]
+                 [setScreenNameIndex    [String] void]
+                 [setDescriptionIndex   [String] void]
+                 [setUpperIndices       [int]    void]]
     :exposes    {m_textIndex {:get getSuperTextIndex
                               :set setSupetTextIndex}}
     :exposes-methods {;- weka.filters.Filter ---------------------------------
@@ -53,17 +55,23 @@
 
 (def ^:const OPT-SCREEN-NAME-NDX    "S")
 (def ^:const OPT-DESCRIPTION-NDX    "D")
-(defonce Options {OPT-SCREEN-NAME-NDX   (Option. "The column index that holds users' screen names."
-                                                 OPT-SCREEN-NAME-NDX 1 "-S <col>")})
+(def Options {OPT-SCREEN-NAME-NDX   (Option. "The column index that holds users' screen names."
+                                             OPT-SCREEN-NAME-NDX 1 "-S <col>")
+              OPT-DESCRIPTION-NDX   (Option. "The column index that holds users' profile description text."
+                                             OPT-DESCRIPTION-NDX 1 "-D <col>")})
 
 
 ;; ---------------------------------------------------------------------------
 (defn -init
   "
-  Initializes this filter's state.
+  Initializes this filter's state.  Our parent ( TweetToFeatureVector )
+  initializes the Tweet text index to column 1.  Even though the columns
+  we care about will likely come first, we don't want to override this
+  default.  Therefore, we assume nothing.
   "
   []
-  [[] (atom {OPT-SCREEN-NAME-NDX (SingleIndex. "1")})])
+  [[] (atom {OPT-SCREEN-NAME-NDX (SingleIndex.)
+             OPT-DESCRIPTION-NDX (SingleIndex.)})])
 
 
 
@@ -88,6 +96,130 @@
 
 
 ;; ---------------------------------------------------------------------------
+(defn- get-index
+  "
+  Returns the setting for the specified (one-based) column index.
+  "
+  [this opt]
+  (let [ndx ^SingleIndex (get-state this opt)]
+    (.getSingleIndex ndx)))
+
+
+;; ---------------------------------------------------------------------------
+(defn -getScreenNameIndex
+  "
+  Returns the setting for the (one-based) column index that holds users'
+  screen names.
+  "
+  [this]
+  (get-index this OPT-SCREEN-NAME-NDX))
+
+
+;; ---------------------------------------------------------------------------
+(defn -getDescriptionIndex
+  "
+  Returns the setting for the (one-based) column index that holds users'
+  profile description
+  "
+  [this]
+  (get-index this OPT-DESCRIPTION-NDX))
+
+
+;; ---------------------------------------------------------------------------
+(defn- set-index
+  "
+  Sets the specified (one-based) column index.
+  "
+  [this opt col]
+  (set-state! this opt #(doto ^SingleIndex % (.setSingleIndex (str col)))))
+
+
+;; ---------------------------------------------------------------------------
+(defn -setScreenNameIndex
+  "
+  Sets the (one-based) column index that holds users' screen names.
+  "
+  [this col]
+  (set-index this OPT-SCREEN-NAME-NDX col))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn -setDescriptionIndex
+  "
+  Sets the (one-based) column index that holds users' profile description.
+  "
+  [this col]
+  (set-index this OPT-DESCRIPTION-NDX col))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn -setUpperIndices
+  "
+  Sets the upper index for anything column-related in the Filter state.
+  "
+  [^TweetToGenderFeatures this col]
+  (let [tindex (.getSuperTextIndex this)]
+    (.setUpper ^SingleIndex tindex col)
+    (doseq [opt [OPT-SCREEN-NAME-NDX
+                 OPT-DESCRIPTION-NDX]]
+      (set-index this opt col))))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn -getOptions
+  "
+  Returns an enumeration describing the available options.
+  "
+  [^TweetToGenderFeatures this]
+  (let [state @(.state this)]
+    ;;
+    ;; Currently, all our options are SingleIndex objects
+    (->> (reduce #(let [ndx ^SingleIndex (state   %2)
+                        opt ^Option      (Options %2)]
+                    (if-let [value (not-empty (.getSingleIndex ndx))]
+                      (conj %1 value (str "-" (.name opt)))         ; Add in reverse order
+                      %1))                                          ; Skip unset option
+                 (seq (.superGetOptions this)) [OPT-DESCRIPTION-NDX
+                                                OPT-SCREEN-NAME-NDX])
+
+         (into-array String))))
+
+
+
+
+;; ---------------------------------------------------------------------------
+(defn -setOptions
+  "
+  Returns an enumeration describing the available options.
+  "
+  [^TweetToGenderFeatures this
+   ^"[Ljava.lang.String;" opts]
+
+  ;; CAREFUL: The calls to Weka Utils will mutate the opts array
+  (let [get-opt #(not-empty (Utils/getOption ^String % opts))]
+
+    (when-let [ndx (get-opt OPT-SCREEN-NAME-NDX)]
+      (.setScreenNameIndex this ndx)))
+
+  ;; Whatever's left is for the parent Filter
+  (.superSetOptions this opts))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn -listOptions
+  "
+  Returns an enumeration describing the available options.
+  "
+  [^TweetToGenderFeatures this]
+  (WekaEnumeration. (concat (enumeration-seq (.superListOptions this))
+                            (vals Options))))
+
+
+;; ---------------------------------------------------------------------------
 (defn -globalInfo
   "
   Returns a string description of this filter
@@ -106,13 +238,10 @@
    ^Instances             insts]
   (let [->tag  #(str "gender-" %1 "-" (name %2))
         acnt   (.numAttributes insts)
-        acnt-1 (dec acnt)
-        tndx   (.getSuperTextIndex this)
         result (Instances. insts 0)]
 
     ;; Make sure the user stays in bounds for the tweet text attribute
-    (.setUpper ^SingleIndex tndx acnt-1)
-    (.setUpperIndices this acnt-1)
+    (.setUpperIndices this (dec acnt))
 
     ;; TODO: We're doing double fields for each category.  Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
@@ -124,6 +253,7 @@
         (recur (+ ndx 2) (rest cols))))
 
     result))
+
 
 
 ;; ---------------------------------------------------------------------------
@@ -161,82 +291,3 @@
 
     ;; ...and we're done!
     result))
-
-
-
-;; ---------------------------------------------------------------------------
-(defn -getScreenNameIndex
-  "
-  Returns the setting for the (one-based) column index that holds users'
-  screen names.
-  "
-  [this]
-  (let [ndx ^SingleIndex (get-state this OPT-SCREEN-NAME-NDX)]
-    (.getSingleIndex ndx)))
-
-
-;; ---------------------------------------------------------------------------
-(defn -setScreenNameIndex
-  "
-  Sets the (one-based) column index that holds users' screen names.
-  "
-  [this col]
-  (set-state! this OPT-SCREEN-NAME-NDX
-                   #(doto ^SingleIndex % (.setSingleIndex (str col)))))
-
-
-;; ---------------------------------------------------------------------------
-(defn -setUpperIndices
-  "
-  Sets the upper index for anything column-related in the Filter state.
-  "
-  [this ndx]
-  ;; TODO: We'll have more indices to handle here
-  (set-state! this OPT-SCREEN-NAME-NDX
-                   #(doto ^SingleIndex % (.setUpper ndx))))
-
-
-;; ---------------------------------------------------------------------------
-(defn -getOptions
-  "
-  Returns an enumeration describing the available options.
-  "
-  [^TweetToGenderFeatures this]
-  (let [sn-opt ^Option      (Options OPT-SCREEN-NAME-NDX)
-        sn-ndx ^SingleIndex (get-state this OPT-SCREEN-NAME-NDX)]
-    (into-array String (conj (seq (.superGetOptions this))
-                             (.getSingleIndex sn-ndx)
-                             (str "-" (.name sn-opt))))))
-
-
-
-
-;; ---------------------------------------------------------------------------
-(defn -setOptions
-  "
-  Returns an enumeration describing the available options.
-  "
-  [^TweetToGenderFeatures this
-   ^"[Ljava.lang.String;" opts]
-
-  ;; CAREFUL: The calls to Weka Utils will mutate the opts array
-  (let [get-opt #(not-empty (Utils/getOption ^String % opts))]
-
-    (when-let [ndx (get-opt OPT-SCREEN-NAME-NDX)]
-      (.setScreenNameIndex this ndx)))
-
-  ;; Whatever's left is for the parent Filter
-  (.superSetOptions this opts))
-
-
-
-;; ---------------------------------------------------------------------------
-(defn -listOptions
-  "
-  Returns an enumeration describing the available options.
-  "
-  [^TweetToGenderFeatures this]
-  (WekaEnumeration. (concat (enumeration-seq (.superListOptions this))
-                            (vals Options))))
-
-
