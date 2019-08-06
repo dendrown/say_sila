@@ -19,6 +19,8 @@
 -include("types.hrl").
 
 -define(TWITTER_DB_TIMEOUT, (10 * 60 * 1000)).      % FIXME: Rework the DB-pull logic
+-define(TWITTER_GOVERNOR_MS, 30000).                % Max rate is 150/hr
+
 -record(tweet, {id              :: binary(),
                 type            :: tweet | retweet | undefined,
                 timestamp_ms    :: rec_integer(),

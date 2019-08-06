@@ -40,7 +40,7 @@
          ontologize/2,
          %------------------------- pull_* functions are pulling info from the Twitter API
          pull_tweet/1,  pull_tweet/2,
-         pull_tweets/3, pull_tweets/4,
+         pull_tweets/3,
          reset/0,
          retrack/0,
          to_hashtag/1,
@@ -464,26 +464,12 @@ pull_tweet(ID, Opts) ->
 %%--------------------------------------------------------------------
 -spec pull_tweets(Tracker :: atom(),
                   Start   :: datetime(),
-                  Stop    :: datetime()) -> [tweet()]
-                                          | bad_dts|bad_start|bad_stop|api_code().
-
--spec pull_tweets(Tracker :: atom(),
-                  Start   :: datetime(),
-                  Stop    :: datetime(),
-                  Options :: options()) -> [tweet()]
-                                         | bad_dts|bad_start|bad_stop|api_code().
+                  Stop    :: datetime()) -> ok|bad_dts|bad_start|bad_stop|api_code().
 
 %%
 % @doc  Retreives historical tweets via the Twitter API.
-%
-%       Supported options:
-%       - `no_retweet'  Collect original tweets only
 % @end  --
 pull_tweets(Tracker, Start, Stop) ->
-    pull_tweets(Tracker, Start, Stop, []).
-
-
-pull_tweets(Tracker, Start, Stop, Options) when is_list(Options) ->
 
     % Function to check our own database for tweets from just Before
     % and just After the requested point in time.
@@ -491,9 +477,9 @@ pull_tweets(Tracker, Start, Stop, Options) when is_list(Options) ->
         case calendar:local_time_to_universal_time_dst(DTS) of
             [GMT] ->
                 Tweets = gen_server:call(?MODULE,
-                                         {get_tweets, Tracker, all, [{start, dts:sub(GMT, Before, minute)},
-                                                                     {stop,  dts:add(GMT, After,  minute)}
-                                                                     | Options]},
+                                         {get_tweets, Tracker, all, [return_maps,
+                                                                     {start, dts:sub(GMT, Before, minute)},
+                                                                     {stop,  dts:add(GMT, After,  minute)}]},
                                          ?TWITTER_DB_TIMEOUT),
                 ?info("Checking local tweets around ~s: gmt[~s] cnt[~B]",
                       [dts:str(DTS), dts:str(GMT), length(Tweets)]),
@@ -501,6 +487,38 @@ pull_tweets(Tracker, Start, Stop, Options) when is_list(Options) ->
 
             [_,_] -> ?error("DTS occurs during switch from daylight savings time: ~p", [DTS]),  bad_dst;
             []    -> ?error("Illegal DTS switching to daylight savings time: ~p", [DTS]),       bad_dst
+        end
+    end,
+
+    % Function to insert and count...
+    Inserter = fun (Tweet, Cnt) ->
+        % Use the same path as when we track tweets in real time
+        ?info("Adding tweet from ~s", [maps:get(<<"created_at">>, Tweet)]),
+        ?MODULE ! {track, ensure_timestamp_ms(Tweet)},
+        Cnt+1
+    end,
+
+    % Function to query and process...
+    PullPush = fun Recur(Max, Body, Cnt) ->
+        Rsp = gen_server:call(?MODULE, {api_get, search, tweets, [{max_id, Max}|Body], [return_maps]}),
+        NewCnt = lists:foldl(Inserter, Cnt, maps:get(<<"statuses">>, Rsp, [])),
+        KeepOn = NewCnt > Cnt,
+
+        % Each iteration pulls in a window of results, Twitter gives us the next
+        case {KeepOn, maps:get(<<"search_metadata">>, Rsp, none)} of
+
+            {true, #{<<"next_results">> := NextSearch}} ->
+
+                % The oauth library prefers a list body, so pull what we need
+                [_, PreMax] = string:split(NextSearch, <<"max_id=">>),
+                [NextMax|_] = string:split(PreMax, "&"),
+
+                % We have to throttle our requests on the free account
+                timer:sleep(?TWITTER_GOVERNOR_MS),
+                Recur(NextMax, Body, NewCnt);
+
+            {true,  _} -> ?info("End of Twitter result windows"),   NewCnt;
+            {false, _} -> ?info("End of tweet series"),             NewCnt
         end
     end,
 
@@ -524,18 +542,15 @@ pull_tweets(Tracker, Start, Stop, Options) when is_list(Options) ->
             ?info("Until GMT ~s: id[~B]", [dts:str(UntilMillis, millisecond), MaxID]),
             ?info("Period: ~.1f hours", [(UntilMillis-SinceMillis)/(60*60*1000)]),
 
-            Body = [{q,                 ?hashtag(Tracker)},
-                    {include_entities,  true},
-                    {since_id,          SinceID},
-                    {max_id,            MaxID},
-                    {count,             15}],
-            Rsp = gen_server:call(?MODULE, {api_get, search, tweets, Body, Options}),
-            [ensure_timestamp_ms(Tw) || Tw <- maps:get(<<"statuses">>, Rsp, [])]
-    end;
+            TwCnt = PullPush(MaxID,
+                             [{q,                ?hashtag(Tracker)},
+                              {include_entities, true},
+                              {since_id,         SinceID},
+                              {count,            100}],
+                             0),
+            ?notice("Inserted ~B tweets", [TwCnt])
+    end.
 
-
-pull_tweets(Tracker, Start, Stop, Option) ->
-    pull_tweets(Tracker, Start, Stop, [Option]).
 
 
 %%--------------------------------------------------------------------
@@ -805,13 +820,12 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                                  "status->'retweeted_status'->>'id' AS rt_id, "
                                  "status->'retweeted_status'->'user'->>'screen_name' AS rt_screen_name "
                           "FROM ~s "
-                          "WHERE track = '~s' "
-                            "AND hash_~s "
+                          "WHERE hash_~s "
                             "AND status->>'lang' ='~s' ~s ~s ~s "
                           "ORDER BY timestamp_ms",
-                          [StatusTbl, ?DB_TRACK, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNamesCond]),
+                          [StatusTbl, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNamesCond]),
 
-    %file:write_file("/tmp/sila.get_tweets.sql", Query),
+    file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
 
         {ok, _, Rows} ->
@@ -1038,13 +1052,13 @@ listify_string(S) ->
 
 
 %%--------------------------------------------------------------------
--spec make_api_url(API :: stringy(),
-                   Cmd :: stringy()) -> io_lib:chars().
+-spec make_api_url(API  :: stringy(),
+                   Cmd  :: stringy()) -> io_lib:chars().
 %%
 % @doc  Creates a Twitter API URL for the specified command.
 % @end  --
 make_api_url(API, Cmd) ->
-    ?str_fmt("~s/~s/~s.json", [?TWITTER_API_URL, API, Cmd]).
+    ?str_fmt("~s~s/~s.json", [?TWITTER_API_URL, API, Cmd]).
 
 
 

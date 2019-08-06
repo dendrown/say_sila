@@ -25,7 +25,6 @@
 
 -define(GENDER_DIR,  <<"fnode/say/resources/gender/pan">>).
 -define(GENDER_TAG,  <<"gender">>).
--define(GOVERNOR_MS, 30000).                        % Max rate is 150/hr
 
 
 
@@ -139,7 +138,7 @@ genderize(UserFpath, Gender) ->
 
     % Function to pull the tweet and convert to ARFF-ready data
     Tweeter = fun(ID, Acc) ->
-        timer:sleep(?GOVERNOR_MS),
+        timer:sleep(?TWITTER_GOVERNOR_MS),
         case twitter:pull_tweet(ID, return_maps) of
 
             #{<<"lang">> := <<"en">>} = T ->

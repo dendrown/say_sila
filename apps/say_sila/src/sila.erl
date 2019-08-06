@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila Tweet Emotion Analyzer for Climate Change
 %%
-%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2019 Dennis Drown et l'Université du Québeà Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(sila).
@@ -16,6 +16,7 @@
 
 -export([start/0, start/1,
          stop/0,
+         console/1,
          reset/0,
          split_on_prop/2,
          split_on_prop/3]).
@@ -72,6 +73,16 @@ start(Options) ->
 % @end  --
 stop() ->
     application:stop(say_sila).
+
+
+
+%%--------------------------------------------------------------------
+-spec console(Level :: lager:log_level()) -> ok.
+%
+% @doc  Set console logging to the specified level.
+% @end  --
+console(Level) ->
+    lager:set_loglevel(lager_console_backend, Level).
 
 
 
