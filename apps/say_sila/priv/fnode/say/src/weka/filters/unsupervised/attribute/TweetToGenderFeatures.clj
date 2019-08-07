@@ -162,9 +162,10 @@
   [^TweetToGenderFeatures this col]
   (let [tindex (.getSuperTextIndex this)]
     (.setUpper ^SingleIndex tindex col)
-    (swap! (.state this) (partial (map (fn [[_ ^SingleIndex ndx]]
-                                         (.setUpper ndx col)
-                                         ndx))))))
+    (swap! (.state this) (fn [state]
+                           (doseq [[_ ndx] state]
+                             (.setUpper ^SingleIndex ndx col))
+                           state))))
 
 
 
@@ -268,31 +269,52 @@
    ^Instances             insts]
 
   ;; NOTE: the result Instances are iteratively mutated in the Java way...
+  ;; Also, a lot of variables are prefixed with:
+  ;;    i - for input instances
+  ;;    o - for output (result) instances
   (let [result   (Instances. ^Instances (.determineOutputFormat this insts) 0)
         state    @(.state this)
-        ocnt     (.numAttributes result)
-        icnt     (.numAttributes insts)
        ;txt-ndx  (.getIndex ^SingleIndex (.getTextIndex this))          ; TODO
-        count-sn (fn [toks gnd]
-                   (count (set/intersection toks (NAMES gnd))))]
+        icnt     (.numAttributes insts)
+        ocnt     (.numAttributes result)
+        [_ opts] (reduce (fn [[oi indices] opt]
+                           (let [ndx ^SingleIndex (state opt)]
+                             (if (seq (.getSingleIndex ndx))
+                                 [(+ oi 2) (assoc indices opt [(.getIndex ndx) oi])]
+                                 [oi indices])))
+                         [icnt {}]
+                         (keys Options))]
 
-    (doseq [^Instance inst (seq insts)]
-      (let [ovals   (double-array ocnt)]
+    (log/notice "OPTIONS:" opts)
+    (letfn [(attr-str [^Instance inst i]
+              (.stringValue inst (int i)))
 
-        ;; Just copy in the values across the input columns
-        (dotimes [i icnt]
-          (aset ovals i (.value inst i)))
+            (count-names [toks gnd]
+              (count (set/intersection (set toks) (NAMES gnd))))
 
-        ;; Got F/M names in the screen name?
-        (when-let [ndx (as-> ^SingleIndex (state OPT-SCREEN-NAME-NDX) opt
-                             (and (seq (.getSingleIndex opt))
-                                  (.getIndex opt)))]
-          (let [toks (set (soc/tokenize (.stringValue inst (int ndx)) :upper-case))]
-            (aset ovals (- ocnt 2) (double (count-sn toks :female)))
-            (aset ovals (- ocnt 1) (double (count-sn toks :male)))))
+            (set-counts [^doubles ovals oi toks]
+              (aset ovals oi       (double (count-names toks :female)))
+              (aset ovals (inc oi) (double (count-names toks :male))))]
 
-        ;; Append the finished instance to the output dataset
-        (.add result (DenseInstance. 1.0 ovals))))
+      ;; Run through all the instances...
+      (doseq [^Instance inst (seq insts)]
+        (let [ovals (double-array ocnt)]
+
+          ;; Just copy in the values across the input columns
+          (dotimes [i icnt]
+            (aset ovals i (.value inst i)))
+
+          ;; Got F/M names in the screen name?
+          (when-let [[ii oi] (opts OPT-SCREEN-NAME-NDX)]
+            (set-counts ovals oi (soc/tokenize (attr-str inst ii) :upper-case)))
+
+          ;; Got F/M names in the profile?
+          (when-let [[ii oi] (opts OPT-DESCRIPTION-NDX)]
+            (set-counts ovals oi
+                        (-> (attr-str inst ii) str/upper-case (str/split #" "))))
+
+          ;; Append the finished instance to the output dataset
+          (.add result (DenseInstance. 1.0 ovals)))))
 
     ;; ...and we're done!
     result))
