@@ -162,9 +162,9 @@
   [^TweetToGenderFeatures this col]
   (let [tindex (.getSuperTextIndex this)]
     (.setUpper ^SingleIndex tindex col)
-    (doseq [opt [OPT-SCREEN-NAME-NDX
-                 OPT-DESCRIPTION-NDX]]
-      (set-index this opt col))))
+    (swap! (.state this) (partial (map (fn [[_ ^SingleIndex ndx]]
+                                         (.setUpper ndx col)
+                                         ndx))))))
 
 
 
@@ -182,8 +182,8 @@
                     (if-let [value (not-empty (.getSingleIndex ndx))]
                       (conj %1 value (str "-" (.name opt)))         ; Add in reverse order
                       %1))                                          ; Skip unset option
-                 (seq (.superGetOptions this)) [OPT-DESCRIPTION-NDX
-                                                OPT-SCREEN-NAME-NDX])
+                 (seq (.superGetOptions this))
+                 (keys Options))
 
          (into-array String))))
 
@@ -237,20 +237,23 @@
   [^TweetToGenderFeatures this
    ^Instances             insts]
   (let [->tag  #(str "gender-" %1 "-" (name %2))
+        state  @(.state this)
         acnt   (.numAttributes insts)
         result (Instances. insts 0)]
 
-    ;; Make sure the user stays in bounds for the tweet text attribute
+    ;; Make sure the user stays in bounds for the attributes we hit
     (.setUpperIndices this (dec acnt))
 
     ;; TODO: We're doing double fields for each category.  Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
-    (loop [ndx  acnt
-           cols ["screen-name"]]                    ; TODO: more to come
-      (when-let [col (first cols)]
-        (.insertAttributeAt result (Attribute. (->tag col :female)) ndx)
-        (.insertAttributeAt result (Attribute. (->tag col :male)) (inc ndx))
-        (recur (+ ndx 2) (rest cols))))
+    (loop [col  acnt
+           opts (keys Options)]
+      (when-let [opt (first opts)]
+        (if (seq (.getSingleIndex ^SingleIndex (state opt)))
+          (do (.insertAttributeAt result (Attribute. (->tag opt :female)) col)
+              (.insertAttributeAt result (Attribute. (->tag opt :male)) (inc col))
+              (recur (+ col 2) (rest opts)))
+          (recur col (rest opts)))))
 
     result))
 
@@ -270,21 +273,23 @@
         ocnt     (.numAttributes result)
         icnt     (.numAttributes insts)
        ;txt-ndx  (.getIndex ^SingleIndex (.getTextIndex this))          ; TODO
-        sn-ndx   (.getIndex ^SingleIndex (get state OPT-SCREEN-NAME-NDX))
         count-sn (fn [toks gnd]
                    (count (set/intersection toks (NAMES gnd))))]
 
     (doseq [^Instance inst (seq insts)]
-      (let [ovals   (double-array ocnt)
-            sn-toks (set (soc/tokenize (.stringValue inst sn-ndx) :upper-case))]
+      (let [ovals   (double-array ocnt)]
 
         ;; Just copy in the values across the input columns
         (dotimes [i icnt]
           (aset ovals i (.value inst i)))
 
         ;; Got F/M names in the screen name?
-        (aset ovals (- ocnt 2) (double (count-sn sn-toks :female)))
-        (aset ovals (- ocnt 1) (double (count-sn sn-toks :male)))
+        (when-let [ndx (as-> ^SingleIndex (state OPT-SCREEN-NAME-NDX) opt
+                             (and (seq (.getSingleIndex opt))
+                                  (.getIndex opt)))]
+          (let [toks (set (soc/tokenize (.stringValue inst (int ndx)) :upper-case))]
+            (aset ovals (- ocnt 2) (double (count-sn toks :female)))
+            (aset ovals (- ocnt 1) (double (count-sn toks :male)))))
 
         ;; Append the finished instance to the output dataset
         (.add result (DenseInstance. 1.0 ovals))))
