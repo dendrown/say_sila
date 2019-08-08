@@ -70,8 +70,7 @@
   default.  Therefore, we assume nothing.
   "
   []
-  [[] (atom {OPT-SCREEN-NAME-NDX (SingleIndex.)
-             OPT-DESCRIPTION-NDX (SingleIndex.)})])
+  [[] (atom {})])
 
 
 
@@ -105,6 +104,7 @@
     (.getSingleIndex ndx)))
 
 
+
 ;; ---------------------------------------------------------------------------
 (defn -getScreenNameIndex
   "
@@ -113,6 +113,7 @@
   "
   [this]
   (get-index this OPT-SCREEN-NAME-NDX))
+
 
 
 ;; ---------------------------------------------------------------------------
@@ -125,13 +126,15 @@
   (get-index this OPT-DESCRIPTION-NDX))
 
 
+
 ;; ---------------------------------------------------------------------------
 (defn- set-index
   "
   Sets the specified (one-based) column index.
   "
   [this opt col]
-  (set-state! this opt #(doto ^SingleIndex % (.setSingleIndex (str col)))))
+  (set-state! this opt (fn [_] (SingleIndex. (str col)))))
+
 
 
 ;; ---------------------------------------------------------------------------
@@ -175,19 +178,14 @@
   Returns an enumeration describing the available options.
   "
   [^TweetToGenderFeatures this]
-  (let [state @(.state this)]
-    ;;
-    ;; Currently, all our options are SingleIndex objects
-    (->> (reduce #(let [ndx ^SingleIndex (state   %2)
-                        opt ^Option      (Options %2)]
-                    (if-let [value (not-empty (.getSingleIndex ndx))]
-                      (conj %1 value (str "-" (.name opt)))         ; Add in reverse order
-                      %1))                                          ; Skip unset option
-                 (seq (.superGetOptions this))
-                 (keys Options))
-
-         (into-array String))))
-
+  ;; Currently, all our options are SingleIndex objects
+  (->> (reduce (fn [optlist [tag ^SingleIndex ndx]]
+                 (let [col (.getSingleIndex ndx)
+                       opt ^Option (Options tag)]
+                   (conj optlist col (str "-" (.name opt)))))   ; Add in reverse order
+               (seq (.superGetOptions this))
+               @(.state this))
+       (into-array String)))
 
 
 
@@ -238,7 +236,6 @@
   [^TweetToGenderFeatures this
    ^Instances             insts]
   (let [->tag  #(str "gender-" %1 "-" (name %2))
-        state  @(.state this)
         acnt   (.numAttributes insts)
         result (Instances. insts 0)]
 
@@ -248,13 +245,11 @@
     ;; TODO: We're doing double fields for each category.  Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
     (loop [col  acnt
-           opts (keys Options)]
-      (when-let [opt (first opts)]
-        (if (seq (.getSingleIndex ^SingleIndex (state opt)))
-          (do (.insertAttributeAt result (Attribute. (->tag opt :female)) col)
-              (.insertAttributeAt result (Attribute. (->tag opt :male)) (inc col))
-              (recur (+ col 2) (rest opts)))
-          (recur col (rest opts)))))
+           opts @(.state this)]
+      (when-let [[opt _] (first opts)]
+        (.insertAttributeAt result (Attribute. (->tag opt :female)) col)
+        (.insertAttributeAt result (Attribute. (->tag opt :male)) (inc col))
+        (recur (+ col 2) (rest opts))))
 
     result))
 
@@ -273,19 +268,16 @@
   ;;    i - for input instances
   ;;    o - for output (result) instances
   (let [result   (Instances. ^Instances (.determineOutputFormat this insts) 0)
-        state    @(.state this)
        ;txt-ndx  (.getIndex ^SingleIndex (.getTextIndex this))          ; TODO
         icnt     (.numAttributes insts)
         ocnt     (.numAttributes result)
-        [_ opts] (reduce (fn [[oi indices] opt]
-                           (let [ndx ^SingleIndex (state opt)]
-                             (if (seq (.getSingleIndex ndx))
-                                 [(+ oi 2) (assoc indices opt [(.getIndex ndx) oi])]
-                                 [oi indices])))
+        [_ opts] (reduce (fn [[oi indices] [opt ^SingleIndex ndx]]
+                           [(+ oi 2)                                    ; Next outcol
+                            (assoc indices opt [(.getIndex ndx) oi])])  ; Tag [incol outcol]
                          [icnt {}]
-                         (keys Options))]
+                         @(.state this))]
 
-    (log/notice "OPTIONS:" opts)
+    (log/debug "OPTIONS:" opts)
     (letfn [(attr-str [^Instance inst i]
               (.stringValue inst (int i)))
 
