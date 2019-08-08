@@ -21,3 +21,4 @@ resources/gender/*.zip
 resources/gender/pan/
 resources/KB/*.owl
 resources/KB/catalog-*.xml
+resources/political/*.tsv
