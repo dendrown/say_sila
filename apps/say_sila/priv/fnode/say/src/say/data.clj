@@ -91,7 +91,13 @@
   (save-names names (:fpath NAMES)))
 
   ([names fpath]
-  (println "Saving names to" fpath
-           (map (fn [[g nn]] {g (count nn)}) names))        ; Report counts
-  (spit fpath (pr-str names))))
+  (let [finalize  (fn [nset]
+                    (into (sorted-set) (map #(str/lower-case %) nset)))
+        finalists (reduce (fn [acc [gnd nset]]
+                            (assoc acc gnd (finalize nset)))
+                          {}
+                          names)]
+    (println "Saving names to" fpath
+             (map (fn [[g nn]] {g (count nn)}) finalists))      ; Report counts
+    (spit fpath (pr-str finalists)))))
 

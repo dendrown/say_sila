@@ -321,7 +321,7 @@
 
             ;-----------------------------------------------------------------
             (->words [^Instance inst a]
-              (-> (attr-str inst a) str/upper-case (str/split #" ")))]
+              (-> (attr-str inst a) str/lower-case (str/split #" ")))]
 
       ;; Run through all the instances...
       (doseq [^Instance inst (seq insts)]
@@ -333,7 +333,7 @@
 
           ;; Got F/M names in the screen name?
           (when-let [[in out] (opts OPT-SCREEN-NAME-NDX)]
-            (set-counts ovals out (soc/tokenize (attr-str inst in) :upper-case)))
+            (set-counts ovals out (soc/tokenize (attr-str inst in) :lower-case)))
 
           ;; Got F/M names in the name or the profile description?
           (when-let [[in out] (opts OPT-FULL-NAME-NDX)]   (set-counts ovals out (->words inst in)))
