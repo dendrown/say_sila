@@ -27,6 +27,7 @@
          stop/0,
          authenticate/1,
          date_tweet/2,
+         frame_hole/3,
          %------------------------- get_* functions are getting info from the database
          get_first_dts/1,
          get_first_dts/2,
@@ -40,7 +41,7 @@
          ontologize/2,
          %------------------------- pull_* functions are pulling info from the Twitter API
          pull_tweet/1,  pull_tweet/2,
-         pull_tweets/3,
+         pull_tweets/3, pull_tweets/4,
          reset/0,
          retrack/0,
          to_hashtag/1,
@@ -208,6 +209,45 @@ date_tweet(TwMap, Type) ->
         Millis ->
             Format(Millis)
     end.
+
+
+
+%%--------------------------------------------------------------------
+-type frame_end()  :: [tweet()] | bad_dst.
+-type frame_ends() :: {frame_end(), frame_end()}.
+
+-spec frame_hole(Tracker :: atom(),
+                 Start   :: datetime(),
+                 Stop    :: datetime()) -> frame_ends().
+%%
+% @doc  Returns a pair of tweet lists:
+%       [1] those occurring  around or before the `Start' datetime
+%       [2] those occurring  around or after  the `Stop'  datetime
+% @end  --
+frame_hole(Tracker, Start, Stop) ->
+
+    % Function to check our own database for tweets from just Before
+    % and just After the requested point in time.
+    Frame = fun(Before, DTS, After) ->
+        case calendar:local_time_to_universal_time_dst(DTS) of
+            [GMT] ->
+                Tweets = gen_server:call(?MODULE,
+                                         {get_tweets, Tracker, all, [return_maps,
+                                                                     {start, dts:sub(GMT, Before, minute)},
+                                                                     {stop,  dts:add(GMT, After,  minute)}]},
+                                         ?TWITTER_DB_TIMEOUT),
+                ?info("Checking local tweets around ~s: gmt[~s] cnt[~B]",
+                      [dts:str(DTS), dts:str(GMT), length(Tweets)]),
+                Tweets;
+
+            [_,_] -> ?error("DTS occurs during switch from daylight savings time: ~p", [DTS]),  bad_dst;
+            []    -> ?error("Illegal DTS switching to daylight savings time: ~p", [DTS]),       bad_dst
+        end
+    end,
+
+    % Find the framing tweet lists to book-end the hole
+    {Frame(5, Start, 1),
+     Frame(1, Stop,  5)}.
 
 
 
@@ -464,33 +504,29 @@ pull_tweet(ID, Opts) ->
 %%--------------------------------------------------------------------
 -spec pull_tweets(Tracker :: atom(),
                   Start   :: datetime(),
-                  Stop    :: datetime()) -> ok|bad_dts|bad_start|bad_stop|api_code().
+                  Stop    :: datetime()) -> ok|bad_start|bad_stop|api_code().
+
+-spec pull_tweets(Tracker :: atom(),
+                  Start   :: datetime(),
+                  Stop    :: datetime(),
+                  Options :: options()) -> ok
+                                         | bad_start | bad_stop
+                                         | no_pull
+                                         | api_code().
 
 %%
 % @doc  Retreives historical tweets via the Twitter API.
+%
+%       The one available Option is:
+%       - `no_pull'     : Just frame and report, do not pull tweets or update the DB
 % @end  --
 pull_tweets(Tracker, Start, Stop) ->
+    pull_tweets(Tracker, Start, Stop, []).
 
-    % Function to check our own database for tweets from just Before
-    % and just After the requested point in time.
-    Frame = fun(Before, DTS, After) ->
-        case calendar:local_time_to_universal_time_dst(DTS) of
-            [GMT] ->
-                Tweets = gen_server:call(?MODULE,
-                                         {get_tweets, Tracker, all, [return_maps,
-                                                                     {start, dts:sub(GMT, Before, minute)},
-                                                                     {stop,  dts:add(GMT, After,  minute)}]},
-                                         ?TWITTER_DB_TIMEOUT),
-                ?info("Checking local tweets around ~s: gmt[~s] cnt[~B]",
-                      [dts:str(DTS), dts:str(GMT), length(Tweets)]),
-                Tweets;
 
-            [_,_] -> ?error("DTS occurs during switch from daylight savings time: ~p", [DTS]),  bad_dst;
-            []    -> ?error("Illegal DTS switching to daylight savings time: ~p", [DTS]),       bad_dst
-        end
-    end,
+pull_tweets(Tracker, Start, Stop, Options) ->
 
-    % Function to insert and count...
+    % Function to insert and count tweets...
     Inserter = fun (Tweet, Cnt) ->
         % Use the same path as when we track tweets in real time
         ?info("Adding tweet from ~s", [maps:get(<<"created_at">>, Tweet)]),
@@ -523,8 +559,7 @@ pull_tweets(Tracker, Start, Stop) ->
     end,
 
     % Determine the tweet IDs that frame the time period we need (DB results are chronological)
-    case {Frame(5, Start, 1),
-          Frame(1, Stop,  5)} of
+    case frame_hole(Tracker, Start, Stop) of
 
         {[], _}      -> bad_start;
         {bad_dst, _} -> bad_start;
@@ -542,13 +577,17 @@ pull_tweets(Tracker, Start, Stop) ->
             ?info("Until GMT ~s: id[~B]", [dts:str(UntilMillis, millisecond), MaxID]),
             ?info("Period: ~.1f hours", [(UntilMillis-SinceMillis)/(60*60*1000)]),
 
-            TwCnt = PullPush(MaxID,
-                             [{q,                ?hashtag(Tracker)},
-                              {include_entities, true},
-                              {since_id,         SinceID},
-                              {count,            100}],
-                             0),
-            ?notice("Inserted ~B tweets", [TwCnt])
+            case pprops:get_value(no_pull, Options, false)  of
+                true  -> no_pull;
+                false ->
+                    TwCnt = PullPush(MaxID,
+                                     [{q,                ?hashtag(Tracker)},
+                                      {include_entities, true},
+                                      {since_id,         SinceID},
+                                      {count,            100}],
+                                     0),
+                    ?notice("Inserted ~B tweets", [TwCnt])
+            end
     end.
 
 
