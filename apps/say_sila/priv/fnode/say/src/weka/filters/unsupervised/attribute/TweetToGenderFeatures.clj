@@ -35,8 +35,10 @@
     :state      state
     :init       init
     :methods    [[getScreenNameIndex    []       String]
+                 [getFullNameIndex      []       String]
                  [getDescriptionIndex   []       String]
                  [setScreenNameIndex    [String] void]
+                 [setFullNameIndex      [String] void]
                  [setDescriptionIndex   [String] void]
                  [setUpperIndices       [int]    void]]
     :exposes    {m_textIndex {:get getSuperTextIndex
@@ -54,9 +56,14 @@
 (def ^:const NAMES       (read-string (slurp "resources/gender/names.edn")))
 
 (def ^:const OPT-SCREEN-NAME-NDX    "S")
+(def ^:const OPT-FULL-NAME-NDX      "N")
 (def ^:const OPT-DESCRIPTION-NDX    "D")
 (def Options {OPT-SCREEN-NAME-NDX   (Option. "The column index that holds users' screen names."
                                              OPT-SCREEN-NAME-NDX 1 "-S <col>")
+
+              OPT-FULL-NAME-NDX     (Option. "The column index that holds users' full names"
+                                             OPT-FULL-NAME-NDX 1 "-N <col>")
+
               OPT-DESCRIPTION-NDX   (Option. "The column index that holds users' profile description text."
                                              OPT-DESCRIPTION-NDX 1 "-D <col>")})
 
@@ -117,6 +124,17 @@
 
 
 ;; ---------------------------------------------------------------------------
+(defn -getFullNameIndex
+  "
+  Returns the setting for the (one-based) column index dedicated to the users'
+  full names.
+  "
+  [this]
+  (get-index this OPT-FULL-NAME-NDX))
+
+
+
+;; ---------------------------------------------------------------------------
 (defn -getDescriptionIndex
   "
   Returns the setting for the (one-based) column index that holds users'
@@ -144,6 +162,16 @@
   "
   [this col]
   (set-index this OPT-SCREEN-NAME-NDX col))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn -setFullNameIndex
+  "
+  Sets the (one-based) column index which holds users' full names.
+  "
+  [this col]
+  (set-index this OPT-FULL-NAME-NDX col))
 
 
 
@@ -235,7 +263,7 @@
   "
   [^TweetToGenderFeatures this
    ^Instances             insts]
-  (let [->tag  #(str "gender-" %1 "-" (name %2))
+  (let [->tag  #(str "names-" %1 "-" (name %2))
         acnt   (.numAttributes insts)
         result (Instances. insts 0)]
 
@@ -264,46 +292,52 @@
    ^Instances             insts]
 
   ;; NOTE: the result Instances are iteratively mutated in the Java way...
-  ;; Also, a lot of variables are prefixed with:
-  ;;    i - for input instances
-  ;;    o - for output (result) instances
+  ;; Also, several variables are prefixed with:
+  ;;    i - for input attributes
+  ;;    o - for output (result) attributes
   (let [result   (Instances. ^Instances (.determineOutputFormat this insts) 0)
        ;txt-ndx  (.getIndex ^SingleIndex (.getTextIndex this))          ; TODO
         icnt     (.numAttributes insts)
         ocnt     (.numAttributes result)
-        [_ opts] (reduce (fn [[oi indices] [opt ^SingleIndex ndx]]
-                           [(+ oi 2)                                    ; Next outcol
-                            (assoc indices opt [(.getIndex ndx) oi])])  ; Tag [incol outcol]
+        [_ opts] (reduce (fn [[out indices] [opt ^SingleIndex ndx]]
+                           [(+ out 2)                                   ; Next outcol
+                            (assoc indices opt [(.getIndex ndx) out])]) ; Tag [incol outcol]
                          [icnt {}]
                          @(.state this))]
 
     (log/debug "OPTIONS:" opts)
-    (letfn [(attr-str [^Instance inst i]
-              (.stringValue inst (int i)))
+    (letfn [;-----------------------------------------------------------------
+            (attr-str [^Instance inst a]
+              (.stringValue inst (int a)))
 
-            (count-names [toks gnd]
-              (count (set/intersection (set toks) (NAMES gnd))))
+            ;-----------------------------------------------------------------
+            (count-names [words gnd]
+              (count (set/intersection (set words) (NAMES gnd))))
 
+            ;-----------------------------------------------------------------
             (set-counts [^doubles ovals oi toks]
               (aset ovals oi       (double (count-names toks :female)))
-              (aset ovals (inc oi) (double (count-names toks :male))))]
+              (aset ovals (inc oi) (double (count-names toks :male))))
+
+            ;-----------------------------------------------------------------
+            (->words [^Instance inst a]
+              (-> (attr-str inst a) str/upper-case (str/split #" ")))]
 
       ;; Run through all the instances...
       (doseq [^Instance inst (seq insts)]
         (let [ovals (double-array ocnt)]
 
-          ;; Just copy in the values across the input columns
-          (dotimes [i icnt]
-            (aset ovals i (.value inst i)))
+          ;; Just copy in the attribute values across the input columns
+          (dotimes [a icnt]
+            (aset ovals a (.value inst a)))
 
           ;; Got F/M names in the screen name?
-          (when-let [[ii oi] (opts OPT-SCREEN-NAME-NDX)]
-            (set-counts ovals oi (soc/tokenize (attr-str inst ii) :upper-case)))
+          (when-let [[in out] (opts OPT-SCREEN-NAME-NDX)]
+            (set-counts ovals out (soc/tokenize (attr-str inst in) :upper-case)))
 
-          ;; Got F/M names in the profile?
-          (when-let [[ii oi] (opts OPT-DESCRIPTION-NDX)]
-            (set-counts ovals oi
-                        (-> (attr-str inst ii) str/upper-case (str/split #" "))))
+          ;; Got F/M names in the name or the profile description?
+          (when-let [[in out] (opts OPT-FULL-NAME-NDX)]   (set-counts ovals out (->words inst in)))
+          (when-let [[in out] (opts OPT-DESCRIPTION-NDX)] (set-counts ovals out (->words inst in)))
 
           ;; Append the finished instance to the output dataset
           (.add result (DenseInstance. 1.0 ovals)))))
