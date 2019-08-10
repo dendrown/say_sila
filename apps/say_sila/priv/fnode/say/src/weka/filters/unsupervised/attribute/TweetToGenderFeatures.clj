@@ -299,6 +299,15 @@
        ;txt-ndx  (.getIndex ^SingleIndex (.getTextIndex this))          ; TODO
         icnt     (.numAttributes insts)
         ocnt     (.numAttributes result)
+        tokenize (memoize (fn [txt]
+                            (jcall affective.core.Utils/tokenize
+                                   txt
+                                   [this .isToLowerCase
+                                         .isStandarizeUrlsUsers
+                                         .isReduceRepeatedLetters
+                                         .getTokenizer
+                                         .getStemmer
+                                         .getStopwordsHandler])))
         [_ opts] (reduce (fn [[out indices] [opt ^SingleIndex ndx]]
                            [(+ out 2)                                   ; Next outcol
                             (assoc indices opt [(.getIndex ndx) out])]) ; Tag [incol outcol]
@@ -320,8 +329,8 @@
               (aset ovals (inc oi) (double (count-names toks :male))))
 
             ;-----------------------------------------------------------------
-            (->words [^Instance inst a]
-              (-> (attr-str inst a) str/lower-case (str/split #" ")))]
+            (->tokens [^Instance inst a]
+              (tokenize (attr-str inst a)))]
 
       ;; Run through all the instances...
       (doseq [^Instance inst (seq insts)]
@@ -331,13 +340,13 @@
           (dotimes [a icnt]
             (aset ovals a (.value inst a)))
 
-          ;; Got F/M names in the screen name?
+          ;; Got F/M names jumbled in the screen name?
           (when-let [[in out] (opts OPT-SCREEN-NAME-NDX)]
             (set-counts ovals out (soc/tokenize (attr-str inst in) :lower-case)))
 
           ;; Got F/M names in the name or the profile description?
-          (when-let [[in out] (opts OPT-FULL-NAME-NDX)]   (set-counts ovals out (->words inst in)))
-          (when-let [[in out] (opts OPT-DESCRIPTION-NDX)] (set-counts ovals out (->words inst in)))
+          (when-let [[in out] (opts OPT-FULL-NAME-NDX)]   (set-counts ovals out (->tokens inst in)))
+          (when-let [[in out] (opts OPT-DESCRIPTION-NDX)] (set-counts ovals out (->tokens inst in)))
 
           ;; Append the finished instance to the output dataset
           (.add result (DenseInstance. 1.0 ovals)))))

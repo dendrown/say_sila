@@ -23,6 +23,29 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro jcall
+  "
+  Sorta-kinda-not-really similar to apply, but works for java static methods
+  with zero or more normal parameters and a series of parameters that involve
+  method calls on an object.
+
+  Example usage:
+    (jcall some.package/foo 42 [this .doSomething .doSomethingElse .doAnother])
+
+  This macro was originally supposed to be a generic utility, but it didn't
+  end up that way at all, did it?
+  "
+  ;; Add the parts on in reverse order...
+  ([meth [obj & meths]]
+  (conj (map #(list % obj) meths) meth))
+
+
+  ([meth arg1 [obj & meths]]
+   (conj (map #(list % obj) meths) arg1 meth)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn ^String keystr
   "
   Returns a string representing a keyword without its initial colon ( : ).
