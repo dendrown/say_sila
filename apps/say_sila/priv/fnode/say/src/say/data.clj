@@ -12,6 +12,9 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.data
   (:require [say.genie              :refer :all]
+            [say.log                :as log]
+            [clojure.data.csv       :as csv]
+            [clojure.java.io        :as io]
             [clojure.string         :as str]
             [net.cgrand.enlive-html :as web])
   (:import  [java.net URL]))
@@ -20,9 +23,16 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const NAMES  {:female {:url "http://www.20000-names.com/female_english_names" :cnt 20}
-                     :male   {:url "http://www.20000-names.com/male_english_names"   :cnt 17}
-                     :fpath  "resources/gender/names.edn"})
+;;; Female/male names in English from the web
+;;; TODO: Compare with the methodology from \cite{thelwall2018}, which  uses
+;;;       names from the 1990 U.S. census @ 90% male and 90% female
+(def ^:const NAMES   {:female {:url "http://www.20000-names.com/female_english_names" :cnt 20}
+                      :male   {:url "http://www.20000-names.com/male_english_names"   :cnt 17}
+                      :edn "resources/gender/names.edn"})
+
+;;; Gender word-usage model: \cite{sap2014}
+(def ^:const EMNLP14 {:csv "resources/gender/emnlp14gender.csv"
+                      :edn "resources/gender/emnlp14.edn"})
 
 
 ;;; --------------------------------------------------------------------------
@@ -88,7 +98,7 @@
 (defn save-names
   "Saves a hash-map of :female and :male names for later use."
   ([names]
-  (save-names names (:fpath NAMES)))
+  (save-names names (:edn NAMES)))
 
   ([names fpath]
   (let [finalize  (fn [nset]
@@ -101,3 +111,28 @@
              (map (fn [[g nn]] {g (count nn)}) finalists))      ; Report counts
     (spit fpath (pr-str finalists)))))
 
+
+;;; --------------------------------------------------------------------------
+(defn make-emnlp
+  "Creates a hashmap out of the EMNLP14 CSV lexicon.  Returns a vector pair
+  containing:
+      [0] the interercept
+      [1] the hashmap"
+  [& opts]
+  (with-open [rdr (io/reader (:csv EMNLP14))]
+    (let [[head bias & lines] (csv/read-csv rdr)
+          intercept           (Double/parseDouble (bias 1))
+          [lcnt model]        (reduce (fn [[cnt acc] [word weight]]
+                                        [(inc cnt) (assoc acc word (Double/parseDouble weight))])
+                                      [0 {}]
+                                      lines)]
+      ;; Make the hashmap model, report the intercept
+      (log/info "Mapping EMNLP 2014 lexicon:" head)
+      (log/fmt-info "Model: words[~a] [~8$]" lcnt intercept)
+      [intercept model]
+
+      ;; Save the hashmap if they're requested it
+      (when (some #{:save} opts)
+        (let [fpath (:edn EMNLP14)]
+          (log/info "Saving model to" fpath)
+          (spit fpath (pr-str model)))))))

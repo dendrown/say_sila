@@ -52,8 +52,13 @@
 
 (set! *warn-on-reflection* true)
 
+;;; Erlang handles downloading tweets and preparing ARFFs (pan.erl and twitter.erl)
 (def ^:const GENDER-GOLD "/srv/say_sila/weka/gender.pan2014.1-2.arff")      ; Subset!!
+
+;;; Lexicon data is prepared in say.data
 (def ^:const NAMES       (read-string (slurp "resources/gender/names.edn")))
+(def ^:const EMNLP14     (read-string (slurp "resources/gender/emnlp14.edn")))
+(def ^:const EMNLP-BIAS  -0.06724152)
 
 (def ^:const OPT-SCREEN-NAME-NDX    "S")
 (def ^:const OPT-FULL-NAME-NDX      "N")
