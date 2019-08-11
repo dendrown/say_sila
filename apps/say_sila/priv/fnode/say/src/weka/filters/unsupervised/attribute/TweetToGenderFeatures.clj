@@ -344,7 +344,9 @@
 
             ;-----------------------------------------------------------------
             (->tokens [^Instance inst a]
-              (tokenize (attr-str inst a)))]
+              (let [tokens (tokenize (attr-str inst a))]
+                (log/debug "TOKS:" (str tokens))
+                tokens))]
 
       ;; Run through all the instances...
       (doseq [^Instance inst (seq insts)]
