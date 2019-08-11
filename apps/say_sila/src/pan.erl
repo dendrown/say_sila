@@ -138,7 +138,10 @@ genderize(UserFpath, Gender) ->
 
     % Function to pull the tweet and convert to ARFF-ready data
     Tweeter = fun(ID, Acc) ->
-        timer:sleep(?TWITTER_GOVERNOR_MS),
+        % We should be able to pull 900 tweets every 15 minute window (3600/hr or 1/sec)
+        % We'll go at half that rate in case other nodes are doing doing something too.
+        % @ref https://developer.twitter.com/en/docs/basics/rate-limits.html
+        timer:sleep(2000),
         case twitter:pull_tweet(ID, return_maps) of
 
             #{<<"lang">> := <<"en">>} = T ->
