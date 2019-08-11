@@ -58,6 +58,9 @@
 (def ^:const OPT-SCREEN-NAME-NDX    "S")
 (def ^:const OPT-FULL-NAME-NDX      "N")
 (def ^:const OPT-DESCRIPTION-NDX    "D")
+(def ^:const OPT-KEYS               [OPT-SCREEN-NAME-NDX                    ; Defines option order
+                                     OPT-FULL-NAME-NDX                      ; (but not all may be
+                                     OPT-DESCRIPTION-NDX])                  ; selected)
 (def Options {OPT-SCREEN-NAME-NDX   (Option. "The column index that holds users' screen names."
                                              OPT-SCREEN-NAME-NDX 1 "-S <col>")
 
@@ -264,6 +267,7 @@
   [^TweetToGenderFeatures this
    ^Instances             insts]
   (let [->tag  #(str "names-" %1 "-" (name %2))
+        state  @(.state this)
         acnt   (.numAttributes insts)
         result (Instances. insts 0)]
 
@@ -273,11 +277,16 @@
     ;; TODO: We're doing double fields for each category.  Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
     (loop [col  acnt
-           opts @(.state this)]
-      (when-let [[opt _] (first opts)]
-        (.insertAttributeAt result (Attribute. (->tag opt :female)) col)
-        (.insertAttributeAt result (Attribute. (->tag opt :male)) (inc col))
-        (recur (+ col 2) (rest opts))))
+           opts OPT-KEYS]
+      (when-let [opt (first opts)]
+        (recur (if (state opt)
+                 ;; We're using this option, add the appropriate attributes 
+                 (do (.insertAttributeAt result (Attribute. (->tag opt :female)) col)
+                     (.insertAttributeAt result (Attribute. (->tag opt :male)) (inc col))
+                     (+ col 2))
+                 ;; This option is unset, no extra attributes
+                 col)
+               (rest opts))))
 
     result))
 
@@ -296,6 +305,7 @@
   ;;    i - for input attributes
   ;;    o - for output (result) attributes
   (let [result   (Instances. ^Instances (.determineOutputFormat this insts) 0)
+        state    @(.state this)
        ;txt-ndx  (.getIndex ^SingleIndex (.getTextIndex this))          ; TODO
         icnt     (.numAttributes insts)
         ocnt     (.numAttributes result)
@@ -308,11 +318,15 @@
                                          .getTokenizer
                                          .getStemmer
                                          .getStopwordsHandler])))
-        [_ opts] (reduce (fn [[out indices] [opt ^SingleIndex ndx]]
-                           [(+ out 2)                                   ; Next outcol
-                            (assoc indices opt [(.getIndex ndx) out])]) ; Tag [incol outcol]
+        [_ opts] (reduce (fn [[out indices] opt]
+                           (if-let [^SingleIndex ndx (state opt)]
+                             ;; The accumulator is a pair:
+                             ;; [0] the next output column
+                             ;; [1] a column-finder map {K=opt-code, V=[in-col out-col]
+                             [(+ out 2) (assoc indices opt [(.getIndex ndx) out])]  ; Use option
+                             [out indices]))                                        ; Unused
                          [icnt {}]
-                         @(.state this))]
+                         OPT-KEYS)]
 
     (log/debug "OPTIONS:" opts)
     (letfn [;-----------------------------------------------------------------
@@ -336,10 +350,12 @@
       (doseq [^Instance inst (seq insts)]
         (let [ovals (double-array ocnt)]
 
-          ;; Just copy in the attribute values across the input columns
+          ;; INPUT ATTRS: just copy in the attribute values across the input columns
           (dotimes [a icnt]
             (aset ovals a (.value inst a)))
 
+          ;; OUTPUT ATTRS:
+          ;;
           ;; Got F/M names jumbled in the screen name?
           (when-let [[in out] (opts OPT-SCREEN-NAME-NDX)]
             (set-counts ovals out (soc/tokenize (attr-str inst in) :lower-case)))

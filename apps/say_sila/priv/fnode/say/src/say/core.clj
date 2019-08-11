@@ -14,9 +14,9 @@
   (:require [say.config :as cfg]
             [say.data   :as data]
             [say.log    :as log]
-            [say.sila   :as sila]
+           ;[say.sila   :as sila]
             [say.weka   :as weka]
-            [say.influence]                 ; NOTE: article
+           ;[say.influence]                 ; NOTE: article
             [clojure.core.async :as a :refer [>! <! >!! <!! go chan]]
             [clojure.data.json  :as json]
             [clojure.string     :as str])
@@ -156,9 +156,9 @@
 (defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff '(:embed :bws)))
 (defmethod dispatch "regress" [msg] (do-weka msg regress))
 
-(defmethod dispatch "sila" [msg]
-  ;; Handle updates to the say-sila ontology (no response back to Erlang)
-  (future (sila/execute (:arg msg))))
+;(defmethod dispatch "sila" [msg]
+;  ;; Handle updates to the say-sila ontology (no response back to Erlang)
+;  (future (sila/execute (:arg msg))))
 
 
 (defmethod dispatch "embed" [msg]
