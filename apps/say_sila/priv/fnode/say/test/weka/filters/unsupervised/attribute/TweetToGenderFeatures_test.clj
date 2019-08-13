@@ -55,7 +55,7 @@
 
 
 ;; ---------------------------------------------------------------------------
-(deftest filtering
+(deftest emnlp
   (let [sieve    (doto (TweetToGenderFeatures.)
                        (.setOptions (into-array String ["-I" "6" "-E"])))
         insts    (weka/load-arff ARFF-FPATH)
