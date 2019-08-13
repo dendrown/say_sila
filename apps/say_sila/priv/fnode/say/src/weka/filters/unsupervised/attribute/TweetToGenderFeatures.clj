@@ -14,6 +14,7 @@
   (:require [say.genie       :refer :all]
             [say.log         :as log]
             [say.social      :as soc]
+            [say.weka        :as weka]
             [clojure.set     :as set]
             [clojure.string  :as str])
   (:import  [affective.core ArffLexiconEvaluator]
@@ -34,15 +35,17 @@
     :extends    weka.filters.unsupervised.attribute.TweetToFeatureVector
     :state      state
     :init       init
-    :methods    [[getScreenNameIndex    []       String]
-                 [getFullNameIndex      []       String]
-                 [getDescriptionIndex   []       String]
-                 [setScreenNameIndex    [String] void]
-                 [setFullNameIndex      [String] void]
-                 [setDescriptionIndex   [String] void]
-                 [setUpperIndices       [int]    void]]
-    :exposes    {m_textIndex {:get getSuperTextIndex
-                              :set setSupetTextIndex}}
+    :methods    [[getScreenNameIndex    []        String]
+                 [getFullNameIndex      []        String]
+                 [getDescriptionIndex   []        String]
+                 [isUsesEMNLP2014       []        Boolean]
+                 [setScreenNameIndex    [String]  void]
+                 [setFullNameIndex      [String]  void]
+                 [setDescriptionIndex   [String]  void]
+                 [setUsesEMNLP2014      [boolean] void]
+                 [setUpperIndices       [int]     void]]
+    :exposes    {m_textIndex {:get superGetTextIndex
+                              :set superGetTextIndex}}
     :exposes-methods {;- weka.filters.Filter ---------------------------------
                       getOptions    superGetOptions
                       setOptions    superSetOptions
@@ -55,17 +58,16 @@
 ;;; Erlang handles downloading tweets and preparing ARFFs (pan.erl and twitter.erl)
 (def ^:const GENDER-GOLD "/srv/say_sila/weka/gender.pan2014.1-2.arff")      ; Subset!!
 
-;;; Lexicon data is prepared in say.data
-(def ^:const NAMES       (read-string (slurp "resources/gender/names.edn")))
-(def ^:const EMNLP14     (read-string (slurp "resources/gender/emnlp14.edn")))
-(def ^:const EMNLP-BIAS  -0.06724152)
-
 (def ^:const OPT-SCREEN-NAME-NDX    "S")
 (def ^:const OPT-FULL-NAME-NDX      "N")
 (def ^:const OPT-DESCRIPTION-NDX    "D")
-(def ^:const OPT-KEYS               [OPT-SCREEN-NAME-NDX                    ; Defines option order
+(def ^:const OPT-USES-EMNLP-2014    "E")
+(def ^:const INDEX-OPT-KEYS         [OPT-SCREEN-NAME-NDX                    ; Defines option order
                                      OPT-FULL-NAME-NDX                      ; (but not all may be
                                      OPT-DESCRIPTION-NDX])                  ; selected)
+(def ^:const LEXICON-OPT-KEYS       [OPT-USES-EMNLP-2014])
+(def ^:const OPT-KEYS               (concat INDEX-OPT-KEYS LEXICON-OPT-KEYS))
+
 (def Options {OPT-SCREEN-NAME-NDX   (Option. "The column index that holds users' screen names."
                                              OPT-SCREEN-NAME-NDX 1 "-S <col>")
 
@@ -73,7 +75,17 @@
                                              OPT-FULL-NAME-NDX 1 "-N <col>")
 
               OPT-DESCRIPTION-NDX   (Option. "The column index that holds users' profile description text."
-                                             OPT-DESCRIPTION-NDX 1 "-D <col>")})
+                                             OPT-DESCRIPTION-NDX 1 "-D <col>")
+
+              OPT-USES-EMNLP-2014   (Option. (str "Uses the EMNLP-2014 gender lexicon to calculate a gender"
+                                                  "score based on the column specified by the Text Index option.")
+                                             OPT-USES-EMNLP-2014 0 "-E")})
+
+
+;;; Lexicon data is prepared in say.data
+(defonce NAMES       (read-string (slurp "resources/gender/names.edn")))
+(defonce EMNLP-2014  (read-string (slurp "resources/gender/emnlp14.edn")))
+(def ^:const EMNLP-BIAS  -0.06724152)
 
 
 ;; ---------------------------------------------------------------------------
@@ -154,6 +166,16 @@
 
 
 ;; ---------------------------------------------------------------------------
+(defn -isUsesEMNLP2014
+  "
+  Returns whether or not this Filter uses the EMNLP-2014 gender lexicon.
+  "
+  [this]
+  (get-state this OPT-USES-EMNLP-2014))
+
+
+
+;; ---------------------------------------------------------------------------
 (defn- set-index
   "
   Sets the specified (one-based) column index.
@@ -194,12 +216,24 @@
 
 
 ;; ---------------------------------------------------------------------------
+(defn -setUsesEMNLP2014
+  "
+  Instructs this Filter to use the EMNLP-2014 gender lexicon.
+  "
+  [this use?]
+  (set-state! this
+              OPT-USES-EMNLP-2014
+              (fn [_] use?)))
+
+
+
+;; ---------------------------------------------------------------------------
 (defn -setUpperIndices
   "
   Sets the upper index for anything column-related in the Filter state.
   "
   [^TweetToGenderFeatures this col]
-  (let [tindex (.getSuperTextIndex this)]
+  (let [tindex (.superGetTextIndex this)]
     (.setUpper ^SingleIndex tindex col)
     (swap! (.state this) (fn [state]
                            (doseq [[_ ndx] state]
@@ -264,6 +298,26 @@
 
 
 ;; ---------------------------------------------------------------------------
+(defn tag-name
+  "
+  Returns a string describing a name-distinguishing column or other entity.
+  "
+  [opt gnd]
+  (str "name-" opt "-" (name gnd)))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn tag-gender
+  "
+  Returns a string describing a name-distinguishing column or other entity.
+  "
+  [opt]
+  (str "gender-" opt))
+
+
+
+;; ---------------------------------------------------------------------------
 (defn -determineOutputFormat
   "
   Returns a empty Instances object, which defines the filter's output after
@@ -271,10 +325,9 @@
   "
   [^TweetToGenderFeatures this
    ^Instances             insts]
-  (let [->tag  #(str "names-" %1 "-" (name %2))
-        state  @(.state this)
-        acnt   (.numAttributes insts)
-        result (Instances. insts 0)]
+  (let [state    @(.state this)
+        acnt     (.numAttributes insts)
+        result   (Instances. insts 0)]
 
     ;; Make sure the user stays in bounds for the attributes we hit
     (.setUpperIndices this (dec acnt))
@@ -282,16 +335,23 @@
     ;; TODO: We're doing double fields for each category.  Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
     (loop [col  acnt
-           opts OPT-KEYS]
+           opts INDEX-OPT-KEYS]
       (when-let [opt (first opts)]
         (recur (if (state opt)
                  ;; We're using this option, add the appropriate attributes 
-                 (do (.insertAttributeAt result (Attribute. (->tag opt :female)) col)
-                     (.insertAttributeAt result (Attribute. (->tag opt :male)) (inc col))
+                 (do (.insertAttributeAt result (Attribute. (tag-name opt :female)) col)
+                     (.insertAttributeAt result (Attribute. (tag-name opt :male)) (inc col))
                      (+ col 2))
                  ;; This option is unset, no extra attributes
                  col)
                (rest opts))))
+
+    ;; Are we using any lexicons?
+    (when (.isUsesEMNLP2014 this)
+      (log/debug "Using EMNLP-2014")
+      (.insertAttributeAt result
+                          (Attribute. (tag-gender OPT-USES-EMNLP-2014))
+                          (.numAttributes result)))
 
     result))
 
@@ -331,7 +391,7 @@
                              [(+ out 2) (assoc indices opt [(.getIndex ndx) out])]  ; Use option
                              [out indices]))                                        ; Unused
                          [icnt {}]
-                         OPT-KEYS)]
+                         INDEX-OPT-KEYS)]
 
     (log/debug "OPTIONS:" opts)
     (letfn [;-----------------------------------------------------------------
@@ -351,7 +411,22 @@
             (->tokens [^Instance inst a]
               (let [tokens (tokenize (attr-str inst a))]
                 (log/debug "TOKS:" (str tokens))
-                tokens))]
+                tokens))
+
+            ;-----------------------------------------------------------------
+            (inc-hit [hits word weight]
+              (let [[hcnt _] (get hits word [0 :none])]
+                (assoc hits word [(inc hcnt) weight])))
+
+            ;-----------------------------------------------------------------
+            (check-emnlp [^Instance inst a]
+              (reduce (fn [[wcnt hits] word]
+                        [(inc wcnt)                             ; [0] Always another word
+                         (if-let [weight (EMNLP-2014 word)]     ; [1] Check lexicon hits
+                           (inc-hit hits word weight)
+                           hits)])
+                      [0 {}]
+                      (->tokens inst a)))]
 
       ;; Run through all the instances...
       (doseq [^Instance inst (seq insts)]
@@ -370,6 +445,20 @@
           ;; Got F/M names in the name or the profile description?
           (when-let [[in out] (opts OPT-FULL-NAME-NDX)]   (set-counts ovals out (->tokens inst in)))
           (when-let [[in out] (opts OPT-DESCRIPTION-NDX)] (set-counts ovals out (->tokens inst in)))
+
+          ;; Check a lexicon?
+          (when (.isUsesEMNLP2014 this)
+            (let [tndx   (-> (.superGetTextIndex this)
+                             (.getIndex))
+                  out    (weka/get-index result (tag-gender OPT-USES-EMNLP-2014))   ; FIXME: save output cols
+                  [wcnt
+                   hits] (check-emnlp inst tndx)
+                  score  (double (reduce (fn [acc [hcnt weight]]
+                                           (+ acc (/ (* hcnt weight)
+                                                      wcnt)))
+                                         0.00
+                                         hits))]
+              (aset ovals out score)))
 
           ;; Append the finished instance to the output dataset
           (.add result (DenseInstance. 1.0 ovals)))))

@@ -34,7 +34,7 @@
   (let [sieve    (setup-filter)
         insts    (weka/load-arff ARFF-FPATH)
         in-cnt   (.numAttributes insts)
-        out-cnt  (* 2 (count OPT-KEYS))                 ; F&M attr for each option
+        out-cnt  (* 2 (count ["S" "N" "D"]))            ; F&M attr for each option
         result   (weka/filter-instances insts sieve [])
         [male
          female] (map #(.instance result %) [0 1])]

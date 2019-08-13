@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.weka
   (:require [say.config      :as cfg]
@@ -99,6 +99,25 @@
                                                      ","  (inc +ARFF-TEXT-ATTR-NUM+) "-last")]}})
 
 (def ^:const +EMOTE-FILTER+ :bws)
+
+
+;;; --------------------------------------------------------------------------
+;;; ╻┏┓╻╺┳┓┏━╸╻ ╻┏━╸┏━┓
+;;; ┃┃┗┫ ┃┃┣╸ ┏╋┛┣╸ ┣┳┛
+;;; ╹╹ ╹╺┻┛┗━╸╹ ╹┗━╸╹┗╸
+;;; --------------------------------------------------------------------------
+(defprotocol Indexer
+  "
+  Facilitate getting an index from Weka entities.  This is currently a trial
+  protocol, expected to grow as we go...
+  "
+  (get-index [entity ^String tag]  "Return an index by the column name (tag)"))
+
+(extend-protocol Indexer
+  Instances
+  (get-index [insts ^String tag]
+    (.index (.attribute insts tag))))
+
 
 
 ;;; --------------------------------------------------------------------------
