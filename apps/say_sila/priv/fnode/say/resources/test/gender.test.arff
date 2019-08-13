@@ -9,5 +9,5 @@
 @ATTRIBUTE gender string
 
 @DATA
-'9000000001', 'en', 'dennisTheMenace2020',  'Dennis John Menace',   'It\'s Dennis, working with Patrick & William', 'When will it be done?',            'MALE'
-'9000000002', 'en', 'Denise_Ellen_Eve',     'Denise Eve',           'My name is Denise, but that\'s all I\'ll say', 'This is my time to say something.','FEMALE'
+'9000000001', 'en', 'dennisTheMenace2020',  'Dennis John Menace',   'It\'s Dennis, working with Patrick & William', 'This is my time to say something...something', 'MALE'
+'9000000002', 'en', 'Denise_Ellen_Eve',     'Denise Eve',           'My name is Denise, but that\'s all I\'ll say', 'Oh, when when when will it be done?',          'FEMALE'

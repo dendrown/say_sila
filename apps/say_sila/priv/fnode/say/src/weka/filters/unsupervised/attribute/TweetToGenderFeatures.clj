@@ -83,9 +83,9 @@
 
 
 ;;; Lexicon data is prepared in say.data
-(defonce NAMES       (read-string (slurp "resources/gender/names.edn")))
-(defonce EMNLP-2014  (read-string (slurp "resources/gender/emnlp14.edn")))
-(def ^:const EMNLP-BIAS  -0.06724152)
+(defonce NAMES       (read-string (slurp "resources/gender/names.edn")))    ; http://www.20000-names.com
+(defonce EMNLP-2014  (read-string (slurp "resources/gender/emnlp14.edn")))  ; https://github.com/wwbp/lexica
+(def ^:const EMNLP-BIAS  -0.06724152)                                       ; Gender model: male < 0 < female
 
 
 ;; ---------------------------------------------------------------------------
@@ -236,7 +236,8 @@
   (let [tindex (.superGetTextIndex this)]
     (.setUpper ^SingleIndex tindex col)
     (swap! (.state this) (fn [state]
-                           (doseq [[_ ndx] state]
+                           ;; We're just mutating the state's Weka objects
+                           (doseq [[_ ndx] (select-keys state INDEX-OPT-KEYS)]
                              (.setUpper ^SingleIndex ndx col))
                            state))))
 
@@ -248,14 +249,23 @@
   Returns an enumeration describing the available options.
   "
   [^TweetToGenderFeatures this]
-  ;; Currently, all our options are SingleIndex objects
-  (->> (reduce (fn [optlist [tag ^SingleIndex ndx]]
-                 (let [col (.getSingleIndex ndx)
-                       opt ^Option (Options tag)]
-                   (conj optlist col (str "-" (.name opt)))))   ; Add in reverse order
-               (seq (.superGetOptions this))
-               @(.state this))
-       (into-array String)))
+  (let [->cli #(str "-"  %)
+        state @(.state this)]
+    ;; Push our options onto whatever our parent reports
+    (as-> (reduce (fn [opts [tag ^SingleIndex ndx]]         ; Add -X <col> options
+                     (conj opts (.getSingleIndex ndx)       ; in reverse order
+                                (->cli tag)))
+                 (seq (.superGetOptions this))
+                 (select-keys state INDEX-OPT-KEYS)) opt-seq
+
+         (reduce (fn [opts [tag use?]]                      ; Add lexicon options
+                   (if use?
+                       (conj opts (->cli tag))
+                       opts))
+                 opt-seq
+                 (select-keys state LEXICON-OPT-KEYS))
+
+         (into-array String opt-seq))))                     ; Java-ize the output
 
 
 
@@ -268,10 +278,15 @@
    ^"[Ljava.lang.String;" opts]
 
   ;; CAREFUL: The calls to Weka Utils will mutate the opts array
-  (let [get-opt #(not-empty (Utils/getOption ^String % opts))]
+  (let [get-opt #(not-empty (Utils/getOption ^String % opts))
+        is-opt? #(Utils/getFlag ^String % opts)]
 
-    (when-let [ndx (get-opt OPT-SCREEN-NAME-NDX)]
-      (.setScreenNameIndex this ndx)))
+    (when-let [ndx (get-opt OPT-SCREEN-NAME-NDX)]   (.setScreenNameIndex  this ndx))
+    (when-let [ndx (get-opt OPT-FULL-NAME-NDX)]     (.setFullNameIndex    this ndx))
+    (when-let [ndx (get-opt OPT-DESCRIPTION-NDX)]   (.setDescriptionIndex this ndx))
+
+    (when (is-opt? OPT-USES-EMNLP-2014)
+      (.setUsesEMNLP2014 this true)))
 
   ;; Whatever's left is for the parent Filter
   (.superSetOptions this opts))
@@ -348,7 +363,6 @@
 
     ;; Are we using any lexicons?
     (when (.isUsesEMNLP2014 this)
-      (log/debug "Using EMNLP-2014")
       (.insertAttributeAt result
                           (Attribute. (tag-gender OPT-USES-EMNLP-2014))
                           (.numAttributes result)))
@@ -393,7 +407,7 @@
                          [icnt {}]
                          INDEX-OPT-KEYS)]
 
-    (log/debug "OPTIONS:" opts)
+    (log/debug "Index options:" opts)
     (letfn [;-----------------------------------------------------------------
             (attr-str [^Instance inst a]
               (.stringValue inst (int a)))
@@ -408,9 +422,9 @@
               (aset ovals (inc oi) (double (count-names toks :male))))
 
             ;-----------------------------------------------------------------
-            (->tokens [^Instance inst a]
+            (->tokens [inst a]
               (let [tokens (tokenize (attr-str inst a))]
-                (log/debug "TOKS:" (str tokens))
+                (log/info "TOKENS:" (str tokens))
                 tokens))
 
             ;-----------------------------------------------------------------
@@ -453,7 +467,9 @@
                   out    (weka/get-index result (tag-gender OPT-USES-EMNLP-2014))   ; FIXME: save output cols
                   [wcnt
                    hits] (check-emnlp inst tndx)
-                  score  (double (reduce (fn [acc [hcnt weight]]
+                  score  (double (reduce (fn [acc [word [hcnt weight]]]
+                                           (log/fmt-debug "Score<~a>: ~6$ + (~a + ~6$)/~a"
+                                                          word acc hcnt weight wcnt)
                                            (+ acc (/ (* hcnt weight)
                                                       wcnt)))
                                          0.00

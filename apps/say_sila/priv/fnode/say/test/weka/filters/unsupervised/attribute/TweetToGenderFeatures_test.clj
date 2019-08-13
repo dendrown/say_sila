@@ -5,6 +5,7 @@
   (:import  [weka.filters.unsupervised.attribute TweetToGenderFeatures]))
 
 (def ^:const ARFF-FPATH "resources/test/gender.test.arff")
+(def ^:const EPSILON 1e-12)
 
 (defn setup-filter []
     (doto (TweetToGenderFeatures.)
@@ -12,6 +13,9 @@
           (.setFullNameIndex    "4")
           (.setDescriptionIndex "5")
           (.setTextIndex        "6")))
+
+(defn equiv? [x y]
+  (> EPSILON (Math/abs (- x y))))
 
 
 ;; ---------------------------------------------------------------------------
@@ -48,4 +52,22 @@
       '(3 0
         2 0
         1 0) (map #(int (.value female (+ in-cnt %))) (range out-cnt)))))
+
+
+;; ---------------------------------------------------------------------------
+(deftest filtering
+  (let [sieve    (doto (TweetToGenderFeatures.)
+                       (.setOptions (into-array String ["-I" "6" "-E"])))
+        insts    (weka/load-arff ARFF-FPATH)
+        in-cnt   (.numAttributes insts)
+        score    in-cnt
+        out-cnt  (inc in-cnt)
+        result   (weka/filter-instances insts sieve [])
+
+        [male
+         female] (map #(.instance result %) [0 1])]
+
+    (is (= out-cnt (.numAttributes result)))
+    (equiv? -8.365057 (.value male  score))
+    (equiv?  2.810351 (.value female score))))
 
