@@ -10,7 +10,7 @@
 ;;;;
 ;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
-(ns say.weka
+(ns weka.core
   (:require [say.config      :as cfg]
             [say.genie       :as !!]
             [say.log         :as log]

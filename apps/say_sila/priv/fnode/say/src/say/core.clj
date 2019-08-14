@@ -8,15 +8,15 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.core
   (:require [say.config :as cfg]
             [say.data   :as data]
             [say.log    :as log]
-           ;[say.sila   :as sila]
-            [say.weka   :as weka]
-           ;[say.influence]                 ; NOTE: article
+           ;[say.sila   :as sila]           ; TODO: reinstate
+            [say.influence]                 ; NOTE: article
+            [weka.core  :as weka]
             [clojure.core.async :as a :refer [>! <! >!! <!! go chan]]
             [clojure.data.json  :as json]
             [clojure.string     :as str])

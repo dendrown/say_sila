@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Configuration utilities for Say Sila
 ;;;;
-;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.config
   (:require [say.log         :as log]
@@ -55,7 +55,7 @@
 ;;; --------------------------------------------------------------------------
 (defn get-config
   "
-  Returns the running instance's sibyl-weka configuration as a map.
+  Returns the running instance's configuration as a map.
   "
   []
   (clojure.edn/read-string (slurp @CONFIG-FPATH)))

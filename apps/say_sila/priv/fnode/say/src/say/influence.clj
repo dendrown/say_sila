@@ -11,10 +11,10 @@
 ;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.influence
-  (:require [say.log        :as log]
-            [say.weka       :as weka]
+  (:require [say.genie      :refer :all]
+            [say.log        :as log]
+            [weka.core      :as weka]
             [clojure.string :as str]
-            [say.genie      :refer :all]
             [incanter.core  :refer :all]
             [incanter.io    :refer :all]
             [incanter.stats :refer :all])
