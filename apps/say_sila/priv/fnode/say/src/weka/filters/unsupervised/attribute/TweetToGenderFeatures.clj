@@ -58,6 +58,9 @@
 ;;; Erlang handles downloading tweets and preparing ARFFs (pan.erl and twitter.erl)
 (def ^:const GENDER-GOLD "/srv/say_sila/weka/gender.pan2014.1-2.arff")      ; Subset!!
 
+(def ^:const GENDERS                [:female :male])
+(def ^:const SUPER-OPT-TEXT-NDX     "I")
+
 (def ^:const OPT-SCREEN-NAME-NDX    "S")
 (def ^:const OPT-FULL-NAME-NDX      "N")
 (def ^:const OPT-DESCRIPTION-NDX    "D")
@@ -340,32 +343,24 @@
   "
   [^TweetToGenderFeatures this
    ^Instances             insts]
-  (let [state    @(.state this)
-        acnt     (.numAttributes insts)
-        result   (Instances. insts 0)]
+  (let [acnt     (.numAttributes insts)
+        result   (Instances. insts 0)
+        append   #(.insertAttributeAt result (Attribute. (apply %1 %&))
+                                             (.numAttributes result))
+        state    @(.state this)]
 
     ;; Make sure the user stays in bounds for the attributes we hit
     (.setUpperIndices this (dec acnt))
 
     ;; TODO: We're doing double fields for each category.  Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
-    (loop [col  acnt
-           opts INDEX-OPT-KEYS]
-      (when-let [opt (first opts)]
-        (recur (if (state opt)
-                 ;; We're using this option, add the appropriate attributes 
-                 (do (.insertAttributeAt result (Attribute. (tag-name opt :female)) col)
-                     (.insertAttributeAt result (Attribute. (tag-name opt :male)) (inc col))
-                     (+ col 2))
-                 ;; This option is unset, no extra attributes
-                 col)
-               (rest opts))))
+    (doseq [[opt _] (select-keys state INDEX-OPT-KEYS)]
+      (doseq [gnd GENDERS]
+        (append tag-name opt gnd)))
 
     ;; Are we using any lexicons?
     (when (.isUsesEMNLP2014 this)
-      (.insertAttributeAt result
-                          (Attribute. (tag-gender OPT-USES-EMNLP-2014))
-                          (.numAttributes result)))
+      (append tag-gender OPT-USES-EMNLP-2014))
 
     result))
 
