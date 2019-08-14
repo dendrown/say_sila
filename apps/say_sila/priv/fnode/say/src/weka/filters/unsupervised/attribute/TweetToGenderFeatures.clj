@@ -14,7 +14,7 @@
   (:require [say.genie       :refer :all]
             [say.log         :as log]
             [say.social      :as soc]
-            [say.weka        :as weka]
+            [weka.core       :as weka]
             [clojure.set     :as set]
             [clojure.string  :as str])
   (:import  [affective.core ArffLexiconEvaluator]

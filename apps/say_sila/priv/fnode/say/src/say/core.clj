@@ -134,7 +134,7 @@
 
     (log/info "->> weka<" cmd# ">:" (str arg#))
     (go
-      (let [wfun# (ns-resolve 'say.weka (symbol '~fun))
+      (let [wfun# (ns-resolve 'weka.core (symbol '~fun))
             rsp#  (apply wfun# arg# '~parms)]
         (log/info "<<- weka<" cmd# ">" rsp# "[OK]")
         (answer-sila ~msg (keyword cmd#) (map->otp rsp#))))))

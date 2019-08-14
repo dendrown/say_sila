@@ -1,7 +1,7 @@
 (ns weka.filters.unsupervised.attribute.TweetToGenderFeatures-test
   (:require [weka.filters.unsupervised.attribute.TweetToGenderFeatures :refer :all]
             [clojure.test :refer :all]
-            [say.weka     :as weka])
+            [weka.core    :as weka])
   (:import  [weka.filters.unsupervised.attribute TweetToGenderFeatures]))
 
 (def ^:const ARFF-FPATH "resources/test/gender.test.arff")
