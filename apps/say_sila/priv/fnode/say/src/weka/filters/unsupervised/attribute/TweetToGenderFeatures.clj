@@ -60,16 +60,15 @@
 
 (def ^:const GENDERS                [:female :male])
 (def ^:const SUPER-OPT-TEXT-NDX     "I")
-
 (def ^:const OPT-SCREEN-NAME-NDX    "S")
 (def ^:const OPT-FULL-NAME-NDX      "N")
 (def ^:const OPT-DESCRIPTION-NDX    "D")
 (def ^:const OPT-USES-EMNLP-2014    "E")
+
 (def ^:const INDEX-OPT-KEYS         [OPT-SCREEN-NAME-NDX                    ; Defines option order
                                      OPT-FULL-NAME-NDX                      ; (but not all may be
                                      OPT-DESCRIPTION-NDX])                  ; selected)
 (def ^:const LEXICON-OPT-KEYS       [OPT-USES-EMNLP-2014])
-(def ^:const OPT-KEYS               (concat INDEX-OPT-KEYS LEXICON-OPT-KEYS))
 
 (def Options {OPT-SCREEN-NAME-NDX   (Option. "The column index that holds users' screen names."
                                              OPT-SCREEN-NAME-NDX 1 "-S <col>")
@@ -316,12 +315,22 @@
 
 
 ;; ---------------------------------------------------------------------------
+(defn tag-column
+  "
+  Returns a string describing a filtered, gender-distinguishing column
+  "
+  [prefix opt gnd]
+  (str (name prefix) "-" opt "-" (name gnd)))
+
+
+
+;; ---------------------------------------------------------------------------
 (defn tag-name
   "
   Returns a string describing a name-distinguishing column or other entity.
   "
   [opt gnd]
-  (str "name-" opt "-" (name gnd)))
+  (tag-column :name opt gnd))
 
 
 
@@ -330,8 +339,8 @@
   "
   Returns a string describing a name-distinguishing column or other entity.
   "
-  [opt]
-  (str "gender-" opt))
+  [opt ndx]
+  (tag-column :gender opt ndx))
 
 
 
@@ -347,20 +356,24 @@
         result   (Instances. insts 0)
         append   #(.insertAttributeAt result (Attribute. (apply %1 %&))
                                              (.numAttributes result))
-        state    @(.state this)]
+        state    @(.state this)
+        ndx-opts (keys (select-keys state INDEX-OPT-KEYS))
+  ]
 
     ;; Make sure the user stays in bounds for the attributes we hit
     (.setUpperIndices this (dec acnt))
 
     ;; TODO: We're doing double fields for each category.  Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
-    (doseq [[opt _] (select-keys state INDEX-OPT-KEYS)]
-      (doseq [gnd GENDERS]
-        (append tag-name opt gnd)))
+    (doseq [opt ndx-opts
+            gnd GENDERS]
+        (append tag-name opt gnd))
 
-    ;; Are we using any lexicons?
+    ;; Are we using a lexicon?
     (when (.isUsesEMNLP2014 this)
-      (append tag-gender OPT-USES-EMNLP-2014))
+      ;; Always process the (super) text index...plus our own selected indices
+      (doseq [opt (conj ndx-opts SUPER-OPT-TEXT-NDX)]
+        (append tag-gender OPT-USES-EMNLP-2014 opt)))
 
     result))
 
@@ -378,11 +391,15 @@
   ;; Also, several variables are prefixed with:
   ;;    i - for input attributes
   ;;    o - for output (result) attributes
-  (let [result   (Instances. ^Instances (.determineOutputFormat this insts) 0)
-        state    @(.state this)
-       ;txt-ndx  (.getIndex ^SingleIndex (.getTextIndex this))          ; TODO
+  (let [state    @(.state this)
+        result   (Instances. ^Instances (.determineOutputFormat this insts) 0)
         icnt     (.numAttributes insts)
         ocnt     (.numAttributes result)
+        in-index #(do (println "NDX:" %)
+            (when-let [^SingleIndex ndx (state %)]
+                    (.getIndex ndx)))
+        fm-index #(weka/get-index result (tag-gender %1 %2))
+
         tokenize (memoize (fn [txt]
                             (jcall affective.core.Utils/tokenize
                                    txt
@@ -393,16 +410,16 @@
                                          .getStemmer
                                          .getStopwordsHandler])))
         [_ opts] (reduce (fn [[out indices] opt]
-                           (if-let [^SingleIndex ndx (state opt)]
+                           (if-let [in (in-index opt)]
                              ;; The accumulator is a pair:
                              ;; [0] the next output column
                              ;; [1] a column-finder map {K=opt-code, V=[in-col out-col]
-                             [(+ out 2) (assoc indices opt [(.getIndex ndx) out])]  ; Use option
-                             [out indices]))                                        ; Unused
+                             [(+ out 2) (assoc indices opt [in out])]       ; Use it
+                             [out indices]))                                ; Skip it
                          [icnt {}]
                          INDEX-OPT-KEYS)]
 
-    (log/debug "Index options:" opts)
+    (log/debug "Local index options:" opts)
     (letfn [;-----------------------------------------------------------------
             (attr-str [^Instance inst a]
               (.stringValue inst (int a)))
@@ -457,19 +474,20 @@
 
           ;; Check a lexicon?
           (when (.isUsesEMNLP2014 this)
-            (let [tndx   (-> (.superGetTextIndex this)
-                             (.getIndex))
-                  out    (weka/get-index result (tag-gender OPT-USES-EMNLP-2014))   ; FIXME: save output cols
-                  [wcnt
-                   hits] (check-emnlp inst tndx)
+            (doseq [[opt in] {;FIXME: OPT-DESCRIPTION-NDX (in-index OPT-DESCRIPTION-NDX)    ; User profile
+                              SUPER-OPT-TEXT-NDX  (-> (.superGetTextIndex this)     ; Tweet text
+                                                      (.getIndex))}]
+            (let [[wcnt
+                   hits] (check-emnlp inst in)
+                  out    (fm-index OPT-USES-EMNLP-2014 opt)
                   score  (double (reduce (fn [acc [word [hcnt weight]]]
-                                           (log/fmt-debug "Score<~a>: ~6$ + (~a + ~6$)/~a"
-                                                          word acc hcnt weight wcnt)
+                                           (log/fmt-debug "Score<~a>: ~6$ + (~a + ~6$)/~a <= ~a"
+                                                          opt acc hcnt weight wcnt word)
                                            (+ acc (/ (* hcnt weight)
                                                       wcnt)))
                                          0.00
                                          hits))]
-              (aset ovals out score)))
+              (aset ovals out score))))
 
           ;; Append the finished instance to the output dataset
           (.add result (DenseInstance. 1.0 ovals)))))
