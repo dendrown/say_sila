@@ -65,10 +65,21 @@
 (def ^:const OPT-DESCRIPTION-NDX    "D")
 (def ^:const OPT-USES-EMNLP-2014    "E")
 
-(def ^:const INDEX-OPT-KEYS         [OPT-SCREEN-NAME-NDX                    ; Defines option order
-                                     OPT-FULL-NAME-NDX                      ; (but not all may be
-                                     OPT-DESCRIPTION-NDX])                  ; selected)
-(def ^:const LEXICON-OPT-KEYS       [OPT-USES-EMNLP-2014])
+(def ^:const INDEX-OPT-KEYS         [SUPER-OPT-TEXT-NDX     ; Define an input index (column)
+                                     OPT-SCREEN-NAME-NDX
+                                     OPT-FULL-NAME-NDX
+                                     OPT-DESCRIPTION-NDX])
+
+(def ^:const NAMES-OPT-NDX-KEYS     [OPT-SCREEN-NAME-NDX    ; Input indexes for F/M name checks
+                                     OPT-FULL-NAME-NDX
+                                     OPT-DESCRIPTION-NDX])
+
+(def ^:const LEXICON-OPT-KEYS       [OPT-USES-EMNLP-2014])  ; Flags for lexicon use
+
+
+(def ^:const LEXICON-OPT-NDX-KEYS   [SUPER-OPT-TEXT-NDX     ; Input indexes to check against lexicons
+                                     OPT-DESCRIPTION-NDX])
+
 
 (def Options {OPT-SCREEN-NAME-NDX   (Option. "The column index that holds users' screen names."
                                              OPT-SCREEN-NAME-NDX 1 "-S <col>")
@@ -116,10 +127,13 @@
 ;; ---------------------------------------------------------------------------
 (defn set-state!
   "
-  Updates the filter's state with the specified key-value pair.
+  Updates the filter's state with the specified key-value pair.  The value (x)
+  may simply be data or else a function that determines the value to associate
+  with the field in this object's state.
   "
-  [^TweetToGenderFeatures this field fun]
-  (swap! (.state this) update field fun))
+  [^TweetToGenderFeatures this field x]
+  (swap! (.state this) update field
+                              (if (fn? x) x (fn[_] x))))
 
 
 
@@ -223,6 +237,10 @@
   Instructs this Filter to use the EMNLP-2014 gender lexicon.
   "
   [this use?]
+   ;;
+   ;; TODO: Using the lexicon should invoke lower case mode for the tokenizer
+   ;;       Right?
+   ;;
   (set-state! this
               OPT-USES-EMNLP-2014
               (fn [_] use?)))
@@ -258,7 +276,7 @@
                      (conj opts (.getSingleIndex ndx)       ; in reverse order
                                 (->cli tag)))
                  (seq (.superGetOptions this))
-                 (select-keys state INDEX-OPT-KEYS)) opt-seq
+                 (select-keys state NAMES-OPT-NDX-KEYS)) opt-seq
 
          (reduce (fn [opts [tag use?]]                      ; Add lexicon options
                    (if use?
@@ -352,27 +370,32 @@
   "
   [^TweetToGenderFeatures this
    ^Instances             insts]
+
+  ;; Set up a reference for the TextIndex we inherent from our parent class.
+  ;; We use that data member, and it facilitates the text processing to keep
+  ;; it with the rest of our indices. (Ideally, we'd do this in -init, but
+  ;; we don't have access to the parent object there
+  (set-state! this SUPER-OPT-TEXT-NDX (.superGetTextIndex this))
+
   (let [acnt     (.numAttributes insts)
         result   (Instances. insts 0)
         append   #(.insertAttributeAt result (Attribute. (apply %1 %&))
                                              (.numAttributes result))
-        state    @(.state this)
-        ndx-opts (keys (select-keys state INDEX-OPT-KEYS))
-  ]
+        state    @(.state this)]
 
     ;; Make sure the user stays in bounds for the attributes we hit
     (.setUpperIndices this (dec acnt))
 
-    ;; TODO: We're doing double fields for each category.  Compare this format
+    ;; TODO: We're doing double fields for name cchecks. Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
-    (doseq [opt ndx-opts
+    (doseq [opt (get-keys state NAMES-OPT-NDX-KEYS)
             gnd GENDERS]
         (append tag-name opt gnd))
 
     ;; Are we using a lexicon?
     (when (.isUsesEMNLP2014 this)
       ;; Always process the (super) text index...plus our own selected indices
-      (doseq [opt (conj ndx-opts SUPER-OPT-TEXT-NDX)]
+      (doseq [opt (get-keys state LEXICON-OPT-NDX-KEYS)]
         (append tag-gender OPT-USES-EMNLP-2014 opt)))
 
     result))
@@ -395,9 +418,8 @@
         result   (Instances. ^Instances (.determineOutputFormat this insts) 0)
         icnt     (.numAttributes insts)
         ocnt     (.numAttributes result)
-        in-index #(do (println "NDX:" %)
-            (when-let [^SingleIndex ndx (state %)]
-                    (.getIndex ndx)))
+        in-index #(when-let [^SingleIndex ndx (state %)]
+                        (.getIndex ndx))
         fm-index #(weka/get-index result (tag-gender %1 %2))
 
         tokenize (memoize (fn [txt]
@@ -417,9 +439,10 @@
                              [(+ out 2) (assoc indices opt [in out])]       ; Use it
                              [out indices]))                                ; Skip it
                          [icnt {}]
-                         INDEX-OPT-KEYS)]
+                         NAMES-OPT-NDX-KEYS)]
 
     (log/debug "Local index options:" opts)
+    (log/debug "Post-filter attribute count:" ocnt)
     (letfn [;-----------------------------------------------------------------
             (attr-str [^Instance inst a]
               (.stringValue inst (int a)))
@@ -474,20 +497,18 @@
 
           ;; Check a lexicon?
           (when (.isUsesEMNLP2014 this)
-            (doseq [[opt in] {;FIXME: OPT-DESCRIPTION-NDX (in-index OPT-DESCRIPTION-NDX)    ; User profile
-                              SUPER-OPT-TEXT-NDX  (-> (.superGetTextIndex this)     ; Tweet text
-                                                      (.getIndex))}]
-            (let [[wcnt
-                   hits] (check-emnlp inst in)
-                  out    (fm-index OPT-USES-EMNLP-2014 opt)
-                  score  (double (reduce (fn [acc [word [hcnt weight]]]
-                                           (log/fmt-debug "Score<~a>: ~6$ + (~a + ~6$)/~a <= ~a"
-                                                          opt acc hcnt weight wcnt word)
-                                           (+ acc (/ (* hcnt weight)
-                                                      wcnt)))
-                                         0.00
-                                         hits))]
-              (aset ovals out score))))
+            (doseq [opt (get-keys state LEXICON-OPT-NDX-KEYS)]
+              (let [[wcnt
+                     hits] (check-emnlp inst (in-index opt))
+                    out    (fm-index OPT-USES-EMNLP-2014 opt)
+                    score  (double (reduce (fn [acc [word [hcnt weight]]]
+                                             (log/fmt-debug "Score<~a>: ~6$ + (~a + ~6$)/~a <= ~a"
+                                                            opt acc hcnt weight wcnt word)
+                                             (+ acc (/ (* hcnt weight)
+                                                        wcnt)))
+                                           0.00
+                                           hits))]
+                (aset ovals out score))))
 
           ;; Append the finished instance to the output dataset
           (.add result (DenseInstance. 1.0 ovals)))))

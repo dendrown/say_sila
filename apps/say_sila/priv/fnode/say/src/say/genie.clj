@@ -67,6 +67,15 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-keys
+  "Returns a sequence with any keys used in the hashmap hmap that are included
+  in the sequence kseq."
+  [hmap kseq]
+  (keys (select-keys hmap kseq)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn ^String strfmt
   "Wrapper for clojure.pprint/cl-format to create strings."
   [text & args]
