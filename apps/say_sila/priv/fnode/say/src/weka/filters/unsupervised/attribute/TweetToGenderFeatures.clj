@@ -38,10 +38,12 @@
     :methods    [[getScreenNameIndex    []        String]
                  [getFullNameIndex      []        String]
                  [getDescriptionIndex   []        String]
+                 [isUser                []        Boolean]
                  [isUsesEMNLP2014       []        Boolean]
                  [setScreenNameIndex    [String]  void]
                  [setFullNameIndex      [String]  void]
                  [setDescriptionIndex   [String]  void]
+                 [setUser               [boolean] void]
                  [setUsesEMNLP2014      [boolean] void]
                  [setUpperIndices       [int]     void]]
     :exposes    {m_textIndex {:get superGetTextIndex
@@ -64,6 +66,7 @@
 (def ^:const OPT-FULL-NAME-NDX      "N")
 (def ^:const OPT-DESCRIPTION-NDX    "D")
 (def ^:const OPT-USES-EMNLP-2014    "E")
+(def ^:const OPT-USER               "user")
 
 (def ^:const INDEX-OPT-KEYS         [SUPER-OPT-TEXT-NDX     ; Define an input index (column)
                                      OPT-SCREEN-NAME-NDX
@@ -90,9 +93,14 @@
               OPT-DESCRIPTION-NDX   (Option. "The column index that holds users' profile description text."
                                              OPT-DESCRIPTION-NDX 1 "-D <col>")
 
-              OPT-USES-EMNLP-2014   (Option. (str "Uses the EMNLP-2014 gender lexicon to calculate a gender"
+              OPT-USES-EMNLP-2014   (Option. (str "Uses the EMNLP-2014 gender lexicon to calculate a gender "
                                                   "score based on the column specified by the Text Index option.")
-                                             OPT-USES-EMNLP-2014 0 "-E")})
+                                             OPT-USES-EMNLP-2014 0 "-E")
+
+              OPT-USER              (Option. (str "Combine all tweet instances for a given user into a single "
+                                                  "instance for that user. The result instances no longer"
+                                                  "represent tweets, but rather Twitter users.")
+                                             OPT-USER 0 "-user")})
 
 
 ;;; Lexicon data is prepared in say.data
@@ -182,6 +190,17 @@
 
 
 ;; ---------------------------------------------------------------------------
+(defn -isUser
+  "
+  Returns whether or not the Filter should create User instances out of tweet
+  instances.
+  "
+  [this]
+  (get-state this OPT-USER))
+
+
+
+;; ---------------------------------------------------------------------------
 (defn -isUsesEMNLP2014
   "
   Returns whether or not this Filter uses the EMNLP-2014 gender lexicon.
@@ -232,18 +251,24 @@
 
 
 ;; ---------------------------------------------------------------------------
+(defn -setUser
+  "
+  Instructs this Filter to transform tweet instances to Twitter user instances.
+  "
+  [this use?]
+  (set-state! this OPT-USER use?))
+
+
+
+;; ---------------------------------------------------------------------------
 (defn -setUsesEMNLP2014
   "
   Instructs this Filter to use the EMNLP-2014 gender lexicon.
   "
   [this use?]
-   ;;
-   ;; TODO: Using the lexicon should invoke lower case mode for the tokenizer
-   ;;       Right?
-   ;;
-  (set-state! this
-              OPT-USES-EMNLP-2014
-              (fn [_] use?)))
+  ;; The (parent) Filter defaults to lower case mode for the tokenizer,
+  ;; which is appropriate for the EMNLP-2014 lexicon.
+  (set-state! this OPT-USES-EMNLP-2014 use?))
 
 
 
@@ -271,21 +296,28 @@
   [^TweetToGenderFeatures this]
   (let [->cli #(str "-"  %)
         state @(.state this)]
-    ;; Push our options onto whatever our parent reports
-    (as-> (reduce (fn [opts [tag ^SingleIndex ndx]]         ; Add -X <col> options
-                     (conj opts (.getSingleIndex ndx)       ; in reverse order
-                                (->cli tag)))
-                 (seq (.superGetOptions this))
-                 (select-keys state NAMES-OPT-NDX-KEYS)) opt-seq
 
-         (reduce (fn [opts [tag use?]]                      ; Add lexicon options
+    ;; Push our options onto whatever our parent reports
+    (as-> (seq (.superGetOptions this)) opt-seq
+
+      ;; Column-based options
+      (reduce (fn [opts [tag ^SingleIndex ndx]]
+                ;; Add -X <col> options in reverse order
+                (conj opts (.getSingleIndex ndx)
+                           (->cli tag)))
+              opt-seq
+              (select-keys state NAMES-OPT-NDX-KEYS))
+
+      ;; Boolean options
+      (reduce (fn [opts [tag use?]]
                    (if use?
                        (conj opts (->cli tag))
                        opts))
                  opt-seq
-                 (select-keys state LEXICON-OPT-KEYS))
+                 (select-keys state [OPT-USER OPT-USES-EMNLP-2014]))
 
-         (into-array String opt-seq))))                     ; Java-ize the output
+      ; Java-ize the output
+      (into-array String opt-seq))))
 
 
 
@@ -305,8 +337,8 @@
     (when-let [ndx (get-opt OPT-FULL-NAME-NDX)]     (.setFullNameIndex    this ndx))
     (when-let [ndx (get-opt OPT-DESCRIPTION-NDX)]   (.setDescriptionIndex this ndx))
 
-    (when (is-opt? OPT-USES-EMNLP-2014)
-      (.setUsesEMNLP2014 this true)))
+    (when (is-opt? OPT-USER)            (.setUser          this true))
+    (when (is-opt? OPT-USES-EMNLP-2014) (.setUsesEMNLP2014 this true)))
 
   ;; Whatever's left is for the parent Filter
   (.superSetOptions this opts))
