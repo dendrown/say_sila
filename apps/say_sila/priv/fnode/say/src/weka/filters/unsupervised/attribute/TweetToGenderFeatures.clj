@@ -411,14 +411,32 @@
 
   (let [acnt     (.numAttributes insts)
         result   (Instances. insts 0)
+        state    @(.state this)
+        get-ndx  #(when-let [attr (.attribute insts ^String %)]
+                    (.index attr))
         append   #(.insertAttributeAt result (Attribute. (apply %1 %&))
                                              (.numAttributes result))
-        state    @(.state this)]
+  ]
 
     ;; Make sure the user stays in bounds for the attributes we hit
-    (.setUpperIndices this (dec acnt))
+    (.setUpperIndices this (dec (.numAttributes insts)))
 
-    ;; TODO: We're doing double fields for name cchecks. Compare this format
+    ;; If we're doing the user transform, most of the attributes will disappear...
+    (when (get state OPT-USER)
+      (let [sn-ndx (if-let [^SingleIndex col (get state OPT-SCREEN-NAME-NDX)]
+                     (.getIndex col)
+                     (get-ndx "screen_name"))
+
+            cl-ndx (.classIndex insts)
+            target (if (>= cl-ndx 0)
+                       cl-ndx
+                       (get-ndx "gender"))]
+
+        ;; Remove attributes in reverse order so we don't trip on indices
+        (doseq [a (remove #{sn-ndx target} (range (dec acnt) -1 -1))]
+          (.deleteAttributeAt result a))))
+
+    ;; TODO: We're doing double fields for name checks. Compare this format
     ;;       to a single field using female(pos-vals) and male(neg-vals).
     (doseq [opt (get-keys state NAMES-OPT-NDX-KEYS)
             gnd GENDERS]
