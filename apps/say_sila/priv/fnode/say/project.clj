@@ -26,7 +26,26 @@
                  [uk.org.russet/tawny-owl               "2.0.0"]
                  [com.google.guava/guava                "25.0-jre"]])  ; OWL caching dep
 
-; NOTE for external JARs:
-;  lein localrepo install ~/wekafiles/packages/AffectiveTweets/AffectiveTweets.jar affective/affectivetweets 1.0.1
-;  lein localrepo install ~/wekafiles/packages/AffectiveTweets/lib/SentiStrength.jar uk.ac.wlv/sentistrength 0.1.0
-;  lein localrepo install ~/Downloads/snowball.jar org.tartarus/snowball 1.0.0
+;-------------------------------------------------------------------------------
+; External JARs [ lein localrepo install ]
+;
+; * Erlang jInterface:
+;   /usr/lib/erlang/lib/jinterface-1.9.1/priv/OtpErlang.jar
+;   org.erlang.otp/jinterface
+;   1.9.1
+;   NOTE: Not up-to-date @ https://mvnrepository.com/artifact/org.erlang.otp/jinterface
+;
+; * Snowball Stemmers
+;   ~/Downloads/snowball.jar
+;   org.tartarus/snowball
+;   1.0.0
+;
+; * Weka AffectiveTweets
+;   ~/wekafiles/packages/AffectiveTweets/AffectiveTweets.jar
+;   affective/affectivetweets
+;   1.0.1
+;
+; * Weka SentiStrength
+;   ~/wekafiles/packages/AffectiveTweets/lib/SentiStrength.jar
+;   uk.ac.wlv/sentistrength
+;   0.1.0
