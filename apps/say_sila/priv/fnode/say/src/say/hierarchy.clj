@@ -23,8 +23,19 @@
 
 (def ^:const BUFFER 16)
 
+(defrecord Level [sig-in sig-out
+                  fbk-in fbk-rout])
+
 (defonce Mind (atom nil))
 (defonce Tell (chan BUFFER))
+
+
+;;; --------------------------------------------------------------------------
+(defn connect
+  "Creates a channel for inter level/layer communications."
+  []
+  (chan BUFFER))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -41,52 +52,62 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn go-dl
+(defn shutdown!
+  "Shuts down the running hierarchy."
+  []
+  (>!! Tell :quit)
+  (reset! Mind nil))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- go-dl
   "Starts up a description-logic layer.  This layer currently has no output.
   The application may see its work reflected in the say-sila ontology."
-  [in]
-  (let [out :say-sila]
+  [sig-in fbk-out]
+  ;; Processing loop for the description logic layer.
+  (go-loop [msg (<!! sig-in)]
+    (if (= :quit msg)
+        (shutdown :dl)
+        (do (log/info "DL:" msg)
+            (recur (<!! sig-in)))))
 
-    ;; Processing loop for the description logic layer.
-    (go-loop [msg (<!! in)]
-      (if (= :quit msg)
-          (shutdown :dl)
-          (do (log/info "DL:" msg)
-              (recur (<!! in)))))
-
-    ;; Ontology keyword stands in place of an output channel.
-    out))
+    ;; This is the final layer
+    (->Level sig-in nil nil fbk-out))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn go-ml
+(defn- go-ml
   "Starts up a machine-learning layer and returns its output channel."
-  [in]
-  (let [out (chan BUFFER)]
+  [sig-in]
+  (let [sig-out (connect)
+        fbk-in  (connect)]
 
     ;; Processing loop for the machine-learning layer.
-    (go-loop [msg (<!! in)]
+    (go-loop [msg (<!! sig-in)]
       (if (= :quit msg)
-          (shutdown :ml out)
+          (shutdown :ml sig-out)
           (do (log/info "ML:" msg)
-              (>! out msg)
-              (recur (<!! in)))))
+              (>! sig-out msg)
+              (recur (<!! sig-in)))))
 
+    ;; This is the first layer, so we won't generate feedback.
     ;; Our output channel will be the input for the next layer
-    out))
+    (->Level sig-in sig-out fbk-in nil)))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn create
+(defn create!
   "Creates and initializes the hierarchical reasoning architecture."
   []
-  (swap! Mind #(if % % (let [ml-> (go-ml Tell)
-                             dl-> (go-dl ml->)]
+  (swap! Mind #(if % % (let [ml (go-ml Tell)
+                             dl (go-dl (:sig-out ml)
+                                       (:fbk-in  ml))]
                          (log/notice "Created the hierarchy of mind")
-                         {:ml-out ml->
-                          :dl-out dl->})))
+                         {:ml ml
+                          :dl dl})))
 
   ;; Return the main input channel (also exported as a convenience)
   Tell)

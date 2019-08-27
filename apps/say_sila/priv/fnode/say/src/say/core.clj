@@ -286,7 +286,7 @@
       (log/debug  "Pinging:" (.ping node "gw@chiron" 2000)) ; FIXME: !hard-coded
 
       ;; Start up Say-Sila's hierarchical mind
-      (mind/create)
+      (mind/create!)
 
       ;; FIXME: The ontology functionality in the say.sila namespace requires
       ;;        us to be in say.sila so it can create individuals as variables
