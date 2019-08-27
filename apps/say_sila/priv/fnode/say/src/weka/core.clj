@@ -102,15 +102,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ╻┏┓╻╺┳┓┏━╸╻ ╻┏━╸┏━┓
-;;; ┃┃┗┫ ┃┃┣╸ ┏╋┛┣╸ ┣┳┛
-;;; ╹╹ ╹╺┻┛┗━╸╹ ╹┗━╸╹┗╸
-;;; --------------------------------------------------------------------------
 (defprotocol Indexer
-  "
-  Facilitate getting an index from Weka entities.  This is currently a trial
-  protocol, expected to grow as we go...
-  "
+  "Facilitate getting an index from Weka entities.  This is currently a trial
+  protocol, expected to grow as we go..."
   (get-index [entity ^String tag]  "Return an index by the column name (tag)"))
 
 (extend-protocol Indexer
@@ -121,16 +115,10 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏━┓╻ ╻┏━╸   ┏━╸╻╻  ┏━╸
-;;; ┗━┓┣━┫┃┏┛┣╸ ╺━╸┣╸ ┃┃  ┣╸
-;;; ┗━┛╹ ╹┗┛ ┗━╸   ╹  ╹┗━╸┗━╸
-;;; --------------------------------------------------------------------------
 (defn save-file
-  "
-  Writes out the given Instances to the specified ARFF or CSV file.
+  "Writes out the given Instances to the specified ARFF or CSV file.
 
-  Returns the filename again as a convenience.
-  "
+  Returns the filename again as a convenience."
   [^String    fpath
    ^Instances data
                ftype]
@@ -147,16 +135,10 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ╺┳╸┏━┓┏━╸   ┏━╸╻╻  ┏━╸┏┓╻┏━┓┏┳┓┏━╸
-;;;  ┃ ┣━┫┃╺┓╺━╸┣╸ ┃┃  ┣╸ ┃┗┫┣━┫┃┃┃┣╸
-;;;  ╹ ╹ ╹┗━┛   ╹  ╹┗━╸┗━╸╹ ╹╹ ╹╹ ╹┗━╸
-;;; --------------------------------------------------------------------------
 (defn tag-filename
-  "
-  Turns «/path/to/filename.extn» into a map with tagged versions of the file,
+  "Turns «/path/to/filename.extn» into a map with tagged versions of the file,
   as «/path/to/filename.tag.EXTN», where EXTN is the original extension (:tagged),
-  «.arff» and «.csv» to represent different output formats.
-  "
+  «.arff» and «.csv» to represent different output formats."
   [fpath tag]
   (let [parts (str/split fpath #"\.")
         stub  (str/join "." (flatten [(butlast parts) tag]))]
@@ -167,15 +149,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏━┓╻ ╻┏━╸   ┏━┓┏━╸┏━┓╻ ╻╻  ╺┳╸┏━┓
-;;; ┗━┓┣━┫┃┏┛┣╸ ╺━╸┣┳┛┣╸ ┗━┓┃ ┃┃   ┃ ┗━┓
-;;; ┗━┛╹ ╹┗┛ ┗━╸   ╹┗╸┗━╸┗━┛┗━┛┗━╸ ╹ ┗━┛
-;;; --------------------------------------------------------------------------
 (defn- save-results
-  "
-  Writes out the given Instances as tagged ARFF and CSV files and returns a
-  filetype-keyed map with the corresponding filename values.
-  "
+  "Writes out the given Instances as tagged ARFF and CSV files and returns a
+  filetype-keyed map with the corresponding filename values."
   [fpath tag data]
   (let [tag-fpaths (tag-filename fpath tag)]
     {:arff (save-file (:arff tag-fpaths) data :arff)
@@ -184,14 +160,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━╸╻╻  ╺┳╸┏━╸┏━┓   ╻┏┓╻┏━┓╺┳╸┏━┓┏┓╻┏━╸┏━╸┏━┓
-;;; ┣╸ ┃┃   ┃ ┣╸ ┣┳┛╺━╸┃┃┗┫┗━┓ ┃ ┣━┫┃┗┫┃  ┣╸ ┗━┓
-;;; ╹  ╹┗━╸ ╹ ┗━╸╹┗╸   ╹╹ ╹┗━┛ ╹ ╹ ╹╹ ╹┗━╸┗━╸┗━┛
-;;; --------------------------------------------------------------------------
 (defn ^Instances filter-instances
-  "
-  Applies a filter to the specified data Instances
-  "
+  "Applies a filter to the specified data Instances."
   ([data flt-key]
   (let [flt-map (flt-key  +FILTERS+)
         sieve   (eval (:filter  flt-map))
@@ -210,16 +180,10 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ╻  ┏━┓┏━┓╺┳┓   ┏━┓┏━┓┏━╸┏━╸
-;;; ┃  ┃ ┃┣━┫ ┃┃╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ┗━╸┗━┛╹ ╹╺┻┛   ╹ ╹╹┗╸╹  ╹
-;;; --------------------------------------------------------------------------
 (defn ^Instances load-arff
-  "
-  Reads in and returns the Instances from the specified ARFF file.  The caller
+  "Reads in and returns the Instances from the specified ARFF file.  The caller
   may specify any number of filter keywords after the target attribute (or nil
-  to specifically skip setting a class attribute).
-  "
+  to specifically skip setting a class attribute)."
   ([fpath]
   (load-arff fpath nil))
 
@@ -241,18 +205,12 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━╸╻╻  ╺┳╸┏━╸┏━┓   ┏━┓┏━┓┏━╸┏━╸
-;;; ┣╸ ┃┃   ┃ ┣╸ ┣┳┛╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ╹  ╹┗━╸ ╹ ┗━╸╹┗╸   ╹ ╹╹┗╸╹  ╹
-;;; --------------------------------------------------------------------------
 (defn filter-arff
-  "
-  Reads in an ARFF file with tweets and writes it back out after applying:
+  "Reads in an ARFF file with tweets and writes it back out after applying:
    (1) the specified list of filters
    (2) the Reorder filter to remove the tweet text
 
-  Returns a vector of the output filenames.
-  "
+  Returns a vector of the output filenames."
   [fpath flt-keys]
   (let [filters    (!!/listify flt-keys)
         data-in    (load-arff fpath)
@@ -266,14 +224,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏━╸┏━╸┏━┓┏━╸┏━┓┏━┓
-;;; ┣┳┛┣╸ ┃╺┓┣┳┛┣╸ ┗━┓┗━┓
-;;; ╹┗╸┗━╸┗━┛╹┗╸┗━╸┗━┛┗━┛
-;;; --------------------------------------------------------------------------
 (defn regress
-  "
-  Runs a Linear Regression model on the ARFF at the specified filepath.
-  "
+  "Runs a Linear Regression model on the ARFF at the specified filepath."
   [{arff      :arff
    target     :target
    excl-attrs :exclude
@@ -332,7 +284,6 @@
                        :coefficients (into {} (map attr-coeff                       ; ZIP:
                                                    (map vector (range coeff-cnt)    ; Attr-indexes
                                                                coefficients)))))))) ; Coeff-values
-
     (catch Exception ex
            (log/fail ex "Linear regression failed")
            (assoc NAK :info  (.getMessage ex)))))
@@ -340,18 +291,12 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━╸┏┳┓┏━┓╺┳╸┏━╸   ┏━┓┏━┓┏━╸┏━╸
-;;; ┣╸ ┃┃┃┃ ┃ ┃ ┣╸ ╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ┗━╸╹ ╹┗━┛ ╹ ┗━╸   ╹ ╹╹┗╸╹  ╹
-;;; --------------------------------------------------------------------------
 (defn emote-arff
-  "
-  Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
+  "Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
   as needed for «Say Sila», and then outputs the results in ARFF and CSV formats.
 
   NOTE: This will be the main point of definition of what (Erlang) Sila wants,
-        until such time as it starts sending us its specific configurations.
-  "
+        until such time as it starts sending us its specific configurations."
   [fpath]
   (log/debug "Emoting:" fpath)
   (letfn [(make-emoter [opt]
@@ -379,64 +324,40 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━╸┏┳┓┏┓ ┏━╸╺┳┓   ┏━┓┏━┓┏━╸┏━╸
-;;; ┣╸ ┃┃┃┣┻┓┣╸  ┃┃╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ┗━╸╹ ╹┗━┛┗━╸╺┻┛   ╹ ╹╹┗╸╹  ╹
-;;; --------------------------------------------------------------------------
 (defn embed-arff
-  "
-  Reads in an ARFF file with tweets and writes it back out with embeddings.
+  "Reads in an ARFF file with tweets and writes it back out with embeddings.
 
-  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff
-  "
+  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff."
   [fpath]
   (filter-arff fpath :embed))
 
 
 
 ;;; --------------------------------------------------------------------------
-;;; ╻  ┏━╸╻ ╻╻┏━╸╻ ╻   ┏━┓┏━┓┏━╸┏━╸
-;;; ┃  ┣╸ ┏╋┛┃┣╸ ┗┳┛╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ┗━╸┗━╸╹ ╹╹╹   ╹    ╹ ╹╹┗╸╹  ╹
-;;; --------------------------------------------------------------------------
 (defn lexify-arff
-  "
-  Reads in an ARFF file with tweets and writes it back out with lexicon feature
+  "Reads in an ARFF file with tweets and writes it back out with lexicon feature
   vectors.
 
-  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff
-  "
+  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff."
   [fpath]
   (filter-arff fpath :lex))
 
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏━╸┏┓╻╺┳╸╻   ┏━┓┏━┓┏━╸┏━╸
-;;; ┗━┓┣╸ ┃┗┫ ┃ ┃╺━╸┣━┫┣┳┛┣╸ ┣╸
-;;; ┗━┛┗━╸╹ ╹ ╹ ╹   ╹ ╹╹┗╸╹  ╹
-;;; --------------------------------------------------------------------------
 (defn senti-arff
-  "
-  Reads in an ARFF file with tweets and writes it back out with SentiStrength
+  "Reads in an ARFF file with tweets and writes it back out with SentiStrength
   feature vectors.
 
-  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff
-  "
+  WARNING: This is a test wrapper, and will be deleted soon; use filter-arff."
   [fpath]
   (filter-arff fpath :senti))
 
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏━┓┏━╸┏━┓┏━┓┏━┓┏━╸   ┏┳┓╻
-;;; ┣━┛┣┳┛┣╸ ┣━┛┣━┫┣┳┛┣╸ ╺━╸┃┃┃┃
-;;; ╹  ╹┗╸┗━╸╹  ╹ ╹╹┗╸┗━╸   ╹ ╹┗━╸
-;;; --------------------------------------------------------------------------
 (defn prepare-ml
-  "
-  This is (for the moment) an ad-hoc function for use in DIC9315.
-  "
+  "This is (for the moment) an ad-hoc function for use in DIC9315."
   [^String big-fpath
    ^String reg-fpath]
 
