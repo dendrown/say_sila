@@ -44,14 +44,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏┳┓┏━┓╻┏ ┏━╸   ┏┓╻┏━┓╺┳┓┏━╸
-;;; ┃┃┃┣━┫┣┻┓┣╸ ╺━╸┃┗┫┃ ┃ ┃┃┣╸
-;;; ╹ ╹╹ ╹╹ ╹┗━╸   ╹ ╹┗━┛╺┻┛┗━╸
-;;; --------------------------------------------------------------------------
 (defn- ^OtpNode make-node
-  "
-  Creates and initializes a jInterface OTP node.
-  "
+  "Creates and initializes a jInterface OTP node."
   [name]
   (let [node (OtpNode. name)]
     (.setCookie node ERLANG-COOKIE)
@@ -60,16 +54,10 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏┳┓┏━┓┏━┓    ┏━┓╺┳╸┏━┓
-;;; ┃┃┃┣━┫┣━┛╺━╸➤┃ ┃ ┃ ┣━┛
-;;; ╹ ╹╹ ╹╹      ┗━┛ ╹ ╹
-;;; --------------------------------------------------------------------------
 (defn map->otp
-  "
-  Our standard communication to Erlang Sila is {self(), atom(), map()}.
+  "Our standard communication to Erlang Sila is {self(), atom(), map()}.
   This function converts a clojure map in the form {:keyword «string»}
-  to an Erlang map to handle that third element in response tuples.
-  "
+  to an Erlang map to handle that third element in response tuples."
   [clj-map]
   (letfn [(->otp [x]
             (cond
@@ -92,14 +80,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏┓╻┏━┓╻ ╻┏━╸┏━┓   ┏━┓╻╻  ┏━┓
-;;; ┣━┫┃┗┫┗━┓┃╻┃┣╸ ┣┳┛╺━╸┗━┓┃┃  ┣━┫
-;;; ╹ ╹╹ ╹┗━┛┗┻┛┗━╸╹┗╸   ┗━┛╹┗━╸╹ ╹
-;;; --------------------------------------------------------------------------
 (defn- answer-sila
-  "
-  Send a response, with an optional argument, to the Erlang Sila server.
-  "
+  "Send a response, with an optional argument, to the Erlang Sila server."
   ([req rsp-key]
     (answer-sila req rsp-key nil))
 
@@ -120,15 +102,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ╺┳┓┏━┓   ╻ ╻┏━╸╻┏ ┏━┓
-;;;  ┃┃┃ ┃╺━╸┃╻┃┣╸ ┣┻┓┣━┫
-;;; ╺┻┛┗━┛   ┗┻┛┗━╸╹ ╹╹ ╹
-;;; --------------------------------------------------------------------------
 (defmacro do-weka
-  "
-  Template for processing a command with Weka and then sending the result
-  back to sila.
-  "
+  "Template for processing a command with Weka and then sending the result
+  back to sila."
   [msg fun & parms]
   `(let [{cmd# :cmd
           arg# :arg} ~msg]
@@ -143,20 +119,15 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ╺┳┓╻┏━┓┏━┓┏━┓╺┳╸┏━╸╻ ╻
-;;;  ┃┃┃┗━┓┣━┛┣━┫ ┃ ┃  ┣━┫
-;;; ╺┻┛╹┗━┛╹  ╹ ╹ ╹ ┗━╸╹ ╹
-;;; --------------------------------------------------------------------------
 (defmulti dispatch
-  "
-  Process commands coming in from Sila Erlang nodes
-  "
+  "Process commands coming in from Sila Erlang nodes."
   :cmd)
 
 (defmethod dispatch "emote"   [msg] (do-weka msg emote-arff))
 (defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff '(:embed :bws)))
 (defmethod dispatch "regress" [msg] (do-weka msg regress))
 
+;; FIXME: Reconnect ontology
 ;(defmethod dispatch "sila" [msg]
 ;  ;; Handle updates to the say-sila ontology (no response back to Erlang)
 ;  (sila/execute (:arg msg)))
@@ -193,15 +164,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏━┓┏━┓┏━┓┏━╸   ┏━┓┏━┓┏━╸
-;;; ┣━┛┣━┫┣┳┛┗━┓┣╸ ╺━╸┣━┫┣┳┛┃╺┓
-;;; ╹  ╹ ╹╹┗╸┗━┛┗━╸   ╹ ╹╹┗╸┗━┛
-;;; --------------------------------------------------------------------------
 (defmulti parse-arg
-  "
-  The optional argument (fourth) element of an incoming message from Erlang
-  may be either a simple string or a JSON formatted map.
-  "
+  "The optional argument (fourth) element of an incoming message from Erlang
+  may be either a simple string or a JSON formatted map."
   class)
 
 
@@ -217,15 +182,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓┏━┓┏━┓┏━┓┏━╸   ┏┳┓┏━┓┏━╸
-;;; ┣━┛┣━┫┣┳┛┗━┓┣╸ ╺━╸┃┃┃┗━┓┃╺┓
-;;; ╹  ╹ ╹╹┗╸┗━┛┗━╸   ╹ ╹┗━┛┗━┛
-;;; --------------------------------------------------------------------------
 (defn- parse-msg
-  "
-  Breaks apart an incoming message into [sender command args].
-  This function can be much more lispy...!
-  "
+  "Breaks apart an incoming message into [sender command args].
+  This function can be much more lispy...!"
   [^OtpErlangTuple tuple]
   (if (some? tuple)
     (let [pid  ^OtpErlangPid (.elementAt tuple 0)
@@ -242,14 +201,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓╺┳╸┏━┓   ╻  ┏━┓┏━┓┏━┓
-;;; ┃ ┃ ┃ ┣━┛╺━╸┃  ┃ ┃┃ ┃┣━┛
-;;; ┗━┛ ╹ ╹     ┗━╸┗━┛┗━┛╹
-;;; --------------------------------------------------------------------------
 (defn- otp-loop
-  "
-  Recursive receive loop for an OTP process
-  "
+  "Recursive receive loop for an OTP process."
   ([node mbox] (otp-loop node mbox false))
 
   ([node mbox quitter]
@@ -267,14 +220,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; ┏━┓╺┳╸┏━┓┏━┓╺┳╸
-;;; ┗━┓ ┃ ┣━┫┣┳┛ ┃
-;;; ┗━┛ ╹ ╹ ╹╹┗╸ ╹
-;;; --------------------------------------------------------------------------
 (defn start
-  "
-  Starts up an Erlang jInterface process for communication with Erlang sila
-  "
+  "Starts up an Erlang jInterface process for communication with Erlang sila."
   ([] (start "jvm"))
 
   ([name]
