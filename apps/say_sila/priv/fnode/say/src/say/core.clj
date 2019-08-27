@@ -11,12 +11,13 @@
 ;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.core
-  (:require [say.config :as cfg]
-            [say.data   :as data]
-            [say.log    :as log]
-           ;[say.sila   :as sila]           ; TODO: reinstate
-            [say.influence]                 ; NOTE: article
-            [weka.core  :as weka]
+  (:require [say.config         :as cfg]
+            [say.data           :as data]
+            [say.log            :as log]
+            [say.hierarchy      :as mind]
+           ;[say.influence]                 ; NOTE: article
+           ;[say.sila           :as sila]
+            [weka.core          :as weka]
             [clojure.core.async :as a :refer [>! <! >!! <!! go chan]]
             [clojure.data.json  :as json]
             [clojure.string     :as str])
@@ -158,7 +159,7 @@
 
 ;(defmethod dispatch "sila" [msg]
 ;  ;; Handle updates to the say-sila ontology (no response back to Erlang)
-;  (future (sila/execute (:arg msg))))
+;  (sila/execute (:arg msg)))
 
 
 (defmethod dispatch "embed" [msg]
@@ -284,16 +285,19 @@
       (log/debug  "Cookie :" (.cookie  node))
       (log/debug  "Pinging:" (.ping node "gw@chiron" 2000)) ; FIXME: !hard-coded
 
-      ; FIXME:  The ontology functionality in the say.sila namespace requires
-      ;         us to be in say.sila so it can create individuals as variables
-      ;         in that name-space. Tawny.owl macros are picky and fragile :/
-      (ns say.sila)
+      ;; Start up Say-Sila's hierarchical mind
+      (mind/create)
 
-      ; Receive and process messages from Erlang
+      ;; FIXME: The ontology functionality in the say.sila namespace requires
+      ;;        us to be in say.sila so it can create individuals as variables
+      ;;        in that name-space. Tawny.owl macros are picky and fragile :/
+      ;(ns say.sila)
+
+      ;; Receive and process messages from Erlang
       (otp-loop node mbox)
       (.close node)
 
-      ; Put us back where we're supposed to be
-      (ns say.core)
+      ;; Put us back where we're supposed to be
+      ;(ns say.core)
       :ok)))
 
