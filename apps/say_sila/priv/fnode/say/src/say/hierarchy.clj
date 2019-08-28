@@ -23,20 +23,33 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const BUFFER 16)
+(def ^:const BUFFER     16)
+(def ^:const CONN-KEYS  [:ml-sig :ml-gnd-sig :ml-gnd-fbk :dl-gnd-sig])
 
-(defrecord Level [sig-in sig-out
+;; A Layer record defines connections for levels (ML, DL, and eventually PL)
+;; as well as the layers (gender, politcal party, etc...) inside those levels.
+;;            +---+
+;;   sig-in-->| L |-->sig-out
+;;            | a |
+;;            | y |
+;;  fbk-out<--| e |<--fbk-in
+;;            | r |
+;;            +---+
+(defrecord Layer [sig-in sig-out
                   fbk-in fbk-rout])
 
-(defonce Mind (atom nil))
-(defonce Tell (chan BUFFER))
+(defonce Inua (atom nil))                   ; Possessor/master/spirit/soul [Inuit]
+(defonce Tell (atom nil))
 
 
 ;;; --------------------------------------------------------------------------
 (defn connect
   "Creates a channel for inter level/layer communications."
-  []
+  ([]
   (chan BUFFER))
+
+  ([chan-keys]
+  (reduce #(assoc %1 %2 (connect)) {} chan-keys)))
 
 
 
@@ -57,13 +70,16 @@
 (defn shutdown!
   "Shuts down the running hierarchy."
   []
-  (>!! Tell :quit)
-  (reset! Mind nil))
+  (doseq [c Inua]
+    (>!! c :quit))
+
+  (doseq [a [Inua Tell]]
+    (reset! a nil)))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn- go-dl
+(defn- go-DL
   "Starts up a description-logic layer.  This layer currently has no output.
   The application may see its work reflected in the say-sila ontology."
   [sig-in fbk-out]
@@ -75,32 +91,45 @@
             (recur (<!! sig-in)))))
 
     ;; This is the final layer
-    (->Level sig-in nil nil fbk-out))
+    (->Layer sig-in nil nil fbk-out))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn- go-ml
-  "Starts up a machine-learning layer and returns its output channel."
-  [sig-in]
-  (let [sig-out (connect)
-        fbk-in  (connect)
-        emoter  (weka/prep-emoter (TweetToInputLexiconFeatureVector.)
-                                  (cfg/? :emote))]
+(defn- go-ML-gender
+  "Starts up the gender module in the machine-learning level."
+  [conns ecfg]
+  (let [{signal   :ml-gnd-sig
+         feedback :ml-gnd-fbk} conns
+        genderer  (comment (weka/prep-emoter (TweetToGenderFeatures.) ecfg))] ; TODO
+
+    ;; We receive Weka instances on our signal channel
+    (go-loop [insts (<!! signal)]
+      (when-not (= :quit insts)
+        :todo))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- go-ML
+  "Starts up a machine-learning level and returns its output channel."
+  [conns]
+  (let [ecfg   (cfg/? :emote)
+        signal (:ml-sig conns)
+        emoter (weka/prep-emoter (TweetToInputLexiconFeatureVector.) ecfg)]
+
+    ;; Start up component layers
+    (go-ML-gender conns ecfg)
 
     ;; Processing loop for the machine-learning layer.
-    (go-loop [arff (<!! sig-in)]
-      (if (= :quit arff)
-          (shutdown :ml sig-out)
+    (go-loop [arff (<!! signal)]
+      (when-not (= :quit arff)
           (let [einsts (doto (weka/load-arff arff)
                              (weka/filter-instances emoter []))]
               (log/info "ML:" arff)
-              (>! sig-out einsts)
-              (recur (<!! sig-in)))))
-
-    ;; This is the first layer, so we won't generate feedback.
-    ;; Our output channel will be the input for the next layer
-    (->Level sig-in sig-out fbk-in nil)))
+              (doseq [c [:ml-gnd-sig]]  ; TODO: forward emos to other layers...
+                (>! c einsts))
+              (recur (<!! signal)))))))
 
 
 
@@ -108,12 +137,13 @@
 (defn create!
   "Creates and initializes the hierarchical reasoning architecture."
   []
-  (swap! Mind #(if % % (let [ml (go-ml Tell)
-                             dl (go-dl (:sig-out ml)
-                                       (:fbk-in  ml))]
-                         (log/notice "Created the hierarchy of mind")
-                         {:ml ml
-                          :dl dl})))
+  ;; Set up the hierarchy...
+  (swap! Inua #(if % % (let [conns (connect CONN-KEYS)]
+                         (log/notice "Creating the hierarchy of mind")
+                         (go-ML conns)
+                         (go-DL conns)
+                         conns)))
 
   ;; Return the main input channel (also exported as a convenience)
-  Tell)
+  (reset! Tell (:ml-sig @Inua)))
+

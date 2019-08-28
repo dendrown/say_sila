@@ -33,7 +33,7 @@
     (jcall some.package/foo 42 [this .doSomething .doSomethingElse .doAnother])
 
   This macro was originally supposed to be a generic utility, but it didn't
-  end up that way at all, did it?
+  really end up that way at all, did it?
   "
   ;; Add the parts on in reverse order...
   ([meth [obj & meths]]

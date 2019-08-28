@@ -197,7 +197,8 @@
   Sets the specified (one-based) column index.
   "
   [this opt col]
-  (set-state! this opt (fn [_] (SingleIndex. (str col)))))
+  (when col
+    (set-state! this opt (fn [_] (SingleIndex. (str col))))))
 
 
 

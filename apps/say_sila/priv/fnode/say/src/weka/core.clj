@@ -37,7 +37,6 @@
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
                                                  TweetToSentiStrengthFeatureVector]))
-
 (set! *warn-on-reflection* true)
 
 (def ^:const RNG-SEED    1)                             ; Weka's default random seed
@@ -310,6 +309,9 @@
                          (.setStopwords (io/file STOPLIST-EN)))]
       ;; Prepare the filter for English texts
       (doto emoter
+            (.setToLowerCase true)
+           ;(.setStandarizeUrlsUsers true)
+           ;(.setReduceRepeatedLetters true)
             (.setStopwordsHandler stoplist)
             (.setStemmer (SnowballStemmer. "english")))))
 
@@ -324,9 +326,13 @@
   (prep-emoter [emoter cfg] "Configures the base features of a Affective Tweets filter."))
 
 (extend-protocol Emoter
+
   TweetToInputLexiconFeatureVector
   (prep-emoter [emoter
                 {:keys [nlp] :as cfg}]
+  ;; Set up the superclass
+  (prep-base-emoter cfg)
+
   ;; Our only defined NLP option is English-Stoplist-Porter
   (when (= nlp :english)
     (let [lexer (doto (ArffLexiconEvaluator.)
@@ -334,7 +340,6 @@
 
       ;; Prepare the filter for English texts
       (doto emoter
-            (prep-base-emoter cfg)
             (.setLexiconEval (into-array ^ArffLexiconEvaluator [lexer])))
 
   ;; Return the configured (mutated) filter
@@ -342,7 +347,8 @@
 
 
 
-
+;;; --------------------------------------------------------------------------
+;;; Sila command functionality
 ;;; --------------------------------------------------------------------------
 (defn emote-arff
   "Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
