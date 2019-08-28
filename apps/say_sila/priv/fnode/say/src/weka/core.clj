@@ -31,8 +31,9 @@
             [weka.filters Filter]
             [weka.filters.unsupervised.attribute RemoveByName
                                                  Reorder
+                                                 ;; Affective Tweets library
+                                                 TweetToFeatureVector
                                                  TweetToEmbeddingsFeatureVector
-                                                ;TweetToFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
                                                  TweetToSentiStrengthFeatureVector]))
@@ -59,7 +60,7 @@
 ;;       (future) launched from another namespace, which won't have access to the
 ;;       Java imports.
 ;; ---------------------------------------------------------------------------
-(def ^:const +ARFF-TEXT-ATTR-NUM+ 3)
+(def ^:const +ARFF-TEXT-ATTR-NUM+ 6)
 (def ^:const +ARFF-TEXT-ATTR+    (str +ARFF-TEXT-ATTR-NUM+))
 
 (def ^:const +FILTERS+ {:embed  {:filter  '(weka.filters.unsupervised.attribute.TweetToEmbeddingsFeatureVector.)
@@ -291,35 +292,71 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; Affective Tweets functionality
+;;; TODO: Move to namespace weka.tweets
+;;; --------------------------------------------------------------------------
+(defn- prep-base-emoter
+  "Configures the base features for the Affective Tweets filter superclass
+  TweetToFeatureVector."
+  ([emoter]
+  (prep-base-emoter emoter (cfg/? :emote)))
+
+
+  ([^TweetToFeatureVector emoter
+   {:keys [nlp text-index]}]
+  ;; Our only defined NLP option is English-Stoplist-Porter
+  (when (= nlp :english)
+    (let [stoplist (doto (WordsFromFile.)
+                         (.setStopwords (io/file STOPLIST-EN)))]
+      ;; Prepare the filter for English texts
+      (doto emoter
+            (.setStopwordsHandler stoplist)
+            (.setStemmer (SnowballStemmer. "english")))))
+
+  (doto emoter
+        (.setTextIndex (str text-index)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defprotocol Emoter
+  "Functionality for the Affective Tweets sentiment/emotion filters."
+  (prep-emoter [emoter cfg] "Configures the base features of a Affective Tweets filter."))
+
+(extend-protocol Emoter
+  TweetToInputLexiconFeatureVector
+  (prep-emoter [emoter
+                {:keys [nlp] :as cfg}]
+  ;; Our only defined NLP option is English-Stoplist-Porter
+  (when (= nlp :english)
+    (let [lexer (doto (ArffLexiconEvaluator.)
+                      (.setStemmer (SnowballStemmer. "english")))]
+
+      ;; Prepare the filter for English texts
+      (doto emoter
+            (prep-base-emoter cfg)
+            (.setLexiconEval (into-array ^ArffLexiconEvaluator [lexer])))
+
+  ;; Return the configured (mutated) filter
+  emoter))))
+
+
+
+
+;;; --------------------------------------------------------------------------
 (defn emote-arff
   "Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
-  as needed for «Say Sila», and then outputs the results in ARFF and CSV formats.
-
-  NOTE: This will be the main point of definition of what (Erlang) Sila wants,
-        until such time as it starts sending us its specific configurations."
+  as needed for «Say Sila», and then outputs the results in ARFF and CSV formats."
   [fpath]
   (log/debug "Emoting:" fpath)
-  (letfn [(make-emoter [opt]
-            (let [emoter (TweetToInputLexiconFeatureVector.)]
-              ; Our only defined NLP option is English-Stoplist-Porter
-              (when (= opt :english)
-                (let [stoplist (doto (WordsFromFile.)
-                                     (.setStopwords (io/file STOPLIST-EN)))
-                      lexer    (doto (ArffLexiconEvaluator.)
-                                     (.setStemmer (SnowballStemmer. "english")))]
-                  (doto emoter
-                        (.setLexiconEval (into-array ^ArffLexiconEvaluator [lexer]))
-                        (.setStopwordsHandler stoplist)
-                        (.setStemmer (SnowballStemmer. "english")))))
-              emoter))]
+  (let [emoter    (prep-emoter (TweetToInputLexiconFeatureVector.)
+                               (cfg/? :emote))
+        data-in   (load-arff fpath)
+        data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
+        data-out  (filter-instances data-mid :attrs)]
 
-    (let [emoter    (make-emoter (cfg/?? :emote :nlp))
-          data-in   (load-arff fpath)
-          data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
-          data-out  (filter-instances data-mid :attrs)]
-
-      (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
-      (save-results fpath "emote" data-out))))
+    (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
+    (save-results fpath "emote" data-out)))
 
 
 

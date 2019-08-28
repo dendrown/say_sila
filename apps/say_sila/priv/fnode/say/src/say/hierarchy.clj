@@ -15,9 +15,11 @@
             [say.config :as cfg]
             [say.log    :as log]
            ;[say.sila   :as sila]
-           ;[weka.core  :as weka]
+            [weka.core  :as weka]
             [clojure.core.async :as a :refer [>! <! >!! <!! chan go-loop]]
-            [clojure.string     :as str]))
+            [clojure.string     :as str])
+  (:import  [weka.filters.unsupervised.attribute TweetToInputLexiconFeatureVector   ; emo/bws
+                                                 TweetToGenderFeatures]))
 
 (set! *warn-on-reflection* true)
 
@@ -82,14 +84,18 @@
   "Starts up a machine-learning layer and returns its output channel."
   [sig-in]
   (let [sig-out (connect)
-        fbk-in  (connect)]
+        fbk-in  (connect)
+        emoter  (weka/prep-emoter (TweetToInputLexiconFeatureVector.)
+                                  (cfg/? :emote))]
 
     ;; Processing loop for the machine-learning layer.
-    (go-loop [msg (<!! sig-in)]
-      (if (= :quit msg)
+    (go-loop [arff (<!! sig-in)]
+      (if (= :quit arff)
           (shutdown :ml sig-out)
-          (do (log/info "ML:" msg)
-              (>! sig-out msg)
+          (let [einsts (doto (weka/load-arff arff)
+                             (weka/filter-instances emoter []))]
+              (log/info "ML:" arff)
+              (>! sig-out einsts)
               (recur (<!! sig-in)))))
 
     ;; This is the first layer, so we won't generate feedback.
