@@ -98,14 +98,18 @@
 (defn- go-ML-gender
   "Starts up the gender module in the machine-learning level."
   [conns ecfg]
-  (let [{signal   :ml-gnd-sig
-         feedback :ml-gnd-fbk} conns
-        genderer  (comment (wtw/prep-emoter (TweetToGenderFeatures.) ecfg))] ; TODO
+  (let [{signal   :ml-gnd-sig                       ; << emotional instances
+         feedback :ml-gnd-fbk
+         output   :dl-gnd} conns
+        genderer  (wtw/prep-emoter (TweetToGenderFeatures.) ecfg)]
 
     ;; We receive Weka instances on our signal channel
-    (go-loop [insts (<!! signal)]
-      (when-not (= :quit insts)
-        :todo))))
+    (go-loop [einsts (<! signal)]
+      (when-not (= :quit einsts)
+        (let [ginsts :gnd] ;(weka/filter-instances einsts genderer)]
+          ;; TODO: Insert pre-trained Weka model here!
+          (log/debug "GND:" (str ginsts))
+          (recur (<! signal)))))))
 
 
 
@@ -113,22 +117,23 @@
 (defn- go-ML
   "Starts up a machine-learning level and returns its output channel."
   [conns]
-  (let [ecfg   (cfg/? :emote)
-        signal (:ml-sig conns)
+  (let [ecfg   (cfg/? :emote)                       ; TODO: use generalized reconfig
+        signal (:ml-sig conns)                      ; << instances from Erlang
         emoter (wtw/prep-emoter (TweetToInputLexiconFeatureVector.) ecfg)]
 
     ;; Start up component layers
     (go-ML-gender conns ecfg)
 
     ;; Processing loop for the machine-learning layer.
-    (go-loop [arff (<!! signal)]
+    (go-loop [arff (<! signal)]
       (when-not (= :quit arff)
+          (log/info "ML:" arff)
           (let [einsts (doto (weka/load-arff arff)
-                             (weka/filter-instances emoter []))]
-              (log/info "ML:" arff)
-              (doseq [c [:ml-gnd-sig]]  ; TODO: forward emos to other layers...
-                (>! c einsts))
-              (recur (<!! signal)))))))
+                             (weka/filter-instances emoter))]
+            (log/info "Emotion instances" (.numInstances einsts))
+            (doseq [c [:ml-gnd-sig]]  ; TODO: forward emos to other layers...
+              (>! (c conns) einsts))
+            (recur (<! signal)))))))
 
 
 
