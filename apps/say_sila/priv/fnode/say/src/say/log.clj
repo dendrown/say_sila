@@ -11,8 +11,9 @@
 ;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.log
-  (:require [clj-time.local :as dts]
-            [clojure.pprint :as prt]))
+  (:require [clj-time.local     :as dts]
+            [clojure.pprint     :as prt]
+            [clojure.stacktrace :as stk]))
 
 (set! *warn-on-reflection* true)
 
@@ -149,5 +150,8 @@
   Catch-all error logger for exceptions that excepted
   "
   [^Exception ex
-   ^String    msg]
-  (error (str msg ":") (.getMessage ex)))
+   ^String    msg
+   &          opts]
+  (error (str msg ":") (.getMessage ex))
+  (when (some #{:stack} opts)
+    (stk/print-stack-trace ex)))
