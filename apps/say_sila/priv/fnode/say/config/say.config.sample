@@ -5,6 +5,9 @@
      :sname         "say"}
 
   :emote
-    {:nlp           :affective                  ; Options: affective|english
-     :text-index    1}                          ; ARFF indices are 1-based
+    {:nlp               :english        ; Options: affective|english
+     :screen-name-index 3               ; ARFF indices are 1-based
+     :full-name-index   4
+     :description-index 5
+     :text-index-index  6}
 }

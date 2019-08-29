@@ -18,6 +18,7 @@
            ;[say.influence]                 ; NOTE: article
            ;[say.sila           :as sila]
             [weka.core          :as weka]
+            [weka.tweet         :as wtw]
             [clojure.core.async :as a :refer [>! <! >!! <!! go chan]]
             [clojure.data.json  :as json]
             [clojure.string     :as str])
@@ -111,7 +112,7 @@
 
     (log/info "->> weka<" cmd# ">:" (str arg#))
     (go
-      (let [wfun# (ns-resolve 'weka.core (symbol '~fun))
+      (let [wfun# (ns-resolve 'weka.tweet (symbol '~fun))
             rsp#  (apply wfun# arg# '~parms)]
         (log/info "<<- weka<" cmd# ">" rsp# "[OK]")
         (answer-sila ~msg (keyword cmd#) (map->otp rsp#))))))
@@ -136,14 +137,14 @@
 (defmethod dispatch "embed" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
     (log/info "Filter/EMBED:" fpath)
-    (weka/filter-arff fpath :embed)
+    (wtw/filter-arff fpath :embed)
     (log/info "Filter/EMBED:" fpath "[OK]")))
 
 
 (defmethod dispatch "lex" [msg]
   (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
     (log/info "Filter/LEX:" fpath)
-    (weka/filter-arff fpath :lex)
+    (wtw/filter-arff fpath :lex)
     (log/info "Filter/LEX:" fpath "[OK]")))
 
 

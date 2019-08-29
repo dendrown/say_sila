@@ -16,6 +16,7 @@
             [say.log    :as log]
            ;[say.sila   :as sila]
             [weka.core  :as weka]
+            [weka.tweet :as wtw]
             [clojure.core.async :as a :refer [>! <! >!! <!! chan go-loop]]
             [clojure.string     :as str])
   (:import  [weka.filters.unsupervised.attribute TweetToInputLexiconFeatureVector   ; emo/bws
@@ -70,7 +71,7 @@
 (defn shutdown!
   "Shuts down the running hierarchy."
   []
-  (doseq [c Inua]
+  (doseq [[_ c] @Inua]
     (>!! c :quit))
 
   (doseq [a [Inua Tell]]
@@ -82,16 +83,14 @@
 (defn- go-DL
   "Starts up a description-logic layer.  This layer currently has no output.
   The application may see its work reflected in the say-sila ontology."
-  [sig-in fbk-out]
-  ;; Processing loop for the description logic layer.
-  (go-loop [msg (<!! sig-in)]
-    (if (= :quit msg)
-        (shutdown :dl)
-        (do (log/info "DL:" msg)
-            (recur (<!! sig-in)))))
+  [conns]
+  (let [gender (:dl-gnd-sig conns)]
 
-    ;; This is the final layer
-    (->Layer sig-in nil nil fbk-out))
+    ;; Processing loop for the description logic layer.
+    (go-loop [msg (<!! gender)]
+      (when-not (= :quit msg)
+          (do (log/info "DL:" msg)
+              (recur (<!! gender)))))))
 
 
 
@@ -101,7 +100,7 @@
   [conns ecfg]
   (let [{signal   :ml-gnd-sig
          feedback :ml-gnd-fbk} conns
-        genderer  (comment (weka/prep-emoter (TweetToGenderFeatures.) ecfg))] ; TODO
+        genderer  (comment (wtw/prep-emoter (TweetToGenderFeatures.) ecfg))] ; TODO
 
     ;; We receive Weka instances on our signal channel
     (go-loop [insts (<!! signal)]
@@ -116,7 +115,7 @@
   [conns]
   (let [ecfg   (cfg/? :emote)
         signal (:ml-sig conns)
-        emoter (weka/prep-emoter (TweetToInputLexiconFeatureVector.) ecfg)]
+        emoter (wtw/prep-emoter (TweetToInputLexiconFeatureVector.) ecfg)]
 
     ;; Start up component layers
     (go-ML-gender conns ecfg)
