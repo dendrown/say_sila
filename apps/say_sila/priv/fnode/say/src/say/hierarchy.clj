@@ -19,7 +19,8 @@
             [weka.tweet :as wtw]
             [clojure.core.async :as a :refer [>! <! >!! <!! chan go-loop]]
             [clojure.string     :as str])
-  (:import  [weka.filters.unsupervised.attribute TweetToInputLexiconFeatureVector   ; emo/bws
+  (:import  [weka.core Attribute]
+            [weka.filters.unsupervised.attribute TweetToInputLexiconFeatureVector   ; emo/bws
                                                  TweetToGenderFeatures]))
 
 (set! *warn-on-reflection* true)
@@ -106,9 +107,11 @@
     ;; We receive Weka instances on our signal channel
     (go-loop [einsts (<! signal)]
       (when-not (= :quit einsts)
-        (let [ginsts :gnd] ;(weka/filter-instances einsts genderer)]
+        (let [ginsts  (weka/filter-instances einsts genderer)
+              results (weka/save-file "/tmp/sila-inua-ML.gnd.arff" ginsts :arff)]
           ;; TODO: Insert pre-trained Weka model here!
-          (log/debug "GND:" (str ginsts))
+          (log/debug "GND:" (map #(.name ^Attribute %)
+                                  (enumeration-seq (.enumerateAttributes ginsts))))
           (recur (<! signal)))))))
 
 

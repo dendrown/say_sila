@@ -68,7 +68,7 @@
   «.arff» and «.csv» to represent different output formats."
   [fpath tag]
   (let [parts (str/split fpath #"\.")
-        stub  (str/join "." (flatten [(butlast parts) tag]))]
+        stub  (str/join "." (flatten [(butlast parts) (name tag)]))]
     {:tagged (str stub "." (last parts))
      :arff   (str stub ".arff")
      :csv    (str stub ".csv")}))
