@@ -248,10 +248,10 @@
 
       ;; Prepare the filter for English texts
       (doto emoter
-            (.setLexiconEval (into-array ^ArffLexiconEvaluator [lexer])))
+            (.setLexiconEval (into-array ^ArffLexiconEvaluator [lexer])))))
 
   ;; Return the configured (mutated) filter
-  emoter)))
+  emoter)
 
 
   ;; -------------------------------------------------------------------------
