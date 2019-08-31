@@ -14,7 +14,7 @@
   (:require [say.genie  :refer :all]
             [say.config :as cfg]
             [say.log    :as log]
-           ;[say.sila   :as sila]
+            [say.sila   :as sila]
             [weka.core  :as weka]
             [weka.tweet :as wtw]
             [clojure.core.async :as a :refer [>! <! >!! <!! chan go-loop]]
@@ -28,17 +28,6 @@
 (def ^:const BUFFER     16)
 (def ^:const CONN-KEYS  [:ml-sig :ml-gnd-sig :ml-gnd-fbk :dl-gnd-sig])
 
-;; A Layer record defines connections for levels (ML, DL, and eventually PL)
-;; as well as the layers (gender, politcal party, etc...) inside those levels.
-;;            +---+
-;;   sig-in-->| L |-->sig-out
-;;            | a |
-;;            | y |
-;;  fbk-out<--| e |<--fbk-in
-;;            | r |
-;;            +---+
-(defrecord Layer [sig-in sig-out
-                  fbk-in fbk-rout])
 
 (defonce Inua (atom nil))                   ; Possessor/master/spirit/soul [Inuit]
 (defonce Tell (atom nil))
@@ -108,10 +97,12 @@
     (go-loop [einsts (<! signal)]
       (when-not (= :quit einsts)
         (let [ginsts  (weka/filter-instances einsts genderer)
-              results (weka/save-file "/tmp/sila-inua-ML.gnd.arff" ginsts :arff)]
-          ;; TODO: Insert pre-trained Weka model here!
+              results (weka/save-file "/tmp/sila-inua-ML.gnd.arff" ginsts :arff)
+              ;FIXME: Insert pre-trained Weka model here!
+              gender  (["FEMALE" "MALE"] (rand-int 2))]
           (log/debug "GND:" (map #(.name ^Attribute %)
                                   (enumeration-seq (.enumerateAttributes ginsts))))
+
           (recur (<! signal)))))))
 
 

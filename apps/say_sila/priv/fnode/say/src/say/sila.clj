@@ -488,15 +488,24 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- form->ontology
+(defn form->ontology
   "
   Evaluates a clojure form, presumably to add an entity to the ontology.
   "
-  [form]
-  (try
-    ;(log/debug form)
-    (eval form)
-    (catch Exception ex (log/fail ex "Bad ontology form:"))))
+  [[call ent & args]]
+  ;; These forms usually end up calling def in tawny.owl/intern-owl. We are
+  ;; likely here because of a call from another namespace, but Clojure doesn't
+  ;; allow the use of def to define variables in one namespace from another.
+  (binding [*ns* (find-ns 'say.sila)]
+    ;; We're specifying the ontology explicitly since we're juggling namespaces.
+    ;; Tawny OWL requires that the ontology come before other (frame) arguments.
+    ;; Destructuring gives us the Tawny macro call and the entity.  Now we need
+    ;; to reconstruct the list form, adding back the head elements in reverse order.
+    (let [form (conj args `say-sila :ontology (symbol ent) call)]
+      (log/debug form)
+      (try
+        (eval form)
+        (catch Exception ex (log/fail ex "Bad ontology form" :stack))))))
 
 
 
@@ -510,48 +519,48 @@
 
 (defmethod alter-ontology "tweets"
   [prop dom rng]
-  (doseq [form [`(defindividual ~(symbol dom) :type OriginalTweeter)
-               ;`(defindividual ~(symbol rng) :type OriginalTweet)  ; Keep the ontology small-ish
+  (doseq [form [`(defindividual ~dom :type OriginalTweeter)
+               ;`(defindividual ~rng :type OriginalTweet)  ; Keep the ontology small-ish
                ]]
     (form->ontology form)))
 
 
 (defmethod alter-ontology "retweets"
   [prop dom rng]
-  (doseq [form [`(defindividual ~(symbol rng) :type Retweet)
-                `(defindividual ~(symbol dom) :type Retweeter
-                                              :fact (is postsRetweetIn ~(symbol rng)))]]
+  (doseq [form [`(defindividual ~rng :type Retweet)
+                `(defindividual ~dom :type Retweeter
+                                     :fact (is postsRetweetIn rng))]]
     (form->ontology form)))
 
 
 (defmethod alter-ontology "isRetweetFrom"
   [prop dom rng]
-  (doseq [form [`(defindividual ~(symbol rng) :type Author)         ; reasoner => RetweetedAuthor
-                `(defindividual ~(symbol dom) :type Retweet
-                                              :fact (is isRetweetFrom ~(symbol rng)))]]
+  (doseq [form [`(defindividual ~rng :type Author)         ; reasoner => RetweetedAuthor
+                `(defindividual ~dom :type Retweet
+                                     :fact (is isRetweetFrom ~rng))]]
     (form->ontology form)))
 
 
 (defmethod alter-ontology "makesMentionIn"
   [prop dom rng]
-  (doseq [form [`(defindividual ~(symbol rng) :type Tweet)
-                `(defindividual ~(symbol dom) :type Tweeter
-                                              :fact (is makesMentionIn ~(symbol rng)))]]
+  (doseq [form [`(defindividual ~rng :type Tweet)
+                `(defindividual ~dom :type Tweeter
+                                     :fact (is makesMentionIn ~rng))]]
     (form->ontology form)))
 
 
 (defmethod alter-ontology "hasMentionOf"
   [prop dom rng]
-  (doseq [form [`(defindividual ~(symbol rng) :type Author)         ; reasoner => MentionedAuthor
-                `(defindividual ~(symbol dom) :type Tweet
-                                              :fact (is hasMentionOf ~(symbol rng)))]]
+  (doseq [form [`(defindividual ~rng :type Author)         ; reasoner => MentionedAuthor
+                `(defindividual ~dom :type Tweet
+                                     :fact (is hasMentionOf ~rng))]]
     (form->ontology form)))
 
 
 (defmethod alter-ontology "hasPostCount"
   [prop dom rng]
-  (doseq [form [`(defindividual ~(symbol dom) :type Tweeter
-                                              :fact (is hasPostCount ~rng))]]
+  (doseq [form [`(defindividual ~dom :type Tweeter
+                                     :fact (is hasPostCount ~rng))]]
     (form->ontology form)))
 
 

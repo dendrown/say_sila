@@ -16,12 +16,13 @@
             [say.log            :as log]
             [say.hierarchy      :as inua]
            ;[say.influence]                 ; NOTE: article
-           ;[say.sila           :as sila]
+            [say.sila           :as sila]
             [weka.core          :as weka]
             [weka.tweet         :as wtw]
             [clojure.core.async :as a :refer [>! <! >!! <!! go chan]]
             [clojure.data.json  :as json]
-            [clojure.string     :as str])
+            [clojure.string     :as str]
+            [tawny.owl          :as owl])
   (:import  [com.ericsson.otp.erlang OtpErlangAtom
                                      OtpErlangBinary
                                      OtpErlangDouble
@@ -128,10 +129,10 @@
 (defmethod dispatch "dic9315" [msg] (do-weka msg filter-arff '(:embed :bws)))
 (defmethod dispatch "regress" [msg] (do-weka msg regress))
 
-;; FIXME: Reconnect ontology
-;(defmethod dispatch "sila" [msg]
-;  ;; Handle updates to the say-sila ontology (no response back to Erlang)
-;  (sila/execute (:arg msg)))
+
+(defmethod dispatch "sila" [msg]
+  ;; Handle updates to the say-sila ontology (no response back to Erlang)
+  (sila/execute (:arg msg)))
 
 
 (defmethod dispatch "embed" [msg]
@@ -236,16 +237,8 @@
       ;; Start up Say-Sila's hierarchical "mind"
       (inua/create!)
 
-      ;; FIXME: The ontology functionality in the say.sila namespace requires
-      ;;        us to be in say.sila so it can create individuals as variables
-      ;;        in that name-space. Tawny.owl macros are picky and fragile :/
-      ;(ns say.sila)
-
       ;; Receive and process messages from Erlang
       (otp-loop node mbox)
       (.close node)
-
-      ;; Put us back where we're supposed to be
-      ;(ns say.core)
       :ok)))
 
