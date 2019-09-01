@@ -14,6 +14,7 @@
   (:require [say.log         :as log]
             [tawny.owl       :refer :all]
             [tawny.english   :as dl]
+            [tawny.query     :as qry]
             [clojure.java.io :as io])
   (:import  [org.semanticweb.owlapi.model   IRI
                                             OWLDataFactory
@@ -33,11 +34,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro ->owl-getter
-  "
-  Returns an OWLDataFactory getter function for the OWL entity of the specified
+  "Returns an OWLDataFactory getter function for the OWL entity of the specified
   type. Note that the argument to the returned function should be an IRI object
-  (as opposed to a string).
-  "
+  (as opposed to a string)."
   [otype]
   `(fn [iri#] (. ^OWLDataFactory Factory ~(Getters otype) iri#)))
 
@@ -45,9 +44,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro ->owl
-  "
-  Returns the OWL entity for the specified IRI
-  "
+  "Returns the OWL entity for the specified IRI."
   ([otype tbox]
   ;; Use a local alias to handle the Factory type hint in one place
   `(let [lookup# (->owl-getter ~otype)
@@ -65,16 +62,14 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro redef
-  "
-  Creates a Clojure variable which corresponds to an existing class in the
+  "Creates a Clojure variable which corresponds to an existing class in the
   current ontology.
 
     otype   : Keyword indicating OWL entity (:class, :dpropert, ...)
     var     : Symbolic name of the variable, and the short name of the class
     iri     : IRI of the ontology, assumed to be a prefix to the IRI of the class
     suffix  : Identifier appended to the IRI prefix to create the full IRI
-              (defaults to the string value of var)
-  "
+              (defaults to the string value of var)"
   ([otype var]
   `(redef ~otype ~var ~(deref (ns-resolve *ns* 'ONT-IRI))))   ; Caller's namespace
 
@@ -95,11 +90,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro defpun
-  "
-  Creates an individual with the same IRI as the specified class.  The class
+  "Creates an individual with the same IRI as the specified class.  The class
   must already exist and the variable representing the individual is prepended
-  with an « i ». (MyThing becomes iMyThing.)
-  "
+  with an « i ». (MyThing becomes iMyThing.)"
   [clazz]
   (let [mclazz (vary-meta clazz
                           assoc :tag 'uk.ac.manchester.cs.owl.owlapi.OWLClassImpl)]
@@ -110,9 +103,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn load-ontology
-  "
-  Reads an ontology from the file system
-  "
+  "Reads an ontology from the file system."
   [^String iri
    ^String fpath]
   (let [id  (OWLOntologyID. (IRI/create iri))
