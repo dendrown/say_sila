@@ -19,7 +19,7 @@
             [say.sila           :as sila]
             [weka.core          :as weka]
             [weka.tweet         :as wtw]
-            [clojure.core.async :as a :refer [>! <! >!! <!! go chan]]
+            [clojure.core.async :as a :refer [go]]
             [clojure.data.json  :as json]
             [clojure.string     :as str]
             [tawny.owl          :as owl])

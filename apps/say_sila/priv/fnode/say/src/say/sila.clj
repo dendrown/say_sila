@@ -37,7 +37,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const FOAF?      false)
+(def ^:const FOAF?      true)
 
 
 ;;; --------------------------------------------------------------------------
@@ -81,8 +81,8 @@
     (refine Agent :equivalent foaf/Agent)
     (defcopy foaf/gender)
 
-    (def Female "female")
-    (def Male   "male"))
+    (def Female "FEMALE")
+    (def Male   "MALE"))
 
   ;; TODO: Evaluating Gender ⊑ dul/Quality
   (do
