@@ -16,7 +16,7 @@
             [tawny.english   :as dl]
             [tawny.query     :as qry]
             [clojure.java.io :as io])
-  (:import  [org.semanticweb.owlapi.model   IRI
+  (:import  [org.semanticweb.owlapi.model   IRI HasIRI
                                             OWLDataFactory
                                             OWLOntologyID]
             [uk.ac.manchester.cs.owl.owlapi OWLClassImpl]))
@@ -112,3 +112,18 @@
     (remove-ontology-maybe id)
     (.loadOntologyFromOntologyDocument man (IRI/create rsc))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn iri-kv
+  "Returns a key-value vector of the form whose key is :iri and whose value is
+  the namespace-qualified string form of the IRI for the specified entity."
+  [^HasIRI entity]
+  [:iri (str (.getIRI entity))])
+
+
+;;; --------------------------------------------------------------------------
+(defn facto
+  "Returns a goal which matches entity on fact."
+  [entity fact]
+  (qry/matcher entity {:fact [fact]}))

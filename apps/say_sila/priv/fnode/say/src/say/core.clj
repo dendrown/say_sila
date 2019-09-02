@@ -11,15 +11,18 @@
 ;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.core
+  (:refer-clojure :exclude [==])
   (:require [say.config         :as cfg]
             [say.data           :as data]
             [say.log            :as log]
             [say.hierarchy      :as inua]
-           ;[say.influence]                 ; NOTE: article
+           ;[say.influence]                                 ; <= article
             [say.sila           :as sila]
             [weka.core          :as weka]
             [weka.tweet         :as wtw]
             [clojure.core.async :as a :refer [go]]
+            [clojure.core.logic :as l :refer [run* ==]]     ; <= debug
+            [tawny.repl      :as repl]
             [clojure.data.json  :as json]
             [clojure.string     :as str]
             [tawny.owl          :as owl])

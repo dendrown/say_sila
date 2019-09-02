@@ -11,18 +11,22 @@
 ;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
-  (:require [say.ontology    :refer :all]
-            [say.config      :as cfg]
-            [say.dolce       :as dul]
-            [say.foaf        :as foaf]
-            [say.sioc        :as sioc]
-            [say.log         :as log]
-            [clojure.string  :as str]
-            [clojure.java.io :as io]
-            [tawny.english   :as dl]
-            [tawny.reasoner  :as rsn]
-            [tawny.repl      :as repl]                  ; <= DEBUG
-            [tawny.owl       :refer :all])
+  (:refer-clojure :exclude [==])
+  (:require [say.ontology       :refer :all]
+            [say.config         :as cfg]
+            [say.dolce          :as dul]
+            [say.foaf           :as foaf]
+            [say.sioc           :as sioc]
+            [say.log            :as log]
+            [clojure.string     :as str]
+            [clojure.java.io    :as io]
+            [clojure.pprint     :as prt :refer [pp pprint]]
+            [tawny.english      :as dl]
+            [tawny.reasoner     :as rsn]
+            [tawny.query        :as qry]
+            [tawny.repl         :as repl]                   ; <= debug
+            [tawny.owl          :refer :all]
+            [clojure.core.logic :refer :all :exclude [annotate is]])
   (:import  [org.semanticweb.owlapi.model   IRI
                                             OWLOntologyID]))
 
