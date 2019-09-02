@@ -11,11 +11,13 @@
 ;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.ontology
-  (:require [say.log         :as log]
-            [tawny.owl       :refer :all]
-            [tawny.english   :as dl]
-            [tawny.query     :as qry]
-            [clojure.java.io :as io])
+  (:refer-clojure :exclude [==])
+  (:require [say.log            :as log]
+            [clojure.java.io    :as io]
+            [tawny.english      :as dl]
+            [tawny.query        :as qry]
+            [tawny.owl          :refer :all]
+            [clojure.core.logic :refer :all :exclude [annotate is]])
   (:import  [org.semanticweb.owlapi.model   IRI HasIRI
                                             OWLDataFactory
                                             OWLOntologyID]
@@ -122,8 +124,37 @@
   [:iri (str (.getIRI entity))])
 
 
+
+;;; --------------------------------------------------------------------------
+(defn ensure-map
+  "Converts an OWL entity into a hashmap if it hasn't already been converted."
+  [entity]
+  (if (map? entity)
+      entity
+      (qry/into-map entity)))
+
+
+
 ;;; --------------------------------------------------------------------------
 (defn facto
   "Returns a goal which matches entity on fact."
   [entity fact]
-  (qry/matcher entity {:fact [fact]}))
+  (qry/matcher (ensure-map entity)
+               {:fact [fact]}))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn check-fact
+  "Returns a hashmap representing the value of a property framed as a fact
+  about an individual or nil if no such fact exists."
+  [entity property]
+  (let [piri  (iri-kv  property)
+        value (first (run* [v]
+                       (fresh [fact prop]
+                         (facto (ensure-map entity) fact)
+                         (conso :fact [prop v] fact)
+                         (== prop piri))))]
+   (when-not (empty? value)
+     (apply hash-map value))))
+
