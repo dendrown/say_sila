@@ -117,11 +117,28 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn iri-fragment
+  "Returns the fragment (generally the entity name) portion of an entity's IRI."
+  [^HasIRI entity]
+  (.getFragment (.getIRI entity)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn iri-kv
   "Returns a key-value vector of the form whose key is :iri and whose value is
   the namespace-qualified string form of the IRI for the specified entity."
   [^HasIRI entity]
   [:iri (str (.getIRI entity))])
+
+
+
+;;; --------------------------------------------------------------------------
+(defn iri-symbol
+  "Returns a symbol naming the fragment (generally the entity name) portion
+  of an entity's IRI."
+  [entity]
+  (symbol (iri-fragment entity)))
 
 
 
@@ -149,12 +166,15 @@
   "Returns a hashmap representing the value of a property framed as a fact
   about an individual or nil if no such fact exists."
   [entity property]
-  (let [piri  (iri-kv  property)
+  (let [psym  (iri-symbol property)
+        piri  (iri-kv property)
         value (first (run* [v]
                        (fresh [fact prop]
                          (facto (ensure-map entity) fact)
                          (conso :fact [prop v] fact)
-                         (== prop piri))))]
+                         (conde
+                           [(== prop psym)]
+                           [(== prop piri)]))))]
    (when-not (empty? value)
      (apply hash-map value))))
 
