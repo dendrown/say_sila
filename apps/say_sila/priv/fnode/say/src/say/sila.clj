@@ -306,7 +306,7 @@
             (dl/not hasRole Environmentalist))
 
 
-;;; DEPRECATED: FOAF/SIOC are no longer primary as we move onto DOLCE-based ontologies
+;;; TODO FOAF/SIOC are no longer primary as we move onto DOLCE-based ontologies
 ;;;
 ;;; TBox: building on sioc:Post ⊑ foaf:Document
 (owl-class sioc/Post
@@ -425,6 +425,16 @@
                                                         ; consider Tweet authors that are not
                                                         ; active Tweeters, retweeted, or mentioned.
 (defdproperty hasPostCount
+  :domain Tweeter
+  :range  :XSD_NON_NEGATIVE_INTEGER
+  :characteristic :functional)
+
+(defdproperty hasMaleTweetCount
+  :domain Tweeter
+  :range  :XSD_NON_NEGATIVE_INTEGER
+  :characteristic :functional)
+
+(defdproperty hasFemaleTweetCount
   :domain Tweeter
   :range  :XSD_NON_NEGATIVE_INTEGER
   :characteristic :functional)
@@ -575,10 +585,18 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-gender-tweet-counts
+  "Returns a map of the counts of tweets for the specifed Tweeter that were
+  classified as :male and :female."
+  [tweeter]
+  {:female  (get-count tweeter hasFemaleTweetCount 0)
+   :male    (get-count tweeter hasMaleTweetCount   0)})
+
+
+
+;;; --------------------------------------------------------------------------
 (defn execute
-  "
-  Processes a sequence of ontology commands from say_sila/Erlang
-  "
+  "Processes a sequence of ontology commands from say_sila/Erlang."
   [cmds]
   (doseq [cmd cmds]
     (let [{prop :property           ; oproperty|dproperty
@@ -591,9 +609,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn save
-  "
-  Saves the say-sila ontology to disk in OWL format.
-  "
+  "Saves the say-sila ontology to disk in OWL format."
   ([] (save ONT-FPATH))
 
   ([^String fpath]

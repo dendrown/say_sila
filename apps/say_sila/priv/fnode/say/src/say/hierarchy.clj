@@ -99,7 +99,10 @@
         (let [ginsts  (weka/filter-instances einsts genderer)
               results (weka/save-file "/tmp/sila-inua-ML.gnd.arff" ginsts :arff)
               ;FIXME: Insert pre-trained Weka model here!
-              gender  (["FEMALE" "MALE"] (rand-int 2))]
+              gender  (["FEMALE" "MALE"] (rand-int 2))
+             ;fm-cnts (sila/get-gender-tweet-counts screen-name)
+        ]
+
           (log/debug "GND:" (map #(.name ^Attribute %)
                                   (enumeration-seq (.enumerateAttributes ginsts))))
 

@@ -178,3 +178,17 @@
    (when-not (empty? value)
      (apply hash-map value))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn get-count
+  "Returns the count for the given data property with respect to an entity."
+  ([entity dprop]
+  (get-count entity dprop 0))
+
+
+  ([entity dprop default]
+  (if-let [cnt (check-fact entity dprop)]
+    (Long/parseLong (:literal cnt))
+    default)))
+

@@ -20,9 +20,9 @@
             [say.sila           :as sila]
             [weka.core          :as weka]
             [weka.tweet         :as wtw]
-            [clojure.core.async :as a :refer [go]]
+            [clojure.core.async :as a :refer [go >!!]]
             [clojure.core.logic :as l :refer [run* ==]]     ; <= debug
-            [tawny.repl      :as repl]
+            [tawny.repl         :as repl]
             [clojure.data.json  :as json]
             [clojure.string     :as str]
             [tawny.owl          :as owl])
