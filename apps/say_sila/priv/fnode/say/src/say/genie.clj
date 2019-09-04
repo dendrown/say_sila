@@ -24,8 +24,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro jcall
-  "
-  Sorta-kinda-not-really similar to apply, but works for java static methods
+  "Sorta-kinda-not-really similar to apply, but works for java static methods
   with zero or more normal parameters and a series of parameters that involve
   method calls on an object.
 
@@ -33,8 +32,7 @@
     (jcall some.package/foo 42 [this .doSomething .doSomethingElse .doAnother])
 
   This macro was originally supposed to be a generic utility, but it didn't
-  really end up that way at all, did it?
-  "
+  really end up that way at all, did it?"
   ;; Add the parts on in reverse order...
   ([meth [obj & meths]]
   (conj (map #(list % obj) meths) meth))
@@ -47,9 +45,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^String keystr
-  "
-  Returns a string representing a keyword without its initial colon ( : ).
-  "
+  "Returns a string representing a keyword without its initial colon ( : )."
   [kw]
   (subs (str kw) 1))
 
@@ -57,10 +53,8 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^String KEYSTR
-  "
-  Returns an uppercased string representing a keyword without its initial
-  colon ( : ).
-  "
+  "Returns an uppercased string representing a keyword without its initial
+  colon ( : )."
   [kw]
   (str/upper-case (keystr kw)))
 
@@ -85,9 +79,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^Long rng-seed
-  "
-  Handle random number generator
-  "
+  "Handle random number generator."
   ([]
   (let [seed @RNG-SEED]
     (swap! RNG-SEED inc)
@@ -100,9 +92,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^clojure.lang.PersistentList listify
-  "
-  If the input argument is not a list, contain it in a list.
-  "
+  "If the input argument is not a list, contain it in a list."
   [arg]
   (if (list? arg) arg (list arg)))
 
@@ -110,10 +100,8 @@
 
 ;;; --------------------------------------------------------------------------
 (defn doublify
-  "
-  If the input argument is not a double, coerce it to a double.  Anything
-  not coercible to a double (including nil) is returned as nil.
-  "
+  "If the input argument is not a double, coerce it to a double.  Anything
+  not coercible to a double (including nil) is returned as nil."
   [x]
   (cond
     (number? x) (double  x)
@@ -123,10 +111,8 @@
 
 ;;; --------------------------------------------------------------------------
 (defn longify
-  "
-  Coerce the input to a long.  Anything not coercible to a long (including nil)
-  is returned as nil.
-  "
+  "Coerce the input to a long.  Anything not coercible to a long (including nil)
+  is returned as nil."
   [x]
   (cond
     (number? x) (long  x)
@@ -136,9 +122,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro zip
-  "
-  Returns a sequence of the zipped up elements from the specified collections.
-  "
+  "Returns a sequence of the zipped up elements from the specified collections."
   [& colls]
   `(map vector ~@colls))
 
