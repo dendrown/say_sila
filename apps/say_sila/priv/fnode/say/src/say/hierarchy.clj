@@ -91,20 +91,25 @@
   (let [{signal   :ml-gnd-sig                       ; << emotional instances
          feedback :ml-gnd-fbk
          output   :dl-gnd} conns
-        genderer  (wtw/prep-emoter (TweetToGenderFeatures.) ecfg)]
+         sname-ndx  (weka/index1->0 (:screen-name-index ecfg))
+         genderer   (wtw/prep-emoter (TweetToGenderFeatures.) ecfg)]
 
     ;; We receive Weka instances on our signal channel
     (go-loop [einsts (<! signal)]
       (when-not (= :quit einsts)
         (let [ginsts  (weka/filter-instances einsts genderer)
-              results (weka/save-file "/tmp/sila-inua-ML.gnd.arff" ginsts :arff)
+              ginst   (.firstInstance ginsts)
+              sname   (.stringValue ginst sname-ndx)
               ;FIXME: Insert pre-trained Weka model here!
               gender  (["FEMALE" "MALE"] (rand-int 2))
              ;fm-cnts (sila/get-gender-tweet-counts screen-name)
         ]
 
-          (log/debug "GND:" (map #(.name ^Attribute %)
-                                  (enumeration-seq (.enumerateAttributes ginsts))))
+          ;; A little feedback for the developper
+          (weka/save-file "/tmp/sila-inua-ML.gnd.arff" ginsts :arff)
+          (log/debug (log/<> "GND" sname)
+                     (map #(.name ^Attribute %)
+                           (enumeration-seq (.enumerateAttributes ginsts))))
 
           (recur (<! signal)))))))
 

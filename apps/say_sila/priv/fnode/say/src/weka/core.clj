@@ -11,7 +11,8 @@
 ;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns weka.core
-  (:require [say.config      :as cfg]
+  (:require [say.genie       :refer :all]
+            [say.config      :as cfg]
             [say.genie       :as !!]
             [say.log         :as log]
             [clojure.java.io :as io]
@@ -39,6 +40,13 @@
   (get-index [insts ^String tag]
     (.index (.attribute insts tag))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn index1->0
+  "Converts a 1-based (numeric or string) index to a 0-based long."
+  [i]
+  (dec (longify i)))
 
 
 ;;; --------------------------------------------------------------------------

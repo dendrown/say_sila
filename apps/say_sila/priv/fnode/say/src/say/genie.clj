@@ -109,6 +109,32 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn doublify
+  "
+  If the input argument is not a double, coerce it to a double.  Anything
+  not coercible to a double (including nil) is returned as nil.
+  "
+  [x]
+  (cond
+    (number? x) (double  x)
+    (string? x) (Double/parseDouble x)
+    :else       nil))
+
+
+;;; --------------------------------------------------------------------------
+(defn longify
+  "
+  Coerce the input to a long.  Anything not coercible to a long (including nil)
+  is returned as nil.
+  "
+  [x]
+  (cond
+    (number? x) (long  x)
+    (string? x) (long (doublify x))     ; Handle strings with decimals
+    :else       nil))
+
+
+;;; --------------------------------------------------------------------------
 (defmacro zip
   "
   Returns a sequence of the zipped up elements from the specified collections.
