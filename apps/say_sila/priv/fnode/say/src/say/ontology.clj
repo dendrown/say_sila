@@ -26,10 +26,11 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const Getters {:class     'getOWLClass
-                      :aproperty 'getOWLAnnotationProperty
-                      :dproperty 'getOWLDataProperty
-                      :oproperty 'getOWLObjectProperty})
+(def ^:const Getters {:class      'getOWLClass
+                      :individual 'getOWLNamedIndividual
+                      :aproperty  'getOWLAnnotationProperty
+                      :dproperty  'getOWLDataProperty
+                      :oproperty  'getOWLObjectProperty})
 
 (defonce Factory (.getOWLDataFactory (owl-ontology-manager)))
 
@@ -83,10 +84,11 @@
   `(def ~var (->owl ~otype ~iri ~suffix))))
 
 
-(defmacro redefclass     [& args] `(redef :class     ~@args))
-(defmacro redefaproperty [& args] `(redef :aproperty ~@args))
-(defmacro redefdproperty [& args] `(redef :dproperty ~@args))
-(defmacro redefoproperty [& args] `(redef :oproperty ~@args))
+(defmacro redefclass      [& args] `(redef :class      ~@args))
+(defmacro redefindividual [& args] `(redef :individual ~@args))
+(defmacro redefaproperty  [& args] `(redef :aproperty  ~@args))
+(defmacro redefdproperty  [& args] `(redef :dproperty  ~@args))
+(defmacro redefoproperty  [& args] `(redef :oproperty  ~@args))
 
 
 

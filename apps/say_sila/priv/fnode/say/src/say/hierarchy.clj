@@ -19,7 +19,8 @@
             [weka.tweet :as wtw]
             [clojure.core.async :as a :refer [>! <! >!! <!! chan go-loop]]
             [clojure.string     :as str])
-  (:import  [weka.core Attribute]
+  (:import  [weka.core Attribute
+                       Instances]
             [weka.filters.unsupervised.attribute TweetToInputLexiconFeatureVector   ; emo/bws
                                                  TweetToGenderFeatures]))
 
@@ -91,6 +92,7 @@
   (let [{signal   :ml-gnd-sig                       ; << emotional instances
          feedback :ml-gnd-fbk
          output   :dl-gnd} conns
+         id-ndx     (weka/index1->0 (:id-index ecfg))
          sname-ndx  (weka/index1->0 (:screen-name-index ecfg))
          genderer   (wtw/prep-emoter (TweetToGenderFeatures.) ecfg)]
 
@@ -99,6 +101,7 @@
       (when-not (= :quit einsts)
         (let [ginsts  (weka/filter-instances einsts genderer)
               ginst   (.firstInstance ginsts)
+              twid    (.stringValue ginst id-ndx)
               sname   (.stringValue ginst sname-ndx)
               ;FIXME: Insert pre-trained Weka model here!
               gender  (["FEMALE" "MALE"] (rand-int 2))
@@ -110,6 +113,8 @@
           (log/debug (log/<> "GND" sname)
                      (map #(.name ^Attribute %)
                            (enumeration-seq (.enumerateAttributes ginsts))))
+
+          (sila/alter-ontology "tweets" sname twid)
 
           (recur (<! signal)))))))
 
