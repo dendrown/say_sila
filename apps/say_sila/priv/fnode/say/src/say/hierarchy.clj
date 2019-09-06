@@ -97,7 +97,7 @@
          genderer   (wtw/prep-emoter (TweetToGenderFeatures.) ecfg)]
 
     ;; We receive Weka instances on our signal channel
-    (go-loop [einsts (<! signal)]
+    (go-loop [^Instances einsts (<! signal)]
       (when-not (= :quit einsts)
         (let [ginsts  (weka/filter-instances einsts genderer)
               ginst   (.firstInstance ginsts)
@@ -114,7 +114,14 @@
                      (map #(.name ^Attribute %)
                            (enumeration-seq (.enumerateAttributes ginsts))))
 
-          (sila/alter-ontology "tweets" sname twid)
+          ;; NOTE: We're sending the tweet ID, but the ontology currently ignores it
+          ;;
+          ;; TODO: Alter the ontology in the DLL
+          ;;        MLL            DLL
+          ;;         : --tweeter--> :  <alice>
+          ;;         : <--counts--- :  <F=f,M=m>
+          ;;         : ---gender--> :  <GND=f,F=f+1>
+          (sila/alter-ontology :tweets sname twid)
 
           (recur (<! signal)))))))
 

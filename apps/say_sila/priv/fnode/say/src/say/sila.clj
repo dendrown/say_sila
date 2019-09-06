@@ -527,12 +527,25 @@
 (defmulti alter-ontology
   "
   Processes the ontology command per the incoming map
+
+  TODO: Tawny OWL has limited support for handling individuals using Strings.
+        We're currently using its 'normal' methodology by which individuals
+        are (also) instantiated as variables.  This is not ideal, as we need
+        to handle 10s of thousands of individual Tweeters.
   "
-  (fn [prop _ _] prop))
+  (fn [prop _ _]
+    (if (string? prop) prop (name prop))))
 
 
 (defmethod alter-ontology "tweets"
   [prop dom rng]
+
+ ;(let [dsym (symbol (dom))]
+ ;  ;; Do we need to add the tweeter?
+ ;  (when-not (and (resolve dsym
+ ;                 (t/individual (eval dsym))))
+ ;    (form->ontology `(defindividual ~dom :type OriginalTweeter)))
+
   (doseq [form [`(defindividual ~dom :type OriginalTweeter)
                ;`(defindividual ~rng :type OriginalTweet)  ; Keep the ontology small-ish
                ]]
