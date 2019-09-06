@@ -75,13 +75,22 @@
   "Starts up a description-logic layer.  This layer currently has no output.
   The application may see its work reflected in the say-sila ontology."
   [conns]
-  (let [gender (:dl-gnd-sig conns)]
+  ;; TODO: Break out various component processes
+  (let [{gender  :dl-gnd-sig
+         gnd-fbk :ml-gnd-fbk} conns]
 
     ;; Processing loop for the description logic layer.
-    (go-loop [msg (<!! gender)]
+    (go-loop [msg (<! gender)]
       (when-not (= :quit msg)
-          (do (log/info "DL:" msg)
-              (recur (<!! gender)))))))
+        (log/info "DL:" msg)
+        (let [{[dom rng] :tweets} msg]
+          ;; Make sure the user is in the ontology and feed back her F/M tweet counts
+          (sila/alter-ontology :tweets dom rng)
+          (>! gnd-fbk (sila/get-gender-tweet-counts dom))
+          ; TODO! (<! gender)
+          )
+
+        (recur (<! gender))))))
 
 
 
@@ -121,7 +130,8 @@
           ;;         : --tweeter--> :  <alice>
           ;;         : <--counts--- :  <F=f,M=m>
           ;;         : ---gender--> :  <GND=f,F=f+1>
-          (sila/alter-ontology :tweets sname twid)
+          (>! output {:tweets [sname twid]})
+          ; TODO: (<! feedback)
 
           (recur (<! signal)))))))
 

@@ -602,8 +602,12 @@
   "Returns a map of the counts of tweets for the specifed Tweeter that were
   classified as :male and :female."
   [tweeter]
-  {:female  (get-count tweeter hasFemaleTweetCount 0)
-   :male    (get-count tweeter hasMaleTweetCount   0)})
+  ;; TODO: Streamline string<-->symbol handling
+  (let [dom (if (string? tweeter)
+                (eval (symbol tweeter))
+                tweeter)]
+    {:female  (get-count dom hasFemaleTweetCount 0)
+     :male    (get-count dom hasMaleTweetCount   0)}))
 
 
 
