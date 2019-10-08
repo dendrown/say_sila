@@ -106,7 +106,7 @@
          genderer   (wtw/prep-emoter (TweetToGenderFeatures.) ecfg)]
 
     ;; We receive Weka instances on our signal channel
-    (go-loop [^Instances einsts (<! signal)]
+    (go-loop [einsts (<! signal)]
       (when-not (= :quit einsts)
         (let [ginsts  (weka/filter-instances einsts genderer)
               ginst   (.firstInstance ginsts)
