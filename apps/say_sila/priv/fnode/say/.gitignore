@@ -16,6 +16,7 @@ pom.xml.asc
 bin/
 config/*.config
 java/
+resources/emo-sa/*.csv
 resources/gender/*.csv
 resources/gender/*.zip
 resources/gender/pan/
