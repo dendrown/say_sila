@@ -45,9 +45,8 @@
         base  (weka/load-arff ARFF-BASE)
         rname (.relationName base)
         acnt  (.numAttributes base)
-        ->nom #(match % "0" "neg"                       ; To nominal value
+        tag   #(match % "0" "neg"
                         "1" "pos")
-
         dset+ (fn [src]
                 ; Make new dataset
                 (let [insts (doto (Instances. base 0)
@@ -56,24 +55,28 @@
                   (swap! dsets assoc src insts)
                   insts))
 
-        data+ (fn [[id pn src txt]]
+        data+ (fn [[id pn src raw]]
                 ;; Add data Instance; remember, the Weka objects are mutable
-                (let [insts (if-let [ds (get @dsets src)] ds (dset+ src))
+                (let [text  (str/trim raw)
+                      insts (if-let [ds (get @dsets src)] ds (dset+ src))
                       inst  (doto (DenseInstance. acnt)
                                   (.setDataset insts)
                                   (.setValue 0 (Float/parseFloat id))
-                                  (.setValue 1 ^String txt)
-                                  (.setValue 2 (Float/parseFloat pn)))]
+                                  (.setValue 1 ^String text)
+                                  (.setValue 2 (Float/parseFloat pn)))]     ; 0.0=neg, 1.0=pos
+                    (log/fmt-debug "~a<~a> [~a] ~a" src id (tag pn) text)
                     (.add ^Instances insts inst)))]
 
-    ;; Separate the sentiment sources
+    ;; Process the CSV, separating the sentiment sources
     (with-open [rdr (io/reader fpath)]
-      (let [[_ & lines] (csv/read-csv rdr)]
+      (let [[_ & dlines] (csv/read-csv rdr)]
+         ;; FIXME: use a subset until we get everything squared away
+         (doseq [line (take 1000 dlines)]
+           (data+ line))))
 
-        (loop [ls (take 20 lines)]
-          (when-let [line (first ls)]
-            (println (count line) ":" line)
-            (data+ line)
-            (recur (rest ls))))))
-
-    @dsets)))
+    ;; Save the ARFFs to disk and return the result info in a map
+    (reduce (fn [acc [dset iinsts]]
+              (assoc acc (keyword dset)
+                         (weka/save-file fpath dset iinsts :arff)))
+            {}
+            @dsets))))

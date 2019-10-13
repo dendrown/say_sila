@@ -17,7 +17,7 @@
             [say.log            :as log]
             [say.hierarchy      :as inua]
            ;[say.influence]                                 ; <= article
-           ;[say.sila           :as sila]
+            [say.sila           :as sila]
             [say.senti          :as senti]
             [weka.core          :as weka]
             [weka.tweet         :as wtw]

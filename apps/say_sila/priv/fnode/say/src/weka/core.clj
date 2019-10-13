@@ -50,13 +50,36 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn tag-filename
+  "Turns «/path/to/filename.extn» into a map with tagged versions of the file,
+  as «/path/to/filename.tag.EXTN», where EXTN is the original extension (:tagged),
+  «.arff» and «.csv» to represent different output formats.
+
+  If the caller passes a file type specification (:arff or :csv), the function
+  returns a string representing the tagged filepath."
+  ([fpath tag]
+  (let [parts (str/split fpath #"\.")
+        stub  (str/join "." (flatten [(butlast parts) (name tag)]))]
+    {:tagged (str stub "." (last parts))
+     :arff   (str stub ".arff")
+     :csv    (str stub ".csv")}))
+
+
+  ([fpath tag ftype]
+  (get (tag-filename fpath tag) ftype)))
+
+
+;;; --------------------------------------------------------------------------
 (defn save-file
-  "Writes out the given Instances to the specified ARFF or CSV file.
+  "Writes out the given Instances to the specified ARFF or CSV file. The
+  caller may specify a filetag, which will be inserted into the filename
+  as «/path/to/filename.tag.extn».
 
   Returns the filename again as a convenience."
-  [^String    fpath
-   ^Instances data
+  ([^String    fpath
+    ^Instances data
                ftype]
+  ;(log/debug "FPATH:" fpath)
   (let [saver (case ftype :arff (ArffSaver.)
                           :csv  (CSVSaver.))
         fout  (io/file fpath)]
@@ -68,19 +91,8 @@
     fpath))
 
 
-
-;;; --------------------------------------------------------------------------
-(defn tag-filename
-  "Turns «/path/to/filename.extn» into a map with tagged versions of the file,
-  as «/path/to/filename.tag.EXTN», where EXTN is the original extension (:tagged),
-  «.arff» and «.csv» to represent different output formats."
-  [fpath tag]
-  (let [parts (str/split fpath #"\.")
-        stub  (str/join "." (flatten [(butlast parts) (name tag)]))]
-    {:tagged (str stub "." (last parts))
-     :arff   (str stub ".arff")
-     :csv    (str stub ".csv")}))
-
+  ([fpath tag data ftype]
+  (save-file (tag-filename fpath tag ftype) data ftype)))
 
 
 ;;; --------------------------------------------------------------------------
