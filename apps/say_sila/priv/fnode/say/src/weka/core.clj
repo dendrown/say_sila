@@ -116,9 +116,9 @@
   ([^Instances data
     ^Filter    sieve
                opts]
-  (doto sieve
-        (.setOptions (into-array String opts))
-        (.setInputFormat data))
+  (.setInputFormat sieve data)
+  (when (not-empty opts)
+    (.setOptions sieve (into-array String opts)))
   (Filter/useFilter data sieve)))
 
 

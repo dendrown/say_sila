@@ -23,7 +23,9 @@
             [tawny.repl         :as repl]                       ; <= DEBUG
             [tawny.owl          :as owl])
   (:import  [weka.core DenseInstance
-                       Instances]))
+                       Instances]
+            [weka.filters.unsupervised.attribute TweetNLPPOSTagger
+                                                 TweetToSentiStrengthFeatureVector]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -41,31 +43,46 @@
   ([] (create DATASET))
 
   ([fpath]
-  (let [dsets (atom {})
-        base  (weka/load-arff ARFF-BASE)
-        rname (.relationName base)
-        acnt  (.numAttributes base)
-        tag   #(match % "0" "neg"
-                        "1" "pos")
-        dset+ (fn [src]
-                ; Make new dataset
-                (let [insts (doto (Instances. base 0)
-                                  (.setRelationName (str rname src)))]
-                  (log/info "Adding dataset" src)
-                  (swap! dsets assoc src insts)
-                  insts))
+  (let [dsets   (atom {})
+        base    (weka/load-arff ARFF-BASE)
+        rname   (.relationName base)
+        acnt    (.numAttributes base)
 
-        data+ (fn [[id pn src raw]]
-                ;; Add data Instance; remember, the Weka objects are mutable
-                (let [text  (str/trim raw)
-                      insts (if-let [ds (get @dsets src)] ds (dset+ src))
-                      inst  (doto (DenseInstance. acnt)
-                                  (.setDataset insts)
-                                  (.setValue 0 (Float/parseFloat id))
-                                  (.setValue 1 ^String text)
-                                  (.setValue 2 (Float/parseFloat pn)))]     ; 0.0=neg, 1.0=pos
-                    (log/fmt-debug "~a<~a> [~a] ~a" src id (tag pn) text)
-                    (.add ^Instances insts inst)))]
+        tamer   (doto (TweetToSentiStrengthFeatureVector.)
+                      (.setTextIndex "2")                       ; 1-based index
+                      (.setStandarizeUrlsUsers true)            ; anonymize
+                      (.setReduceRepeatedLetters true))         ; loooove => loove
+        tagger  (doto (TweetNLPPOSTagger.)
+                      (.setTextIndex "2"))                      ; 1-based index
+
+        label   #(match % "0" "neg"
+                          "1" "pos")
+
+        xform   (fn [iinsts]
+                  (reduce
+                    #(weka/filter-instances %1 %2)
+                    iinsts
+                   [tamer tagger]))
+
+        dset+   (fn [src]
+                  ; Make new dataset
+                  (let [insts (doto (Instances. base 0)
+                                    (.setRelationName (str rname src)))]
+                    (log/info "Adding dataset" src)
+                    (swap! dsets assoc src insts)
+                    insts))
+
+        data+   (fn [[id pn src raw]]
+                  ;; Add data Instance; remember, the Weka objects are mutable
+                  (let [text  (str/trim raw)
+                        insts (if-let [ds (get @dsets src)] ds (dset+ src))
+                        inst  (doto (DenseInstance. acnt)
+                                    (.setDataset insts)
+                                    (.setValue 0 (Float/parseFloat id))
+                                    (.setValue 1 ^String text)
+                                    (.setValue 2 (Float/parseFloat pn)))]     ; 0.0=neg, 1.0=pos
+                      (log/fmt-debug "~a<~a> [~a] ~a" src id (label pn) text)
+                      (.add ^Instances insts inst)))]
 
     ;; Process the CSV, separating the sentiment sources
     (with-open [rdr (io/reader fpath)]
@@ -77,6 +94,6 @@
     ;; Save the ARFFs to disk and return the result info in a map
     (reduce (fn [acc [dset iinsts]]
               (assoc acc (keyword dset)
-                         (weka/save-file fpath dset iinsts :arff)))
+                         (weka/save-file fpath dset (xform iinsts) :arff)))
             {}
             @dsets))))
