@@ -536,7 +536,10 @@ pull_tweets(Tracker, Start, Stop, Options) ->
 
     % Function to query and process...
     PullPush = fun Recur(Max, Body, Cnt) ->
-        Rsp = gen_server:call(?MODULE, {api_get, search, tweets, [{max_id, Max}|Body], [return_maps]}),
+        % Allow Twitter a little extra time to do the job, lest we have timeouts
+        Rsp = gen_server:call(?MODULE,
+                              {api_get, search, tweets, [{max_id, Max}|Body], [return_maps]},
+                              10000),
         NewCnt = lists:foldl(Inserter, Cnt, maps:get(<<"statuses">>, Rsp, [])),
         KeepOn = NewCnt > Cnt,
 
