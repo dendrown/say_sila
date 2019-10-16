@@ -23,6 +23,7 @@
             [tawny.repl         :as repl]                       ; <= DEBUG
             [tawny.owl          :as owl])
   (:import  [weka.core DenseInstance
+                       Instance
                        Instances]
             [weka.filters.unsupervised.attribute TweetNLPPOSTagger
                                                  TweetToSentiStrengthFeatureVector]))
@@ -34,17 +35,42 @@
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/senti.owl#")
 (def ^:const ONT-FPATH  "resources/KB/senti.owl")
 (def ^:const DATASET    "resources/emo-sa/sentiment-analysis.csv")
-(def ^:const ARFF-BASE  "resources/emo-sa/sentiment-analysis.arff")
+(def ^:const ARFFs      {:base          "resources/emo-sa/sentiment-analysis.arff"
+                         :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
+                         :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"})
+(def ^:const COL-ID     0)
+(def ^:const COL-TEXT   1)
+
+(defonce examples-pos (atom {}))
 
 
 ;;; --------------------------------------------------------------------------
-(defn create
+(defn create-pos
+  "Create examples based on part-of-speech tokens"
+  ([] (create-pos :Sentiment140))
+
+
+  ([dset]
+  (let [arff  (ARFFs dset)
+        insts (weka/load-arff arff)]
+    (reset! examples-pos
+            (reduce (fn [acc ^Instance inst]
+                      (let [id    (int (.value inst COL-ID))
+                            toks  (str/split (.stringValue inst COL-TEXT) #" ")
+                            poss  (map #(first (str/split % #"_" 2)) toks)]
+                       (assoc acc id poss)))
+                    {}
+                    (enumeration-seq (.enumerateInstances insts)))))))
+
+
+;;; --------------------------------------------------------------------------
+(defn create-arffs
   "Initial function to create the senti ontology.  Expect changes."
-  ([] (create DATASET))
+  ([] (create-arffs DATASET))
 
   ([fpath]
   (let [dsets   (atom {})
-        base    (weka/load-arff ARFF-BASE)
+        base    (weka/load-arff (:base ARFFs))
         rname   (.relationName base)
         acnt    (.numAttributes base)
 
