@@ -57,11 +57,24 @@
 (defcopy dul/precedes)
 (defcopy dul/directlyPrecedes)
 
-(defclass Text
-  :super   dul/InformationObject
-  :label   "Text"
-  :comment "An Information Object consisting of text.")
+(as-subclasses dul/InformationObject
+  :disjoint
+  (defclass Text
+    :label   "Text"
+    :comment "An Information Object consisting of text.")
+  (defclass Term
+    ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
+    :label   "Term"
+    :comment "An Information Object representing a syntactic unit of meaning, such as a word.")
+  (defclass Punctuation
+    :label   "Punctuation"
+    :comment (str "An Information Object representing a grammatical symbol to organize and"
+                  "aid the understanding of written text.")))
 
+(defdproperty hasIdentifier
+  :domain dul/InformationEntity
+  :range  :XSD_NON_NEGATIVE_INTEGER
+  :characteristic :functional)
 
 
 ;;; --------------------------------------------------------------------------
