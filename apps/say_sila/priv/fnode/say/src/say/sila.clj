@@ -34,7 +34,6 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const NS         *ns*)
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-sila.owl#")
 (def ^:const ONT-FPATH  "resources/KB/say-sila.owl")
 

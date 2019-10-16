@@ -13,6 +13,7 @@
 (ns say.senti
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
+            [say.dolce          :as dul]
             [say.log            :as log]
             [weka.core          :as weka]
             [clojure.core.match :refer [match]]
@@ -21,7 +22,7 @@
             [clojure.string     :as str]
             [clojure.pprint     :as prt :refer [pp pprint]]
             [tawny.repl         :as repl]                       ; <= DEBUG
-            [tawny.owl          :as owl])
+            [tawny.owl          :refer :all])
   (:import  [weka.core DenseInstance
                        Instance
                        Instances]
@@ -41,7 +42,41 @@
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 
-(defonce examples-pos (atom {}))
+(defonce Examples-pos (atom {}))
+
+;;; --------------------------------------------------------------------------
+(defontology say-sila
+  :iri    ONT-IRI
+  :prefix "senti")
+(owl-import dul/dul)
+
+(defcopy dul/associatedWith)
+(defcopy dul/follows)
+(defcopy dul/directlyFollows)
+
+(defcopy dul/precedes)
+(defcopy dul/directlyPrecedes)
+
+(defclass Text
+  :super   dul/InformationObject
+  :label   "Text"
+  :comment "An Information Object consisting of text.")
+
+
+
+;;; --------------------------------------------------------------------------
+(defn populate
+  "Populates the senti ontology using examples from the ARFFs"
+  []
+  (letfn [(do-example [id xmp]
+            ;; (defindividual ...)
+            :todo)]
+  (reduce
+     (fn [acc [id poss]]
+       (assoc acc id {:todo poss}))
+     {}
+     @Examples-pos)))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -53,7 +88,7 @@
   ([dset]
   (let [arff  (ARFFs dset)
         insts (weka/load-arff arff)]
-    (reset! examples-pos
+    (reset! Examples-pos
             (reduce (fn [acc ^Instance inst]
                       (let [id    (int (.value inst COL-ID))
                             toks  (str/split (.stringValue inst COL-TEXT) #" ")
@@ -61,6 +96,7 @@
                        (assoc acc id poss)))
                     {}
                     (enumeration-seq (.enumerateInstances insts)))))))
+
 
 
 ;;; --------------------------------------------------------------------------

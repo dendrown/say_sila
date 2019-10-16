@@ -35,6 +35,8 @@
 ;;; --------------------------------------------------------------------------
 ;;; Create access variables only for the classes we need
 (redefclass Entity)
+(redefclass InformationEntity)
+(redefclass InformationObject)
 (redefclass Quality)
 
 ;;; TBox: building on dul:Object ⊑ dul:Entity
@@ -51,3 +53,9 @@
 ;;; Object properties
 (redefoproperty associatedWith)
 (redefoproperty isMemberOf)
+
+(redefoproperty follows)
+(redefoproperty directlyFollows)
+
+(redefoproperty precedes)
+(redefoproperty directlyPrecedes)
