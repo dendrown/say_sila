@@ -59,3 +59,6 @@
 
 (redefoproperty precedes)
 (redefoproperty directlyPrecedes)
+
+(redefoproperty hasPart)
+(redefoproperty hasComponent)

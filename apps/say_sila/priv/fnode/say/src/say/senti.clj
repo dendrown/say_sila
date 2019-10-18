@@ -15,6 +15,7 @@
             [say.ontology       :refer :all]
             [say.dolce          :as dul]
             [say.log            :as log]
+            [say.pos            :as pos]
             [weka.core          :as weka]
             [clojure.core.match :refer [match]]
             [clojure.data.csv   :as csv]
@@ -45,7 +46,7 @@
 (defonce Examples-pos (atom {}))
 
 ;;; --------------------------------------------------------------------------
-(defontology say-sila
+(defontology senti
   :iri    ONT-IRI
   :prefix "senti")
 (owl-import dul/dul)
@@ -56,6 +57,9 @@
 
 (defcopy dul/precedes)
 (defcopy dul/directlyPrecedes)
+
+(defcopy dul/hasPart)
+(defcopy dul/hasComponent)
 
 (as-subclasses dul/InformationObject
   :disjoint
