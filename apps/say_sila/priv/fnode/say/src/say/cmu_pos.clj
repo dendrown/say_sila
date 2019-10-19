@@ -27,8 +27,8 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const ONT-IRI    "http://www.dendrown.net/uqam/pos.owl#")
-(def ^:const ONT-FPATH  "resources/KB/pos.owl")
+(def ^:const ONT-IRI    "http://www.dendrown.net/uqam/cmu-pos.owl#")
+(def ^:const ONT-FPATH  "resources/KB/cmu-pos.owl")
 
 (defonce TAGS {;Nominal, Nominal + Verbal
                "N" "a common noun (NN,NNS)"
@@ -64,18 +64,21 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defontology pos
+(defontology cmu-pos
   :iri    ONT-IRI
   :prefix "pos")
 (owl-import dul/dul)
 
-(defclass PartOfSpeechTag
+(defclass PartOfSpeech
     :super   dul/InformationObject
-    :label   "Part of Speech Tag"
-    :comment "An Information Object representing an Entity's part of speech.")
+    :label   "Part of Speech"
+    :comment (str "An Information Object representing an Entity's part of speech"
+                  " according to CMU's tagging system."))
+
 
 ;; CMU POS tags are described in \cite{gimpel2011}
 (doseq [[ind descr] TAGS]
   (individual ind
-    :type  PartOfSpeechTag
-    :label (str "A Part-of-Speech Tag representing " descr)))
+    :type    PartOfSpeech
+    :label   ind
+    :comment (str "A Part-of-Speech representing " descr)))
