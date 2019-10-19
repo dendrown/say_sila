@@ -15,7 +15,7 @@
             [say.ontology       :refer :all]
             [say.dolce          :as dul]
             [say.log            :as log]
-            [say.pos            :as pos]
+            [say.cmu-pos        :as pos]
             [weka.core          :as weka]
             [clojure.core.match :refer [match]]
             [clojure.data.csv   :as csv]

@@ -10,7 +10,7 @@
 ;;;;
 ;;;; @copyright 2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
-(ns say.pos
+(ns say.cmu-pos
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
             [say.dolce          :as dul]
