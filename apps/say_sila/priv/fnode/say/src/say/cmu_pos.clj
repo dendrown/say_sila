@@ -15,6 +15,8 @@
             [say.ontology       :refer :all]
             [say.dolce          :as dul]
             [say.log            :as log]
+            [say.social         :as soc]
+            [clojure.string     :as str]
             [tawny.repl         :as repl]                       ; <= DEBUG
             [tawny.owl          :refer :all])
   (:import  [weka.core DenseInstance
@@ -31,36 +33,39 @@
 (def ^:const ONT-FPATH  "resources/KB/cmu-pos.owl")
 
 (defonce TAGS {;Nominal, Nominal + Verbal
-               "N" "a common noun (NN,NNS)"
-               "O" "a pronoun (personal/WH, not possessive; PRP,WP)"
-               "S" "a nominal + possessive"
-               "^" "a proper noun (NNP,NNPS)"
-               "Z" "a proper noun + possessive"
-               "L" "a nominal + verbal"
-               "M" "a proper noun + verbal"
+               "CommonNoun"                 ["N" "a common noun (NN,NNS)"]
+               "Pronoun"                    ["O" "a pronoun (personal/WH, not possessive; PRP,WP)"]
+               "NominalPossessive"          ["S" "a nominal + possessive"]
+               "ProperNoun"                 ["^" "a proper noun (NNP,NNPS)"]
+               "ProperNounPlusPossessive"   ["Z" "a proper noun + possessive"]
+               "NominalVerbal"              ["L" "a nominal + verbal"]
+               "ProperNounPlusVerbal"       ["M" "a proper noun + verbal"]
                ; Open-class words
-               "V" "a verb including copula and auxiliaries (V*,MD)"
-               "A" "an adjective (J*)"
-               "R" "an adverb (R*,WRB)"
-               "!" "an interjection (UH)"
+               "Verb"                       ["V" "a verb including copula and auxiliaries (V*,MD)"]
+               "Adjective"                  ["A" "an adjective (J*)"]
+               "Adverb"                     ["R" "an adverb (R*,WRB)"]
+               "Interjection"               ["!" "an interjection (UH)"]
                ; Closed-class words
-               "D" "a determiner (WDT,DT,WP$,PRP$)"
-               "P" "a pre- or postposition, or subordinating conjunction (IN,TO)"
-               "&" "a coordinating conjunction (CC)"
-               "T" "a verb particle (RP)"
-               "X" "an existential there, predeterminers (EX,PDT)"
-               "Y" "X+ a verbal"
+               "Determiner"                 ["D" "a determiner (WDT,DT,WP$,PRP$)"]
+               "CoordinatingConjunction"    ["&" "a coordinating conjunction (CC)"]
+               "VerbParticle"               ["T" "a verb particle (RP)"]
+               "ExistentialThere"           ["X" "an existential there, predeterminers (EX,PDT)"]
+               "ExistentialPlusVerbal"      ["Y" "X+ a verbal"]
+               "Preposition"                ["P" (str "a pre- or postposition, "
+                                                      "or subordinating conjunction (IN,TO)")]
                ; Twitter/social media
-               "#" "a hashtag (indicates a topic/category for a twwet)"
-               "@" "an at-mention (indicating another user as a recipient of a tweet)"
-               "~" "an indicator that the message continues across multiple tweets"
-               "U" "a URL or email address"
-               "E" "an emoticon"
+               "Hashtag"                    ["#" "a hashtag (indicates a topic/category for a tweet)"]
+               "Address"                    ["U" "a URL or email address"]
+               "Emoticon"                   ["E" "an emoticon"]
+               "AtMention"                  ["@" (str "an at-mention (indicating "
+                                                      "another user as a recipient of a tweet)")]
+               "Continuation"               ["~" (str "an indicator that the message continues "
+                                                      "across multiple tweets")]
                ; Miscellaneous
-               "$" "a numeral (CD)"
-               "," "punctuation"
-               "G" (str "abbreviations, foreign words, possessive endings, symbols,"
-                        " or garbage (FW,POS,SYM,LS)")})
+               "Numeral"                    ["$" "a numeral (CD)"]
+               "Punctuation"                ["," "punctuation"]
+               "Other"                      ["G" (str "abbreviations, foreign words, possessive endings, "
+                                                      "symbols, or garbage (FW,POS,SYM,LS)")]})
 
 
 ;;; --------------------------------------------------------------------------
@@ -70,15 +75,23 @@
 (owl-import dul/dul)
 
 (defclass PartOfSpeech
-    :super   dul/InformationObject
-    :label   "Part of Speech"
-    :comment (str "An Information Object representing an Entity's part of speech"
-                  " according to CMU's tagging system."))
+  :super   dul/InformationObject
+  :label   "Part of Speech"
+  :comment (str "An Information Object representing an Entity's part of speech"
+                " according to CMU's tagging system."))
+
+(defdproperty hasTag
+  :domain  dul/InformationEntity
+  :range   :XSD_STRING
+  :comment "Defines a descriptive tag used to refer to an Information Entity"
+  :characteristic :functional)
 
 
 ;; CMU POS tags are described in \cite{gimpel2011}
-(doseq [[ind descr] TAGS]
-  (individual ind
+(doseq [[pos [tag descr]] TAGS]
+  (individual pos
     :type    PartOfSpeech
-    :label   ind
+    :label   (str/join " " (soc/tokenize pos))
+    :fact    (is hasTag tag)
     :comment (str "A Part-of-Speech representing " descr)))
+
