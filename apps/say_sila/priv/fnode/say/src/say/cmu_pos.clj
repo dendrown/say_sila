@@ -17,6 +17,7 @@
             [say.log            :as log]
             [say.social         :as soc]
             [clojure.string     :as str]
+            [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                       ; <= DEBUG
             [tawny.owl          :refer :all])
   (:import  [weka.core DenseInstance
@@ -95,3 +96,19 @@
     :fact    (is hasTag tag)
     :comment (str "A Part-of-Speech representing " descr)))
 
+;;; --------------------------------------------------------------------------
+(rsn/reasoner-factory :hermit)
+(defonce POS (rsn/instances (get-domain cmu-pos hasTag)))   ;; Pre-collect for lookup
+
+
+;;; --------------------------------------------------------------------------
+(defn lookup
+  "Returns the PartOfSpeech entity corresponding to the specified tag.
+  NOTE: You probably want to use the (equivalent) memoized lookup# function."
+  [tag]
+  (reduce #(when (= tag (:literal (check-fact %2 hasTag)))
+             (reduced %2))
+          nil
+          POS))
+
+(def lookup# (memoize lookup))

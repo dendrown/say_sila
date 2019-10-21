@@ -21,6 +21,7 @@
   (:import  [org.semanticweb.owlapi.model   IRI HasIRI
                                             OWLDataFactory
                                             OWLOntologyID]
+            [org.semanticweb.owlapi.search EntitySearcher]
             [uk.ac.manchester.cs.owl.owlapi OWLClassImpl]))
 
 
@@ -193,4 +194,22 @@
   (if-let [cnt (check-fact entity dprop)]
     (Long/parseLong (:literal cnt))
     default)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn get-domains
+  "Returns a sequence of domains for the specified property in the given
+  ontology."
+  [ont prop]
+  (seq (EntitySearcher/getDomains prop ont)))
+
+
+
+
+;;; --------------------------------------------------------------------------
+(defn get-domain
+  "Returns the domain of the specified property in the given ontology."
+  [ont prop]
+  (first (get-domains ont prop)))
 
