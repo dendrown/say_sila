@@ -43,7 +43,8 @@
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 
-(defonce Examples-pos (atom {}))
+(defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
+
 
 ;;; --------------------------------------------------------------------------
 (defontology senti
@@ -82,17 +83,22 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn add-text
+  "Adds a text individual to the ontology."
+  [id xmp]
+  (individual (str "text" id)
+    :type Text
+    :fact (is hasIdentifier id)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn populate
   "Populates the senti ontology using examples from the ARFFs"
   []
-  (letfn [(do-example [id xmp]
-            ;; (defindividual ...)
-            :todo)]
-  (reduce
-     (fn [acc [id poss]]
-       (assoc acc id {:todo poss}))
-     {}
-     @Examples-pos)))
+  ;; FIXME: Pass in the values from the ARFF
+  (doseq [[id poss] @Examples-pos]
+    (add-text id poss)))
 
 
 
@@ -107,7 +113,7 @@
         insts (weka/load-arff arff)]
     (reset! Examples-pos
             (reduce (fn [acc ^Instance inst]
-                      (let [id    (int (.value inst COL-ID))
+                      (let [id    (long (.value inst COL-ID))
                             toks  (str/split (.stringValue inst COL-TEXT) #" ")
                             poss  (map #(first (str/split % #"_" 2)) toks)]
                        (assoc acc id poss)))
