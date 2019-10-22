@@ -22,6 +22,7 @@
             [clojure.java.io    :as io]
             [clojure.string     :as str]
             [clojure.pprint     :as prt :refer [pp pprint]]
+            [tawny.english      :as dl]
             [tawny.repl         :as repl]                       ; <= DEBUG
             [tawny.owl          :refer :all])
   (:import  [weka.core DenseInstance
@@ -50,7 +51,11 @@
 (defontology senti
   :iri    ONT-IRI
   :prefix "senti")
-(owl-import dul/dul)
+
+(doseq [imp [dul/dul
+             pos/cmu-pos]]
+  (owl-import imp))
+
 
 (defcopy dul/associatedWith)
 (defcopy dul/follows)
@@ -76,6 +81,13 @@
     :comment (str "An Information Object representing a grammatical symbol to organize and"
                   "aid the understanding of written text.")))
 
+(defclass Token
+  :label    "Token"
+  :subclass dul/InformationObject
+  :comment  "An information object representing a unit of text, e.g. a word."
+  :equivalent (dl/or Term Punctuation))
+
+
 (defdproperty hasIdentifier
   :domain dul/InformationEntity
   :range  :XSD_NON_NEGATIVE_INTEGER
@@ -84,11 +96,32 @@
 
 ;;; --------------------------------------------------------------------------
 (defn add-text
-  "Adds a text individual to the ontology."
-  [id xmp]
-  (individual (str "text" id)
-    :type Text
-    :fact (is hasIdentifier id)))
+  "Adds a text individual to the ontology given a numeric identifier, n, and
+  a list of part-of-speech tags for term in the text."
+  [n pos-tags]
+  (let [id (str "t" n)]
+
+    ;; Add an entity representing the text itself
+    (individual id
+      :type Text
+      :fact (is hasIdentifier id))
+
+    ;; And entities for each of the terms, linking them together and to the text
+    (reduce
+      (fn [info tag]
+        (let [cnt  (:cnt info)
+              curr (individual (str id "-" cnt)
+                     :type  Token
+                     :label tag
+                     :fact  (is hasIdentifier tag))]
+          ;; FIXME: Link to POS as a Quality
+          (when-let [prev (:prev info)]
+            (refine prev :fact (is dul/directlyPrecedes curr))
+            (refine curr :fact (is dul/directlyFollows  prev)))
+          {:cnt  (inc cnt)
+           :prev curr}))
+      {:cnt 0}
+      pos-tags)))
 
 
 
