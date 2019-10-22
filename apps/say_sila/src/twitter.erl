@@ -902,7 +902,7 @@ stream_track(ReqID, Prefix) ->
         {http, {ReqID, {error, Why}}} ->
             % Report the error. Our twitter server may chose to restart tracking.
             ?info("Error tracking on ~p: why[~p]", [self(), Why]),
-            exit(Why);
+            exit(self(), Why);
 
         {_, stop} ->
             ?info("Stopped tracking on ~p", [self()]);
