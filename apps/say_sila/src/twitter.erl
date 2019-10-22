@@ -1030,10 +1030,10 @@ handle_info({'EXIT', Pid, Why}, State = #state{tracker = Tracker}) ->
     NewState = case Pid of
         Tracker ->
             % Check if we need to restart the tracker process
-            ?info("Stopped tracker on ~p: why[~p]", [Pid, Why]),
-            case Why of
-                retrack -> gen_server:cast(self(), {track, State#state.track});
-                _       -> ok
+            ?info("Tracker ~p exited: why[~p]", [Pid, Why]),
+            if  Why =:= retrack orelse
+                Why =:= socket_closed_remotely  -> gen_server:cast(self(), {track, State#state.track});
+                true                            -> ok
             end,
             State#state{tracker = undefined};
         _ ->
@@ -1180,7 +1180,9 @@ stream_track(ReqID, Prefix) ->
             stream_track(ReqID, NewPrefix);
 
         {http, {ReqID, {error, Why}}} ->
-            ?info("Error tracking on ~p: why[~p]", [self(), Why]);
+            % Report the error. Our twitter server may chose to restart tracking.
+            ?info("Error tracking on ~p: why[~p]", [self(), Why]),
+            exit(self(), Why);
 
         {_, stop} ->
             ?info("Stopped tracking on ~p", [self()]);
