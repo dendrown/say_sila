@@ -33,13 +33,18 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; Create access variables only for the classes we need
+;;; Create access variables only for the classes we need.
+;;;
+;;; TBox: building on owl:Thing
 (redefclass Entity)
-(redefclass InformationEntity)
-(redefclass InformationObject)
+(redefclass Abstract)
 (redefclass Quality)
 
+
 ;;; TBox: building on dul:Object ⊑ dul:Entity
+(redefclass InformationEntity)
+(redefclass InformationObject)
+
 (redefclass Agent)
 (redefclass Person)
 (redefclass Collective)
@@ -52,6 +57,7 @@
 
 ;;; Object properties
 (redefoproperty associatedWith)
+(redefoproperty hasQuality)
 (redefoproperty isMemberOf)
 
 (redefoproperty follows)

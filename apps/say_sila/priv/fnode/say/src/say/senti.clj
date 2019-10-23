@@ -72,10 +72,13 @@
   (defclass Text
     :label   "Text"
     :comment "An Information Object consisting of text.")
+
   (defclass Term
     ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
     :label   "Term"
-    :comment "An Information Object representing a syntactic unit of meaning, such as a word.")
+    :comment "An Information Object representing a syntactic unit of meaning, such as a word."
+    :equivalent pos/Word)
+
   (defclass Punctuation
     :label   "Punctuation"
     :comment (str "An Information Object representing a grammatical symbol to organize and"

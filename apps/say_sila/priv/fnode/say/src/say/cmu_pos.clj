@@ -75,16 +75,29 @@
   :prefix "pos")
 (owl-import dul/dul)
 
-(defclass PartOfSpeech
+(defclass Word
   :super   dul/InformationObject
-  :label   "Part of Speech"
-  :comment (str "An Information Object representing an Entity's part of speech"
-                " according to CMU's tagging system."))
+  :label   "Word"
+  :comment (str "An Information Object consisting of a single linguistic element of meaning,"
+                "generally in textual or verbal form."))
 
-(defdproperty hasTag
-  :domain  dul/InformationEntity
+(defclass PartOfSpeech
+  :super   dul/Quality
+  :label   "Part of Speech"
+  :comment (str "A quality describing an appropriate Information Object's part-of-speech"
+                " according to the CMU POS tagging system."))
+
+(defoproperty isPartOfSpeech
+  :super    dul/hasQuality
+  :label    "is part of speech"
+  :domain   Word
+  :range    PartOfSpeech)
+
+(defdproperty hasPartOfSpeechTag
+  :domain  PartOfSpeech                                     ; FIXME: pos/Word
   :range   :XSD_STRING
-  :comment "Defines a descriptive tag used to refer to an Information Entity"
+  :label   "has part of speech tag"
+  :comment "Defines a descriptive tag used to designate the part of speech of an Information Object."
   :characteristic :functional)
 
 
@@ -93,12 +106,12 @@
   (individual pos
     :type    PartOfSpeech
     :label   (str/join " " (soc/tokenize pos))
-    :fact    (is hasTag tag)
+    :fact    (is hasPartOfSpeechTag tag)                    ; FIXME: tagging for word vs. POS
     :comment (str "A Part-of-Speech representing " descr)))
 
 ;;; --------------------------------------------------------------------------
 (rsn/reasoner-factory :hermit)
-(defonce POS (rsn/instances (get-domain cmu-pos hasTag)))   ;; Pre-collect for lookup
+(defonce POS (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag)))   ;; Pre-collect for lookup
 
 
 ;;; --------------------------------------------------------------------------
@@ -106,7 +119,7 @@
   "Returns the PartOfSpeech entity corresponding to the specified tag.
   NOTE: You probably want to use the (equivalent) memoized lookup# function."
   [tag]
-  (reduce #(when (= tag (:literal (check-fact %2 hasTag)))
+  (reduce #(when (= tag (:literal (check-fact %2 hasPartOfSpeechTag)))
              (reduced %2))
           nil
           POS))
