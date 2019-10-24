@@ -87,12 +87,6 @@
 (defcopy pos/Token)
 (refine Token :equivalent (dl/or Term Punctuation))
 
-;; FIXME: I think we can drop hasIdentifier because the ID names the indivdual
-(defdproperty hasIdentifier
-  :domain dul/InformationEntity
-  :range  :XSD_NON_NEGATIVE_INTEGER
-  :characteristic :functional)
-
 
 ;;; --------------------------------------------------------------------------
 (defn add-text
@@ -103,8 +97,7 @@
 
     ;; Add an entity representing the text itself
     (individual id
-      :type Text
-      :fact (is hasIdentifier id))
+      :type Text)
 
     ;; And entities for each of the terms, linking them together and to the text
     (reduce
@@ -113,12 +106,12 @@
               tid  (str id "-" cnt)
               curr (individual tid
                      :type  Token
-                     :label (str tid " (" tag ")")
-                     :fact  (is hasIdentifier tag))]
+                     :label (str tid " (" tag ")"))]
 
           ;; Set POS Quality
-          (when-let [pos (pos/lookup# tag)]
-            (refine curr :fact (is pos/isPartOfSpeech pos)))
+          (if-let [pos (pos/lookup# tag)]
+            (refine curr :fact (is pos/isPartOfSpeech pos))
+            (log/warn "No POS tag:" tag))
 
           ;; Link tokens to each other
           (when-let [prev (:prev info)]
