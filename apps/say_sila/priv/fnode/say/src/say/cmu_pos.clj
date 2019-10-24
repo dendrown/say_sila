@@ -109,9 +109,10 @@
     :fact    (is hasPartOfSpeechTag tag)                    ; FIXME: tagging for word vs. POS
     :comment (str "A Part-of-Speech representing " descr)))
 
+
 ;;; --------------------------------------------------------------------------
 (rsn/reasoner-factory :hermit)
-(defonce POS (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag)))   ;; Pre-collect for lookup
+(defonce POS (doall (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag))))   ; Collect for lookup
 
 
 ;;; --------------------------------------------------------------------------
