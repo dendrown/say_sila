@@ -35,8 +35,8 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const ONT-IRI    "http://www.dendrown.net/uqam/senti.owl#")
-(def ^:const ONT-FPATH  "resources/KB/senti.owl")
+(def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-senti.owl#")
+(def ^:const ONT-FPATH  "resources/KB/say-senti.owl")
 (def ^:const DATASET    "resources/emo-sa/sentiment-analysis.csv")
 (def ^:const ARFFs      {:base          "resources/emo-sa/sentiment-analysis.arff"
                          :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
@@ -48,9 +48,10 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defontology senti
-  :iri    ONT-IRI
-  :prefix "senti")
+(defontology say-senti
+  :iri     ONT-IRI
+  :prefix  "senti"
+  :comment "Ontology for training sentiment models.")
 
 (doseq [imp [dul/dul
              pos/cmu-pos]]
@@ -76,21 +77,17 @@
   (defclass Term
     ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
     :label   "Term"
-    :comment "An Information Object representing a syntactic unit of meaning, such as a word."
-    :equivalent pos/Word)
+    :comment "An Information Object representing a syntactic unit of meaning, such as a word.")
 
   (defclass Punctuation
     :label   "Punctuation"
     :comment (str "An Information Object representing a grammatical symbol to organize and"
                   "aid the understanding of written text.")))
 
-(defclass Token
-  :label    "Token"
-  :subclass dul/InformationObject
-  :comment  "An information object representing a unit of text, e.g. a word."
-  :equivalent (dl/or Term Punctuation))
+(defcopy pos/Token)
+(refine Token :equivalent (dl/or Term Punctuation))
 
-
+;; FIXME: I think we can drop hasIdentifier because the ID names the indivdual
 (defdproperty hasIdentifier
   :domain dul/InformationEntity
   :range  :XSD_NON_NEGATIVE_INTEGER
@@ -113,16 +110,24 @@
     (reduce
       (fn [info tag]
         (let [cnt  (:cnt info)
-              curr (individual (str id "-" cnt)
+              tid  (str id "-" cnt)
+              curr (individual tid
                      :type  Token
-                     :label tag
+                     :label (str tid " (" tag ")")
                      :fact  (is hasIdentifier tag))]
-          ;; FIXME: Link to POS as a Quality
+
+          ;; Set POS Quality
+          (when-let [pos (pos/lookup# tag)]
+            (refine curr :fact (is pos/isPartOfSpeech pos)))
+
+          ;; Link tokens to each other
           (when-let [prev (:prev info)]
             (refine prev :fact (is dul/directlyPrecedes curr))
             (refine curr :fact (is dul/directlyFollows  prev)))
-          {:cnt  (inc cnt)
-           :prev curr}))
+
+          ;; Continue the reduction
+          {:cnt (inc cnt), :prev curr}))
+
       {:cnt 0}
       pos-tags)))
 

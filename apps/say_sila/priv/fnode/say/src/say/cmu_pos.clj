@@ -75,11 +75,13 @@
   :prefix "pos")
 (owl-import dul/dul)
 
-(defclass Word
+(defclass Token
   :super   dul/InformationObject
-  :label   "Word"
-  :comment (str "An Information Object consisting of a single linguistic element of meaning,"
-                "generally in textual or verbal form."))
+  :label   "Token"
+  :comment (str "An Information Object consisting of a single linguistic element of meaning, "
+                "generally in textual or verbal form.  A Token very often corresponds to a word, "
+                "but in may also represent punctuation, an emoji, or any other output element from "
+                "the CMU POS tagger."))
 
 (defclass PartOfSpeech
   :super   dul/Quality
@@ -90,11 +92,11 @@
 (defoproperty isPartOfSpeech
   :super    dul/hasQuality
   :label    "is part of speech"
-  :domain   Word
+  :domain   Token
   :range    PartOfSpeech)
 
 (defdproperty hasPartOfSpeechTag
-  :domain  PartOfSpeech                                     ; FIXME: pos/Word
+  :domain  PartOfSpeech
   :range   :XSD_STRING
   :label   "has part of speech tag"
   :comment "Defines a descriptive tag used to designate the part of speech of an Information Object."
