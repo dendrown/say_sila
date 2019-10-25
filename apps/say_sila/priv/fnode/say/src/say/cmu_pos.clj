@@ -108,13 +108,13 @@
   (individual pos
     :type    PartOfSpeech
     :label   (str/join " " (soc/tokenize pos))
-    :fact    (is hasPartOfSpeechTag tag)                    ; FIXME: tagging for word vs. POS
+    :fact    (is hasPartOfSpeechTag tag)
     :comment (str "A Part-of-Speech representing " descr)))
 
 
 ;;; --------------------------------------------------------------------------
 (rsn/reasoner-factory :hermit)
-(defonce POS (doall (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag))))   ; Collect for lookup
+(defonce POS (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag)))	; Collect for lookup
 
 
 ;;; --------------------------------------------------------------------------
@@ -122,9 +122,13 @@
   "Returns the PartOfSpeech entity corresponding to the specified tag.
   NOTE: You probably want to use the (equivalent) memoized lookup# function."
   [tag]
-  (reduce #(when (= tag (:literal (check-fact %2 hasPartOfSpeechTag)))
-             (reduced %2))
-          nil
-          POS))
+  ;; The caller may be in another namespace, but we need this namespace's ontology
+  (binding [*ns* (find-ns 'say.cmu-pos)]
+
+    ;; Run through the set of POS enitities until we find a matching tag
+    (reduce #(when (= tag (:literal (check-fact %2 hasPartOfSpeechTag)))
+               (reduced %2))
+            nil
+            POS)))
 
 (def lookup# (memoize lookup))
