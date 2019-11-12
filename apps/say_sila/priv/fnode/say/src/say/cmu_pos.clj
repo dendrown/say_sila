@@ -108,8 +108,8 @@
   (individual pos
     :type    PartOfSpeech
     :label   (str/join " " (soc/tokenize pos))
-    :fact    (is hasPartOfSpeechTag tag)
-    :comment (str "A Part-of-Speech representing " descr)))
+    :comment (str "A Part-of-Speech representing " descr)
+    :fact    (is hasPartOfSpeechTag tag)))
 
 
 ;;; --------------------------------------------------------------------------

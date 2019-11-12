@@ -43,6 +43,7 @@
                          :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
+(def ^:const NUM-EXAMPLES 100)          ; FIXME: use a subset until we get everything squared away
 
 (defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
 
@@ -115,7 +116,6 @@
 
           ;; Link tokens to each other
           (when-let [prev (:prev info)]
-            (refine prev :fact (is dul/directlyPrecedes curr))
             (refine curr :fact (is dul/directlyFollows  prev)))
 
           ;; Continue the reduction
@@ -138,7 +138,10 @@
 
 ;;; --------------------------------------------------------------------------
 (defn create-pos
-  "Create examples based on part-of-speech tokens"
+  "Create examples based on part-of-speech tokens.
+
+  FIXME: Currently this function updates Examples-pos, but this will very
+         likely not be the final behaviour."
   ([] (create-pos :Sentiment140))
 
 
@@ -207,7 +210,7 @@
     (with-open [rdr (io/reader fpath)]
       (let [[_ & dlines] (csv/read-csv rdr)]
          ;; FIXME: use a subset until we get everything squared away
-         (doseq [line (take 1000 dlines)]
+         (doseq [line (take NUM-EXAMPLES dlines)]
            (data+ line))))
 
     ;; Save the ARFFs to disk and return the result info in a map
