@@ -88,19 +88,50 @@
 (defcopy pos/Token)
 (refine Token :equivalent (dl/or Term Punctuation))
 
+(as-subclasses Text
+  :disjoint
+  (defclass NegativeText
+    :label "Negative Text"
+    :comment "A Text which expresses sentiment of a negative polarity")
+
+  (defclass PositiveText
+    :label "Positive Text"
+    :comment "A Text which expresses sentiment of a positive polarity."))
+
+
+
+;;; --------------------------------------------------------------------------
+(defprotocol Polarizer
+  "Determines negative|positive polarity for various datatypes."
+  (polarize [x] "Return the sentiment polarity as :positive or :negative."))
+
+(extend-protocol Polarizer
+  Object
+  (polarize [x]
+    (if (<= x 0.0)
+        :negative
+        :positive))
+
+  Instance
+  (polarize [inst]
+    (polarize (.classValue inst))))
+
 
 ;;; --------------------------------------------------------------------------
 (defn add-text
   "Adds a text individual to the ontology given a numeric identifier, n, and
   a list of part-of-speech tags for term in the text."
-  [n pos-tags]
+  [n {:keys [polarity
+             pos-tags]}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [id (str "t" n)]
 
-      ;; Add an entity representing the text itself
+      ;; Add an entity representing the text itself.  Note that we'll be creating
+      ;; the referenced token "tN-1" in the reduce expression below.
       (individual id
-        :type Text
+        :type (case polarity :negative NegativeText
+                             :positive PositiveText)
         :fact (is dul/hasComponent (individual (str id "-1"))))
 
       ;; And entities for each of the terms, linking them together and to the text
@@ -134,8 +165,8 @@
   "Populates the senti ontology using examples from the ARFFs"
   []
   ;; FIXME: Pass in the values from the ARFF
-  (doseq [[id pos-tags] @Examples-pos]
-    (add-text id pos-tags)))
+  (doseq [[id example] @Examples-pos]
+    (add-text id example)))
 
 
 
@@ -150,13 +181,14 @@
 
   ([dset]
   (let [arff  (ARFFs dset)
-        insts (weka/load-arff arff)]
+        insts (weka/load-arff arff "sentiment")]
     (reset! Examples-pos
             (reduce (fn [acc ^Instance inst]
                       (let [id    (long (.value inst COL-ID))
                             toks  (str/split (.stringValue inst COL-TEXT) #" ")
                             poss  (map #(first (str/split % #"_" 2)) toks)]
-                       (assoc acc id poss)))
+                       (assoc acc id {:pos-tags poss
+                                      :polarity (polarize inst)})))
                     {}
                     (enumeration-seq (.enumerateInstances insts)))))))
 
