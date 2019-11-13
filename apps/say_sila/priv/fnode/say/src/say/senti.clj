@@ -43,7 +43,7 @@
                          :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
-(def ^:const NUM-EXAMPLES 100)          ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES 10)           ; FIXME: use a subset until we get everything squared away
 
 (defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
 
@@ -94,35 +94,38 @@
   "Adds a text individual to the ontology given a numeric identifier, n, and
   a list of part-of-speech tags for term in the text."
   [n pos-tags]
-  (let [id (str "t" n)]
+  ;; The code will assume there's at least one token, so make sure!
+  (when (seq pos-tags)
+    (let [id (str "t" n)]
 
-    ;; Add an entity representing the text itself
-    (individual id
-      :type Text)
+      ;; Add an entity representing the text itself
+      (individual id
+        :type Text
+        :fact (is dul/hasComponent (individual (str id "-1"))))
 
-    ;; And entities for each of the terms, linking them together and to the text
-    (reduce
-      (fn [info tag]
-        (let [cnt  (:cnt info)
-              tid  (str id "-" cnt)
-              curr (individual tid
-                     :type  Token
-                     :label (str tid " (" tag ")"))]
+      ;; And entities for each of the terms, linking them together and to the text
+      (reduce
+        (fn [info tag]
+          (let [cnt  (:cnt info)
+                tid  (str id "-" cnt)
+                curr (individual tid
+                       :type  Token
+                       :label (str tid " (" tag ")"))]
 
-          ;; Set POS Quality
-          (if-let [pos (pos/lookup# tag)]
-            (refine curr :fact (is pos/isPartOfSpeech pos))
-            (log/warn "No POS tag:" tag))
+            ;; Set POS Quality
+            (if-let [pos (pos/lookup# tag)]
+              (refine curr :fact (is pos/isPartOfSpeech pos))
+              (log/warn "No POS tag:" tag))
 
-          ;; Link tokens to each other
-          (when-let [prev (:prev info)]
-            (refine curr :fact (is dul/directlyFollows  prev)))
+            ;; Link tokens to each other
+            (when-let [prev (:prev info)]
+              (refine curr :fact (is dul/directlyFollows prev)))
 
-          ;; Continue the reduction
-          {:cnt (inc cnt), :prev curr}))
+            ;; Continue the reduction
+            {:cnt (inc cnt), :prev curr}))
 
-      {:cnt 0}
-      pos-tags)))
+        {:cnt 1}
+        pos-tags))))
 
 
 
@@ -131,8 +134,8 @@
   "Populates the senti ontology using examples from the ARFFs"
   []
   ;; FIXME: Pass in the values from the ARFF
-  (doseq [[id poss] @Examples-pos]
-    (add-text id poss)))
+  (doseq [[id pos-tags] @Examples-pos]
+    (add-text id pos-tags)))
 
 
 
