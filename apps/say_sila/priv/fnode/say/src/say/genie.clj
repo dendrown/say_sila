@@ -23,6 +23,17 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro reflect!
+  "Turns off compilation warnings for reflection for the specified form.
+   Afterwards, *warn-on-reflection* will have its previous value."
+  [form]
+  `(binding [*warn-on-reflection* false]
+     ~form))
+
+
+
+
+;;; --------------------------------------------------------------------------
 (defmacro jcall
   "Sorta-kinda-not-really similar to apply, but works for java static methods
   with zero or more normal parameters and a series of parameters that involve

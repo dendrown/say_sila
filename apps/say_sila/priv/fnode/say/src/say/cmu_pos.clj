@@ -33,41 +33,6 @@
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/cmu-pos.owl#")
 (def ^:const ONT-FPATH  "resources/KB/cmu-pos.owl")
 
-(defonce TAGS {;Nominal, Nominal + Verbal
-               "CommonNoun"                 ["N" "a common noun (NN,NNS)"]
-               "Pronoun"                    ["O" "a pronoun (personal/WH, not possessive; PRP,WP)"]
-               "NominalPossessive"          ["S" "a nominal + possessive"]
-               "ProperNoun"                 ["^" "a proper noun (NNP,NNPS)"]
-               "ProperNounPlusPossessive"   ["Z" "a proper noun + possessive"]
-               "NominalVerbal"              ["L" "a nominal + verbal"]
-               "ProperNounPlusVerbal"       ["M" "a proper noun + verbal"]
-               ; Open-class words
-               "Verb"                       ["V" "a verb including copula and auxiliaries (V*,MD)"]
-               "Adjective"                  ["A" "an adjective (J*)"]
-               "Adverb"                     ["R" "an adverb (R*,WRB)"]
-               "Interjection"               ["!" "an interjection (UH)"]
-               ; Closed-class words
-               "Determiner"                 ["D" "a determiner (WDT,DT,WP$,PRP$)"]
-               "CoordinatingConjunction"    ["&" "a coordinating conjunction (CC)"]
-               "VerbParticle"               ["T" "a verb particle (RP)"]
-               "ExistentialThere"           ["X" "an existential there, predeterminers (EX,PDT)"]
-               "ExistentialPlusVerbal"      ["Y" "X+ a verbal"]
-               "Preposition"                ["P" (str "a pre- or postposition, "
-                                                      "or subordinating conjunction (IN,TO)")]
-               ; Twitter/social media
-               "Hashtag"                    ["#" "a hashtag (indicates a topic/category for a tweet)"]
-               "Address"                    ["U" "a URL or email address"]
-               "Emoticon"                   ["E" "an emoticon"]
-               "AtMention"                  ["@" (str "an at-mention (indicating "
-                                                      "another user as a recipient of a tweet)")]
-               "Continuation"               ["~" (str "an indicator that the message continues "
-                                                      "across multiple tweets")]
-               ; Miscellaneous
-               "Numeral"                    ["$" "a numeral (CD)"]
-               "Punctuation"                ["," "punctuation"]
-               "Other"                      ["G" (str "abbreviations, foreign words, possessive endings, "
-                                                      "symbols, or garbage (FW,POS,SYM,LS)")]})
-
 
 ;;; --------------------------------------------------------------------------
 (defontology cmu-pos
@@ -103,18 +68,60 @@
   :characteristic :functional)
 
 
+;;; --------------------------------------------------------------------------
 ;; CMU POS tags are described in \cite{gimpel2011}
-(doseq [[pos [tag descr]] TAGS]
-  (individual pos
-    :type    PartOfSpeech
-    :label   (str/join " " (soc/tokenize pos))
-    :comment (str "A Part-of-Speech representing " descr)
-    :fact    (is hasPartOfSpeechTag tag)))
+(defmacro defpos
+  "Adds a PartOfSpeech subclass to the cmu-pos ontology"
+  [pos tag descr]
+  `(defclass ~pos
+     :super   PartOfSpeech
+     :label   (str/join " " (soc/tokenize (name '~pos)))
+     :comment (str "A Part-of-Speech representing " ~descr)
+     :equivalent (has-value hasPartOfSpeechTag ~tag)))
+
+
+;Nominal, Nominal + Verbal
+(defpos CommonNoun               "N" "a common noun (NN,NNS)")
+(defpos Pronoun                  "O" "a pronoun (personal/WH, not possessive; PRP,WP)")
+(defpos NominalPossessive        "S" "a nominal + possessive")
+(defpos ProperNoun               "^" "a proper noun (NNP,NNPS)")
+(defpos ProperNounPlusPossessive "Z" "a proper noun + possessive")
+(defpos NominalVerbal            "L" "a nominal + verbal")
+(defpos ProperNounPlusVerbal     "M" "a proper noun + verbal")
+
+; Open-class words
+(defpos Verb                     "V" "a verb including copula and auxiliaries (V*,MD)")
+(defpos Adjective                "A" "an adjective (J*)")
+(defpos Adverb                   "R" "an adverb (R*,WRB)")
+(defpos Interjection             "!" "an interjection (UH)")
+
+; Closed-class words
+(defpos Determiner               "D" "a determiner (WDT,DT,WP$,PRP$)")
+(defpos CoordinatingConjunction  "&" "a coordinating conjunction (CC)")
+(defpos VerbParticle             "T" "a verb particle (RP)")
+(defpos ExistentialThere         "X" "an existential there, predeterminers (EX,PDT)")
+(defpos ExistentialPlusVerbal    "Y" "X+ a verbal")
+(defpos Preposition              "P" "a pre- or postposition, or subordinating conjunction (IN,TO)")
+
+; Twitter/social media
+(defpos Hashtag                  "#" "a hashtag (indicates a topic/category for a tweet)")
+(defpos Address                  "U" "a URL or email address")
+(defpos Emoticon                 "E" "an emoticon")
+(defpos AtMention                "@" "an at-mention (indicating another use  as a recipient of a tweet)")
+(defpos Continuation             "~" "an indicator that the message continues across multiple tweets")
+
+; Miscellaneous
+(defpos Numeral                  "$" "a numeral (CD)")
+(defpos Punctuation              "," "punctuation")
+(defpos Other                    "G" (str "abbreviations, foreign words, possessive endings, "
+                                          "symbols, or garbage (FW,POS,SYM,LS)"))
+
 
 
 ;;; --------------------------------------------------------------------------
 (rsn/reasoner-factory :hermit)
 (defonce POS (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag)))	; Collect for lookup
+;; FIXME: (rsn/isubclasses PartOfSpeech)
 
 
 ;;; --------------------------------------------------------------------------
