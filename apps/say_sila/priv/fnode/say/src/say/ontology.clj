@@ -165,21 +165,35 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn check-fact
-  "Returns a hashmap representing the value of a property framed as a fact
-  about an individual or nil if no such fact exists."
-  [entity property]
+(defn check-fact-aux
+  "Helper function for check-fact, which returns a hashmap representing the
+  value of a property framed as a fact about an individual or nil if no such
+  fact exists.
+
+  In addition to the property, this auxillary function requires the unevaluated
+  symbolic name of the property (pname) as Tawny-OWL may store this symbol.
+  "
+  [entity property pname]
+  ;(println "*>" property)
   (let [psym  (iri-symbol property)
         piri  (iri-kv property)
-        value (first (run* [v]
+        value (first (run 1 [v]
                        (fresh [fact prop]
                          (facto (ensure-map entity) fact)
                          (conso :fact [prop v] fact)
                          (conde
-                           [(== prop psym)]
-                           [(== prop piri)]))))]
-   (when-not (empty? value)
-     (apply hash-map value))))
+                           [(== prop psym)]         ; Current namespace
+                           [(== prop piri)]         ; Imported ontology
+                           [(== prop pname)]))))]   ; Another namespace
+  (when-not (empty? value)
+    (apply hash-map value))))
+
+
+(defmacro check-fact
+  "Returns a hashmap representing the value of an object or data property
+  framed as a fact about an individual or nil if no such fact exists."
+  [entity property]
+  `(check-fact-aux ~entity ~property (symbol (resolve '~property))))
 
 
 
