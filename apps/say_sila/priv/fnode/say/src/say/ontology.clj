@@ -212,14 +212,15 @@
 
 
 ;;; --------------------------------------------------------------------------
-;#R
-(say.genie/reflect!
+#env/R false
+
 (defn get-domains
   "Returns a sequence of domains for the specified property in the given
   ontology."
   [ont prop]
   (seq (EntitySearcher/getDomains prop ont)))
-)
+
+#env/R true
 
 
 ;;; --------------------------------------------------------------------------

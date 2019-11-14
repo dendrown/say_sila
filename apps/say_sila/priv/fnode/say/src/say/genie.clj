@@ -23,13 +23,12 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defmacro reflect!
-  "Turns off compilation warnings for reflection for the specified form.
-   Afterwards, *warn-on-reflection* will have its previous value."
-  [form]
-  `(binding [*warn-on-reflection* false]
-     ~form))
-
+(defn reflect!
+  "Turns on|off compilation warnings for reflection for the specified form."
+  [yn]
+  ;; NOTE: the first attempt involved a  binding expression,
+  ;;       but the compiler seems to ignore the flag.
+  (set! *warn-on-reflection* yn))
 
 
 
