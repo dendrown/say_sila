@@ -73,11 +73,15 @@
 (defmacro defpos
   "Adds a PartOfSpeech subclass to the cmu-pos ontology"
   [pos tag descr]
-  `(defclass ~pos
-     :super   PartOfSpeech
-     :label   (str/join " " (soc/tokenize (name '~pos)))
-     :comment (str "A Part-of-Speech representing " ~descr)
-     :equivalent (has-value hasPartOfSpeechTag ~tag)))
+  `(do (defclass ~pos
+         :super   PartOfSpeech
+         :label   (str/join " " (soc/tokenize (name '~pos)))
+         :comment (str "A Part-of-Speech representing " ~descr)
+         :equivalent (has-value hasPartOfSpeechTag ~tag))
+
+       (defpun ~pos)
+       (refine (individual (str '~pos))
+         :fact (is hasPartOfSpeechTag ~tag))))
 
 
 ;Nominal, Nominal + Verbal
@@ -120,8 +124,7 @@
 
 ;;; --------------------------------------------------------------------------
 (rsn/reasoner-factory :hermit)
-(defonce POS (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag)))	; Collect for lookup
-;; FIXME: (rsn/isubclasses PartOfSpeech)
+(defonce POS (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag)))  ; Collect for lookup
 
 
 ;;; --------------------------------------------------------------------------

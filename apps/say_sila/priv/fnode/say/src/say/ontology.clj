@@ -97,11 +97,11 @@
 (defmacro defpun
   "Creates an individual with the same IRI as the specified class.  The class
   must already exist and the variable representing the individual is prepended
-  with an « i ». (MyThing becomes iMyThing.)"
+  with an « the ». (MyThing refers to the class, and theMyThing to the individual.)"
   [clazz]
   (let [mclazz (vary-meta clazz
                           assoc :tag 'uk.ac.manchester.cs.owl.owlapi.OWLClassImpl)]
-    `(def ~(symbol (str "i" (name `~clazz)))
+    `(def ~(symbol (str "the" (name `~clazz)))
        (individual (. ~mclazz getIRI) :type ~clazz))))
 
 
