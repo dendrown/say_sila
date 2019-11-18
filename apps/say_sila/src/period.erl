@@ -6,14 +6,15 @@
 %%         _/    _/    _/        _/    _/
 %%  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 %%
-%% @doc A try-it-out playpen for looking at data in "Say Sila".
+%% @doc Time-period shortcuts for looking at data in "Say Sila".
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
--module(adhoc).
+-module(period).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
+-export([bp_parms/0, bp_train/0, bp_test/0]).
 -export([one/0, two/0, year/0, full/0, q1/0, q2/0, q4/0, q4q1/0, today/0]).
 
 -include("sila.hrl").
@@ -35,6 +36,10 @@
 %%--------------------------------------------------------------------
 %% Period shortcuts
 %%--------------------------------------------------------------------
+bp_parms()  -> [{start, {2019, 05, 01}}, {stop, {2019, 08, 01}}].
+bp_train()  -> [{start, {2019, 08, 01}}, {stop, {2019, 11, 01}}].
+bp_test()   -> [{start, {2019, 11, 01}}, {stop, {2019, 12, 31}}].
+
 one()  -> [{start, {2017, 12, 31}}, {stop, {2018, 1, 1}}].
 two()  -> [{start, {2017, 12, 30}}, {stop, {2018, 1, 1}}].
 
