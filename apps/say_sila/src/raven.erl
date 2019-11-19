@@ -699,7 +699,10 @@ emote_tweets(Tracker, Tweets, FPathCSV) ->
 % @end  --
 emote_tweets_csv({newline,
                   ["id",
+                   "lang",
                    "screen_name",
+                   "name",
+                   "description",
                    "NRC-Affect-Intensity-anger_Score",
                    "NRC-Affect-Intensity-fear_Score",
                    "NRC-Affect-Intensity-sadness_Score",
@@ -719,7 +722,7 @@ emote_tweets_csv({eof}, {Tracker, Cnt, Unprocessed, EmoTweets}) ->
     {Cnt, EmoTweets};
 
 
-emote_tweets_csv({newline, [ID, _ScreenName, Anger, Fear, Sadness, Joy]},
+emote_tweets_csv({newline, [ID, _Lang, _ScreenName, _Name, _Descr, Anger, Fear, Sadness, Joy]},
                  {Tracker, Cnt, [Tweet | RestTweets], EmoTweets}) ->
     %
     %?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),

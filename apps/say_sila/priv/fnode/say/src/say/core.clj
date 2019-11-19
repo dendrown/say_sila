@@ -43,8 +43,6 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const ERLANG-COOKIE  "say_sila_uqam_00")
-
 (def TO-SILA (agent {:cnt 0}))          ; TODO: Serialize responses to Erlang
 
 
@@ -52,10 +50,9 @@
 ;;; --------------------------------------------------------------------------
 (defn- ^OtpNode make-node
   "Creates and initializes a jInterface OTP node."
-  [name]
-  (let [node (OtpNode. name)]
-    (.setCookie node ERLANG-COOKIE)
-    node))
+  [sname cookie]
+  (doto (OtpNode. sname)
+        (.setCookie cookie)))
 
 
 
@@ -228,21 +225,23 @@
 ;;; --------------------------------------------------------------------------
 (defn start
   "Starts up an Erlang jInterface process for communication with Erlang sila."
-  ([] (start "jvm"))
+  ([]
+  (let [ecfg  (cfg/? :erlang)
+        node  (make-node (ecfg :sname)
+                         (ecfg :cookie))
+        mbox  (.createMbox  node "say")
+        enode (str "sibyl@" (.getHostName (java.net.InetAddress/getLocalHost)))]
 
-  ([name]
-    (let [node (make-node name)
-          mbox (.createMbox  node "say")]
-      (log/notice "Started:" (.node    node))
-      (log/notice "Mailbox:" (.getName mbox))
-      (log/debug  "Cookie :" (.cookie  node))
-      (log/debug  "Pinging:" (.ping node "gw@chiron" 2000)) ; FIXME: !hard-coded
+    (log/notice "Started:" (.node    node))
+    (log/notice "Mailbox:" (.getName mbox))
+    (log/debug  "Cookie :" (.cookie  node))
+    (log/debug  "Pinging:" (.ping node enode 1000))
 
-      ;; Start up Say-Sila's hierarchical "mind"
-      (inua/create!)
+    ;; Start up Say-Sila's hierarchical "mind"
+    (inua/create!)
 
-      ;; Receive and process messages from Erlang
-      (otp-loop node mbox)
-      (.close node)
-      :ok)))
+    ;; Receive and process messages from Erlang
+    (otp-loop node mbox)
+    (.close node)
+    :ok)))
 

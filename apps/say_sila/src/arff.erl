@@ -399,8 +399,12 @@ write_tweets(Out, [Tweet|Rest], Target) ->
 
     % Function to clean text so that Weka doesn't freak:
     Clean = fun(T0) ->
-        T1 = re:replace(T0, "(\\\\')|(')", [$\\, $\\, $'], [global]),   % Correct/escape single quotes
-             re:replace(T1, "[\r\n]", " ", [global, {return, binary}])  % Linefeeds/newlines to spaces
+        case T0 of
+            undefined -> <<>>;
+            _ ->
+                T1 = re:replace(T0, "(\\\\')|(')", [$\\, $\\, $'], [global]),   % Correct/escape single quotes
+                     re:replace(T1, "[\r\n]", " ", [global, {return, binary}])  % Linefeeds/newlines to spaces
+        end
     end,
     ?io_fmt(Out, "'~s','~s','~s','~s','~s','~s'", [TwRec#tweet.id,
                                                    TwRec#tweet.lang,

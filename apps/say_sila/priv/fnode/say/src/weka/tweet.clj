@@ -102,13 +102,17 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^Instances filter-instances
-  "Applies a filter to the specified data Instances."
-  [data flt-key]
+  "Applies a pre-defined filter to the specified data Instances.  The arity/3
+  version acts as a pass-through to weka.core's function of the same name."
+  ([data flt-key]
   (let [flt-map (flt-key  +FILTERS+)
         sieve   (eval (:filter  flt-map))
         opts    (:options flt-map)]
-    (weka/filter-instances data sieve opts)))
+    (filter-instances data sieve opts)))
 
+
+  ([data sieve opts]
+  (weka/filter-instances data sieve opts)))
 
 
 ;;; --------------------------------------------------------------------------

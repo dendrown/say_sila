@@ -33,5 +33,6 @@
 -type rec_string()  :: undefined | string().
 -type rec_stringy() :: undefined | stringy().
 
+-type node_reference()  :: {node(), reference()}.
 
 -endif.

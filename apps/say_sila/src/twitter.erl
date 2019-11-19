@@ -68,7 +68,8 @@
                           q4_2018 => <<"tbl_statuses_2018_q4">>,
                           %-------------------------------------------
                           q1_2019 => <<"tbl_statuses_2019_q1">>,
-                          q2_2019 => <<"tbl_statuses_2019_q2">>}).
+                          q2_2019 => <<"tbl_statuses_2019_q2">>,
+                          q3_2019 => <<"tbl_statuses_2019_q3">>}).
 -define(status_table(X), maps:get(X, ?STATUS_TABLES, ?STATUS_TABLE)).
 
 
@@ -867,7 +868,7 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                           "ORDER BY timestamp_ms",
                           [StatusTbl, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNamesCond]),
 
-    file:write_file("/tmp/sila.get_tweets.sql", Query),
+    %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
 
         {ok, _, Rows} ->
@@ -875,8 +876,8 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                     type           = ?null_val_not(RTID, tweet, retweet),
                     timestamp_ms   = binary_to_integer(DTS),
                     screen_name    = SN,
-                    name           = Name,
-                    description    = Descr,
+                    name           = ?null_to_undef(Name),
+                    description    = ?null_to_undef(Descr),
                     text           = Text,
                     lang           = ?DB_LANG,                  % Ensured in SQL WHERE clause
                     rt_id          = ?null_to_undef(RTID),

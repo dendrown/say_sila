@@ -21,6 +21,7 @@
              raven,
              sila,
              twitter,
+             weka,
              wui, wui_emote, wui_player, wui_report]},
   {maintainers, []},
   {licenses, []},

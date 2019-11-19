@@ -27,9 +27,9 @@
                 emotions        :: rec_emos(),
                 %---------------------------------- % User
                 screen_name     :: binary(),
-                name            :: binary(),
-                description     :: binary(),
-                text            :: binary() | ignored,
+                name            :: rec_binary(),
+                description     :: rec_binary(),
+                text            :: rec_binary() | ignored,
                 lang            :: binary(),
                 %---------------------------------- % Retweeted author
                 rt_id           :: rec_binary(),
