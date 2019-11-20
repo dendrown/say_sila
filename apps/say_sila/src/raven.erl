@@ -701,8 +701,6 @@ emote_tweets_csv({newline,
                   ["id",
                    "lang",
                    "screen_name",
-                   "name",
-                   "description",
                    "NRC-Affect-Intensity-anger_Score",
                    "NRC-Affect-Intensity-fear_Score",
                    "NRC-Affect-Intensity-sadness_Score",
@@ -722,7 +720,7 @@ emote_tweets_csv({eof}, {Tracker, Cnt, Unprocessed, EmoTweets}) ->
     {Cnt, EmoTweets};
 
 
-emote_tweets_csv({newline, [ID, _Lang, _ScreenName, _Name, _Descr, Anger, Fear, Sadness, Joy]},
+emote_tweets_csv({newline, [ID, _Lang, ScreenName, Anger, Fear, Sadness, Joy]},
                  {Tracker, Cnt, [Tweet | RestTweets], EmoTweets}) ->
     %
     %?debug("~-24s\tA:~-8s F:~-8s S:~-8s J:~-8s~n", [ScreenName, Anger, Fear, Sadness, Joy]),
@@ -739,7 +737,7 @@ emote_tweets_csv({newline, [ID, _Lang, _ScreenName, _Name, _Descr, Anger, Fear, 
                                                         string_to_float(Fear),
                                                         string_to_float(Sadness),
                                                         string_to_float(Joy))},
-           %EmoTweet = emo:clip_stoic(Tweet#tweet{emotions = Emotions}),
+            %EmoTweet = emo:clip_stoic(Tweet#tweet{emotions = Emotions}),
 
             % Keep track of who's tweeting what!
             player:tweet(Tracker, EmoTweet),
@@ -748,9 +746,11 @@ emote_tweets_csv({newline, [ID, _Lang, _ScreenName, _Name, _Descr, Anger, Fear, 
 
         false ->
             ?error("Tweet-CSV mismatch: id[~p =/= ~p]", [Tweet#tweet.id, ID]),
-            %debug("tweet id   : ~p : ~p~n", [Tweet#tweet.id, ID]),
-            %debug("screen name: ~s~n", [ScreenName]),
-            %debug("tweet text : ~s~n", [Tweet#tweet.text]),
+            ?debug("Tweet: ~p", [Tweet]),
+            ?warning("screen name: ~s~n", [ScreenName]),
+            ?warning("full name  : ~s~n", [Tweet#tweet.name]),
+            ?warning("description: ~s~n", [Tweet#tweet.description]),
+            ?warning("tweet text : ~s~n", [Tweet#tweet.text]),
             exit(tweet_mismatch) %% {Cnt + 1, RestTweets, EmoTweets}
     end.
 

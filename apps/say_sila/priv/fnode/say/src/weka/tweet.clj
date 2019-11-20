@@ -53,16 +53,21 @@
 ;;       Expanded -N [8e] w2v-dp-BCC-Lex
 ;;
 ;; NOTE: Even though the AffectiveTweets Filter classes are imported in this
-;;       namespace, we must fully qualify the :filter elements in +FILTERS+
+;;       namespace, we must fully qualify the :filter elements in FILTERS
 ;;       because the quoted code is likely to be evaluated in a non-binding-thread
 ;;       (future) launched from another namespace, which won't have access to the
 ;;       Java imports.
 ;; ---------------------------------------------------------------------------
-(def ^:const +ARFF-TEXT-ATTR-NUM+ 6)
-(def ^:const +ARFF-TEXT-ATTR+    (str +ARFF-TEXT-ATTR-NUM+))
+(def ^:const ATTRS-IN   [:id :lang :screen_name :name :description :text])
+(def ^:const ATTRS-OUT  (take 3 ATTRS-IN))
+(def ^:const ARFF-ATTRS (reduce (fn [acc [col ndx]] (assoc acc col ndx))
+                                {}
+                                (map vector ATTRS-IN
+                                            (range 1 (inc (count ATTRS-IN))))))
+(def ^:const TEXT-ATTR  (str (:text ARFF-ATTRS)))
 
-(def ^:const +FILTERS+ {:embed  {:filter  '(weka.filters.unsupervised.attribute.TweetToEmbeddingsFeatureVector.)
-                                 :options ["-I" +ARFF-TEXT-ATTR+
+(def ^:const FILTERS    {:embed {:filter  '(weka.filters.unsupervised.attribute.TweetToEmbeddingsFeatureVector.)
+                                 :options ["-I" TEXT-ATTR
                                            "-S" "0"    ; 0=avg, 1=add, 2=cat
                                            "-K" "15"   ; Concat word count
                                            "-L"        ; Lowercase
@@ -70,11 +75,11 @@
                                                        ; Default embeddings [ -B ]:
                                                        ;   w2v.twitter.edinburgh.100d.csv.gz
                         :bws    {:filter  '(weka.filters.unsupervised.attribute.TweetToInputLexiconFeatureVector.)
-                                 :options ["-I" +ARFF-TEXT-ATTR+
+                                 :options ["-I" TEXT-ATTR
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}      ; Normalize URLs/@users
                         :lex    {:filter  '(weka.filters.unsupervised.attribute.TweetToLexiconFeatureVector.)
-                                 :options ["-I" +ARFF-TEXT-ATTR+
+                                 :options ["-I" TEXT-ATTR
                                            "-A"        ; MPQA Lexicon
                                            "-D"        ; Bing Liu
                                            "-F"        ; AFINN
@@ -89,15 +94,14 @@
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}      ; Normalize URLs/@users
                         :senti  {:filter  '(weka.filters.unsupervised.attribute.TweetToSentiStrengthFeatureVector.)
-                                 :options ["-I" +ARFF-TEXT-ATTR+
+                                 :options ["-I" TEXT-ATTR
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}      ; Normalize URLs/@users
                         :attrs  {:filter  '(weka.filters.unsupervised.attribute.Reorder.)
-                                 :options [; Remove text attribute from the output
-                                           "-R" (str "1-" (dec +ARFF-TEXT-ATTR-NUM+)
-                                                     ","  (inc +ARFF-TEXT-ATTR-NUM+) "-last")]}})
+                                 :options [; Remove full name/description/text attributes from the output
+                                           "-R" (str "1-" (count ATTRS-OUT)
+                                                     ","  (inc (count ATTRS-IN)) "-last")]}})
 
-(def ^:const +EMOTE-FILTER+ :bws)
 
 
 ;;; --------------------------------------------------------------------------
@@ -105,7 +109,7 @@
   "Applies a pre-defined filter to the specified data Instances.  The arity/3
   version acts as a pass-through to weka.core's function of the same name."
   ([data flt-key]
-  (let [flt-map (flt-key  +FILTERS+)
+  (let [flt-map (flt-key  FILTERS)
         sieve   (eval (:filter  flt-map))
         opts    (:options flt-map)]
     (filter-instances data sieve opts)))
@@ -283,7 +287,7 @@
   (let [emoter    (prep-emoter (TweetToInputLexiconFeatureVector.)
                                (cfg/? :emote))
         data-in   (weka/load-arff fpath)
-        data-mid  (filter-instances data-in  emoter (:options (:bws +FILTERS+)))
+        data-mid  (filter-instances data-in  emoter (:options (:bws FILTERS)))
         data-out  (filter-instances data-mid :attrs)]
 
     (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)

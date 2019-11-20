@@ -402,10 +402,11 @@ write_tweets(Out, [Tweet|Rest], Target) ->
         case T0 of
             undefined -> <<>>;
             _ ->
-                T1 = re:replace(T0, "(\\\\')|(')", [$\\, $\\, $'], [global]),   % Correct/escape single quotes
-                     re:replace(T1, "[\r\n]", " ", [global, {return, binary}])  % Linefeeds/newlines to spaces
+                T1 = re:replace(T0, "(\\\\')|(['])", [$\\, $\\, $'], [global]),         % Fix/escape single quotes
+                     re:replace(T1, "[\r\n]|(\\\\$)", " ", [global, {return, binary}])  % NLs/LFs/trailing '\'s
         end
     end,
+
     ?io_fmt(Out, "'~s','~s','~s','~s','~s','~s'", [TwRec#tweet.id,
                                                    TwRec#tweet.lang,
                                                    TwRec#tweet.screen_name,
