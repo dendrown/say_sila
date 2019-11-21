@@ -57,7 +57,7 @@
 -define(INC_BIG_PCT,    0.0005).
 -define(INIT_BIG_RANGE, {biggies, ?MIN_BIG_PCT, ?MAX_BIG_PCT}).
 
--define(MIN_TOP_N,      5).
+-define(MIN_TOP_N,      7).
 -define(MAX_TOP_N,      25).
 -define(MIN_NN_SCORE,   0.6).
 -define(INIT_TOP_RANGE, {top_n, ?MIN_TOP_N, ?MAX_TOP_N}).
@@ -245,8 +245,6 @@ run_biggies(Tracker, RunTag) ->
 %       .4% over weekly periods.
 % @end  --
 %run_biggies(Tracker, RunTag, Emo) when is_atom(Emo) ->
-
-
 
 run_biggies(Tracker, RunTag, BigPct) ->
     run_influence(Tracker, RunTag, [{method, {biggies, BigPct}},
