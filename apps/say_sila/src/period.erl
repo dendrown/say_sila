@@ -14,15 +14,9 @@
 -module(period).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([bp_parms/0, bp_train/0, bp_test/0]).
 -export([one/0, two/0, year/0, full/0, q1/0, q2/0, q4/0, q4q1/0, today/0]).
 
 -include("sila.hrl").
--include("emo.hrl").
--include("ioo.hrl").
--include("player.hrl").
--include("types.hrl").
--include("twitter.hrl").
 -include_lib("llog/include/llog.hrl").
 
 -define(twitter(Acct),  io_lib:format("[~s](https://twitter.com/~s)", [Acct, Acct])).
@@ -36,10 +30,6 @@
 %%--------------------------------------------------------------------
 %% Period shortcuts
 %%--------------------------------------------------------------------
-bp_parms()  -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}].
-bp_train()  -> [{start, {2019, 04, 01}}, {stop, {2019, 10, 01}}].
-bp_test()   -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
-
 one()  -> [{start, {2017, 12, 31}}, {stop, {2018, 1, 1}}].
 two()  -> [{start, {2017, 12, 30}}, {stop, {2018, 1, 1}}].
 

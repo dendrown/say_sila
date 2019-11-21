@@ -4,10 +4,10 @@
   {vsn, "0.2.0-SNAPSHOT"},
   {registered, []},
   {mod, { say_sila_app, []}},
-  {applications, [kernel, stdlib ]},
-  %applications, [kernel, stdlib, oauth, hackney ]},
+  {applications, [kernel, stdlib ]},    % Possibly: oauth, hackney
   {env,[]},
   {modules, [arff,
+             biggies,
              dts,
              emo,
              influence,

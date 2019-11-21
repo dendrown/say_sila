@@ -25,6 +25,7 @@
          get_big_players/2,
          get_big_players/3,
          get_jvm_node/1,
+         is_jvm_ready/1,
          report/2,
          reset/1,
          run_tweet_csv/1]).     %% DEBUG!
@@ -253,6 +254,18 @@ get_big_players(Players, BigP100, _) ->
 get_jvm_node(Tracker) ->
     gen_server:call(?reg(Tracker), get_jvm_node).
 
+
+
+%%--------------------------------------------------------------------
+-spec is_jvm_ready(Tracker :: atom()) -> boolean().
+%%
+% @doc  Determines if raven's JVM is available and ready.
+%%--------------------------------------------------------------------
+is_jvm_ready(Tracker) ->
+    case get_jvm_node(Tracker) of
+        undefined -> false;
+        JVM       -> ok =:= weka:ping(JVM)
+    end.
 
 
 %%--------------------------------------------------------------------

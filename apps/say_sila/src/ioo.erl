@@ -15,7 +15,9 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([make_fpath/3,
-         put_all/2]).
+         put_all/2,
+         read_down/1,
+         trim_down/1]).
 
 
 -include("ioo.hrl").
@@ -49,6 +51,29 @@ make_fpath(Path, Name, Extn) ->
 % @end  --
 put_all(FOut, Cmds) ->
     lists:foreach(fun(Cmd) -> ?io_fmt(FOut, "~s\n", [Cmd]) end, Cmds).
+
+
+
+%%--------------------------------------------------------------------
+-spec read_down(Prompt :: io:prompt()) -> string().
+%%
+% @doc  Displays the `Prompt', requests user input, and returns the
+%       input text after trimming and converting it to lowercase.
+% @end  --
+read_down(Prompt) ->
+    Reply = io:get_line(Prompt),
+    trim_down(Reply).
+
+
+
+%%--------------------------------------------------------------------
+-spec trim_down(Text :: unicode:chardata()) -> string().
+%%
+% @doc  Trims whitespace from both sides of the specified `Text' and
+%       converts it to lowercase.
+% @end  --
+trim_down(Text) ->
+    string:lowercase(string:trim(Text)).
 
 
 

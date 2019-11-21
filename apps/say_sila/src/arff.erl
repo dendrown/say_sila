@@ -599,8 +599,8 @@ periodize_lots(CommCode, DayLots, Period, Days, InitComm) ->
 %%   Periods} = lists:foldl(GroupDays, {1, [], []}, lists:sublist(Days, 50, 7)),    % DEBUG: subset
     case ExtraDays of
         [] -> ok;
-        _  -> ?warning("Days cut from period groupings: ~p",
-                       [[dts:date_STR(Day, millisecond) || Day <- ExtraDays]])
+        _  -> ?warning("Days cut from ~s period groupings: ~p",
+                       [CommCode, [dts:date_STR(Day, millisecond) || Day <- ExtraDays]])
     end,
     lists:foldr(RemapDays, #{}, Periods).
 
