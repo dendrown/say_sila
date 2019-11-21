@@ -116,9 +116,9 @@
   ([^Instances data
     ^Filter    sieve
                opts]
-  (.setInputFormat sieve data)
   (when (not-empty opts)
     (.setOptions sieve (into-array String opts)))
+  (.setInputFormat sieve data)
   (Filter/useFilter data sieve)))
 
 
