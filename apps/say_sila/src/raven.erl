@@ -19,6 +19,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1, stop/1,
+         count_tweet_todo/1,
          emote/1,
          emote/2,
          get_big_percent/1,
@@ -94,6 +95,17 @@ start_link(Tracker) ->
 % @end  --
 stop(Tracker) ->
     gen_server:call(?reg(Tracker), stop).
+
+
+
+%%--------------------------------------------------------------------
+-spec count_tweet_todo(Tracker :: atom()) -> non_neg_integer().
+%%
+% @doc  Returns the number of tweet processing requests that are
+%       currently outstanding.
+%%--------------------------------------------------------------------
+count_tweet_todo(Tracker) ->
+    gen_server:call(?reg(Tracker), count_tweet_todo).
 
 
 
@@ -370,6 +382,10 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call(count_tweet_todo, _From, State) ->
+    {reply, maps:size(State#state.tweet_todo), State};
+
+
 handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
                                                         tweet_todo = Todo,
                                                         jvm_node   = JVM}) ->

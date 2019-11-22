@@ -52,10 +52,38 @@ run_top_nn(Tracker, RunTag) ->
         "yes" ->
             case weka:ping(raven:get_jvm_node(Tracker)) of
                 timeout -> [];
-                _  ->
-                    ok = raven:reset(Tracker),
-                    ok = raven:emote(Tracker, period(train))%,
-                    %influence:run_top_nn(Tracker, RunTag, oter, fear)
-                end;
+                _       -> run_top_nn_aux(Tracker, RunTag)
+            end;
         _ -> []
     end.
+
+
+
+%%====================================================================
+%% Internal functions
+%%--------------------------------------------------------------------
+-spec run_top_nn_aux(Tracker :: tracker(),
+                     RunTag  :: stringy()) -> proplist().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.
+% @end  --
+run_top_nn_aux(Tracker, RunTag) ->
+
+    sila:reset(),
+    ok = raven:emote(Tracker, period(train)),
+
+    % We may still be waiting on messages after `emote' finishes
+    Waiter = fun Recur() ->
+        case raven:count_tweet_todo(Tracker) of
+            0 -> ok;
+            N ->
+                ?info("Waiting on ~p days of tweets", [N]),
+                timer:sleep(2000),
+                Recur()
+        end
+    end,
+    Waiter(),
+
+    influence:run_top_nn(Tracker, RunTag, oter, fear).
