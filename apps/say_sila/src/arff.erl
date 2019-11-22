@@ -621,7 +621,7 @@ init_biggie_arff(Name, BigCodes, RegCodes, BigEmos, RegEmos) ->
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
     Return = {_, FOut} = open_arff(Name),
 
-    ?put_attr(FOut, minute, numeric),
+    ?put_attr(FOut, minute, date),
     Attribber = fun({Grp, Code, Emo}) ->
                     Attr = make_attribute(Grp, Code, Emo),
                     ?put_attr(FOut, Attr, numeric)
@@ -675,7 +675,7 @@ write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos, 
     % Function to write one line of the ARFF
     Liner  = fun(DTS) ->
                  % The DTS is a millisecond timestamp for the current lot in the period
-                 ?io_fmt(FOut, "~B", [DTS]),
+                 ?io_put(FOut, dts:str(DTS, millisecond)),
                  lists:foldl(Commer, {DTS, big, BigLots, BigEmos}, BigCodes),
                  lists:foldl(Commer, {DTS, reg, RegLots, RegEmos}, RegCodes),
                  ?io_nl(FOut)

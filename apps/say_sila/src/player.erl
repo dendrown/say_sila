@@ -548,8 +548,7 @@ handle_cast({tweet, Tweet = #tweet{screen_name  = ScreenName,
 
     Account = string:lowercase(ScreenName),
     KeyDTS  = dts:dayize(TweetMillis, millisecond),
-
-    ?info("TWEET: dts[~B] id[~s] type[~s] acct[~s]", [KeyDTS, Tweet#tweet.id, Type, Account]),
+    %?info("TWEET: dts[~B] id[~s] type[~s] acct[~s]", [KeyDTS, Tweet#tweet.id, Type, Account]),
 
     % Update the tweet counter(s) and rank(s) for this tweet
      CommCodes = case Type of

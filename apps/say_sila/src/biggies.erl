@@ -14,7 +14,7 @@
 -module(biggies).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([bp/1,
+-export([period/1,
          run_top_nn/2]).
 
 -include("sila.hrl").
@@ -27,9 +27,9 @@
 %%
 %% RUN-1: October 1, 2017 -- June 30, 2018              (10-fold CV)
 %%--------------------------------------------------------------------
-bp(parms)   -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}];
-bp(train)   -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}];   % FIXME!
-bp(test)    -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
+period(parms) -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}];
+period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}];   % FIXME!
+period(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
 
 
 %%--------------------------------------------------------------------
@@ -53,9 +53,9 @@ run_top_nn(Tracker, RunTag) ->
             case weka:ping(raven:get_jvm_node(Tracker)) of
                 timeout -> [];
                 _  ->
-                    raven:reset(Tracker),
-                    raven:emote(Tracker, bp(train)),
-                    influence:run_top_nn(Tracker, RunTag, oter, fear)
+                    ok = raven:reset(Tracker),
+                    ok = raven:emote(Tracker, period(train))%,
+                    %influence:run_top_nn(Tracker, RunTag, oter, fear)
                 end;
         _ -> []
     end.
