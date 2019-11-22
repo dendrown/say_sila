@@ -47,12 +47,12 @@ bp(test)    -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
 % @end  --
 run_top_nn(Tracker, RunTag) ->
 
-    io:format("This will destroy the current raven and player states."),
+    io:format("This will destroy the current raven and player states.~n"),
     case ioo:read_down("Are you sure? ") of
         "yes" ->
-            case raven:get_jvm_node(Tracker) of
-                false -> [];
-                true  ->
+            case weka:ping(raven:get_jvm_node(Tracker)) of
+                timeout -> [];
+                _  ->
                     raven:reset(Tracker),
                     raven:emote(Tracker, bp(train)),
                     influence:run_top_nn(Tracker, RunTag, oter, fear)

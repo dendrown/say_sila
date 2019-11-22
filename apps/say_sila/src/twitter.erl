@@ -1421,7 +1421,8 @@ get_status_table(Options) ->
     case lists:filter(fun(P) -> P =/= undefined end, Tables) of
         []          -> ?STATUS_TABLE;
         [Tbl]       -> Tbl;
-        [Tbl, Tbl]  -> Tbl
+        [Tbl, Tbl]  -> Tbl;
+        Tables      -> ?error("Queries across quarters are not supported: ~p", [Tables]), undefined
     end.
 
 
