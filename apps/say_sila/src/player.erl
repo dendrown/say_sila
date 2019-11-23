@@ -25,7 +25,7 @@
          get_players/1,
          get_rankings/1,
          get_top_n/2,
-         get_totals/1,
+         get_totals/1,      get_totals/2,
          plot/1,            plot/2, plot/3,
          reset/1,
          tweet/2,
@@ -311,6 +311,10 @@ get_top_n(Tracker, N) ->
 
 %%--------------------------------------------------------------------
 -spec get_totals(Tracker :: atom()) -> map().
+
+-spec get_totals(Tracker :: atom(),
+                 Timout  :: infinity
+                          | non_neg_integer()) -> map().
 %%
 % @doc  Returns the server totals in a `comm' map with keys:
 %           - `tter'  total count of all tweets sent
@@ -318,9 +322,17 @@ get_top_n(Tracker, N) ->
 %           - `rter'  number of postes retweeted
 %           - `rted'  number of times an author is retweeted
 %           - `tmed'  number of times users are mentioned
+%
+%       We provide a version with a timeout because some clients will
+%       use this function to wait until processing completes to check
+%       the results and continue with the next step for their goal.
 %%--------------------------------------------------------------------
 get_totals(Tracker) ->
-    gen_server:call(?reg(Tracker), get_totals).
+    get_totals(Tracker, 5000).
+
+
+get_totals(Tracker, Timeout) ->
+    gen_server:call(?reg(Tracker), get_totals, Timeout).
 
 
 
