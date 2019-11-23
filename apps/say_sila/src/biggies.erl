@@ -23,7 +23,8 @@
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
--type dataset() :: parms | train | test.
+-type dataset()      :: parms | train | test.
+-type verification() :: ack | nak | undefined.
 
 
 %%--------------------------------------------------------------------
@@ -41,7 +42,7 @@ period(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
 
 %%--------------------------------------------------------------------
 -spec run_top_nn(Tracker :: tracker(),
-                 RunTag  :: stringy()) -> proplist().
+                 RunTag  :: stringy()) -> verification().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -70,7 +71,7 @@ run_top_nn(Tracker, RunTag) ->
 %% Internal functions
 %%--------------------------------------------------------------------
 -spec run_top_nn_aux(Tracker :: tracker(),
-                     RunTag  :: stringy()) -> proplist().
+                     RunTag  :: stringy()) -> verification().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -103,8 +104,10 @@ run_top_nn_aux(Tracker, RunTag) ->
 
     % Create the models
     Results = influence:run_top_nn(Tracker, RunTag, oter, fear),
-    verify_run(Tracker, RunTag, train, oter, fear, Results),
-    Results.
+    lists:foreach(fun({N, {PCC, Attrs}}) ->
+                     ?info("N @ ~2B: pcc[~7.4f] attrs~p", [N, PCC, Attrs]) end,
+                  Results),
+    verify_run(Tracker, RunTag, train, oter, fear, Results).
 
 
 %%--------------------------------------------------------------------
@@ -113,7 +116,7 @@ run_top_nn_aux(Tracker, RunTag) ->
                  DataTag :: dataset(),
                  Comm    :: comm_code(),
                  Emo     :: emotion(),
-                 Results :: proplist()) -> ack|nak|undefined.
+                 Results :: proplist()) -> verification().
 %%
 % @doc  Generates a hash representing the results of a given run.
 %       If we know what the results should be (we have a hash from
@@ -153,3 +156,4 @@ get_run_hash(Key) ->
                    <<87,81,48,74,205,149,219,162,115,48,33,140,69,53,160,50,
                      153,189,181,58,63,125,49,50,106,163,246,21,227,160,53,54>>},
     maps:get(Key, RunResults, none).
+
