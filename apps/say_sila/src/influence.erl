@@ -57,7 +57,7 @@
 -define(INC_BIG_PCT,    0.0005).
 -define(INIT_BIG_RANGE, {biggies, ?MIN_BIG_PCT, ?MAX_BIG_PCT}).
 
--define(MIN_TOP_N,      7).
+-define(MIN_TOP_N,      5).
 -define(MAX_TOP_N,      25).
 -define(MIN_NN_SCORE,   0.6).
 -define(INIT_TOP_RANGE, {top_n, ?MIN_TOP_N, ?MAX_TOP_N}).
@@ -421,7 +421,6 @@ run_top_nn(Tracker, RunTag, Comm, Emo) ->
 init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
 
     Players = player:get_players(Tracker),
-    Name    = ?bin_fmt("~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo]),
     Period  = proplists:get_value(period, Options, 1),
     Report  = proplists:get_value(report, Options, false),
 
@@ -431,7 +430,6 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
      InclAttrs,
      ExclAttrs} = incl_excl_attributes(InitAttrs),
 
-    %?debug("Influence for ~s: ~p", [Name, Options]),
     {Biggies,
      BigTag} = case proplists:get_value(method, Options, ?INIT_METHOD) of
         {biggies, Pct} -> {player:get_biggies(Tracker, Pct), ?str_fmt("p~B", [round(100*Pct)])};
@@ -442,16 +440,17 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
                   ?str_FMT("{~s:~B%,tw=~B,cnt=~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
                   end,
 
+    Name = ?bin_fmt("~s_~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo, BigTag]),
     ?info("Modelling '~s' influence: usr[~B] big~p", [Name,
                                                       maps:size(Players),
                                                       [BigInfo(Grp) || Grp <- Biggies]]),
 
     % Function to name a working CSV file for Weka
-    TagCSV = fun(ARFF, Tag) ->
-                 Parts = string:split(ARFF, ".", trailing),
-                 CSV   = ?str_fmt("~s_~s.csv", [hd(Parts), Tag]),
-                 list_to_binary(CSV)
-                 end,
+    ToCSV = fun(ARFF) ->
+        Parts = string:split(ARFF, ".", trailing),
+        CSV   = ?str_fmt("~s.csv", [hd(Parts)]),
+        list_to_binary(CSV)
+    end,
 
     % Prepare Weka modelling input
     try arff:from_biggies(Name, RegComm, RegEmo, Biggies, Players, Period) of
@@ -462,7 +461,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Options]) ->
             {ok, idle, #data{tracker    = Tracker,
                              name       = Name,
                              arff       = list_to_binary(ARFF),
-                             work_csv   = TagCSV(ARFF, BigTag),
+                             work_csv   = ToCSV(ARFF),
                              attributes = AllAttrs,
                              init_attrs = InitAttrs,
                              incl_attrs = InclAttrs,
@@ -915,14 +914,14 @@ report_line(#{coefficients := Coeffs,
     Attribber = fun(Attr) ->
                     case maps:get(Attr, Coeffs, no_param) of
                         no_param -> ?io_put(FOut, ",");
-                        Coeff    -> ?io_fmt(FOut, ",~.4f", [Coeff])
+                        Coeff    -> ?io_fmt(FOut, ",~.6f", [Coeff])
                     end,
                     Coeffs end,
 
-    ?io_fmt(FOut, "~B,~s,~s,~s,~.4f,~B",
+    ?io_fmt(FOut, "~B,~s,~s,~s,~.6f,~B",
             [Line, Tracker, RegComm, RegEmo, CorrScore,InstCnt]),
     lists:foreach(Attribber, Attrs),
-    ?io_fmt(FOut, ",~.4f~n", [Intercept]),
+    ?io_fmt(FOut, ",~.6f~n", [Intercept]),
 
     % Only the line number changes in the accumulator
     {FOut, Line+1, Attrs, Data}.
@@ -1002,8 +1001,8 @@ run_influence(Tracker, RunTag, Options) ->
 run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
 
     % Each influence modeller handles an emo/comm pair for the regular players
-    Pairs   = [{Emo, Comm} || Emo <- Emotions, Comm <- CommCodes],
-    PairCnt = length(Pairs),
+    % NOTE: Only the `normal' single report sends multiple emotions and comms.
+    Pairs = [{Emo, Comm} || Emo <- Emotions, Comm <- CommCodes],
 
     % In spite of the variable name, the `method' is not optional here:
     % Check for biggie|top_n range reports & setup a single emo/comm pair
@@ -1011,11 +1010,10 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
      Inputs} = case proplists:get_value(method, Options) of
 
                     {biggies, Lo, Hi} ->
-                        Pair  = hd(Pairs),
                         Mults = lists:seq(0, trunc((Hi - Lo) / ?INC_BIG_PCT)),
                         P100s = [?MIN_BIG_PCT + (M * ?INC_BIG_PCT) || M <- Mults],
                         {biggies,
-                            lists:zip(P100s, lists:duplicate(length(P100s), Pair))};
+                            lists:zip(P100s, lists:duplicate(length(P100s), hd(Pairs)))};
 
                     {top_n, Lo, Hi} ->
                         {next_n, lists:zip(lists:seq(Lo, Hi),
@@ -1023,7 +1021,7 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
 
                     % Otherwise, we have a single report
                     _ ->
-                        {normal, lists:zip(lists:seq(1, PairCnt), Pairs)}
+                        {normal, lists:zip(lists:seq(1, length(Pairs)), Pairs)}
     end,
     ?debug("Influence by ~s: ~p", [Method, Pairs]),
 
@@ -1065,3 +1063,4 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Options) ->
                     influence:stop(Model),
                     {Ndx, Attrs} end,
     lists:map(Attribber, Models).
+

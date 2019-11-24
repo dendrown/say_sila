@@ -133,7 +133,7 @@ verify_run(Tracker, RunTag, DataTag, Comm, Emo, Results) ->
     case get_run_hash(Key) of
         none -> ?notice("No previous results to compare"),                          undefined;
         Val  -> ?notice("Results are consistent!"),                                 ack;
-        Prev -> ?warning("Results do not match previous runs: prev[~s]", [Prev]),   nak
+        Prev -> ?warning("Results do not match previous runs: prev[~p]", [Prev]),   nak
     end.
 
 
@@ -150,10 +150,13 @@ verify_run(Tracker, RunTag, DataTag, Comm, Emo, Results) ->
 %             during this initial implementation.
 % @end  --
 get_run_hash(Key) ->
-    RunResults = #{% [gw,train,oter,fear]}).
+    RunResults = #{% [gw,train,oter,fear]:
                    <<255,239,51,195,210,127,103,151,28,223,33,106,145,208,92,
                      54,55,176,38,83,194,9,28,181,32,124,239,51,172,52,174,213>> =>
-                   <<87,81,48,74,205,149,219,162,115,48,33,140,69,53,160,50,
-                     153,189,181,58,63,125,49,50,106,163,246,21,227,160,53,54>>},
+                   <<184,7,125,26,87,144,74,217,103,168,170,58,87,116,177,140,
+                     77,39,111,214,171,191,42,26,86,237,77,114,207,194,141,124>>    % 2017-10-01 to 2018-04-01
+                  %<<185,37,107,157,153,126,159,159,168,222,149,163,97,88,51,
+                  %  10,47,30,176,97,176,30,229,95,125,10,80,165,208,157,79,50>>    % 2017-10-01 to 2018-07-01
+                  },
     maps:get(Key, RunResults, none).
 
