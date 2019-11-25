@@ -15,7 +15,8 @@
 
 -export([get_split/2,       get_split/3,
          get_first_value/2, get_first_value/3,
-         get_value/2,       get_value/3]).
+         get_value/2,       get_value/3,
+         get_values/2]).
 
 -include("types.hrl").
 
@@ -133,6 +134,23 @@ get_value([Key|SubKeys], List, Default) ->
         undefined -> Default;
         SubList   -> get_value(SubKeys, SubList, Default)
     end.
+
+
+
+%%--------------------------------------------------------------------
+-spec get_values(Items :: [term()]
+                        | [{term(), term()}],
+                 List :: proplist()) -> [undefined|term()].
+%%
+% @doc  Returns a list of values associated with a lists of keys with
+%       respect to a property list.
+% @end  --
+get_values(Items, List) ->
+    Getter = fun
+        ({Key, Default}) -> proplists:get_value(Key, List, Default);
+        ( Key )          -> proplists:get_value(Key, List)
+    end,
+    [Getter(I) || I <- Items].
 
 
 

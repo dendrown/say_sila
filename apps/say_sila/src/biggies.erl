@@ -79,16 +79,57 @@ run_top_nn(Tracker, RunTag) ->
 % @end  --
 run_top_nn_aux(Tracker, RunTag) ->
 
-    sila:reset(),
-    ok = raven:emote(Tracker, period(train)),
+    % Function to pull and organize players and their tweets for a given dataset
+    GetPlayers = fun(D) ->
+        sila:reset(),
+        ok = raven:emote(Tracker, period(D)),
+        wait_on_players(Tracker),
+        player:get_players(Tracker)
+    end,
 
-    % We may still be waiting on messages from Weka after `emote' finishes
+    % The training dataset gives the player community that deines the Top-N groups
+    Players = GetPlayers(train),
+    {top_n,
+     Min, Max} = influence:init_range(top_n),
+    TopBiggies = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
+
+    % We need player communities for the other datasets as well
+    DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
+    Options  = [{datasets, DataSets},
+                {toppers,  TopBiggies}],
+
+    Totals = #{tter := Count} = wait_on_players(Tracker),
+    ?notice("Completed processing ~p tweets", [Count]),
+    maps:map(fun(Comm, Cnt) ->
+                 ?info("* ~s: ~B", [Comm, Cnt]) end,
+             Totals),
+
+    % Create the models
+    Results = influence:run_top_nn(Tracker, RunTag, oter, fear, Options),
+    lists:foreach(fun({N, {PCC, Attrs}}) ->
+                     ?info("N @ ~2B: pcc[~7.4f] attrs~p", [N, PCC, Attrs]) end,
+                  Results),
+    verify_run(Tracker, RunTag, train, oter, fear, Results).
+
+
+
+%%--------------------------------------------------------------------
+-spec wait_on_players(Tracker :: tracker()) -> map().
+%%
+% @doc  Hold processing until Weka has returned all tweet batches and
+%       the player server for the specified `Tracker' has finished its
+%       processing.  The function returns the totals reported by the
+%       player server.
+% @end  --
+wait_on_players(Tracker) ->
+
+    % We may still be waiting on messages from Weka
     Waiter = fun Recur() ->
         case raven:count_tweet_todo(Tracker) of
             0 -> ok;
             N ->
-                ?info("Waiting on ~p days of tweets", [N]),
-                timer:sleep(2000),
+                ?info("Waiting on tweets: days[~p]", [N]),
+                timer:sleep(1000),
                 Recur()
         end
     end,
@@ -96,18 +137,8 @@ run_top_nn_aux(Tracker, RunTag) ->
 
     % Be patient.  The `player' module may have to churn a while
     ?info("Waiting for player processing to complete..."),
-    Totals = #{tter := Count} = player:get_totals(Tracker, infinity),
-    ?notice("Completed processing ~p tweets", [Count]),
-    maps:map(fun(Comm, Cnt) ->
-                 ?info("* ~s: ~B", [Comm, Cnt]) end,
-             Totals),
+    player:get_totals(Tracker, infinity).
 
-    % Create the models
-    Results = influence:run_top_nn(Tracker, RunTag, oter, fear),
-    lists:foreach(fun({N, {PCC, Attrs}}) ->
-                     ?info("N @ ~2B: pcc[~7.4f] attrs~p", [N, PCC, Attrs]) end,
-                  Results),
-    verify_run(Tracker, RunTag, train, oter, fear, Results).
 
 
 %%--------------------------------------------------------------------
