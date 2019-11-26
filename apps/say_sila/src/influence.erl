@@ -21,6 +21,7 @@
          go/1,
          get_models/1,
          get_outcome/1,
+         init_params/3,
          init_range/1,
          report_open/2,
          report_line/3,
@@ -113,19 +114,19 @@ start_link(Tracker, RunTag, RegComm, RegEmo) ->
                  RunTag  :: stringy(),
                  RegComm :: comm_code(),
                  RegEmo  :: atom(),
-                 Options :: proplist()) -> gen_statem:start_ret().
+                 Params  :: proplist()) -> gen_statem:start_ret().
 %%
 % @doc  Startup function for Twitter influence model
 % @end  --
-start_link(Tracker, RunTag, RegComm, RegEmo, Options) ->
-    %
+start_link(Tracker, RunTag, RegComm, RegEmo, Params) ->
+
     % It's too easy to get the comm/emo backwards, and the model goes haywire!
     case {lists:member(RegComm, ?COMM_CODES),
           lists:member(RegEmo,  ?EMOTIONS)} of
 
         {true, true} ->
             gen_statem:start_link(?MODULE,
-                                  [Tracker, RunTag, RegComm, RegEmo, Options],
+                                  [Tracker, RunTag, RegComm, RegEmo, Params],
                                   []);
 
         _ ->
@@ -443,7 +444,7 @@ run_top_nn(Tracker, RunTag, Comm, Emo, Params) ->
     BaseRun  = lists:filter(fun({_, {Score, _}}) ->
                                 abs(Score) >= MinScore
                                 end,
-                            run_top_n(Tracker, TagTopN, Comm, Emo)),
+                            run_top_n(Tracker, TagTopN, Comm, Emo, Params)),
 
     % Function to tally up attribute usage across the models
     Counter = fun Recur([], Cnts) ->
@@ -481,6 +482,8 @@ run_top_nn(Tracker, RunTag, Comm, Emo, Params) ->
 % @end  --
 init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
 
+    process_flag(trap_exit, true),
+
     % NOTE: The `datasets' and `toppers' are currently necessary for a successful Top-N run.
     [Period,
      Report,
@@ -510,12 +513,16 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
                                                    [{S,maps:size(DS)} || {S,DS} <- maps:to_list(DataSets)],
                                                    [BigInfo(Grp) || Grp <- Biggies]]),
 
-    % We're going to need three datasets.  The Big Players are the same with each.
+    % Prepare Weka modelling input.  We're going to need three datasets.
     DataSetter = fun(Step, Players) ->
-        Relation = ?str_fmt("~s.~s", Step),
+        Relation = ?str_fmt("~s.~s", [Name, Step]),
+        ?info("Creating ARFF: ~s", [Relation]),
+
+        % The Big Players are the same with each.
         {ok, ARFF} = arff:from_biggies(Relation, RegComm, RegEmo, Biggies, Players, Period),
-        ARFF
+        list_to_binary(ARFF)
     end,
+    ARFFs = maps:map(DataSetter, DataSets),
 
     % Function to name a working CSV file for Weka (use to fold from the ARFF map)
     ToCSV = fun(_, ARFF) ->
@@ -523,32 +530,24 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
         CSV   = ?str_fmt("~s.csv", [hd(Parts)]),
         list_to_binary(CSV)
     end,
+    CSVs = maps:map(ToCSV, ARFFs),
 
-    % Prepare Weka modelling input
-    try maps:map(DataSetter, DataSets) of
-        ARFFs ->
-            % We are good to go...!
-            process_flag(trap_exit, true),
-            {ok, idle, #data{tracker    = Tracker,
-                             name       = Name,
-                             datasets   = ARFFs,
-                             work_csvs  = map:map(ToCSV, ARFFs),
-                             attributes = AllAttrs,
-                             init_attrs = InitAttrs,
-                             incl_attrs = InclAttrs,
-                             excl_attrs = ExclAttrs,
-                             reg_comm   = RegComm,
-                             reg_emo    = RegEmo,
-                             period     = Period,
-                             biggies    = Biggies,
-                             jvm_node   = raven:get_jvm_node(Tracker),
-                             models     = queue:new(),
-                             report     = Report}}
-    catch
-        error:Why ->
-            ?error("Cannot run influence machine: ~p", [Why]),
-            ignore
-    end.
+    % We should be good to go...!
+    {ok, idle, #data{tracker    = Tracker,
+                     name       = Name,
+                     datasets   = ARFFs,
+                     work_csvs  = CSVs,
+                     attributes = AllAttrs,
+                     init_attrs = InitAttrs,
+                     incl_attrs = InclAttrs,
+                     excl_attrs = ExclAttrs,
+                     reg_comm   = RegComm,
+                     reg_emo    = RegEmo,
+                     period     = Period,
+                     biggies    = Biggies,
+                     jvm_node   = raven:get_jvm_node(Tracker),
+                     models     = queue:new(),
+                     report     = Report}}.
 
 
 
@@ -1085,7 +1084,7 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Params) ->
                             end,
 
                   % The model startup may fail if we don't have full data for all comm codes
-                  Model = case influence:start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts) of
+                  Model = case start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts) of
                       {ok, Pid} -> influence:go(Pid), Pid;
                       ignore    -> none
                   end,

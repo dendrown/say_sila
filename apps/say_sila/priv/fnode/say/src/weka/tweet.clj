@@ -141,21 +141,22 @@
 ;;; --------------------------------------------------------------------------
 (defn regress
   "Runs a Linear Regression model on the ARFF at the specified filepath."
-  [{arff      :arff
+  [{datasets  :datasets
    target     :target
    excl-attrs :exclude
-   work-csv   :work_csv}]
+   work-csvs  :work_csvs}]
 
   (log/info "Excluding attributes:" excl-attrs)
   (try
-    (let [insts0 (weka/load-arff arff target)
+    (let [dtrain (:train datasets)
+          insts0 (weka/load-arff dtrain target)
           insts  (if excl-attrs
                      (filter-instances insts0 (RemoveByName.) ["-E" excl-attrs])
                      insts0)]
 
       ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
-      (when work-csv
-        (weka/save-file work-csv insts :csv))
+      (when work-csvs
+        (weka/save-file (:train work-csvs) insts :csv))
 
       ;; If they didn't send a target, select the last attribute
       (when-not target
