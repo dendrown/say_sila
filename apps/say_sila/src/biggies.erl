@@ -20,6 +20,7 @@
 
 -include("sila.hrl").
 -include("emo.hrl").
+-include("ioo.hrl").
 -include("player.hrl").
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
@@ -148,11 +149,14 @@ run_top_nn_aux(Tracker, RunTag) ->
     {top_n,
      Min, Max} = influence:init_range(top_n),
     TopBiggies = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
+    TopMediums = maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end,
+                          TopBiggies),
 
-    % We need player communities for the other datasets as well
+    % We need player communities for the other datasets as well.  "Base" here means "null hypothesis".
     DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
-    Options  = [{datasets, DataSets},
-                {toppers,  TopBiggies}],
+    RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies}],
+    BaseOpts = [{datasets, DataSets}, {toppers,  TopMediums}],
+    BaseTag  = ?str_fmt("~s.H1", RunTag),
 
     Totals = #{tter := Count} = wait_on_players(Tracker),
     ?notice("Completed processing ~p tweets", [Count]),
@@ -161,11 +165,20 @@ run_top_nn_aux(Tracker, RunTag) ->
              Totals),
 
     % Create the models
-    Results = influence:run_top_nn(Tracker, RunTag, oter, fear, Options),
-    lists:foreach(fun({N, {PCC, Attrs}}) ->
-                     ?info("N @ ~2B: pcc[~7.4f] attrs~p", [N, PCC, Attrs]) end,
-                  Results),
-    verify_run(Tracker, RunTag, train, oter, fear, Results).
+    RunResults  = influence:run_top_nn(Tracker, RunTag,  oter, fear, RunOpts),
+    BaseResults = influence:run_top_nn(Tracker, BaseTag, oter, fear, BaseOpts),
+
+    Report = fun
+        Recur([], []) ->
+            ok;
+        Recur([{N, {RunPCC, Attrs}} | RunRest],
+              [{N, {BasePCC, _}}    | BaseRest]) ->
+            ?info("N @ ~2B: pcc[~7.4f : ~7.4f] attrs~p",
+                  [N, RunPCC, BasePCC, Attrs]),
+            Recur(RunRest, BaseRest)
+    end,
+    Report(RunResults, BaseResults),
+    verify_run(Tracker, RunTag, train, oter, fear, RunResults).
 
 
 
