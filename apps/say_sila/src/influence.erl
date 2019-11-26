@@ -21,7 +21,7 @@
          go/1,
          get_models/1,
          get_outcome/1,
-         init_params/3,
+         init_params/1, init_params/2,  init_params/3,
          init_range/1,
          report_open/2,
          report_line/3,

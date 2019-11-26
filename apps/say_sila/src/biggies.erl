@@ -14,7 +14,8 @@
 -module(biggies).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([period/1,
+-export([period/1]).
+-export([make_h0/2,
          run_top_nn/2]).
 
 -include("sila.hrl").
@@ -22,6 +23,8 @@
 -include("player.hrl").
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
+
+-define(MIN_H0_TWEETS,  2).
 
 -type dataset()      :: parms | train | test.
 -type verification() :: ack | nak | undefined.
@@ -40,6 +43,57 @@ period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}]; % FIXME: ove
 period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME!
 period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %eriod(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
+
+
+%%--------------------------------------------------------------------
+-spec make_h0(Biggies :: proplist(),
+              Players :: map()) -> proplist().
+%%
+% @doc  Selects a set of null hypothesis (H0) "medium" players for
+%       comparison runs.
+% @end  --
+make_h0(Biggies, Players) ->
+    % Combine the big player accounts from all categories except `tter'
+    AllBigs = lists:foldl(fun ({_, {_,_,Bigs}}, Acc) -> Bigs ++ Acc end,
+                          [],
+                          Biggies),
+
+    % We want to choose from users with some level of activity that are not big players
+    % Fold the usernames into a map indexed by non-negative integers for random retreival
+    FindMediums = fun(Usr, Info, Acc = {Meds, Cnt}) ->
+        IsMedium = case Info#profile.comms of
+            #{tter := Comm} ->
+                (Comm#comm.cnt > ?MIN_H0_TWEETS) andalso (not lists:member(Usr, AllBigs));
+            _ ->
+                false
+        end,
+
+        % Toss the biggies and the extremely inactive; otherwise, include this guy.
+        case IsMedium of
+            false -> Acc;
+            true  -> {maps:put(Cnt, Usr, Meds), Cnt+1}
+        end
+    end,
+    MedPlayers = maps:fold(FindMediums, {#{},0}, Players),
+    NumMediums = maps:size(MedPlayers),
+    IndexLimit = NumMediums - 1,
+
+    ?info("Choosing H0 players from ~B with at least ~B tweet(s)", [NumMediums,
+                                                                    ?MIN_H0_TWEETS]),
+    % Function to get a random medium player
+    ChooseMedium = fun() ->
+        Ndx = round(IndexLimit * rand:uniform()),
+        maps:get(Ndx, MedPlayers)
+    end,
+    %rand:seed_s(exsss),       % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
+
+    FindMedComm = fun ({Comm, {_,_,Bigs}}) ->
+        Meds = [ChooseMedium() || _ <- Bigs],
+        ?info("* ~s: ~B players", [Comm, length(Meds)]),
+        {Comm, {0,0,Meds}}
+    end,
+    [FindMedComm(B) || B <- Biggies].
+
 
 
 %%--------------------------------------------------------------------
