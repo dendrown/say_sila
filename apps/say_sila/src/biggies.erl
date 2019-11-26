@@ -60,10 +60,10 @@ make_h0(Biggies, Players) ->
 
     % We want to choose from users with some level of activity that are not big players
     % Fold the usernames into a map indexed by non-negative integers for random retreival
-    FindMediums = fun(Usr, Info, Acc = {Meds, Cnt}) ->
+    FindMediums = fun(Usr, Info, Acc = {Cnt, Meds}) ->
         IsMedium = case Info#profile.comms of
             #{tter := Comm} ->
-                (Comm#comm.cnt > ?MIN_H0_TWEETS) andalso (not lists:member(Usr, AllBigs));
+                (Comm#comm.cnt >= ?MIN_H0_TWEETS) andalso (not lists:member(Usr, AllBigs));
             _ ->
                 false
         end,
@@ -71,26 +71,26 @@ make_h0(Biggies, Players) ->
         % Toss the biggies and the extremely inactive; otherwise, include this guy.
         case IsMedium of
             false -> Acc;
-            true  -> {maps:put(Cnt, Usr, Meds), Cnt+1}
+            true  -> {Cnt+1, maps:put(Cnt, Usr, Meds)}
         end
     end,
-    MedPlayers = maps:fold(FindMediums, {#{},0}, Players),
-    NumMediums = maps:size(MedPlayers),
-    IndexLimit = NumMediums - 1,
+    {MediumCnt,
+     MedPlayers} = maps:fold(FindMediums, {0, #{}}, Players),
+    MaxMedIndex  = MediumCnt - 1,
 
-    ?info("Choosing H0 players from ~B with at least ~B tweet(s)", [NumMediums,
+    ?info("Choosing H0 from ~B players with at least ~B tweet(s)", [MediumCnt,
                                                                     ?MIN_H0_TWEETS]),
     % Function to get a random medium player
     ChooseMedium = fun() ->
-        Ndx = round(IndexLimit * rand:uniform()),
+        Ndx = round(MaxMedIndex * rand:uniform()),
         maps:get(Ndx, MedPlayers)
     end,
     %rand:seed_s(exsss),       % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
 
     FindMedComm = fun ({Comm, {_,_,Bigs}}) ->
         Meds = [ChooseMedium() || _ <- Bigs],
-        ?info("* ~s: ~B players", [Comm, length(Meds)]),
-        {Comm, {0,0,Meds}}
+        ?info("Medium ~s: ~B players", [Comm, length(Meds)]),
+        {Comm, {0.0,0,Meds}}
     end,
     [FindMedComm(B) || B <- Biggies].
 
