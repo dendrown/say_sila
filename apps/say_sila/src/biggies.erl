@@ -25,7 +25,7 @@
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(MIN_H0_TWEETS,  2).
+-define(MIN_H0_TWEETS,  10).                % Low values make for empty rter|tmed days
 
 -type dataset()      :: parms | train | test.
 -type verification() :: ack | nak | undefined.
@@ -54,41 +54,43 @@ period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %       comparison runs.
 % @end  --
 make_h0(Biggies, Players) ->
+    % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
+    %rand:seed_s(exsss),
+
     % Combine the big player accounts from all categories except `tter'
     AllBigs = lists:foldl(fun ({_, {_,_,Bigs}}, Acc) -> Bigs ++ Acc end,
                           [],
                           Biggies),
 
-    % We want to choose from users with some level of activity that are not big players
-    % Fold the usernames into a map indexed by non-negative integers for random retreival
-    FindMediums = fun(Usr, Info, Acc = {Cnt, Meds}) ->
-        IsMedium = case Info#profile.comms of
-            #{tter := Comm} ->
-                (Comm#comm.cnt >= ?MIN_H0_TWEETS) andalso (not lists:member(Usr, AllBigs));
-            _ ->
-                false
+    % Function to turn a big-comm entry into a medium-comm entry
+    FindMedComm = fun ({Comm, {_,_,Bigs}}) ->
+        % We want to choose from users with some level of activity that are not big players
+        % Fold the usernames into a map indexed by non-negative integers for random retreival
+        FindMediums = fun(Usr, Info, Acc = {Cnt, Meds}) ->
+            IsMedium = case maps:get(Comm, Info#profile.comms, none) of
+                none -> false;
+                CCnt -> (CCnt#comm.cnt >= ?MIN_H0_TWEETS) andalso (not lists:member(Usr, AllBigs))
+            end,
+
+            % Toss the biggies and the extremely inactive; otherwise, include this guy.
+            case IsMedium of
+                false -> Acc;
+                true  -> {Cnt+1, maps:put(Cnt, Usr, Meds)}
+            end
+        end,
+        {MediumCnt,
+         MedPlayers} = maps:fold(FindMediums, {0, #{}}, Players),
+        MaxMedIndex  = MediumCnt - 1,
+
+        ?info("Choosing H0 from ~B ~s players with at least ~B tweet(s)",
+              [MediumCnt, Comm, ?MIN_H0_TWEETS]),
+
+        % Function to get a random medium player
+        ChooseMedium = fun() ->
+            Ndx = round(MaxMedIndex * rand:uniform()),
+            maps:get(Ndx, MedPlayers)
         end,
 
-        % Toss the biggies and the extremely inactive; otherwise, include this guy.
-        case IsMedium of
-            false -> Acc;
-            true  -> {Cnt+1, maps:put(Cnt, Usr, Meds)}
-        end
-    end,
-    {MediumCnt,
-     MedPlayers} = maps:fold(FindMediums, {0, #{}}, Players),
-    MaxMedIndex  = MediumCnt - 1,
-
-    ?info("Choosing H0 from ~B players with at least ~B tweet(s)", [MediumCnt,
-                                                                    ?MIN_H0_TWEETS]),
-    % Function to get a random medium player
-    ChooseMedium = fun() ->
-        Ndx = round(MaxMedIndex * rand:uniform()),
-        maps:get(Ndx, MedPlayers)
-    end,
-    %rand:seed_s(exsss),       % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
-
-    FindMedComm = fun ({Comm, {_,_,Bigs}}) ->
         Meds = [ChooseMedium() || _ <- Bigs],
         ?info("Medium ~s: ~B players", [Comm, length(Meds)]),
         {Comm, {0.0,0,Meds}}
@@ -156,7 +158,7 @@ run_top_nn_aux(Tracker, RunTag) ->
     DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
     RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies}],
     BaseOpts = [{datasets, DataSets}, {toppers,  TopMediums}],
-    BaseTag  = ?str_fmt("~s.H1", RunTag),
+    BaseTag  = ?str_fmt("~s.H0", [RunTag]),
 
     Totals = #{tter := Count} = wait_on_players(Tracker),
     ?notice("Completed processing ~p tweets", [Count]),
