@@ -8,6 +8,31 @@
 %%
 %% @doc FSM to model influence using Weka.
 %%
+%%                 +------------+
+%%      (init)---->|    idle    |
+%%                 +------------+
+%%                       |
+%%                     go|
+%%                       |
+%%                       v
+%%                 +------------+   |
+%%                 |    run     |---+
+%%                 +------------+
+%%                    |     ^
+%%             regress|     |
+%%                    |     |eval_param
+%%                    v     |
+%%                 +------------+
+%%                 |    eval    |
+%%                 +------------+
+%%                       |
+%%             eval_param|
+%%                       |
+%%                       v
+%%                 +------------+
+%%                 |    done    |
+%%                 +------------+
+%%
 %% @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
@@ -50,6 +75,8 @@
 %define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
 %define(DELTA_CUTS,     [0.1]).
 -define(DELTA_CUTS,     []).
+-define(EVAL_METHOD,    cv).                    % Evaluate using cross-validation
+%define(EVAL_METHOD,    data).                  % Evaluate using multiple datasets
 -define(INIT_PERIOD,    7).                     % Default to a week
 -define(INIT_BIG_PCT,   0.004).                 % Contribution rate (without deceleration)
 -define(INIT_TOP_N,     10).
@@ -61,6 +88,7 @@
 -define(INIT_BIG_RANGE, {biggies, ?MIN_BIG_PCT, ?MAX_BIG_PCT}).
 
 -define(MIN_TOP_N,      5).
+%define(MIN_TOP_N,      24).                    % FIXME: Developing strategy for medium players
 -define(MAX_TOP_N,      25).
 -define(MIN_NN_SCORE,   0.6).
 -define(INIT_TOP_RANGE, {top_n, ?MIN_TOP_N, ?MAX_TOP_N}).
@@ -678,9 +706,10 @@ run(enter, _OldState, Data = #data{name       = Name,
                            [?str_fmt("|~s", [Attr]) || Attr <- tl(ExclAttrs)]),
 
     ?debug("Attribute filter: ~s", [ExclRE]),
-    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{datasets  => ARFFs,
-                                                         exclude   => list_to_binary(ExclRE),
-                                                         work_csvs => WorkCSVs})},
+    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{datasets    => ARFFs,
+                                                         exclude     => list_to_binary(ExclRE),
+                                                         work_csvs   => WorkCSVs,
+                                                         eval_method => ?EVAL_METHOD})},
 
     {keep_state, Data#data{work_ref = WorkRef,
                            results  = none}};
@@ -739,11 +768,11 @@ eval(cast, {eval_param, ready}, Data = #data{delta_cnt  = 0,
                                              delta_cuts = DeltaCuts,
                                              name       = Name,
                                              results    = Results}) ->
-    
+
     % No parameters to cut, try the next cut level...
     case DeltaCuts of
         % We're all out of cuts, so we're done
-        [] -> 
+        [] ->
             ?notice("Completed processing for model ~s: corr[~7.4f]",
                     [Name, maps:get(correlation, Results, 0.0)]),
 

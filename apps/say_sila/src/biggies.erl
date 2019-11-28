@@ -25,7 +25,7 @@
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(MIN_H0_TWEETS,  10).                % Low values make for empty rter|tmed days
+-define(MIN_H0_TWEETS,  43).                % Low values make for empty rter|tmed days
 
 -type dataset()      :: parms | train | test.
 -type verification() :: ack | nak | undefined.
@@ -40,8 +40,8 @@
 %%--------------------------------------------------------------------
 %eriod(parms) -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}];
 period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}]; % FIXME: overlap!
-%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
-period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME!
+period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
+%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME!
 period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %eriod(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
 
@@ -86,12 +86,20 @@ make_h0(Biggies, Players) ->
               [MediumCnt, Comm, ?MIN_H0_TWEETS]),
 
         % Function to get a random medium player
-        ChooseMedium = fun() ->
-            Ndx = round(MaxMedIndex * rand:uniform()),
-            maps:get(Ndx, MedPlayers)
+        ChooseMediums = fun
+            Recur([], Acc) ->
+                Acc;
+            Recur(Redo = [_|Rest], Acc) ->
+                Ndx = round(MaxMedIndex * rand:uniform()),
+                Usr = maps:get(Ndx, MedPlayers),
+                % FIXME: We'll recur forever if there aren't enough mediums
+                case lists:member(Usr, Acc) of
+                    false -> Recur(Rest, [Usr|Acc]);        % good: first-time player
+                    true  -> Recur(Redo, Acc)               % oops, already picked this one
+                end
         end,
 
-        Meds = [ChooseMedium() || _ <- Bigs],
+        Meds = ChooseMediums(Bigs, []),
         ?info("Medium ~s: ~B players", [Comm, length(Meds)]),
         {Comm, {0.0,0,Meds}}
     end,
@@ -148,17 +156,16 @@ run_top_nn_aux(Tracker, RunTag) ->
 
     % The training dataset gives the player community that deines the Top-N groups
     Players = GetPlayers(train),
-    {top_n,
-     Min, Max} = influence:init_range(top_n),
+    Method  = {top_n, Min, Max} = influence:init_range(top_n),
     TopBiggies = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
     TopMediums = maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end,
                           TopBiggies),
 
-    % We need player communities for the other datasets as well.  "Base" here means "null hypothesis".
+    % We need player communities for the other datasets as well.  "Ref" here means "null hypothesis".
     DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
     RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies}],
-    BaseOpts = [{datasets, DataSets}, {toppers,  TopMediums}],
-    BaseTag  = ?str_fmt("~s.H0", [RunTag]),
+   %RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums}],
+   %RefTag   = ?str_fmt("~s.H0", [RunTag]),
 
     Totals = #{tter := Count} = wait_on_players(Tracker),
     ?notice("Completed processing ~p tweets", [Count]),
@@ -167,20 +174,21 @@ run_top_nn_aux(Tracker, RunTag) ->
              Totals),
 
     % Create the models
-    RunResults  = influence:run_top_nn(Tracker, RunTag,  oter, fear, RunOpts),
-    BaseResults = influence:run_top_nn(Tracker, BaseTag, oter, fear, BaseOpts),
+    RunResults = influence:run_top_nn(Tracker, RunTag, oter, fear, RunOpts),
+    RefResults =%influence:run_top_nn(Tracker, RefTag, oter, fear, RefOpts),
+                 RunResults,                                                    % <<FIXME!
 
     Report = fun
         Recur([], []) ->
             ok;
         Recur([{N, {RunPCC, Attrs}} | RunRest],
-              [{N, {BasePCC, _}}    | BaseRest]) ->
-            ?info("N @ ~2B: pcc[~7.4f : ~7.4f] attrs~p",
-                  [N, RunPCC, BasePCC, Attrs]),
-            Recur(RunRest, BaseRest)
+              [{N, {RefPCC, _}}     | RefRest]) ->
+            ?info("N @ ~2B: pcc[~7.4f] ref[~7.4f] attrs~p",
+                  [N, RunPCC, RefPCC, Attrs]),
+            Recur(RunRest, RefRest)
     end,
-    Report(RunResults, BaseResults),
-    verify_run(Tracker, RunTag, train, oter, fear, RunResults).
+    Report(RunResults, RefResults),
+    verify_run(Tracker, RunTag, Method, oter, fear, RunResults).
 
 
 
@@ -215,7 +223,7 @@ wait_on_players(Tracker) ->
 %%--------------------------------------------------------------------
 -spec verify_run(Tracker :: tracker(),
                  RunTag  :: stringy(),
-                 DataTag :: dataset(),
+                 Method  :: tuple(),
                  Comm    :: comm_code(),
                  Emo     :: emotion(),
                  Results :: proplist()) -> verification().
@@ -225,11 +233,16 @@ wait_on_players(Tracker) ->
 %       a previous run), then we compare the current run's results
 %       and warn the user they don't match up.
 % @end  --
-verify_run(Tracker, RunTag, DataTag, Comm, Emo, Results) ->
+verify_run(Tracker, RunTag, Method, Comm, Emo, Results) ->
 
-    Cfg = [Tracker, DataTag, Comm, Emo],
-    Key = crypto:hash(sha256, term_to_binary(Cfg)),
-    Val = crypto:hash(sha256, term_to_binary(Results)),
+    % Function to create a hexstring SHA-256 fingerprint
+    Hash = fun(Elm) ->
+        lists:flatten([io_lib:format("~.16B", [X]) || <<X>> <= crypto:hash(sha256, term_to_binary(Elm))])
+    end,
+
+    Cfg = [Tracker, Method, Comm, Emo],
+    Key = Hash(Cfg),
+    Val = Hash(Results),
 
     ?info("RUN: ~s % ~p: ~p => ~p", [RunTag, Cfg, Key, Val]),
     case get_run_hash(Key) of
@@ -241,8 +254,8 @@ verify_run(Tracker, RunTag, DataTag, Comm, Emo, Results) ->
 
 
 %%--------------------------------------------------------------------
--spec get_run_hash(Key :: binary()) -> none
-                                     | binary().
+-spec get_run_hash(Key :: string()) -> none
+                                     | string().
 %%
 % @doc  Returns the results hash from a previous run, or `none' if
 %       there is no recorded run for the specified key.
@@ -252,13 +265,14 @@ verify_run(Tracker, RunTag, DataTag, Comm, Emo, Results) ->
 %             during this initial implementation.
 % @end  --
 get_run_hash(Key) ->
-    RunResults = #{% [gw,train,oter,fear]:
-                   <<255,239,51,195,210,127,103,151,28,223,33,106,145,208,92,
-                     54,55,176,38,83,194,9,28,181,32,124,239,51,172,52,174,213>> =>
-                   <<184,7,125,26,87,144,74,217,103,168,170,58,87,116,177,140,
-                     77,39,111,214,171,191,42,26,86,237,77,114,207,194,141,124>>    % 2017-10-01 to 2018-04-01
-                  %<<185,37,107,157,153,126,159,159,168,222,149,163,97,88,51,
-                  %  10,47,30,176,97,176,30,229,95,125,10,80,165,208,157,79,50>>    % 2017-10-01 to 2018-07-01
+    RunResults = #{% [gw,{top_n,5,25},oter,fear]:
+                   "7AF4DF2496AE38A5743304DB3105E3B9BC3118F9468454A4B28BA5B47EFBBB6" =>
+                   "B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",  % 2017-10-01 to 2018-07-01
+                  %"B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C", % 2017-10-01 to 2018-04-01
+
+                   % [gw,{top_n,10,25},oter,fear]:
+                   "C9D3FC24B8A4CC261E436434E7AA6CCCF6855A8D27554784ECA9EF9D41FC9374" =>
+                   "62FD21C13BC2EF8891B5B8E9BA88817D42411862FFE8464B64C6FC26E1224BB"
                   },
     maps:get(Key, RunResults, none).
 

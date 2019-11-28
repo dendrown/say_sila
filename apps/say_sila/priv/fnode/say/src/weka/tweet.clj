@@ -39,7 +39,7 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const RNG-SEED    1)                             ; Weka's default random seed
-(def ^:const CV-FOLDS    10)                            ; Folds for cross-validation evaluation
+(def ^:const CV-FOLDS    10)                            ; Folds for cross-validation (<1 means eval dataset)
 (def ^:const ACK         {:status :ack})                ; Positive acknowledgement response
 (def ^:const NAK         {:status :nak})                ; Negative acknowledgement response
 (def ^:const STOPLIST-EN "resources/stoplist_en.txt")   ; Lucene 7.2.1 ENGLISH_STOP_WORDS_SET
@@ -141,18 +141,19 @@
 ;;; --------------------------------------------------------------------------
 (defn regress
   "Runs a Linear Regression model on the ARFF at the specified filepath."
-  [{datasets  :datasets
-   target     :target
-   excl-attrs :exclude
-   work-csvs  :work_csvs}]
+  [{datasets    :datasets
+   target       :target
+   eval-method  :eval_method
+   excl-attrs   :exclude
+   work-csvs    :work_csvs}]
 
   (log/info "Excluding attributes:" excl-attrs)
   (try
-    (let [dtrain (:train datasets)
-          insts0 (weka/load-arff dtrain target)
-          insts  (if excl-attrs
-                     (filter-instances insts0 (RemoveByName.) ["-E" excl-attrs])
-                     insts0)]
+    (let [load-data #(as-> (weka/load-arff (datasets %) target) data
+                           (if excl-attrs
+                               (filter-instances data (RemoveByName.) ["-E" excl-attrs])
+                                data))
+          insts     ^Instances (load-data :train)]
 
       ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
       (when work-csvs
@@ -164,20 +165,23 @@
 
       ;; Use N-fold cross validation for training/evaluation
       (let [model   (LinearRegression.)
-            audit   (doto (Evaluation. insts)
-                          (.crossValidateModel model insts CV-FOLDS (Random. RNG-SEED)))
-            summary (.toSummaryString audit)]
+            audit   (Evaluation. insts)]
 
       (letfn [(attr-coeff [[ndx coeff]]
                 (let [attr  (.attribute insts (int ndx))
                       tag   (.name attr)]
                   [tag coeff]))]
 
-          ;; Results are obtained from CV folds, but
-          ;; final model training uses the full dataset
+          ;; The final model training always uses the full dataset
           (.buildClassifier model insts)
           (log/info "Model:\n" (str model))
-          (log/info "Summary:\n" summary)
+
+          ;; How do they want the results evaluated?
+          (if (= eval-method :data)
+              (.evaluateModel audit model ^Instances (load-data :parms))
+              (.crossValidateModel audit model insts CV-FOLDS (Random. RNG-SEED)))
+          (log/info "Summary:\n" (.toSummaryString audit))
+
           ;; Prepare a response for the caller
           ;;
           ;; NOTE: LinearRegression.numParameters() does not include unused params!
@@ -266,7 +270,7 @@
   ;; -------------------------------------------------------------------------
   TweetToGenderFeatures
   (prep-emoter [emoter cfg]
-                
+
   ;; Set up the superclass and index values from the emote configuration
   (prep-base-emoter emoter cfg)
   (doto emoter
