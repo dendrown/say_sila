@@ -37,9 +37,10 @@
 -type tweet()  :: #tweet{}.
 -type tweets() :: [tweet()].
 
-%        This is the current Mnesia-based design (in process)
--record(tweet_lot, {dts      :: datetime(),
-                    tweets   :: tweets() }).
+% This is the current Mnesia-based design (in process)
+-record(tweet_lot, {dts     :: datetime(),
+                    arff    :: string(),
+                    tweets  :: tweets() }).
 -type tweet_lot() :: #tweet_lot{}.
 
 

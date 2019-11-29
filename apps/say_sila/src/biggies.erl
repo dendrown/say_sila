@@ -40,8 +40,8 @@
 %%--------------------------------------------------------------------
 %eriod(parms) -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}];
 period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}]; % FIXME: overlap!
-period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
-%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME!
+%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
+period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME!
 period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %eriod(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
 
@@ -267,8 +267,8 @@ verify_run(Tracker, RunTag, Method, Comm, Emo, Results) ->
 get_run_hash(Key) ->
     RunResults = #{% [gw,{top_n,5,25},oter,fear]:
                    "7AF4DF2496AE38A5743304DB3105E3B9BC3118F9468454A4B28BA5B47EFBBB6" =>
-                   "B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",  % 2017-10-01 to 2018-07-01
-                  %"B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C", % 2017-10-01 to 2018-04-01
+                  %"B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",  % 2017-10-01 to 2018-07-01
+                   "B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C", % 2017-10-01 to 2018-04-01
 
                    % [gw,{top_n,10,25},oter,fear]:
                    "C9D3FC24B8A4CC261E436434E7AA6CCCF6855A8D27554784ECA9EF9D41FC9374" =>

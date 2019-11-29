@@ -149,19 +149,19 @@
 
   (log/info "Excluding attributes:" excl-attrs)
   (try
-    (let [load-data #(as-> (weka/load-arff (datasets %) target) data
-                           (if excl-attrs
-                               (filter-instances data (RemoveByName.) ["-E" excl-attrs])
-                                data))
+    (let [load-data #(let [dset (as-> (weka/load-arff (datasets %) target) data
+                                      (if excl-attrs
+                                          (filter-instances data (RemoveByName.) ["-E" excl-attrs])
+                                          data))]
+                       ;; Select the last attribute there's no target
+                       (when-not target
+                         (.setClassIndex dset (dec (.numAttributes dset))))
+                       dset)
           insts     ^Instances (load-data :train)]
 
       ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
       (when work-csvs
         (weka/save-file (:train work-csvs) insts :csv))
-
-      ;; If they didn't send a target, select the last attribute
-      (when-not target
-        (.setClassIndex insts (dec (.numAttributes insts))))
 
       ;; Use N-fold cross validation for training/evaluation
       (let [model   (LinearRegression.)
@@ -177,8 +177,8 @@
           (log/info "Model:\n" (str model))
 
           ;; How do they want the results evaluated?
-          (if (= eval-method :data)
-              (.evaluateModel audit model ^Instances (load-data :parms))
+          (if (= eval-method "data")
+              (.evaluateModel audit model ^Instances (load-data :parms) !!/NO-OBJS)
               (.crossValidateModel audit model insts CV-FOLDS (Random. RNG-SEED)))
           (log/info "Summary:\n" (.toSummaryString audit))
 

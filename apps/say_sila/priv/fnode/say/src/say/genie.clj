@@ -21,6 +21,8 @@
 (def RNG-SEED       (atom 12345))
 (def RNG            (Random. @RNG-SEED))
 
+(defonce NO-OBJS    (into-array Object []))
+
 
 ;;; --------------------------------------------------------------------------
 (defn reflect!

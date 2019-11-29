@@ -19,6 +19,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1, stop/1,
+         clear_cache/0,
          count_tweet_todo/1,
          emote/1,
          emote/2,
@@ -46,7 +47,7 @@
 -define(reg(Key), maps:get(reg, ?mod(Key), undefined)).
 -define(lot(Key), maps:get(lot, ?mod(Key), undefined)).
 
-
+-define(DEV_CACHE,      raven_devel).
 -define(REPORT_TIMEOUT, (1 * 60 * 1000)).
 
 
@@ -83,7 +84,12 @@ start_link(Tracker) ->
                  application:get_env(App, big_percent, ?DEFAULT_BIG_P100),
                  application:get_env(App, jvm_node,    undefined)],
 
+    % TODO: The raven mnesia functionality is meant to handle caching in the final design
     init_mnesia(Tracker, App),
+
+    % The raven DETS table stores development-time shortcuts to save time on calls to Weka
+    dets:open_file(?DEV_CACHE, [{repair, true}, {auto_save, 60000}]),
+
     gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, Args, []).
 
 
@@ -95,6 +101,17 @@ start_link(Tracker) ->
 % @end  --
 stop(Tracker) ->
     gen_server:call(?reg(Tracker), stop).
+
+
+
+%%--------------------------------------------------------------------
+-spec clear_cache() -> ok
+                     | {error, term()}.
+%%
+% @doc  Clear development cache.
+% @end  --
+clear_cache() ->
+    dets:delete_all_objects(?DEV_CACHE).
 
 
 
@@ -407,14 +424,25 @@ handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
     {ok, FPath} = arff:from_tweets(FStub, Tweets),
 
     % Send to Weka to apply embedding/emotion filters
-    WekaCmd = proplists:get_value(context, Options, emote),     % Allow a command override
-    Lookup  = make_ref(),
-    NewTodo = maps:put(Lookup,
-                       #tweet_lot{dts = LotDay, tweets = Tweets},
-                       Todo),
-    {say, JVM} ! {self(), Lookup, WekaCmd, FPath},
+    WekaCmd  = proplists:get_value(context, Options, emote),     % Allow a command override
+    NewState = case dets:lookup(?DEV_CACHE, {WekaCmd, FPath}) of
+        [] ->
+            % Send the tweet lot off to Weka on the JVM
+            Lookup  = make_ref(),
+            NewTodo = maps:put(Lookup,
+                               #tweet_lot{dts    = LotDay,
+                                          arff   = FPath,
+                                          tweets = Tweets},
+                               Todo),
+            {say, JVM} ! {self(), Lookup, WekaCmd, FPath},
+            State#state{tweet_todo = NewTodo};
 
-    {reply, ok, State#state{tweet_todo = NewTodo}};
+        [{{WekaCmd, FPath}, ResponseCSV}] ->
+            % Cache hit. Use the Weka response from last time
+            emote_tweets(Tracker, Tweets, ResponseCSV),
+            State
+    end,
+    {reply, ok, NewState};
 
 
 handle_call(get_big_percent, _From, State) ->
@@ -487,6 +515,7 @@ handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{trac
                                                                             tweet_todo = TodoMap}) ->
     NewState = case maps:take(Ref, TodoMap) of
         {PreLot = #tweet_lot{dts    = LotDTS,
+                             arff   = FPathARFF,
                              tweets = Tweets},
          NewTodoMap} ->
 
@@ -494,10 +523,13 @@ handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{trac
                                                                         dts:date_str(LotDTS),
                                                                         FPathCSV]),
             EmoTweets = emote_tweets(Tracker, Tweets, FPathCSV),
-            TweetLot  = PreLot#tweet_lot{tweets = EmoTweets},
 
             % Save lot to mnesia
+            TweetLot  = PreLot#tweet_lot{tweets = EmoTweets},
             mnesia:transaction(fun()-> mnesia:write(?lot(Tracker), TweetLot, sticky_write) end),
+
+            % For development: create a cached copy for repeated runs
+            dets:insert(?DEV_CACHE, {{emote, FPathARFF}, FPathCSV}),
 
             State#state{tweet_todo = NewTodoMap};
 
