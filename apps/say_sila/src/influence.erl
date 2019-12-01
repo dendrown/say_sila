@@ -11,22 +11,21 @@
 %%                 +------------+
 %%      (init)---->|    idle    |
 %%                 +------------+
-%%                       |
 %%                     go|
-%%                       |
 %%                       v
 %%                 +------------+
 %%                 |    run     |
 %%                 +------------+
-%%                    |     ^
-%%             regress|     |
-%%                    |     |eval_param
-%%                    v     |
+%%             regress|     ^
+%%                    v     |eval_param
+%%                 +------------+
+%%                 |    tune    |
+%%                 +------------+
+%%                regress|
+%%                       v
 %%                 +------------+
 %%                 |    eval    |
 %%                 +------------+
-%%                       |
-%%             eval_param|
 %%                       |
 %%                       v
 %%                 +------------+
@@ -57,6 +56,7 @@
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).
 -export([idle/3,
          run/3,
+         tune/3,
          eval/3,
          done/3]).
 
@@ -75,8 +75,8 @@
 %define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
 %define(DELTA_CUTS,     [0.1]).
 -define(DELTA_CUTS,     []).
--define(EVAL_METHOD,    cv).                    % Evaluate using cross-validation
-%define(EVAL_METHOD,    data).                  % Evaluate using multiple datasets
+%define(EVAL_METHOD,    cv).                    % Evaluate using cross-validation
+-define(EVAL_METHOD,    data).                  % Evaluate using multiple datasets
 -define(INIT_PERIOD,    7).                     % Default to a week
 -define(INIT_BIG_PCT,   0.004).                 % Contribution rate (without deceleration)
 -define(INIT_TOP_N,     10).
@@ -688,48 +688,18 @@ idle(Type, Evt, Data) ->
 %%
 % @doc  FSM state for running a Weka model
 % @end  --
-run(enter, _OldState, Data = #data{name       = Name,
-                                   datasets   = ARFFs,
-                                   excl_attrs = ExclAttrs,
-                                   work_csvs  = WorkCSVs,
-                                   jvm_node   = JVM}) ->
+run(enter, _OldState, Data = #data{name = Name}) ->
 
     ?info("Model ~s running on Weka", [Name]),
-    WorkRef = case Data#data.work_ref of
-        none   -> ok;
-        OldRef ->
-            ?warning("Running a model with another outstanding: old[~p]", [OldRef]),
-            make_ref()
-    end,
-    % The Weka filter takes a regular expression to filter attributes by name
-    ExclRE = lists:flatten(?str_fmt("~s", [hd(ExclAttrs)]) ++
-                           [?str_fmt("|~s", [Attr]) || Attr <- tl(ExclAttrs)]),
-
-    ?debug("Attribute filter: ~s", [ExclRE]),
-    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{datasets    => ARFFs,
-                                                         exclude     => list_to_binary(ExclRE),
-                                                         work_csvs   => WorkCSVs,
-                                                         eval_method => ?EVAL_METHOD})},
-
-    {keep_state, Data#data{work_ref = WorkRef,
-                           results  = none}};
+    {keep_state, run_model(Data)};
 
 
-run(info, {From, WorkRef, regress, Results}, Data = #data{name = Name}) ->
-    %
-    case Data#data.work_ref of
-        WorkRef ->
-            % Yay, these are the results we're waiting on!
-            ?info("Model ~s results from ~p", [Name, From]),
-            {next_state, eval, Data#data{work_ref = none,
-                                         results  = Results}};
-        _ ->
-            % We've got a work mismatch. Stay put...
-            % We'll either get the right work, or a human can reset the FSM.
-            ?warning("Unexpected results for model ~s: src[~p] ref[~p]",
-                     [Name, From, WorkRef]),
-            keep_state_and_data
-    end;
+run(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
+                                                          work_ref = WorkRef}) ->
+
+    ?info("Model ~s results from ~p", [Name, From]),
+    {next_state, tune, Data#data{work_ref = none,
+                                 results  = Results}};
 
 
 run(Type, Evt, Data) ->
@@ -738,33 +708,33 @@ run(Type, Evt, Data) ->
 
 
 %%--------------------------------------------------------------------
--spec eval(Type :: enter|gen_statem:event_type(),
+-spec tune(Type :: enter|gen_statem:event_type(),
            Evt  :: term(),
-           Data :: data()) -> gen_statem:state_enter_result(eval)
-                            | gen_statem:state_function_result(eval).
+           Data :: data()) -> gen_statem:state_enter_result(tune)
+                            | gen_statem:state_function_result(tune).
 %%
-% @doc  FSM state to evaluate a Weka model
+% @doc  FSM state to tune paramaters for a Weka model
 % @end  --
-eval(enter, _OldState, Data = #data{results = Results = #{status := ack},
-                                    models  = Models}) ->
+tune(enter, run, Data = #data{results = Results = #{status := ack},
+                              models  = Models}) ->
     %
     % Look at parameters to see what we should keep|cut
     eval_params(Data),
-    {next_state, eval, Data#data{delta_cnt = 0,
+    {next_state, tune, Data#data{delta_cnt = 0,
                                  models    = queue:in(Results, Models)}};
 
 
 
-eval(enter, _OldState, #data{name    = Name,
+tune(enter, _OldState, #data{name    = Name,
                              results = Results = #{status := nak}}) ->
     % Our modeller is unhappy, bail here!
-    ?warning("Model ~s failed: alg[~p] info[~s]", [Name,
-                                                   maps:get(model, Results, unknown),
-                                                   maps:get(info,  Results, unknown)]),
+    ?error("Model ~s failed: alg[~p] info[~s]", [Name,
+                                                 maps:get(model, Results, unknown),
+                                                 maps:get(info,  Results, unknown)]),
     keep_state_and_data;
 
 
-eval(cast, {eval_param, ready}, Data = #data{delta_cnt  = 0,
+tune(cast, {eval_param, ready}, Data = #data{delta_cnt  = 0,
                                              delta_cuts = DeltaCuts,
                                              name       = Name,
                                              results    = Results}) ->
@@ -773,21 +743,21 @@ eval(cast, {eval_param, ready}, Data = #data{delta_cnt  = 0,
     case DeltaCuts of
         % We're all out of cuts, so we're done
         [] ->
-            ?notice("Completed processing for model ~s: corr[~7.4f]",
+            ?notice("Completed parameter tuning for model ~s: corr[~7.4f]",
                     [Name, maps:get(correlation, Results, 0.0)]),
 
-            {next_state, done, Data};
+            {next_state, eval, Data};
 
         % We've got a new cut to try, so set up for the next run...
         [Cut | RestCuts] ->
             NewData = Data#data{delta_cut  = Cut,
                                 delta_cuts = RestCuts},
             eval_params(NewData),
-            {next_state, eval, NewData}
+            {next_state, tune, NewData}
     end;
 
 
-eval(cast, {eval_param, ready}, Data = #data{delta_cnt = DeltaCnt,
+tune(cast, {eval_param, ready}, Data = #data{delta_cnt = DeltaCnt,
                                              name      = Name}) ->
     %
     ?info("Model ~s finished updating parameters (rerunning): deltas[~B]",
@@ -795,7 +765,7 @@ eval(cast, {eval_param, ready}, Data = #data{delta_cnt = DeltaCnt,
     {next_state, run, Data};
 
 
-eval(cast, {eval_param, Param}, Data = #data{name       = Name,
+tune(cast, {eval_param, Param}, Data = #data{name       = Name,
                                              incl_attrs = InclAttrs,
                                              excl_attrs = ExclAttrs,
                                              delta_cnt  = DeltaCnt,
@@ -823,9 +793,37 @@ eval(cast, {eval_param, Param}, Data = #data{name       = Name,
                      DeltaCnt + 1}
             end
     end,
-    {next_state, eval, Data#data{incl_attrs = NewInclAttrs,
+    {next_state, tune, Data#data{incl_attrs = NewInclAttrs,
                                  excl_attrs = NewExclAttrs,
                                  delta_cnt  = NewDeltaCnt}};
+
+
+tune(Type, Evt, Data) ->
+    handle_event(Type, Evt, Data).
+
+
+
+%%--------------------------------------------------------------------
+-spec eval(Type :: enter|gen_statem:event_type(),
+           Evt  :: term(),
+           Data :: data()) -> gen_statem:state_enter_result(eval)
+                            | gen_statem:state_function_result(eval).
+%%
+% @doc  FSM state to evaluate a Weka model
+% @end  --
+eval(enter, tune, Data = #data{name = Name}) ->
+
+    ?info("Evaluating final model ~s on Weka", [Name]),
+    {keep_state, run_model(Data)};
+
+
+
+eval(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
+                                                           work_ref = WorkRef}) ->
+
+    ?info("Final model ~s results from ~p", [Name, From]),
+    {next_state, done, Data#data{work_ref = none,
+                                 results  = Results}};
 
 
 eval(Type, Evt, Data) ->
@@ -842,7 +840,7 @@ eval(Type, Evt, Data) ->
 % @doc  FSM state to finalize the FSM's model series and create the
 %       associated report.
 % @end  --
-done(enter, _OldState, Data = #data{name = Name}) ->
+done(enter, eval, Data = #data{name = Name}) ->
     %
     case Data#data.report of
         false -> ok;
@@ -911,6 +909,36 @@ incl_excl_attributes(Attrs) ->
             Excls = lists:filter(fun(A) -> not(lists:member(A, Incls)) end, AllAttrs),
             {AllAttrs, Incls, ?EXCLUDED_ATTRS ++ Excls}
     end.
+
+
+
+%%--------------------------------------------------------------------
+-spec run_model(Data :: data()) -> data().
+%%
+% @doc  Send a request to Weka to run a model
+% @end  --
+run_model(Data = #data{datasets   = ARFFs,
+                       excl_attrs = ExclAttrs,
+                       work_csvs  = WorkCSVs,
+                       jvm_node   = JVM}) ->
+
+    WorkRef = case Data#data.work_ref of
+        none   -> ok;
+        OldRef ->
+            ?warning("Running a model with another outstanding: old[~p]", [OldRef]),
+            make_ref()
+    end,
+    % The Weka filter takes a regular expression to filter attributes by name
+    ExclRE = lists:flatten(?str_fmt("~s", [hd(ExclAttrs)]) ++
+                           [?str_fmt("|~s", [Attr]) || Attr <- tl(ExclAttrs)]),
+
+    ?debug("Attribute filter: ~s", [ExclRE]),
+    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{datasets    => ARFFs,
+                                                         exclude     => list_to_binary(ExclRE),
+                                                         work_csvs   => WorkCSVs,
+                                                         eval_method => ?EVAL_METHOD})},
+    Data#data{work_ref = WorkRef,
+              results  = none}.
 
 
 
