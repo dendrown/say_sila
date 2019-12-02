@@ -84,7 +84,8 @@
                     level
                     (dts/format-local-time stamp :hour-minute-second-fraction)
                     (dts/format-local-time stamp :date))]
-     (send Logger #(send-log % msg))))
+     (send Logger #(send-log % msg))
+     nil))
 
 
 (defmacro panic  [& args] `(log PANIC  ~@args))

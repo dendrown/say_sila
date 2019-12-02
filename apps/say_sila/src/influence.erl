@@ -75,8 +75,6 @@
 %define(DELTA_CUTS,     [0.1, 0.2]).            % Sequence of parameter cuts
 %define(DELTA_CUTS,     [0.1]).
 -define(DELTA_CUTS,     []).
-%define(EVAL_METHOD,    cv).                    % Evaluate using cross-validation
--define(EVAL_METHOD,    data).                  % Evaluate using multiple datasets
 -define(INIT_PERIOD,    7).                     % Default to a week
 -define(INIT_BIG_PCT,   0.004).                 % Contribution rate (without deceleration)
 -define(INIT_TOP_N,     10).
@@ -120,6 +118,7 @@
 -type method()       :: biggies | top_n.
 -type method_range() :: {biggies, float(), float()}
                       | {top_n, pos_integer(), non_neg_integer()}.
+-type eval_mode()    :: cv | parms | test.
 
 
 %%====================================================================
@@ -691,7 +690,7 @@ idle(Type, Evt, Data) ->
 run(enter, _OldState, Data = #data{name = Name}) ->
 
     ?info("Model ~s running on Weka", [Name]),
-    {keep_state, run_model(Data)};
+    {keep_state, run_model(parms, Data)};
 
 
 run(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
@@ -814,8 +813,7 @@ tune(Type, Evt, Data) ->
 eval(enter, tune, Data = #data{name = Name}) ->
 
     ?info("Evaluating final model ~s on Weka", [Name]),
-    {keep_state, run_model(Data)};
-
+    {keep_state, run_model(test, Data)};
 
 
 eval(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
@@ -913,14 +911,15 @@ incl_excl_attributes(Attrs) ->
 
 
 %%--------------------------------------------------------------------
--spec run_model(Data :: data()) -> data().
+-spec run_model(Eval :: eval_mode(),
+                Data :: data()) -> data().
 %%
 % @doc  Send a request to Weka to run a model
 % @end  --
-run_model(Data = #data{datasets   = ARFFs,
-                       excl_attrs = ExclAttrs,
-                       work_csvs  = WorkCSVs,
-                       jvm_node   = JVM}) ->
+run_model(Eval, Data = #data{datasets   = ARFFs,
+                             excl_attrs = ExclAttrs,
+                             work_csvs  = WorkCSVs,
+                             jvm_node   = JVM}) ->
 
     WorkRef = case Data#data.work_ref of
         none   -> ok;
@@ -933,10 +932,10 @@ run_model(Data = #data{datasets   = ARFFs,
                            [?str_fmt("|~s", [Attr]) || Attr <- tl(ExclAttrs)]),
 
     ?debug("Attribute filter: ~s", [ExclRE]),
-    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{datasets    => ARFFs,
-                                                         exclude     => list_to_binary(ExclRE),
-                                                         work_csvs   => WorkCSVs,
-                                                         eval_method => ?EVAL_METHOD})},
+    {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{datasets  => ARFFs,
+                                                         exclude   => list_to_binary(ExclRE),
+                                                         work_csvs => WorkCSVs,
+                                                         eval_mode => Eval})},
     Data#data{work_ref = WorkRef,
               results  = none}.
 

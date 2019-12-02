@@ -141,23 +141,32 @@
 ;;; --------------------------------------------------------------------------
 (defn regress
   "Runs a Linear Regression model on the ARFF at the specified filepath."
-  [{datasets    :datasets
-   target       :target
-   eval-method  :eval_method
-   excl-attrs   :exclude
-   work-csvs    :work_csvs}]
+  [{datasets  :datasets
+   target     :target
+   eval-mode  :eval_mode
+   excl-attrs :exclude
+   work-csvs  :work_csvs}]
 
   (log/info "Excluding attributes:" excl-attrs)
   (try
-    (let [load-data #(let [dset (as-> (weka/load-arff (datasets %) target) data
-                                      (if excl-attrs
-                                          (filter-instances data (RemoveByName.) ["-E" excl-attrs])
-                                          data))]
+    (let [load-data #(let [fpath (datasets %)
+                           dset  (as-> (weka/load-arff fpath target) data
+                                       (if excl-attrs
+                                           (filter-instances data (RemoveByName.) ["-E" excl-attrs])
+                                           data))]
                        ;; Select the last attribute there's no target
                        (when-not target
                          (.setClassIndex dset (dec (.numAttributes dset))))
+
+                       (log/fmt-info "Loaded ~a dataset: tgt[~a] src[~a]",
+                                     (name %) (.name (.classAttribute dset)) fpath)
                        dset)
-          insts     ^Instances (load-data :train)]
+          insts     ^Instances (load-data :train)
+          tests     (cond
+                      (= eval-mode "parms") (load-data :parms)
+                      (= eval-mode "test")  (load-data :test)
+                      (= eval-mode "cv")    (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)
+                      :else                 (log/fmt-warn "Invalid evaluation mode: ~a" eval-mode))]
 
       ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
       (when work-csvs
@@ -177,8 +186,8 @@
           (log/info "Model:\n" (str model))
 
           ;; How do they want the results evaluated?
-          (if (= eval-method "data")
-              (.evaluateModel audit model ^Instances (load-data :parms) !!/NO-OBJS)
+          (if tests
+              (.evaluateModel audit model ^Instances tests !!/NO-OBJS)
               (.crossValidateModel audit model insts CV-FOLDS (Random. RNG-SEED)))
           (log/info "Summary:\n" (.toSummaryString audit))
 
@@ -205,7 +214,7 @@
                                                    (map vector (range coeff-cnt)    ; Attr-indexes
                                                                coefficients)))))))) ; Coeff-values
     (catch Exception ex
-           (log/fail ex "Linear regression failed")
+           (log/fail ex "Linear regression failed" :stack)
            (assoc NAK :info  (.getMessage ex)))))
 
 
