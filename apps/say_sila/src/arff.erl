@@ -30,7 +30,8 @@
          from_report/3,
          from_tweets/2,         from_tweets/3,
          get_big_comm_codes/0,
-         make_attribute/3]).
+         make_attribute/3,
+         make_fpath/1,          make_fpath/2]).
 
 -include("sila.hrl").
 -include("ioo.hrl").
@@ -329,8 +330,39 @@ make_attribute(Group, Code, Emo) ->
 
 
 
+%%--------------------------------------------------------------------
+-spec make_fpath(Name :: stringy()) -> string().
+
+-spec make_fpath(SubDir :: stringy(),
+                 Name   :: stringy()) -> string().
+%%
+% @doc  Returns the complete file path for an ARFF with the specifed
+%       (relative) subdirectory and relation name.
+% @end  --
+make_fpath(Name) ->
+    ioo:make_fpath(?WEKA_DIR, Name, <<"arff">>).
+
+
+make_fpath(SubDir, Name) ->
+    LocalFPath = make_weka_fpath(SubDir, Name),
+    make_fpath(LocalFPath).
+
+
+
 %%====================================================================
 %% Internal functions
+%%--------------------------------------------------------------------
+-spec make_weka_fpath(SubDir :: stringy(),
+                      Name   :: stringy()) -> io_lib:chars().
+%%
+% @doc  Returns the file path relative to Say-Sila's `weka' directory
+%       for an ARFF with the specifed subdirectory and relation name.
+% @end  --
+make_weka_fpath(SubDir, Name) ->
+    ?str_fmt("~s/~s", [SubDir, Name]).
+
+
+
 %%--------------------------------------------------------------------
 -spec open_arff(Name :: stringy()) -> {string(), file:io_device()}.
 %%
@@ -339,7 +371,7 @@ make_attribute(Group, Code, Emo) ->
 % @end  --
 open_arff(Name) ->
     %
-    FPath = ioo:make_fpath(?WEKA_DIR, Name, <<"arff">>),
+    FPath = make_fpath(Name),
     {ok, FOut} = file:open(FPath, [write]),
 
     io:format(FOut, "@RELATION  ~s~n~n", [Name]),
@@ -356,8 +388,7 @@ open_arff(Name) ->
 %       descriptor.
 % @end  --
 open_arff(SubDir, Name) ->
-    LocalFPath = ?str_fmt("~s/~s", [SubDir, Name]),
-    open_arff(LocalFPath).
+    open_arff(make_weka_fpath(SubDir, Name)).
 
 
 

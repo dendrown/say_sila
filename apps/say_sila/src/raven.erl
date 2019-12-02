@@ -35,6 +35,7 @@
 
 -include("sila.hrl").
 -include("dts.hrl").
+-include("ioo.hrl").
 -include("raven.hrl").
 -include("types.hrl").
 -include("twitter.hrl").
@@ -47,7 +48,7 @@
 -define(reg(Key), maps:get(reg, ?mod(Key), undefined)).
 -define(lot(Key), maps:get(lot, ?mod(Key), undefined)).
 
--define(DEV_CACHE,      raven_devel).
+-define(DEV_CACHE,      ?WORK_DIR "/dets/raven_devel").
 -define(REPORT_TIMEOUT, (1 * 60 * 1000)).
 
 
@@ -88,6 +89,7 @@ start_link(Tracker) ->
     init_mnesia(Tracker, App),
 
     % The raven DETS table stores development-time shortcuts to save time on calls to Weka
+    ioo:make_fpath(?DEV_CACHE),
     dets:open_file(?DEV_CACHE, [{repair, true}, {auto_save, 60000}]),
 
     gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, Args, []).
@@ -406,27 +408,30 @@ handle_call(count_tweet_todo, _From, State) ->
 handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
                                                         tweet_todo = Todo,
                                                         jvm_node   = JVM}) ->
-    LotDay = proplists:get_value(start, Options),
-    DayTxt = dts:date_str(LotDay),
-    ?debug("Pulling tweet lot from DB: day[~s]", [DayTxt]),
 
-    % FIXME: don't pull tweets if we already have this day's lot (except current day)
-    %
-    % TODO: We're copying a lot of tweets between processes.
-    %       Consider sending a function for the `twitter' server to spawn.
-    %       CAREFUL: We're saving tweets here to check `id's when we get
-    %                the emotion results from Weka.
-    Tweets = twitter:get_tweets(Tracker, all, Options),
+    WekaCmd = proplists:get_value(context, Options, emote),     % Allow a command override
+    LotDay  = proplists:get_value(start, Options),
+    DayTxt  = dts:date_str(LotDay),
+    FStub   = ?str_fmt("tweets.~s.~s", [Tracker, DayTxt]),
+    FPath   = arff:make_fpath(tweets, FStub),
 
-    % Send to Weka
-    ?debug("Packaging tweets for Weka: day[~s]", [DayTxt]),
-    FStub  = io_lib:format("tweets.~s.~s", [Tracker, DayTxt]),
-    {ok, FPath} = arff:from_tweets(FStub, Tweets),
-
-    % Send to Weka to apply embedding/emotion filters
-    WekaCmd  = proplists:get_value(context, Options, emote),     % Allow a command override
+    % Pull emo-tweet from cache OR send to Weka to apply emotion filters
     NewState = case dets:lookup(?DEV_CACHE, {WekaCmd, FPath}) of
+
+        % Cache miss! Do the work...
         [] ->
+            ?debug("Pulling tweet lot from DB: day[~s]", [DayTxt]),
+
+            % TODO: We're copying a lot of tweets between processes.
+            %       Consider sending a function for the `twitter' server to spawn.
+            %       CAREFUL: We're saving tweets here to check `id's when we get
+            %                the emotion results from Weka.
+            Tweets = twitter:get_tweets(Tracker, all, Options),
+
+            % Send to Weka
+            ?debug("Packaging tweets for Weka: day[~s]", [DayTxt]),
+            {ok, FPath} = arff:from_tweets(FStub, Tweets),
+
             % Send the tweet lot off to Weka on the JVM
             Lookup  = make_ref(),
             NewTodo = maps:put(Lookup,
@@ -437,8 +442,8 @@ handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
             {say, JVM} ! {self(), Lookup, WekaCmd, FPath},
             State#state{tweet_todo = NewTodo};
 
-        [{{WekaCmd, FPath}, ResponseCSV}] ->
-            % Cache hit. Use the Weka response from last time
+        % Cache hit! Use the Weka response from last time
+        [{{WekaCmd, FPath}, Tweets, ResponseCSV}] ->
             emote_tweets(Tracker, Tweets, ResponseCSV),
             State
     end,
@@ -529,7 +534,7 @@ handle_info({From, Ref, emote, ArgMap = #{csv := FPathCSV}}, State = #state{trac
             mnesia:transaction(fun()-> mnesia:write(?lot(Tracker), TweetLot, sticky_write) end),
 
             % For development: create a cached copy for repeated runs
-            dets:insert(?DEV_CACHE, {{emote, FPathARFF}, FPathCSV}),
+            dets:insert(?DEV_CACHE, {{emote, FPathARFF}, Tweets, FPathCSV}),
 
             State#state{tweet_todo = NewTodoMap};
 
@@ -769,7 +774,7 @@ emote_tweets_csv({newline,
                  Acc = {_, 0, _, _}) ->
     %
     % This clause checks that the first line is correct
-    ?debug("CSV file is correct for emote"),
+    %?debug("CSV file is correct for emote"),
     Acc;
 
 

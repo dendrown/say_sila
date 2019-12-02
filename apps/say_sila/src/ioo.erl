@@ -14,7 +14,7 @@
 -module(ioo).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([make_fpath/3,
+-export([make_fpath/1,  make_fpath/2,   make_fpath/3,
          put_all/2,
          read_down/1,
          trim_down/1]).
@@ -28,18 +28,30 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
+-spec make_fpath(FPath :: stringy()) -> string().
+
+-spec make_fpath(Path :: stringy(),
+                 Name :: stringy()) -> string().
+
 -spec make_fpath(Path :: stringy(),
                  Name :: stringy(),
                  Extn :: stringy()) -> string().
 %%
-% @doc  Returns the full filepath for a gnuplot script file with the
-%       specified name.  Note that the path must be valid for this
-%       function to succeed.
+% @doc  Returns the full filepath for the specified file parts.
+%       Note that the path must be valid for this function to succeed.
 % @end  --
+make_fpath(FPath) ->
+    FlatFPath = lists:flatten(FPath),
+    ok = filelib:ensure_dir(FlatFPath),
+    FlatFPath.
+
+
+make_fpath(Path, Name) ->
+    make_fpath(?str_fmt("~s/~s", [Path, Name])).
+
+
 make_fpath(Path, Name, Extn) ->
-    FPath = lists:flatten(io_lib:format("~s/~s.~s", [Path, Name, Extn])),
-    ok = filelib:ensure_dir(FPath),
-    FPath.
+    make_fpath(?str_fmt("~s/~s.~s", [Path, Name, Extn])).
 
 
 
