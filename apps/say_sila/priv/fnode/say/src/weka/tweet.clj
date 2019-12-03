@@ -19,7 +19,8 @@
             [clojure.string  :as str])
   (:import  [affective.core ArffLexiconEvaluator]
             [java.util  Random]
-            [weka.core  Instance
+            [weka.core  DenseInstance
+                        Instance
                         Instances]
             [weka.classifiers Evaluation]
             [weka.classifiers.functions LinearRegression]
@@ -141,45 +142,76 @@
 ;;; --------------------------------------------------------------------------
 (defn regress
   "Runs a Linear Regression model on the ARFF at the specified filepath."
-  [{datasets  :datasets
-   target     :target
-   eval-mode  :eval_mode
-   excl-attrs :exclude
-   work-csvs  :work_csvs}]
+  [{:keys [datasets
+           target
+           data_mode
+           eval_mode
+           exclude
+           work_csvs]}]
 
-  (log/info "Excluding attributes:" excl-attrs)
+  (log/info "Excluding attributes:" exclude)
   (try
-    (let [load-data #(let [fpath (datasets %)
-                           dset  (as-> (weka/load-arff fpath target) data
-                                       (if excl-attrs
-                                           (filter-instances data (RemoveByName.) ["-E" excl-attrs])
-                                           data))]
-                       ;; Select the last attribute there's no target
-                       (when-not target
-                         (.setClassIndex dset (dec (.numAttributes dset))))
+    ;; FIXME: Collapse to ONE letfn over a let
+    (letfn [;; ---------------------------------------------------------------
+            (variate [fpath ^Instances idata]
+              (let [attrs (range 1 (.numAttributes idata))                  ; Skip timestamp
+                    odata (doto (Instances. idata (int 0))
+                                (.setRelationName (str (.relationName idata) "-variation")))
+                    ins    (enumeration-seq (.enumerateInstances idata))]
+                ;; The instances should already be sorted, but now it's crucial!
+                (.sort idata 0)
+                (reduce (fn [^Instance prev
+                             ^Instance curr]
+                          (let [oinst ^Instance (doto (DenseInstance. curr)
+                                                      (.setDataset odata))]
+                            (doseq [^Integer a attrs]
+                              (.setValue oinst a (- (.value curr a)
+                                                    (.value prev a))))
+                            ;; Add this instance to the output data, and then it becomes the "next previous"
+                            (.add odata oinst)
+                            oinst))
+                        (first ins)
+                        (rest  ins))
+                ;; Save a copy for sanity checks
+                (weka/save-results fpath :var odata)
+                odata))
 
-                       (log/fmt-info "Loaded ~a dataset: tgt[~a] src[~a]",
-                                     (name %) (.name (.classAttribute dset)) fpath)
-                       dset)
-          insts     ^Instances (load-data :train)
-          tests     (cond
-                      (= eval-mode "parms") (load-data :parms)
-                      (= eval-mode "test")  (load-data :test)
-                      (= eval-mode "cv")    (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)
-                      :else                 (log/fmt-warn "Invalid evaluation mode: ~a" eval-mode))]
+            ;; ---------------------------------------------------------------
+            (load-data [tag]
+              (let [fpath   (datasets tag)
+                    vmode?  (= data_mode "variation")
+                    dset    (as-> (weka/load-arff fpath target) data
+                                  (if vmode?  (variate fpath data) data)
+                                  (if exclude (filter-instances data (RemoveByName.) ["-E" exclude]) data))]
+                ;; Select the last attribute there's no target
+                (when-not target
+                  (.setClassIndex ^Instances dset (dec (.numAttributes ^Instances dset))))
 
-      ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
-      (when work-csvs
-        (weka/save-file (:train work-csvs) insts :csv))
+                (log/fmt-info "Loaded ~a dataset: tgt[~a] src[~a] mode[~a]",
+                              (name tag)
+                              (.name (.classAttribute ^Instances dset))
+                              fpath
+                              (if var? "var" "raw"))
+                dset))]
 
-      ;; Use N-fold cross validation for training/evaluation
-      (let [model   (LinearRegression.)
-            audit   (Evaluation. insts)]
+      (let [insts   ^Instances (load-data :train)
+            tests   (cond
+                      (= eval_mode "parms") (load-data :parms)
+                      (= eval_mode "test")  (load-data :test)
+                      (= eval_mode "cv")    (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)
+                      :else                 (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode))]
 
-      (letfn [(attr-coeff [[ndx coeff]]
-                (let [attr  (.attribute insts (int ndx))
-                      tag   (.name attr)]
-                  [tag coeff]))]
+        ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
+        (when work_csvs
+          (weka/save-file (:train work_csvs) insts :csv))
+
+        ;; Use N-fold cross validation for training/evaluation
+        (let [model       (LinearRegression.)
+              audit       (Evaluation. insts)
+              attr-coeff  (fn [[ndx coeff]]
+                            (let [attr (.attribute insts (int ndx))
+                                  tag  (.name attr)]
+                              [tag coeff]))]
 
           ;; The final model training always uses the full dataset
           (.buildClassifier model insts)
