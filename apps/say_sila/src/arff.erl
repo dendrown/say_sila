@@ -61,12 +61,12 @@
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for the output of `players:get_biggies'.  Each output instance
-%       represents one day during a tracking run, and the ARFF includes
+%       represents a week during a tracking run, and the ARFF includes
 %       (target) attributes for all defined emotions.
 %
 % @end  --
 from_biggies(Name, RegCode, Biggies, Players) ->
-    from_biggies(Name, RegCode, ?EMOTIONS, Biggies, Players, 1).
+    from_biggies(Name, RegCode, ?EMOTIONS, Biggies, Players, []).
 
 
 
@@ -77,25 +77,26 @@ from_biggies(Name, RegCode, Biggies, Players) ->
                             | emotions(),
                    Biggies :: proplist(),
                    Players :: any(),
-                   Period  :: integer()) ->  {ok, string()}
-                                          |  {{error, term()}, string()}.
+                   Options :: proplist()) ->  {ok, string()}
+                                           |  {{error, term()}, string()}.
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for the output of `players:get_biggies'.  Each output instance
-%       corresponds to the number of days in `Period' over the course of
-%       a tracking run.
+%       corresponds to the number of days over the course of a tracking run,
+%       specified by the `period' setting in `Options' (defaults to 7).
 %
 %       NOTE: This function is addressing the question of influence in
 %             Twitter communities, and is currently somewhat in flux.
 % @end  --
-from_biggies(Name, RegCode, RegEmo, Biggies, Players, Period) when is_atom(RegEmo) ->
-    from_biggies(Name, RegCode, [RegEmo], Biggies, Players, Period);
+from_biggies(Name, RegCode, RegEmo, Biggies, Players, Options) when is_atom(RegEmo) ->
+    from_biggies(Name, RegCode, [RegEmo], Biggies, Players, Options);
 
 
-from_biggies(Name, RegCode, RegEmos, Biggies, Players, Period) ->
+from_biggies(Name, RegCode, RegEmos, Biggies, Players, Options) ->
 
     % Use the "all-tweets" category as a time-slice reference,
     % but not for the ARFF output. (It is just tweets+retweets.)
+    Period   = proplists:get_value(period, Options, 7),
     BigCodes = get_big_comm_codes(),
     RegCodes = [RegCode],
     InitComm = ?NEW_COMM,
@@ -123,7 +124,7 @@ from_biggies(Name, RegCode, RegEmos, Biggies, Players, Period) ->
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
     {FPath, FOut} = init_biggie_arff(Name, BigCodes, RegCodes, ?EMOTIONS, RegEmos),
 
-    write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, ?EMOTIONS, RegEmos, InitComm),
+    write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, ?EMOTIONS, RegEmos),
     close_arff(FPath, FOut).
 
 
@@ -670,13 +671,12 @@ init_biggie_arff(Name, BigCodes, RegCodes, BigEmos, RegEmos) ->
                         BigLots  :: proplist(),
                         RegLots  :: proplist(),
                         BigEmos  :: emotions(),
-                        RegEmos  :: emotions(),
-                        InitComm :: comm()) -> ok.
+                        RegEmos  :: emotions()) -> ok.
 %%
 % @doc  Opens an ARFF for biggie influence analysis and writes out the
 %       attribute header.
 % @end  --
-write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos, InitComm) ->
+write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos) ->
 
     % Function to write one emotion for one comm on one line of the ARFF
     Emoter = fun(Emo, Levels) ->
@@ -694,7 +694,7 @@ write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos, 
                     none ->
                         ?warning("Missing lot: grp[~s] comm[~s] ms[~B] dts[~s]",
                                  [Grp, Code, DTS, dts:str(DTS, millisecond)]),
-                    #{Code => InitComm};
+                    #{Code => ?NEW_COMM};
                     Lot -> Lot
                  end,
                  #comm{emos = Emos} = maps:get(Code, Comms),
@@ -714,6 +714,8 @@ write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos, 
 
     % We use original tweets to get our DTS keys, but all the other categories must match
     ?put_data(FOut),
-    Template = proplists:get_value(oter, BigLots),
-    lists:foreach(Liner, maps:keys(Template)).
+    Template  = proplists:get_value(oter, BigLots),
+    LotStamps = maps:keys(Template),
+    ?debug("Lot stamps: ~p", [LotStamps]),
+    lists:foreach(Liner, LotStamps).
 

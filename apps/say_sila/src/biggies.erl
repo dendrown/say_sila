@@ -139,12 +139,20 @@ run_top_nn(Tracker, RunTag) ->
 %%--------------------------------------------------------------------
 -spec run_top_nn_aux(Tracker :: tracker(),
                      RunTag  :: stringy()) -> verification().
+
+-spec run_top_nn_aux(Tracker :: tracker(),
+                     RunTag  :: stringy(),
+                     Options :: proplist()) -> verification().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
 %       range of Ns for one emotion and communication type.
 % @end  --
 run_top_nn_aux(Tracker, RunTag) ->
+    run_top_nn_aux(Tracker, RunTag, []).
+
+
+run_top_nn_aux(Tracker, RunTag, Options) ->
 
     % Function to pull and organize players and their tweets for a given dataset
     GetPlayers = fun(D) ->
@@ -163,8 +171,8 @@ run_top_nn_aux(Tracker, RunTag) ->
 
     % We need player communities for the other datasets as well.  "Ref" here means "null hypothesis".
     DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
-    RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies}],
-   %RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums}],
+    RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies} | Options],
+   %RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums} | Options],
    %RefTag   = ?str_fmt("~s.H0", [RunTag]),
 
     Totals = #{tter := Count} = wait_on_players(Tracker),
