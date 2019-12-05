@@ -153,13 +153,13 @@
   (try
     ;; FIXME: Collapse to ONE letfn over a let
     (letfn [;; ---------------------------------------------------------------
-            (variate [fpath ^Instances idata]
+            (calc-variations [fpath ^Instances idata]
+              ;; The instances should already be sorted, but now it's crucial!
+              (.stableSort idata 0)
               (let [attrs (range 1 (.numAttributes idata))                  ; Skip timestamp
                     odata (doto (Instances. idata (int 0))
-                                (.setRelationName (str (.relationName idata) "-variation")))
+                                (.setRelationName (str (.relationName idata) ".variation")))
                     ins    (enumeration-seq (.enumerateInstances idata))]
-                ;; The instances should already be sorted, but now it's crucial!
-                (.sort idata 0)
                 (reduce (fn [^Instance prev
                              ^Instance curr]
                           (let [oinst ^Instance (doto (DenseInstance. curr)
@@ -167,9 +167,8 @@
                             (doseq [^Integer a attrs]
                               (.setValue oinst a (- (.value curr a)
                                                     (.value prev a))))
-                            ;; Add this instance to the output data, and then it becomes the "next previous"
-                            (.add odata oinst)
-                            oinst))
+                            (.add odata oinst)      ; Variation instance goes to output
+                            curr))                  ; The current becomes the "next previous"
                         (first ins)
                         (rest  ins))
                 ;; Save a copy for sanity checks
@@ -181,7 +180,7 @@
               (let [fpath   (datasets tag)
                     vmode?  (= data_mode "variation")
                     dset    (as-> (weka/load-arff fpath target) data
-                                  (if vmode?  (variate fpath data) data)
+                                  (if vmode?  (calc-variations fpath data) data)
                                   (if exclude (filter-instances data (RemoveByName.) ["-E" exclude]) data))]
                 ;; Select the last attribute there's no target
                 (when-not target
@@ -191,7 +190,7 @@
                               (name tag)
                               (.name (.classAttribute ^Instances dset))
                               fpath
-                              (if var? "var" "raw"))
+                              (if var? "var" "lvl"))
                 dset))]
 
       (let [insts   ^Instances (load-data :train)

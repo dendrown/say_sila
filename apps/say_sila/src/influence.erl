@@ -91,11 +91,11 @@
 -define(MIN_NN_SCORE,   0.6).
 -define(INIT_TOP_RANGE, {top_n, ?MIN_TOP_N, ?MAX_TOP_N}).
 
-
 %%--------------------------------------------------------------------
 -record(data, {tracker                  :: tracker(),
                name                     :: binary(),
                datasets                 :: map(),
+               data_mode                :: data_mode(),
                work_csvs                :: map(),               % Weka can save filtered data for incanter
                attributes               :: [atom()],
                init_attrs               :: [atom()],
@@ -118,7 +118,6 @@
 -type method()       :: biggies | top_n.
 -type method_range() :: {biggies, float(), float()}
                       | {top_n, pos_integer(), non_neg_integer()}.
--type eval_mode()    :: cv | parms | test.
 
 
 %%====================================================================
@@ -512,10 +511,8 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
     process_flag(trap_exit, true),
 
     % NOTE: The `datasets' and `toppers' are currently necessary for a successful Top-N run.
-    [Period,
-     Report,
-     DataSets,
-     Toppers] = pprops:get_values([{period, 7}, {report, false}, {datasets, #{}}, {toppers, #{}}], Params),
+    [DataSets,
+     Toppers] = pprops:get_values([{datasets, #{}}, {toppers, #{}}], Params),
 
     % Our invoker may want to use a subset of the attributes
     InitAttrs = proplists:get_value(init_attrs, Params, all),
@@ -562,6 +559,9 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
     % We should be good to go...!
     {ok, idle, #data{tracker    = Tracker,
                      name       = Name,
+                     period     = proplists:get_value(period,    Params, 7),
+                     report     = proplists:get_value(report,    Params, false),
+                     data_mode  = proplists:get_value(data_mode, Params, level),
                      datasets   = ARFFs,
                      work_csvs  = CSVs,
                      attributes = AllAttrs,
@@ -570,11 +570,9 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
                      excl_attrs = ExclAttrs,
                      reg_comm   = RegComm,
                      reg_emo    = RegEmo,
-                     period     = Period,
                      biggies    = Biggies,
                      jvm_node   = raven:get_jvm_node(Tracker),
-                     models     = queue:new(),
-                     report     = Report}}.
+                     models     = queue:new()}}.
 
 
 
@@ -917,6 +915,7 @@ incl_excl_attributes(Attrs) ->
 % @doc  Send a request to Weka to run a model
 % @end  --
 run_model(Eval, Data = #data{datasets   = ARFFs,
+                             data_mode  = DataMode,
                              excl_attrs = ExclAttrs,
                              work_csvs  = WorkCSVs,
                              jvm_node   = JVM}) ->
@@ -933,6 +932,7 @@ run_model(Eval, Data = #data{datasets   = ARFFs,
 
     ?debug("Attribute filter: ~s", [ExclRE]),
     {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{datasets  => ARFFs,
+                                                         data_mode => DataMode,
                                                          exclude   => list_to_binary(ExclRE),
                                                          work_csvs => WorkCSVs,
                                                          eval_mode => Eval})},

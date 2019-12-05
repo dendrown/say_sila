@@ -16,7 +16,7 @@
 
 -export([period/1]).
 -export([make_h0/2,
-         run_top_nn/2]).
+         run_top_nn/2, run_top_nn/3]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -110,6 +110,10 @@ make_h0(Biggies, Players) ->
 %%--------------------------------------------------------------------
 -spec run_top_nn(Tracker :: tracker(),
                  RunTag  :: stringy()) -> verification().
+
+-spec run_top_nn(Tracker :: tracker(),
+                 RunTag  :: stringy(),
+                 Options :: proplist()) -> verification().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -118,16 +122,24 @@ make_h0(Biggies, Players) ->
 %       This `nn' function goes through the Top-N twice, using only
 %       the emo/comm attributes from the higher ranking models.
 %
-%       This function uses weekly periods.
+%       Supported options are:
+%       - `period'      : Number of days per data instance (default: 7)
+%       - `data_mode'   : The `level'(default) mode uses the raw emotion
+%                         values to create models, while `variation' use
+%                         the difference from one time step to the next.
 % @end  --
 run_top_nn(Tracker, RunTag) ->
+    run_top_nn(Tracker, RunTag, []).
+
+
+run_top_nn(Tracker, RunTag, Options) ->
 
     io:format("This will destroy the current raven and player states.~n"),
     case ioo:read_down("Are you sure? ") of
         "yes" ->
             case weka:ping(raven:get_jvm_node(Tracker)) of
                 timeout -> [];
-                _       -> run_top_nn_aux(Tracker, RunTag)
+                _       -> run_top_nn_aux(Tracker, RunTag, Options)
             end;
         _ -> []
     end.
@@ -138,9 +150,6 @@ run_top_nn(Tracker, RunTag) ->
 %% Internal functions
 %%--------------------------------------------------------------------
 -spec run_top_nn_aux(Tracker :: tracker(),
-                     RunTag  :: stringy()) -> verification().
-
--spec run_top_nn_aux(Tracker :: tracker(),
                      RunTag  :: stringy(),
                      Options :: proplist()) -> verification().
 %%
@@ -148,10 +157,6 @@ run_top_nn(Tracker, RunTag) ->
 %       tracker and selecting the Top N big-player accounts across a
 %       range of Ns for one emotion and communication type.
 % @end  --
-run_top_nn_aux(Tracker, RunTag) ->
-    run_top_nn_aux(Tracker, RunTag, []).
-
-
 run_top_nn_aux(Tracker, RunTag, Options) ->
 
     % Function to pull and organize players and their tweets for a given dataset
@@ -170,6 +175,7 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
                           TopBiggies),
 
     % We need player communities for the other datasets as well.  "Ref" here means "null hypothesis".
+    DataMode = proplists:get_value(data_mode, Options, level),
     DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
     RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies} | Options],
    %RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums} | Options],
@@ -196,7 +202,7 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
             Recur(RunRest, RefRest)
     end,
     Report(RunResults, RefResults),
-    verify_run(Tracker, RunTag, Method, oter, fear, RunResults).
+    verify_run(Tracker, RunTag, Method, DataMode,  oter, fear, RunResults).
 
 
 
@@ -229,26 +235,27 @@ wait_on_players(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec verify_run(Tracker :: tracker(),
-                 RunTag  :: stringy(),
-                 Method  :: tuple(),
-                 Comm    :: comm_code(),
-                 Emo     :: emotion(),
-                 Results :: proplist()) -> verification().
+-spec verify_run(Tracker  :: tracker(),
+                 RunTag   :: stringy(),
+                 Method   :: tuple(),
+                 DataMode :: data_mode(),
+                 Comm     :: comm_code(),
+                 Emo      :: emotion(),
+                 Results  :: proplist()) -> verification().
 %%
 % @doc  Generates a hash representing the results of a given run.
 %       If we know what the results should be (we have a hash from
 %       a previous run), then we compare the current run's results
 %       and warn the user they don't match up.
 % @end  --
-verify_run(Tracker, RunTag, Method, Comm, Emo, Results) ->
+verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
 
     % Function to create a hexstring SHA-256 fingerprint
     Hash = fun(Elm) ->
         lists:flatten([io_lib:format("~.16B", [X]) || <<X>> <= crypto:hash(sha256, term_to_binary(Elm))])
     end,
 
-    Cfg = [Tracker, Method, Comm, Emo],
+    Cfg = [Tracker, Method, DataMode, Comm, Emo],
     Key = Hash(Cfg),
     Val = Hash(Results),
 
@@ -273,14 +280,18 @@ verify_run(Tracker, RunTag, Method, Comm, Emo, Results) ->
 %             during this initial implementation.
 % @end  --
 get_run_hash(Key) ->
-    RunResults = #{% [gw,{top_n,5,25},oter,fear]:
-                   "7AF4DF2496AE38A5743304DB3105E3B9BC3118F9468454A4B28BA5B47EFBBB6" =>
+    RunResults = #{% [gw,{top_n,5,25},level,oter,fear]:
+                   "352931CCD47628D146746AB03F20697676A49FB32998DBBD28FD568CDEF9A9DB" =>
                   %"B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",  % 2017-10-01--2018-07-01 CV
                   %"F3D06C823253176CB6E7CD31AF35BF7534E82DCB931412A27A45DF85A9C6",    % 2017-10-01--2018-07-01 P
                    "1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",  % 2017-10-01--2018-07-01 T
                   %"B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C", % 2017-10-01--2018-04-01 CV
 
-                   % [gw,{top_n,10,25},oter,fear]:
+                  % [gw,{top_n,5,25},variation,oter,fear]:
+                  "8A69D3DEA8771FC29DE45C2C4F51D97E5E1CA679E70581AA6882E39B05D79CF" =>
+                  "E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",     % 2017-10-01--2018-07-01 T
+
+                   % [gw,{top_n,10,25},oter,fear]: [TODO]
                    "C9D3FC24B8A4CC261E436434E7AA6CCCF6855A8D27554784ECA9EF9D41FC9374" =>
                    "62FD21C13BC2EF8891B5B8E9BA88817D42411862FFE8464B64C6FC26E1224BB"
                   },

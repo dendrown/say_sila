@@ -23,6 +23,10 @@
 -define(TRACKERS, [cc,  gw]).
 -type tracker() :: cc | gw.
 
+% Analysis with Weka
+-type data_mode() :: level | variation.
+-type eval_mode() :: cv | parms | test.
+
 % Database macros
 -define(null_val_not(X, Null, NotNull), case (X) of null -> Null;       _ -> NotNull end).
 -define(null_to_undef(X),               case (X) of null -> undefined;  _ -> X       end).
