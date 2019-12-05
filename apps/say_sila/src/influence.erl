@@ -86,8 +86,9 @@
 -define(INIT_BIG_RANGE, {biggies, ?MIN_BIG_PCT, ?MAX_BIG_PCT}).
 
 -define(MIN_TOP_N,      5).
-%define(MIN_TOP_N,      24).                    % FIXME: Developing strategy for medium players
 -define(MAX_TOP_N,      25).
+%define(MIN_TOP_N,      24).                % FIXME: Developing strategy for medium players
+%define(MAX_TOP_N,      5).                 % FIXME: Developing strategy for medium players
 -define(MIN_NN_SCORE,   0.6).
 -define(INIT_TOP_RANGE, {top_n, ?MIN_TOP_N, ?MAX_TOP_N}).
 

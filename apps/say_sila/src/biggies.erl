@@ -178,8 +178,8 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
     DataMode = proplists:get_value(data_mode, Options, level),
     DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
     RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies} | Options],
-   %RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums} | Options],
-   %RefTag   = ?str_fmt("~s.H0", [RunTag]),
+    RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums} | Options],
+    RefTag   = ?str_fmt("~s.H0", [RunTag]),
 
     Totals = #{tter := Count} = wait_on_players(Tracker),
     ?notice("Completed processing ~p tweets", [Count]),
@@ -189,8 +189,8 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
 
     % Create the models
     RunResults = influence:run_top_nn(Tracker, RunTag, oter, fear, RunOpts),
-    RefResults =%influence:run_top_nn(Tracker, RefTag, oter, fear, RefOpts),
-                 RunResults,                                                    % <<FIXME!
+    RefResults = influence:run_top_nn(Tracker, RefTag, oter, fear, RefOpts),
+                %RunResults,                                                    % <<FIXME!
 
     Report = fun
         Recur([], []) ->
