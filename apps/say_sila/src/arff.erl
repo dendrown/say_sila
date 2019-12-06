@@ -667,13 +667,18 @@ init_biggie_arff(Name, BigCodes, RegCodes, BigEmos, RegEmos) ->
                         BigLots  :: proplist(),
                         RegLots  :: proplist(),
                         BigEmos  :: emotions(),
-                        RegEmos  :: emotions()) -> ok.
+                        RegEmos  :: emotions()) -> map().
 %%
 % @doc  Opens an ARFF for biggie influence analysis and writes out the
 %       attribute header.
 % @end  --
 write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos) ->
 
+    % IMPORTANT: This function repeats code in several places to handle big things
+    %            and then regular things.  Before attempting to refactor it (again), 
+    %            think!  At the beginning and then in the middle of the complexity,
+    %            the bigs and the regs get treated differently.
+    %
     % Function to write one emotion for one comm on one line of the ARFF
     Emoter = fun(Emo, Levels) ->
                  Val = maps:get(Emo, Levels),
@@ -681,37 +686,40 @@ write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos) 
                  Levels end,
 
     % Function to write one comm on one line of the ARFF
-    Commer = fun(Code, {DTS, Grp, GrpLots, Emotions}) ->
-                 Lots = proplists:get_value(Code, GrpLots),
-                 %
-                 % TODO: This line may fail for very small periods.
-                 %        Decide how we want to handle missing bits.
-                 Comms = case maps:get(DTS, Lots, none) of
-                    none ->
-                        ?warning("Missing lot: grp[~s] comm[~s] ms[~B] dts[~s]",
-                                 [Grp, Code, DTS, dts:str(DTS, millisecond)]),
-                    #{Code => ?NEW_COMM};
-                    Lot -> Lot
-                 end,
-                 #comm{emos = Emos} = maps:get(Code, Comms),
-                 %
-                 % We're not really reducing, the "accumulator" just holds the emo-map
-                 lists:foldl(Emoter, Emos#emos.levels, Emotions),
-                 {DTS, Grp, GrpLots, Emotions} end,
+    Commer = fun(Code, {DTS, Grp, GrpLots, Emotions, Counts}) ->
+         Cnt  = maps:get(Code, Counts, 0),
+         Lots = proplists:get_value(Code, GrpLots, #{}),
+         {NewCnt,
+          Comms} = case maps:get(DTS, Lots, none) of
+            none ->
+                ?warning("Missing lot: grp[~s] comm[~s] ms[~B] dts[~s]",
+                         [Grp, Code, DTS, dts:str(DTS, millisecond)]),
+                {Cnt, #{Code => ?NEW_COMM}};
+            Lot ->
+                {Cnt+1, Lot}
+         end,
+         #comm{emos = Emos} = maps:get(Code, Comms),
+         lists:foldl(Emoter, Emos#emos.levels, Emotions),
+         {DTS, Grp, GrpLots, Emotions, maps:put(Code, NewCnt, Counts)}
+    end,
 
     % Function to write one line of the ARFF
-    Liner  = fun(DTS) ->
-                 % The DTS is a millisecond timestamp for the current lot in the period
-                 ?io_put(FOut, dts:str(DTS, millisecond)),
-                 lists:foldl(Commer, {DTS, big, BigLots, BigEmos}, BigCodes),
-                 lists:foldl(Commer, {DTS, reg, RegLots, RegEmos}, RegCodes),
-                 ?io_nl(FOut)
-                 end,
+    Liner = fun(DTS, Counts) ->
+         % The DTS is a millisecond timestamp for the current lot in the period
+         ?io_put(FOut, dts:str(DTS, millisecond)),
+         [BigCnts,
+          RegCnts] = [maps:get(Grp, Counts, #{}) || Grp <- [big, reg]],
+         {_,_,_,_,NewBigCnts} = lists:foldl(Commer, {DTS, big, BigLots, BigEmos, BigCnts}, BigCodes),
+         {_,_,_,_,NewRegCnts} = lists:foldl(Commer, {DTS, reg, RegLots, RegEmos, RegCnts}, RegCodes),
+         ?io_nl(FOut),
+         #{big => NewBigCnts,
+           reg => NewRegCnts}
+     end,
 
     % We use original tweets to get our DTS keys, but all the other categories must match
     ?put_data(FOut),
     Template  = proplists:get_value(oter, BigLots),
     LotStamps = maps:keys(Template),
     ?debug("Lot stamps: ~p", [LotStamps]),
-    lists:foreach(Liner, LotStamps).
+    lists:foldl(Liner, #{}, LotStamps).
 
