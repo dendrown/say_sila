@@ -49,6 +49,8 @@
                      | {cont, file:io_device()}
                      | {{error, term()}, string()}.
 
+-type arff_return_extra() :: {ok, string(), map()}
+                           | {{error, term()}, string(), map()}.
 
 %%====================================================================
 %% API
@@ -56,14 +58,12 @@
 -spec from_biggies(Name    :: stringy(),
                    RegCode :: comm_code(),
                    Biggies :: proplist(),
-                   Players :: any()) ->  {ok, string()}
-                                      |  {{error, term()}, string()}.
+                   Players :: any()) ->  arff_return_extra().
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for the output of `players:get_biggies'.  Each output instance
 %       represents a week during a tracking run, and the ARFF includes
 %       (target) attributes for all defined emotions.
-%
 % @end  --
 from_biggies(Name, RegCode, Biggies, Players) ->
     from_biggies(Name, RegCode, ?EMOTIONS, Biggies, Players, []).
@@ -77,13 +77,17 @@ from_biggies(Name, RegCode, Biggies, Players) ->
                             | emotions(),
                    Biggies :: proplist(),
                    Players :: any(),
-                   Options :: proplist()) ->  {ok, string()}
-                                           |  {{error, term()}, string()}.
+                   Options :: proplist()) -> arff_return_extra().
 %%
 % @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
 %       for the output of `players:get_biggies'.  Each output instance
 %       corresponds to the number of days over the course of a tracking run,
 %       specified by the `period' setting in `Options' (defaults to 7).
+%
+%       The return map contains the following elements:
+%       * `status' => `ok' | {`error', atom()}
+%       * `fpath'  => string()
+%       * `counts' => map()
 %
 %       NOTE: This function is addressing the question of influence in
 %             Twitter communities, and is currently somewhat in flux.
@@ -124,18 +128,21 @@ from_biggies(Name, RegCode, RegEmos, Biggies, Players, Options) ->
     % Now we have our data organized the way we need it for the ARFF.  Let's go!
     {FPath, FOut} = init_biggie_arff(Name, BigCodes, RegCodes, ?EMOTIONS, RegEmos),
 
-    write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, ?EMOTIONS, RegEmos),
-    close_arff(FPath, FOut).
+    Counts = write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, ?EMOTIONS, RegEmos),
+    close_arff(FPath, FOut, #{counts => Counts}).
 
 
 
 %%--------------------------------------------------------------------
 -spec from_report(Name   :: string(),
-                     RptMap :: map()) -> [{ok, string()}]
-                                       | [{{error, term()}, string()}].
+                  RptMap :: map()) -> [arff_return()].
+
+-spec from_report(Name   :: string(),
+                  Type   :: atom(),
+                  RptMap :: map()) -> arff_return().
 %%
-% @doc  Generates a set of ARFF (Attribute-Relation File Format) relations
-%       for a Big/Regular player `raven' report.
+% @doc  Generate an ARFF (Attribute-Relation File Format) relation for
+%       a Big/Regular player `raven' report.
 % @end  --
 from_report(Name, RptMap = #{big := BigRptPack}) ->
     %
@@ -144,18 +151,8 @@ from_report(Name, RptMap = #{big := BigRptPack}) ->
               proplists:get_keys(BigRptPack)).
 
 
-
-%%--------------------------------------------------------------------
--spec from_report(Name   :: string(),
-                     Type   :: atom(),
-                     RptMap :: map()) -> {ok, string()}
-                                       | {{error, term()}, string()}.
-%%
-% @doc  Generate an ARFF (Attribute-Relation File Format) relation for
-%       a Big/Regular player `raven' report.
-% @end  --
 from_report(Name, Type, #{big := BigRptPack,
-                             reg := RegRptPack}) ->
+                          reg := RegRptPack}) ->
     %
     % TODO: We'll want an ARFF per emotion
     BigRpt = proplists:get_value(Type, BigRptPack),
@@ -394,16 +391,26 @@ open_arff(SubDir, Name) ->
 
 
 %%--------------------------------------------------------------------
--spec close_arff(FPath  :: string(),
-                 FOut   :: pid()) -> {ok, string()}
-                                   | {{error, atom()}, string()}.
+-spec close_arff(FPath :: string(),
+                 FOut  :: pid()) -> arff_return().
+
+-spec close_arff(FPath :: string(),
+                 FOut  :: pid(),
+                 Info  :: map()) -> arff_return_extra().
 %%
 % @doc  Closes an ARFF file, previously opened with `open_arff'.
+%       The caller may pass an `Info' map to become part of the
+%       return tuple.
 % @end  --
 close_arff(FPath, FOut) ->
     FStatus = file:close(FOut),
     ?info("ARFF<create>: path[~s] stat[~p]", [FPath, FStatus]),
     {FStatus, FPath}.
+
+
+close_arff(FPath, FOut, Info) ->
+    {FStatus,_} = close_arff(FPath, FOut),
+    {FStatus, FPath, Info}.
 
 
 

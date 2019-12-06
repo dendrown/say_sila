@@ -544,7 +544,9 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
         ?info("Creating ARFF: ~s", [Relation]),
 
         % The Big Players are the same with each.
-        {ok, ARFF} = arff:from_biggies(Relation, RegComm, RegEmo, Biggies, Players, Params),
+        {ok,
+         ARFF,
+         Counts} = arff:from_biggies(Relation, RegComm, RegEmo, Biggies, Players, Params),
         list_to_binary(ARFF)
     end,
     ARFFs = maps:map(DataSetter, DataSets),
