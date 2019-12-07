@@ -25,7 +25,7 @@
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(MIN_H0_TWEETS,  43).                % Low values make for empty rter|tmed days
+-define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
 
 -type dataset()      :: parms | train | test.
 -type verification() :: ack | nak | undefined.
@@ -40,8 +40,8 @@
 %%--------------------------------------------------------------------
 %eriod(parms) -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}];
 period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}]; % FIXME: overlap!
-%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
-period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME! shortie
+period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
+%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME! shortie
 period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %eriod(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
 
@@ -190,15 +190,20 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
     % Create the models
     RunResults = influence:run_top_nn(Tracker, RunTag, oter, fear, RunOpts),
     RefResults = influence:run_top_nn(Tracker, RefTag, oter, fear, RefOpts),
-                %RunResults,                                                    % <<FIXME!
 
     Report = fun
         Recur([], []) ->
             ok;
-        Recur([{N, {RunPCC, Attrs}} | RunRest],
-              [{N, {RefPCC, _}}     | RefRest]) ->
-            ?info("N @ ~2B: pcc[~7.4f] ref[~7.4f] attrs~p",
-                  [N, RunPCC, RefPCC, Attrs]),
+        Recur([{N, {RunPCC, RunAttrs}} | RunRest],
+              [{N, {RefVal, RefData}}  | RefRest]) ->
+            % We may not have had enough data for a reference score
+            {RefPCC,
+             ModelInfo} = case RefVal of
+                R when is_float(R)  -> {?str_fmt("~7.4f", [R]), RunAttrs};
+                need_data           -> {"*******",              RefData}
+            end,
+            ?info("N @ ~2B: pcc[~7.4f] ref[~s] model~p",
+                  [N, RunPCC, RefPCC, ModelInfo]),
             Recur(RunRest, RefRest)
     end,
     Report(RunResults, RefResults),
@@ -282,9 +287,9 @@ verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
 get_run_hash(Key) ->
     RunResults = #{% [gw,{top_n,5,25},level,oter,fear]:
                    "352931CCD47628D146746AB03F20697676A49FB32998DBBD28FD568CDEF9A9DB" =>
-                  %"B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",  % 2017-10-01--2018-07-01 CV
-                  %"F3D06C823253176CB6E7CD31AF35BF7534E82DCB931412A27A45DF85A9C6",    % 2017-10-01--2018-07-01 P
-                   "1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",  % 2017-10-01--2018-07-01 T
+                   "B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",  % 2017-10-01--2018-07-01 CV
+                  %"F3D06C823253176CB6E7CD31AF35BF7534E82DCB931412A27A45DF85A9C6",    % 2017-10-01--2018-07-01 Prm
+                  %"1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",  % 2017-10-01--2018-07-01 Tst
                   %"B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C", % 2017-10-01--2018-04-01 CV
 
                   % [gw,{top_n,5,25},variation,oter,fear]:

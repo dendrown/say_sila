@@ -284,12 +284,13 @@ report_open(Name, Opts) ->
 %       NOTE: If the FSM is still processing models, this function
 %             will block until the final model is processed.
 % @end  --
-report_line(none, FOut, Line) ->
-    ?io_fmt(FOut, "~B,,,,,,,,,,,,,,,,,,,,,,~n", [Line]);
+report_line(Model, FOut, Line) when is_pid(Model) ->
+    gen_statem:call(Model, {report_line, FOut, Line});
 
 
-report_line(Model, FOut, Line) ->
-    gen_statem:call(Model, {report_line, FOut, Line}).
+report_line(Failure, FOut, Line) ->
+    ?warning("Model #~B did not run: why~p", [Line, Failure]),
+    ?io_fmt(FOut, "~B,,,,,,,,,,,,,,,,,,,,,,~n", [Line]).
 
 
 
@@ -539,17 +540,33 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
                                                    [BigInfo(Grp) || Grp <- Biggies]]),
 
     % Prepare Weka modelling input.  We're going to need three datasets.
-    DataSetter = fun(Step, Players) ->
+    %
+    % For the `DataSetter' return:
+    %   - The ARFF data keeps same map structure
+    %   - Instance counts collapse to combine the train/parms/test steps
+    DataSetter = fun(Step, Players, {DataAcc, CntsAcc}) ->
+        % Tag the ARFF with the Step (train, parms, test)
         Relation = ?str_fmt("~s.~s", [Name, Step]),
         ?info("Creating ARFF: ~s", [Relation]),
 
-        % The Big Players are the same with each.
+        % The Big Players are the same for each dataset
+        % Example Counts: #{reg => #{oter => 26},
+        %                   big => #{oter => 26,rted => 26,rter => 26,tmed => 26}}
         {ok,
          ARFF,
          Counts} = arff:from_biggies(Relation, RegComm, RegEmo, Biggies, Players, Params),
-        list_to_binary(ARFF)
+
+        % Function to aggregate one grouping (big|reg) of comm-code counts
+        Recounter = fun(Grp, GrpCounts) ->
+            GrpCntsAcc = maps:get(Grp, CntsAcc, #{}),
+            maps:map(fun(Comm, Cnt) -> Cnt + maps:get(Comm, GrpCntsAcc, 0) end, GrpCounts)
+        end,
+
+        {maps:put(Step, list_to_binary(ARFF), DataAcc),         % Keys: train|parms|test
+         maps:map(Recounter, Counts)}                           % Keys: big|reg => oter|rter|rted|tmed
     end,
-    ARFFs = maps:map(DataSetter, DataSets),
+    {ARFFs,
+     Counts} = maps:fold(DataSetter, {#{}, #{}}, DataSets),
 
     % Function to name a working CSV file for Weka (use to fold from the ARFF map)
     ToCSV = fun(_, ARFF) ->
@@ -558,24 +575,38 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
         list_to_binary(CSV)
     end,
     CSVs = maps:map(ToCSV, ARFFs),
+    % We assume that the regular players will have original tweets every week
+    #{big := BigCnts,
+      reg := #{oter := InstCnt}} = Counts,
 
-    % We should be good to go...!
-    {ok, idle, #data{tracker    = Tracker,
-                     name       = Name,
-                     period     = proplists:get_value(period,    Params, 7),
-                     report     = proplists:get_value(report,    Params, false),
-                     data_mode  = proplists:get_value(data_mode, Params, level),
-                     datasets   = ARFFs,
-                     work_csvs  = CSVs,
-                     attributes = AllAttrs,
-                     init_attrs = InitAttrs,
-                     incl_attrs = InclAttrs,
-                     excl_attrs = ExclAttrs,
-                     reg_comm   = RegComm,
-                     reg_emo    = RegEmo,
-                     biggies    = Biggies,
-                     jvm_node   = raven:get_jvm_node(Tracker),
-                     models     = queue:new()}}.
+    % Function to check that our ARFFs have complete data
+    BigPcts = maps:map(fun(_,C) -> C/InstCnt end, BigCnts),
+    BadCnts = maps:filter(fun(_,Pct) -> Pct < 1.0 end, BigPcts),
+    ?debug("ARFF completion: ~p",  [BigPcts]),
+
+    % Make sure all the big players had values for all categories for all instances
+    case maps:size(BadCnts) of
+        0 ->
+            {ok, idle, #data{tracker    = Tracker,
+                             name       = Name,
+                             period     = proplists:get_value(period,    Params, 7),
+                             report     = proplists:get_value(report,    Params, false),
+                             data_mode  = proplists:get_value(data_mode, Params, level),
+                             datasets   = ARFFs,
+                             work_csvs  = CSVs,
+                             attributes = AllAttrs,
+                             init_attrs = InitAttrs,
+                             incl_attrs = InclAttrs,
+                             excl_attrs = ExclAttrs,
+                             reg_comm   = RegComm,
+                             reg_emo    = RegEmo,
+                             biggies    = Biggies,
+                             jvm_node   = raven:get_jvm_node(Tracker),
+                             models     = queue:new()}};
+        NumBads ->
+            ?error("Incomplete Big Player data: cnt[~B] pct~p", [NumBads, BadCnts]),
+            {stop, {need_data, BigPcts}}
+    end.
 
 
 
@@ -691,7 +722,8 @@ idle(Type, Evt, Data) ->
 run(enter, _OldState, Data = #data{name = Name}) ->
 
     ?info("Model ~s running on Weka", [Name]),
-    {keep_state, run_model(parms, Data)};
+   %{keep_state, run_model(parms, Data)};
+    {keep_state, run_model(cv, Data)};
 
 
 run(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
@@ -814,7 +846,8 @@ tune(Type, Evt, Data) ->
 eval(enter, tune, Data = #data{name = Name}) ->
 
     ?info("Evaluating final model ~s on Weka", [Name]),
-    {keep_state, run_model(test, Data)};
+   %{keep_state, run_model(test, Data)};
+    {keep_state, run_model(cv, Data)};
 
 
 eval(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
@@ -1134,42 +1167,47 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Params) ->
     end,
     ?debug("Influence by ~s: ~p", [Method, Pairs]),
 
-    Runner  = fun({Param, {RegEmo, RegComm}}) ->
-                  % Top-N range options need to be prefixed with the current Top-N
-                  RunOpts = case Method of
-                                normal  -> Params;
-                                biggies -> [{method, {biggies, Param}} | Params];
-                                next_n  -> [{method, {top_n,   Param}} | Params]
-                            end,
+    Runner = fun({Param, {RegEmo, RegComm}}) ->
+        % Top-N range options need to be prefixed with the current Top-N
+        RunOpts = case Method of
+            normal  -> Params;
+            biggies -> [{method, {biggies, Param}} | Params];
+            next_n  -> [{method, {top_n,   Param}} | Params]
+        end,
 
-                  % The model startup may fail if we don't have full data for all comm codes
-                  Model = case start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts) of
-                      {ok, Pid} -> influence:go(Pid), Pid;
-                      ignore    -> none
-                  end,
-                  {Param, Model} end,
-
-    Models  = lists:map(Runner, Inputs),
+        % The model startup may fail if we don't have full data for all comm codes
+        Model = try start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts) of
+            {ok, Pid} -> influence:go(Pid), Pid
+        catch
+            error:Why -> Why
+        end,
+        {Param, Model}
+    end,
+    Models = lists:map(Runner, Inputs),
 
     % Create an overview report:
     % The index number is either a general model counter OR the N in a Top-N range report
     Report = ?str_fmt("~s_~s", [Tracker, RunTag]),
     {ok, FOut,
          FPath} = influence:report_open(Report, Params),
-    Reporter = fun({Ndx, Model}) ->
-                   % Note the FSM may block until it finishes modelling
-                   influence:report_line(Model, FOut, Ndx),
-                   Ndx+1 end,
-    lists:foreach(Reporter, Models),
+    Reporter = fun
+        ({Ndx, Model}) ->
+            % Note the FSM may block until it finishes modelling
+            influence:report_line(Model, FOut, Ndx),
+            Return = case is_pid(Model) of
+                true ->
+                    Attrs = influence:get_outcome(Model),
+                    influence:stop(Model),
+                    Attrs;
+                false ->
+                    % The Model is actually a failure tuple
+                    Model
+            end,
+            {Ndx, Return}
+    end,
+    Results = [Reporter(M) || M <- Models],
 
     % Close the report, collect attributes, and shutdown the modelling FSMs
     FStatus = file:close(FOut),
     ?info("Results: file[~s] stat[~p]", [FPath, FStatus]),
-
-    Attribber = fun({Ndx, none})  -> {Ndx, []};
-                   ({Ndx, Model}) ->
-                    Attrs = influence:get_outcome(Model),
-                    influence:stop(Model),
-                    {Ndx, Attrs} end,
-    lists:map(Attribber, Models).
-
+    Results.

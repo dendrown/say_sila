@@ -129,7 +129,7 @@ from_biggies(Name, RegCode, RegEmos, Biggies, Players, Options) ->
     {FPath, FOut} = init_biggie_arff(Name, BigCodes, RegCodes, ?EMOTIONS, RegEmos),
 
     Counts = write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, ?EMOTIONS, RegEmos),
-    close_arff(FPath, FOut, #{counts => Counts}).
+    close_arff(FPath, FOut, Counts).
 
 
 
@@ -571,7 +571,7 @@ periodize_lots(CommCode, DayLots, Period, Days, InitComm) ->
 
         % Function to merge a day lot into an accumulating period lot
         Reemoter = fun(Code, DayComm, LotAcc) ->
-            ?debug("Re-emoting: code[~s] comm~p", [Code, DayComm]),
+            %?debug("Re-emoting: code[~s] comm~p", [Code, DayComm]),
             AccComm = maps:get(Code, LotAcc, InitComm),
             NewEmos = emo:average(AccComm#comm.emos,
                                   DayComm#comm.emos),
@@ -611,8 +611,8 @@ periodize_lots(CommCode, DayLots, Period, Days, InitComm) ->
                     ?warning("Empty ~s day @ ~s <~B>",
                              [CommCode, dts:date_str(Day, millisecond), Day]);
                 1 ->
-                    ?debug("Remapped ~s @ ~s <~B>",
-                             [CommCode, dts:date_str(Day, millisecond), Day]),
+                    %?debug("Remapped ~s @ ~s <~B>",
+                    %         [CommCode, dts:date_str(Day, millisecond), Day]),
                     % Sanity check against comms w/ no tweets!
                     maps:fold(Check00s, Day, Remap),
                     ok
@@ -681,6 +681,9 @@ init_biggie_arff(Name, BigCodes, RegCodes, BigEmos, RegEmos) ->
 % @end  --
 write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos) ->
 
+    % It's possible that we'll have empty commication codes in the `BigLots'
+    EmptyComm = ?NEW_COMM,
+
     % IMPORTANT: This function repeats code in several places to handle big things
     %            and then regular things.  Before attempting to refactor it (again), 
     %            think!  At the beginning and then in the middle of the complexity,
@@ -693,21 +696,23 @@ write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos) 
                  Levels end,
 
     % Function to write one comm on one line of the ARFF
-    Commer = fun(Code, {DTS, Grp, GrpLots, Emotions, Counts}) ->
-         Cnt  = maps:get(Code, Counts, 0),
-         Lots = proplists:get_value(Code, GrpLots, #{}),
-         {NewCnt,
-          Comms} = case maps:get(DTS, Lots, none) of
-            none ->
-                ?warning("Missing lot: grp[~s] comm[~s] ms[~B] dts[~s]",
+    Commer = fun(Code, {DTS, Grp, GrpLots, Emotions, InstCounts}) ->
+        InstCnt  = maps:get(Code, InstCounts, 0),
+        CommLots = proplists:get_value(Code, GrpLots),
+        CommLot  = maps:get(DTS, CommLots),
+        #comm{cnt  = TwCnt,
+              emos = Emos} = maps:get(Code, CommLot, EmptyComm),
+
+        % We will fill in attribute values with zeros if there are no tweets, but the
+         NewInstCnt = case TwCnt > 0 of
+            true  -> InstCnt + 1;
+            false ->
+                ?warning("Empty lot: grp[~s] comm[~s] ms[~B] dts[~s]",
                          [Grp, Code, DTS, dts:str(DTS, millisecond)]),
-                {Cnt, #{Code => ?NEW_COMM}};
-            Lot ->
-                {Cnt+1, Lot}
+                InstCnt
          end,
-         #comm{emos = Emos} = maps:get(Code, Comms),
          lists:foldl(Emoter, Emos#emos.levels, Emotions),
-         {DTS, Grp, GrpLots, Emotions, maps:put(Code, NewCnt, Counts)}
+         {DTS, Grp, GrpLots, Emotions, maps:put(Code, NewInstCnt, InstCounts)}
     end,
 
     % Function to write one line of the ARFF
@@ -727,6 +732,6 @@ write_biggie_arff(FOut, BigCodes, RegCodes, BigLots, RegLots, BigEmos, RegEmos) 
     ?put_data(FOut),
     Template  = proplists:get_value(oter, BigLots),
     LotStamps = maps:keys(Template),
-    ?debug("Lot stamps: ~p", [LotStamps]),
+    %?debug("Lot stamps: ~p", [LotStamps]),
     lists:foldl(Liner, #{}, LotStamps).
 
