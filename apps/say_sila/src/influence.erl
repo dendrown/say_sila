@@ -39,7 +39,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -behaviour(gen_statem).
--export([start_link/4,  start_link/5,
+-export([start/4,  start/5,
          stop/1,
          reset/1,
          go/1,
@@ -124,20 +124,20 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec start_link(Tracker :: cc | gw,
-                 RunTag  :: stringy(),
-                 RegComm :: comm_code(),
-                 RegEmo  :: atom()) -> gen_statem:start_ret().
+-spec start(Tracker :: cc | gw,
+            RunTag  :: stringy(),
+            RegComm :: comm_code(),
+            RegEmo  :: atom()) -> gen_statem:start_ret().
 %%
 % @doc  Startup function for a daily Twitter influence model
 % @end  --
-start_link(Tracker, RunTag, RegComm, RegEmo) ->
-    start_link(Tracker, RunTag, RegComm, RegEmo, []).
+start(Tracker, RunTag, RegComm, RegEmo) ->
+    start(Tracker, RunTag, RegComm, RegEmo, []).
 
 
 
 %%--------------------------------------------------------------------
--spec start_link(Tracker :: cc | gw,
+-spec start(Tracker :: cc | gw,
                  RunTag  :: stringy(),
                  RegComm :: comm_code(),
                  RegEmo  :: atom(),
@@ -145,16 +145,16 @@ start_link(Tracker, RunTag, RegComm, RegEmo) ->
 %%
 % @doc  Startup function for Twitter influence model
 % @end  --
-start_link(Tracker, RunTag, RegComm, RegEmo, Params) ->
+start(Tracker, RunTag, RegComm, RegEmo, Params) ->
 
     % It's too easy to get the comm/emo backwards, and the model goes haywire!
     case {lists:member(RegComm, ?COMM_CODES),
           lists:member(RegEmo,  ?EMOTIONS)} of
 
         {true, true} ->
-            gen_statem:start_link(?MODULE,
-                                  [Tracker, RunTag, RegComm, RegEmo, Params],
-                                  []);
+            gen_statem:start(?MODULE,
+                             [Tracker, RunTag, RegComm, RegEmo, Params],
+                             []);
 
         _ ->
             ?error("Invalid parameter: comm[~s] emo[~s]", [RegComm, RegEmo]),
@@ -467,11 +467,11 @@ run_top_nn(Tracker, RunTag, Comm, Emo) ->
 run_top_nn(Tracker, RunTag, Comm, Emo, Params) ->
 
     % Do An initial run, keeping the results above a minimum correlation score
+    % Aborted models tagged with `need_data' are NOT considered.
     TagTopN  = extend_run_tag(RunTag, Comm, Emo, ?INIT_TOP_RANGE),
     MinScore = ?MIN_NN_SCORE,
-    BaseRun  = lists:filter(fun({_, {Score, _}}) ->
-                                abs(Score) >= MinScore
-                                end,
+    BaseRun  = lists:filter(fun({_, {need_data, _}}) -> false;
+                               ({_, {Score, _}})     -> abs(Score) >= MinScore end,
                             run_top_n(Tracker, TagTopN, Comm, Emo, Params)),
 
     % Function to tally up attribute usage across the models
@@ -604,7 +604,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
                              jvm_node   = raven:get_jvm_node(Tracker),
                              models     = queue:new()}};
         NumBads ->
-            ?error("Incomplete Big Player data: cnt[~B] pct~p", [NumBads, BadCnts]),
+            ?warning("Aborting! Incomplete big player data: cnt[~B] pct~p", [NumBads, BadCnts]),
             {stop, {need_data, BigPcts}}
     end.
 
@@ -722,8 +722,8 @@ idle(Type, Evt, Data) ->
 run(enter, _OldState, Data = #data{name = Name}) ->
 
     ?info("Model ~s running on Weka", [Name]),
-   %{keep_state, run_model(parms, Data)};
-    {keep_state, run_model(cv, Data)};
+    {keep_state, run_model(parms, Data)};
+   %{keep_state, run_model(cv, Data)};
 
 
 run(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
@@ -846,8 +846,8 @@ tune(Type, Evt, Data) ->
 eval(enter, tune, Data = #data{name = Name}) ->
 
     ?info("Evaluating final model ~s on Weka", [Name]),
-   %{keep_state, run_model(test, Data)};
-    {keep_state, run_model(cv, Data)};
+    {keep_state, run_model(test, Data)};
+   %{keep_state, run_model(cv, Data)};
 
 
 eval(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
@@ -1175,11 +1175,11 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Params) ->
             next_n  -> [{method, {top_n,   Param}} | Params]
         end,
 
-        % The model startup may fail if we don't have full data for all comm codes
-        Model = try start_link(Tracker, RunTag, RegComm, RegEmo, RunOpts) of
-            {ok, Pid} -> influence:go(Pid), Pid
-        catch
-            error:Why -> Why
+        % The model startup may fail if we don't have full data for all comm codes.
+        % The "error" will be the return value for the machine.
+        Model = case start(Tracker, RunTag, RegComm, RegEmo, RunOpts) of
+            {ok, Pid}    -> influence:go(Pid), Pid;
+            {error, Why} -> Why
         end,
         {Param, Model}
     end,
@@ -1209,5 +1209,7 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Params) ->
 
     % Close the report, collect attributes, and shutdown the modelling FSMs
     FStatus = file:close(FOut),
-    ?info("Results: file[~s] stat[~p]", [FPath, FStatus]),
+    ?notice("Results: file[~s] stat[~p]", [FPath, FStatus]),
+    ?debug("Results: ~p", [Results]),
     Results.
+
