@@ -202,28 +202,32 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
     RunResults = influence:run_top_nn(Tracker, RunTag, oter, fear, RunOpts),
     RefResults = influence:run_top_nn(Tracker, RefTag, oter, fear, RefOpts),
 
+    % Function to check a value and add a warning to a collection if it is not correct
+    Checker = fun(Step, N, Score, Data, Warnings) ->
+         case Score of
+            S when is_float(S)  -> {?str_fmt("~7.4f", [S]), Warnings};
+            need_data           -> {"*******",              [{Step, N, Data} | Warnings]}
+        end
+    end,
+
     % Report the results, collecting the warnings so we can log them all after the report
     Report = fun
         Recur([], [], Warnings) ->
             Warnings;
-        Recur([{N, {RunPCC, RunAttrs}} | RunRest],
-              [{N, {RefVal, RefData}}  | RefRest], Warnings) ->
+        Recur([{N, {RunVal, RunData}} | RunRest],
+              [{N, {RefVal, RefData}} | RefRest], Warnings) ->
             % We may not have had enough data for a reference score
-            {RefPCC,
-             NewWarnings} = case RefVal of
-                R when is_float(R)  -> {?str_fmt("~7.4f", [R]), Warnings};
-                need_data           -> {"*******",              [{N, RefData} | Warnings]}
-            end,
-            ?info("N @ ~2B: pcc[~7.4f] ref[~s] attrs~p",
-                  [N, RunPCC, RefPCC, RunAttrs]),
+            {RunPCC, MidWarnings} = Checker(run, N, RunVal, RunData, Warnings),
+            {RefPCC, NewWarnings} = Checker(ref, N, RefVal, RefData, MidWarnings),
+            ?info("N @ ~2B: pcc[~s] ref[~s] model~p", [N, RunPCC, RefPCC, RunData]),
             Recur(RunRest, RefRest, NewWarnings)
     end,
     Warnings = Report(RunResults, RefResults, []),
 
     % And report the warnings
-    Warner = fun({N, CntMap}) ->
+    Warner = fun({Step, N, CntMap}) ->
         CntTxt = [?str_fmt(" ~s[~6.4f]", [Comm, Pct]) || {Comm, Pct} <- maps:to_list(CntMap)],
-        ?warning("No reference model #~2B:~s", [N, CntTxt])
+        ?warning("No reference ~s model #~2B:~s", [Step, N, CntTxt])
     end,
     [Warner(W) || W <- lists:reverse(Warnings)],
 
@@ -307,22 +311,26 @@ verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
 get_run_hash(Key) ->
     RunResults = #{% [gw,{top_n,5,25},level,oter,fear]:
                    "352931CCD47628D146746AB03F20697676A49FB32998DBBD28FD568CDEF9A9DB" =>
-                   "1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",  % 2017-10-01--2018-07-01 T
-                  %"B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",  % 2017-10-01--2018-07-01 CV
-                  %"F3D06C823253176CB6E7CD31AF35BF7534E82DCB931412A27A45DF85A9C6",    % 2017-10-01--2018-07-01 P
-                  % ----------------------------------------------------------------  % ---------------------- --
-                  %"B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C", % 2017-10-01--2018-04-01 CV
+                   "1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",    % Oct 2017 -- Jun 2018 T
+                  %"B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",    % Oct 2017 -- Jun 2018 CV
+                  %"F3D06C823253176CB6E7CD31AF35BF7534E82DCB931412A27A45DF85A9C6",      % Oct 2017 -- Jun 2018 P
+                  % ----------------------------------------------------------------    % -------------------- --
+                  %"B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C",   % Oct 2017 -- Mar 2018 CV
 
-                  % [gw,{top_n,5,25},variation,oter,fear]:
-                  "8A69D3DEA8771FC29DE45C2C4F51D97E5E1CA679E70581AA6882E39B05D79CF" =>
-                 %"349D3D34F24861ED24C5E7875173A1C1A1E17F07EB178F21668E49051825F0",   % 2017-10-01--2018-07-01 T
-                 %"1BFCA2360158A88FB45CF6BCCD5D310D43ADD371A9BB9A259640789C9EE066",   % 2017-10-01--2018-07-01 CV
-                 % ----------------------------------------------------------------   % ---------------------- --
-                  "E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",     % 2017-10-01--2018-04-01 T
+                   % [gw,{top_n,5,25},variation,oter,fear]:
+                   "8A69D3DEA8771FC29DE45C2C4F51D97E5E1CA679E70581AA6882E39B05D79CF" =>
+                  %"349D3D34F24861ED24C5E7875173A1C1A1E17F07EB178F21668E49051825F0",    % Oct 2017 -- Jun 2018 T
+                  %"1BFCA2360158A88FB45CF6BCCD5D310D43ADD371A9BB9A259640789C9EE066",    % Oct 2017 -- Jun 2018 CV
+                  % ----------------------------------------------------------------    % -------------------- --
+                   "E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",      % Oct 2017 -- Mar 2018 T
 
-                  %[{run,2},gw,{top_n,5,25},level,oter,fear]:
+                   % [{run,2},gw,{top_n,5,25},level,oter,fear]:
                    "A437A83557F7D366B99B08D3F21D2BF156ECEF24F99E9CB7BF58F3D316DC058" =>
-                   "505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",% Sep 2018 -- Aug 2019 T
+                   "505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",  % Sep 2018 -- Aug 2019 T
+
+                   % [{run,2},gw,{top_n,5,25},"variation",oter,fear]:
+                  "A6BC44CC82155AE2D24D1229F9CD59E9EE439B3FC5C79937145AED3A5A1654" =>
+                  "505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",   % Sep 2018 -- Aug 2019 T
 
                    % [gw,{top_n,10,25},oter,fear]: [TODO]
                    "C9D3FC24B8A4CC261E436434E7AA6CCCF6855A8D27554784ECA9EF9D41FC9374" =>
