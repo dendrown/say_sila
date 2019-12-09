@@ -1146,7 +1146,7 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Params) ->
     % NOTE: Only the `normal' single report sends multiple emotions and comms.
     Pairs = [{Emo, Comm} || Emo <- Emotions, Comm <- CommCodes],
 
-    % In spite of the variable name, the `method' is not optional here:
+    % NOTE: the `method' parameter is required here:
     % Check for biggie|top_n range reports & setup a single emo/comm pair
     {Method,
      Inputs} = case proplists:get_value(method, Params) of
@@ -1210,6 +1210,6 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Params) ->
     % Close the report, collect attributes, and shutdown the modelling FSMs
     FStatus = file:close(FOut),
     ?notice("Results: file[~s] stat[~p]", [FPath, FStatus]),
-    ?debug("Results: ~p", [Results]),
+    %?debug("Results: ~p", [Results]),
     Results.
 

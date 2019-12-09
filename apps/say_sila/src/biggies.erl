@@ -30,20 +30,31 @@
 -type dataset()      :: parms | train | test.
 -type verification() :: ack | nak | undefined.
 
-
+-define(RUN, 2).
 %%--------------------------------------------------------------------
 -spec period(DataTag :: dataset()) -> proplist().
 %%
 %% Shortcut to get tracking run period.
 %%
+%% RUN-2:   May 2018 -- Aug 2018                        (parms)
+%%          Sep 2018 -- Aug 2019                        (train)
+%%          Sep 2019 -- Dec 2019                        (test)
+%%--------------------------------------------------------------------
+-if(?RUN =:= 2).
+period(parms) -> [{start, {2018, 05, 01}}, {stop, {2018, 09, 01}}];
+period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 09, 01}}];
+period(test)  -> [{start, {2019, 09, 01}}, {stop, {2019, 12,  8}}]. % TODO: goto 2020/1/1
+-else.
+%%--------------------------------------------------------------------
 %% RUN-1: October 1, 2017 -- June 30, 2018              (10-fold CV)
 %%--------------------------------------------------------------------
 %eriod(parms) -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}];
 period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}]; % FIXME: overlap!
-period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
-%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME! shortie
+%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
+period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME! shortie
 period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %eriod(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
+-endif.
 
 
 %%--------------------------------------------------------------------
@@ -269,7 +280,7 @@ verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
         lists:flatten([io_lib:format("~.16B", [X]) || <<X>> <= crypto:hash(sha256, term_to_binary(Elm))])
     end,
 
-    Cfg = [Tracker, Method, DataMode, Comm, Emo],
+    Cfg = [{run,?RUN}, Tracker, Method, DataMode, Comm, Emo],
     Key = Hash(Cfg),
     Val = Hash(Results),
 
@@ -296,14 +307,22 @@ verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
 get_run_hash(Key) ->
     RunResults = #{% [gw,{top_n,5,25},level,oter,fear]:
                    "352931CCD47628D146746AB03F20697676A49FB32998DBBD28FD568CDEF9A9DB" =>
+                   "1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",  % 2017-10-01--2018-07-01 T
                   %"B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",  % 2017-10-01--2018-07-01 CV
                   %"F3D06C823253176CB6E7CD31AF35BF7534E82DCB931412A27A45DF85A9C6",    % 2017-10-01--2018-07-01 P
-                  %"1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",  % 2017-10-01--2018-07-01 T
-                   "B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C", % 2017-10-01--2018-04-01 CV
+                  % ----------------------------------------------------------------  % ---------------------- --
+                  %"B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C", % 2017-10-01--2018-04-01 CV
 
                   % [gw,{top_n,5,25},variation,oter,fear]:
                   "8A69D3DEA8771FC29DE45C2C4F51D97E5E1CA679E70581AA6882E39B05D79CF" =>
-                  "E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",     % 2017-10-01--2018-07-01 T
+                 %"349D3D34F24861ED24C5E7875173A1C1A1E17F07EB178F21668E49051825F0",   % 2017-10-01--2018-07-01 T
+                 %"1BFCA2360158A88FB45CF6BCCD5D310D43ADD371A9BB9A259640789C9EE066",   % 2017-10-01--2018-07-01 CV
+                 % ----------------------------------------------------------------   % ---------------------- --
+                  "E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",     % 2017-10-01--2018-04-01 T
+
+                  %[{run,2},gw,{top_n,5,25},level,oter,fear]:
+                   "A437A83557F7D366B99B08D3F21D2BF156ECEF24F99E9CB7BF58F3D316DC058" =>
+                   "505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",% Sep 2018 -- Aug 2019 T
 
                    % [gw,{top_n,10,25},oter,fear]: [TODO]
                    "C9D3FC24B8A4CC261E436434E7AA6CCCF6855A8D27554784ECA9EF9D41FC9374" =>
