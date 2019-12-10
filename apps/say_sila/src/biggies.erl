@@ -30,7 +30,7 @@
 -type dataset()      :: parms | train | test.
 -type verification() :: ack | nak | undefined.
 
--define(RUN, 2).
+
 %%--------------------------------------------------------------------
 -spec period(DataTag :: dataset()) -> proplist().
 %%
@@ -40,18 +40,34 @@
 %%          Sep 2018 -- Aug 2019                        (train)
 %%          Sep 2019 -- Dec 2019                        (test)
 %%--------------------------------------------------------------------
+-define(RUN, 2).
+%% biggies:run_top_nn(gw, run2L, [{data_mode, level}]).
+%% biggies:run_top_nn(gw, run2V, [{data_mode, variation}]).
+%%--------------------------------------------------------------------
 -if(?RUN =:= 2).
-period(parms) -> [{start, {2018, 05, 01}}, {stop, {2018, 09, 01}}];
-period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 09, 01}}];
-period(test)  -> [{start, {2019, 09, 01}}, {stop, {2019, 12,  8}}]. % TODO: goto 2020/1/1
+%period(parms) -> [{start, {2018, 05, 01}}, {stop, {2018, 09, 01}}];
+%period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 09, 01}}];
+%period(test)  -> [{start, {2019, 09, 01}}, {stop, {2019, 12,  8}}]. % TODO: goto 2020/1/1
+
+%period(parms) -> [{start, {2018, 09, 01}}, {stop, {2018, 12, 01}}];
+%period(train) -> [{start, {2018, 12, 01}}, {stop, {2019, 09, 01}}];
+%period(test)  -> [{start, {2019, 09, 01}}, {stop, {2019, 12,  1}}]. % TODO: goto 2020/1/1
+
+%period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}];
+%period(train) -> [{start, {2017, 12, 01}}, {stop, {2018, 09, 01}}];
+%period(test)  -> [{start, {2018, 09, 01}}, {stop, {2019, 01, 01}}].
+
+period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
+period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
+period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 -else.
 %%--------------------------------------------------------------------
 %% RUN-1: October 1, 2017 -- June 30, 2018              (10-fold CV)
 %%--------------------------------------------------------------------
 %eriod(parms) -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}];
 period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}]; % FIXME: overlap!
-%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
-period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME! shortie
+period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
+%eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME! shortie
 period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %eriod(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
 -endif.
@@ -190,7 +206,7 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
     DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
     RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies} | Options],
     RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums} | Options],
-    RefTag   = ?str_fmt("~s.H0", [RunTag]),
+    RefTag   = ?str_fmt("~s_H0", [RunTag]),
 
     Totals = #{tter := Count} = wait_on_players(Tracker),
     ?notice("Completed processing ~p tweets", [Count]),
@@ -209,6 +225,15 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
             need_data           -> {"*******",              [{Step, N, Data} | Warnings]}
         end
     end,
+
+    % Announce the report and log the time periods
+    ?notice("Reporting run for data mode ~s", [DataMode]),
+    LogStamper = fun(Step) ->
+        Period = period(Step),
+        [?info("Period ~-5s: ~s__~s", [Step | [dts:str(proplists:get_value(T, Period)) || T <- [start,stop]]])]
+    end,
+    [LogStamper(Step) || Step <- [parms, train, test]],
+
 
     % Report the results, collecting the warnings so we can log them all after the report
     Report = fun
@@ -290,9 +315,9 @@ verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
 
     ?info("RUN: ~s % ~p: ~p => ~p", [RunTag, Cfg, Key, Val]),
     case get_run_hash(Key) of
-        none -> ?notice("No previous results to compare"),                          undefined;
+        none -> ?warning("No previous results to compare"),                         undefined;
         Val  -> ?notice("Results are consistent!"),                                 ack;
-        Prev -> ?warning("Results do not match previous runs: prev[~p]", [Prev]),   nak
+        Prev -> ?error("Results do not match previous runs: prev[~p]", [Prev]),     nak
     end.
 
 
@@ -309,9 +334,10 @@ verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
 %             during this initial implementation.
 % @end  --
 get_run_hash(Key) ->
-    RunResults = #{% [gw,{top_n,5,25},level,oter,fear]:
-                   "352931CCD47628D146746AB03F20697676A49FB32998DBBD28FD568CDEF9A9DB" =>
-                   "1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",    % Oct 2017 -- Jun 2018 T
+    RunResults = #{% [{run,1},gw,{top_n,5,25},level,oter,fear]:
+                   "D61A164696BDDDAA50CCEA917D9B19F984889A5489B47DC1E3F2FE40C81CF64C" =>
+%% PREV!!!         "1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",    % Oct 2017 -- Jun 2018 T PREV
+                   "2ECC755C6BB3F5E4D384364AE0FC65B284F2BF433C803FD32E4099549B86B4",    % Oct 2017 -- Jun 2018 T
                   %"B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",    % Oct 2017 -- Jun 2018 CV
                   %"F3D06C823253176CB6E7CD31AF35BF7534E82DCB931412A27A45DF85A9C6",      % Oct 2017 -- Jun 2018 P
                   % ----------------------------------------------------------------    % -------------------- --
@@ -319,18 +345,23 @@ get_run_hash(Key) ->
 
                    % [gw,{top_n,5,25},variation,oter,fear]:
                    "8A69D3DEA8771FC29DE45C2C4F51D97E5E1CA679E70581AA6882E39B05D79CF" =>
-                  %"349D3D34F24861ED24C5E7875173A1C1A1E17F07EB178F21668E49051825F0",    % Oct 2017 -- Jun 2018 T
+                   "349D3D34F24861ED24C5E7875173A1C1A1E17F07EB178F21668E49051825F0",    % Oct 2017 -- Jun 2018 T
                   %"1BFCA2360158A88FB45CF6BCCD5D310D43ADD371A9BB9A259640789C9EE066",    % Oct 2017 -- Jun 2018 CV
                   % ----------------------------------------------------------------    % -------------------- --
-                   "E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",      % Oct 2017 -- Mar 2018 T
+                  %"E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",      % Oct 2017 -- Mar 2018 T
 
                    % [{run,2},gw,{top_n,5,25},level,oter,fear]:
                    "A437A83557F7D366B99B08D3F21D2BF156ECEF24F99E9CB7BF58F3D316DC058" =>
                    "505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",  % Sep 2018 -- Aug 2019 T
 
-                   % [{run,2},gw,{top_n,5,25},"variation",oter,fear]:
-                  "A6BC44CC82155AE2D24D1229F9CD59E9EE439B3FC5C79937145AED3A5A1654" =>
-                  "505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",   % Sep 2018 -- Aug 2019 T
+                  % [{run,2},gw,{top_n,5,25},variation,oter,anger]:
+                  "FIXME" =>
+                  "B5D010FE5C4FF8BA0B1B7AB8A5B3B396723EC772A9ED7D15CD014381EB4EDE7",  % Sep 2018 -- Aug 2019 T
+
+                  % [{run,2},gw,{top_n,5,25},variation,oter,fear]:
+                  "42115A234D67D1E668535FC402F6FAA7E6CA2424AF817678D5F637F12851D96" =>
+                  "74FDC59D6B9698067CCEB68078BB947D32DB6B4F739F4C6FBE7BBE38DC172A",     % 2018-01-01__2018-10-01 T
+                 %"3EDBCCDB958495E35F2EE819ED1C28C9BAF12C56FA574E4713FF52E59F17E1A",    % Sep 2018 -- Aug 2019 T
 
                    % [gw,{top_n,10,25},oter,fear]: [TODO]
                    "C9D3FC24B8A4CC261E436434E7AA6CCCF6855A8D27554784ECA9EF9D41FC9374" =>
