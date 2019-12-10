@@ -22,7 +22,7 @@
                  [edu.cmu.cs/ark-tweet-nlp              "0.3.2"]
                  [it.unimi.dsi/fastutil                 "7.0.13"]
                  [uk.ac.wlv/sentistrength               "0.1.0"]
-                 [affective/affectivetweets             "1.0.1"]
+                 [affective/affectivetweets             "1.0.2"]
                  [org.tartarus/snowball                 "1.0.0"]
                  ; Ontologies
                  [uk.org.russet/tawny-owl               "2.0.0"]
@@ -45,7 +45,7 @@
 ; * Weka AffectiveTweets
 ;   ~/wekafiles/packages/AffectiveTweets/AffectiveTweets.jar
 ;   affective/affectivetweets
-;   1.0.1
+;   1.0.2
 ;
 ; * Weka SentiStrength
 ;   ~/wekafiles/packages/AffectiveTweets/lib/SentiStrength.jar
