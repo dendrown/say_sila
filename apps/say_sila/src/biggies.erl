@@ -136,11 +136,11 @@ make_h0(Biggies, Players) ->
 
 %%--------------------------------------------------------------------
 -spec run_top_nn(Tracker :: tracker(),
-                 RunTag  :: stringy()) -> verification().
+                 RunTag  :: stringy()) -> [verification()].
 
 -spec run_top_nn(Tracker :: tracker(),
                  RunTag  :: stringy(),
-                 Options :: proplist()) -> verification().
+                 Options :: proplist()) -> [verification()].
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -178,7 +178,7 @@ run_top_nn(Tracker, RunTag, Options) ->
 %%--------------------------------------------------------------------
 -spec run_top_nn_aux(Tracker :: tracker(),
                      RunTag  :: stringy(),
-                     Options :: proplist()) -> verification().
+                     Options :: proplist()) -> [verification()].
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -214,9 +214,47 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
                  ?info("* ~s: ~B", [Comm, Cnt]) end,
              Totals),
 
-    % Create the models
-    RunResults = influence:run_top_nn(Tracker, RunTag, oter, fear, RunOpts),
-    RefResults = influence:run_top_nn(Tracker, RefTag, oter, fear, RefOpts),
+    % Function to create and run models for all emotions
+    Process = fun(Tag, Opts) ->
+        [{Emo, influence:run_top_nn(Tracker, Tag, oter, Emo, Opts)} || Emo <- ?EMOTIONS]
+    end,
+
+    % Process sets of run and reference models
+    RunResults = Process(RunTag, RunOpts),
+    RefResults = Process(RefTag, RefOpts),
+
+    %
+    Report = fun
+        Recur([], [], Verifications) ->
+            Verifications;
+        Recur([{Emo, Run} | RestRuns],
+              [{Emo, Ref} | RestRefs], Verifications) ->
+            V = report_run(Tracker, Method, DataMode, Emo, Run, Ref),
+            Recur(RestRuns, RestRefs, [V|Verifications])
+    end,
+    Report(RunResults, RefResults, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec report_run(Tracker    :: tracker(),
+                 Method     :: tuple(),
+                 DataMode   :: data_mode(),
+                 Emotion    :: emotion(),
+                 RunResults :: proplist(),
+                 RefResults :: proplist()) -> verification().
+%%
+% @doc  Hold processing until Weka has returned all tweet batches and
+% @end  --
+report_run(Tracker, Method, DataMode, Emotion, RunResults, RefResults) ->
+
+    % Announce the report and log the time periods
+    ?notice("Reporting '~s' run for ~s", [DataMode, Emotion]),
+    LogStamper = fun(Step) ->
+        Period = period(Step),
+        [?info("Period ~-5s: ~s__~s", [Step | [dts:str(proplists:get_value(T, Period)) || T <- [start,stop]]])]
+    end,
+    [LogStamper(Step) || Step <- [parms, train, test]],
 
     % Function to check a value and add a warning to a collection if it is not correct
     Checker = fun(Step, N, Score, Data, Warnings) ->
@@ -225,15 +263,6 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
             need_data           -> {"*******",              [{Step, N, Data} | Warnings]}
         end
     end,
-
-    % Announce the report and log the time periods
-    ?notice("Reporting run for data mode ~s", [DataMode]),
-    LogStamper = fun(Step) ->
-        Period = period(Step),
-        [?info("Period ~-5s: ~s__~s", [Step | [dts:str(proplists:get_value(T, Period)) || T <- [start,stop]]])]
-    end,
-    [LogStamper(Step) || Step <- [parms, train, test]],
-
 
     % Report the results, collecting the warnings so we can log them all after the report
     Report = fun
@@ -256,7 +285,7 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
     end,
     [Warner(W) || W <- lists:reverse(Warnings)],
 
-    verify_run(Tracker, RunTag, Method, DataMode,  oter, fear, RunResults).
+    verify_run(Tracker, Method, DataMode,  oter, fear, RunResults).
 
 
 
@@ -290,7 +319,6 @@ wait_on_players(Tracker) ->
 
 %%--------------------------------------------------------------------
 -spec verify_run(Tracker  :: tracker(),
-                 RunTag   :: stringy(),
                  Method   :: tuple(),
                  DataMode :: data_mode(),
                  Comm     :: comm_code(),
@@ -302,7 +330,7 @@ wait_on_players(Tracker) ->
 %       a previous run), then we compare the current run's results
 %       and warn the user they don't match up.
 % @end  --
-verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
+verify_run(Tracker, Method, DataMode, Comm, Emo, Results) ->
 
     % Function to create a hexstring SHA-256 fingerprint
     Hash = fun(Elm) ->
@@ -313,7 +341,7 @@ verify_run(Tracker, RunTag, Method, DataMode, Comm, Emo, Results) ->
     Key = Hash(Cfg),
     Val = Hash(Results),
 
-    ?info("RUN: ~s % ~p: ~p => ~p", [RunTag, Cfg, Key, Val]),
+    ?info("RUN % ~p: ~p => ~p", [Cfg, Key, Val]),
     case get_run_hash(Key) of
         none -> ?warning("No previous results to compare"),                         undefined;
         Val  -> ?notice("Results are consistent!"),                                 ack;
@@ -352,7 +380,8 @@ get_run_hash(Key) ->
 
                    % [{run,2},gw,{top_n,5,25},level,oter,fear]:
                    "A437A83557F7D366B99B08D3F21D2BF156ECEF24F99E9CB7BF58F3D316DC058" =>
-                   "505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",  % Sep 2018 -- Aug 2019 T
+                   "3B19F02B1BA0B221EBDC7CEFE3F37F7211A8E65FE92F7A47B463A9F47F120",     % 2018-01-01__2018-10-01 T
+                  %"505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",  % Sep 2018 -- Aug 2019 T
 
                   % [{run,2},gw,{top_n,5,25},variation,oter,anger]:
                   "FIXME" =>
