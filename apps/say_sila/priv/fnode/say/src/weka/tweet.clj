@@ -11,8 +11,8 @@
 ;;;; @copyright 2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns weka.tweet
-  (:require [say.config      :as cfg]
-            [say.genie       :as !!]
+  (:require [say.genie       :refer :all]
+            [say.config      :as cfg]
             [say.log         :as log]
             [weka.core       :as weka]
             [clojure.java.io :as io]
@@ -23,7 +23,8 @@
                         Instance
                         Instances]
             [weka.classifiers Evaluation]
-            [weka.classifiers.functions LinearRegression]
+            [weka.classifiers.functions GaussianProcesses
+                                        LinearRegression]
             [weka.core.stemmers SnowballStemmer]
             [weka.core.stopwords WordsFromFile]
             [weka.filters Filter]
@@ -128,7 +129,7 @@
 
   Returns a vector of the output filenames."
   [fpath flt-keys]
-  (let [filters    (!!/listify flt-keys)
+  (let [filters    (listify flt-keys)
         data-in    (weka/load-arff fpath)
         data-mid   (reduce #(filter-instances %1 %2) data-in filters)   ; Apply filter(s)
         data-out   (filter-instances data-mid :attrs)                   ; Remove text attr
@@ -142,12 +143,8 @@
 ;;; --------------------------------------------------------------------------
 (defn regress
   "Runs a Linear Regression model on the ARFF at the specified filepath."
-  [{:keys [datasets
-           target
-           data_mode
-           eval_mode
-           exclude
-           work_csvs]}]
+  [{:as   conf
+    :keys [datasets data_mode eval_mode exclude target work_csvs]}]
 
   (log/info "Excluding attributes:" exclude)
   (try
@@ -191,7 +188,14 @@
                               (.name (.classAttribute ^Instances dset))
                               fpath
                               (if var? "var" "lvl"))
-                dset))]
+                dset))
+
+            ;; ---------------------------------------------------------------
+            (load-model []
+              (case (get conf :learner "LR")
+                "LR" (LinearRegression.)
+                "GP" (GaussianProcesses.)))]
+
 
       (let [insts   ^Instances (load-data :train)
             tests   (cond
@@ -205,7 +209,7 @@
           (weka/save-file (:train work_csvs) insts :csv))
 
         ;; Use N-fold cross validation for training/evaluation
-        (let [model       (LinearRegression.)
+        (let [model       (load-model)
               audit       (Evaluation. insts)
               attr-coeff  (fn [[ndx coeff]]
                             (let [attr (.attribute insts (int ndx))
@@ -214,11 +218,11 @@
 
           ;; The final model training always uses the full dataset
           (.buildClassifier model insts)
-          (log/info "Model:\n" (str model))
+          (log/fmt-info "Model [~a]:\n~a" (type model) (str model))
 
           ;; How do they want the results evaluated?
           (if tests
-              (.evaluateModel audit model ^Instances tests !!/NO-OBJS)
+              (.evaluateModel audit model ^Instances tests NO-OBJS)
               (.crossValidateModel audit model insts CV-FOLDS (Random. RNG-SEED)))
           (log/info "Summary:\n" (.toSummaryString audit))
 
@@ -396,7 +400,7 @@
 
         data-out    (doto ^Instances (convert big-data "BIG")
                                      (.addAll ^Instances (convert reg-data "REG"))
-                                     (.randomize !!/RNG))]
+                                     (.randomize RNG))]
 
     {:arff (weka/save-file "/tmp/dic9315.ML.arff" data-out :arff)
      :csv  (weka/save-file "/tmp/dic9315.ML.csv"  data-out :csv)}))

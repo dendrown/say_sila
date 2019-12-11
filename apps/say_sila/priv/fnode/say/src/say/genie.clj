@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.genie
   (:require [clojure.pprint :as prt]
@@ -22,8 +22,8 @@
 
 (defonce NO-OBJS    (into-array Object []))
 
-(def RNG-SEED       (atom 12345))
-(def RNG            (Random. @RNG-SEED))
+(def RNG-SPARK      (atom 12345))
+(def RNG            (Random. @RNG-SPARK))
 
 
 ;;; --------------------------------------------------------------------------
@@ -120,12 +120,12 @@
 (defn ^Long rng-seed
   "Handle random number generator."
   ([]
-  (let [seed @RNG-SEED]
-    (swap! RNG-SEED inc)
+  (let [seed @RNG-SPARK]
+    (swap! RNG-SPARK inc)
     seed))
 
   ([seed]
-  (swap! RNG-SEED (fn [_] (long seed)))))
+  (swap! RNG-SPARK (fn [_] (long seed)))))
 
 
 
