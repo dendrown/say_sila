@@ -26,6 +26,7 @@
 % Analysis with Weka
 -type data_mode() :: level | variation.
 -type eval_mode() :: cv | parms | test.
+-type learner()   :: lreg | gproc.
 
 % Database macros
 -define(null_val_not(X, Null, NotNull), case (X) of null -> Null;       _ -> NotNull end).

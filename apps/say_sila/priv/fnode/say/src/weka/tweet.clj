@@ -192,9 +192,9 @@
 
             ;; ---------------------------------------------------------------
             (load-model []
-              (case (get conf :learner "LR")
-                "LR" (LinearRegression.)
-                "GP" (GaussianProcesses.)))]
+              (case (get conf :learner "lreg")
+                "lreg"  (LinearRegression.)
+                "gproc" (GaussianProcesses.)))]
 
 
       (let [insts   ^Instances (load-data :train)

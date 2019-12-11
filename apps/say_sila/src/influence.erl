@@ -8,23 +8,23 @@
 %%
 %% @doc FSM to model influence using Weka.
 %%
-%%                 +------------+
-%%      (init)---->|    idle    |
-%%                 +------------+
-%%                     go|
-%%                       v
-%%                 +------------+
-%%                 |    run     |
-%%                 +------------+
-%%             regress|     ^
-%%                    v     |eval_param
-%%                 +------------+
-%%                 |    tune    |
-%%                 +------------+
-%%                regress|
-%%                       v
-%%                 +------------+
-%%                 |    eval    |
+%%                 +------------+ go
+%%      (init)---->|    idle    |-----------+
+%%                 +------------+           |
+%%                     go|                  |
+%%                       v                  |
+%%                 +------------+           |
+%%                 |    run     |           |
+%%                 +------------+           |
+%%             regress|     ^               |
+%%                    v     |eval_param     |
+%%                 +------------+           |
+%%                 |    tune    |           |
+%%                 +------------+           |
+%%                regress|                  |
+%%                       v                  |
+%%                 +------------+           |
+%%                 |    eval    |<----------+
 %%                 +------------+
 %%                       |
 %%                       v
@@ -87,8 +87,6 @@
 
 -define(MIN_TOP_N,      5).
 -define(MAX_TOP_N,      25).
-%define(MIN_TOP_N,      24).                % FIXME: Developing strategy for medium players
-%define(MAX_TOP_N,      5).                 % FIXME: Developing strategy for medium players
 -define(MIN_NN_SCORE,   0.6).
 -define(INIT_TOP_RANGE, {top_n, ?MIN_TOP_N, ?MAX_TOP_N}).
 
@@ -107,6 +105,7 @@
                period                   :: pos_integer(),
                biggies                  :: proplist(),
                jvm_node                 :: atom(),
+	       learner    = lreg        :: learner(),           % Defaults to LinearRegression
                delta_cuts = ?DELTA_CUTS :: [float()],           % Min param values for future passes
                delta_cut  = ?EPSILON    :: float(),             % Min param value for current model
                delta_cnt  = 0           :: non_neg_integer(),   % Num changes since last evaluation
@@ -592,6 +591,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
                              period     = proplists:get_value(period,    Params, 7),
                              report     = proplists:get_value(report,    Params, false),
                              data_mode  = proplists:get_value(data_mode, Params, level),
+                             learner    = proplists:get_value(learner,   Params, lreg),
                              datasets   = ARFFs,
                              work_csvs  = CSVs,
                              attributes = AllAttrs,
@@ -705,9 +705,14 @@ idle(enter, _OldState, #data{name = Name}) ->
 
 
 idle(cast, go, Data) ->
-    {next_state,
-     run,
-     Data};
+
+    % We need a white-box model in order to tune. Currently that means LinearRegression
+    NextState = case Data#data.learner of
+        lreg -> run;
+        _    -> eval
+    end,
+    {next_state, NextState, Data};
+
 
 idle(Type, Evt, Data) ->
     handle_event(Type, Evt, Data).
@@ -727,9 +732,10 @@ run(enter, _OldState, Data = #data{name = Name}) ->
 
 
 run(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
+                                                          learner  = Learner,
                                                           work_ref = WorkRef}) ->
 
-    ?info("Model ~s results from ~p", [Name, From]),
+    ?info("Model ~s (~s) results from ~p", [Name, Learner, From]),
     {next_state, tune, Data#data{work_ref = none,
                                  results  = Results}};
 
@@ -843,9 +849,10 @@ tune(Type, Evt, Data) ->
 %%
 % @doc  FSM state to evaluate a Weka model
 % @end  --
-eval(enter, tune, Data = #data{name = Name}) ->
+eval(enter, tune, Data = #data{name    = Name,
+                               learner = Learner}) ->
 
-    ?info("Evaluating final model ~s on Weka", [Name]),
+    ?info("Evaluating final model ~s (~s) on Weka", [Name, Learner]),
     {keep_state, run_model(test, Data)};
    %{keep_state, run_model(cv, Data)};
 
@@ -953,6 +960,7 @@ incl_excl_attributes(Attrs) ->
 run_model(Eval, Data = #data{datasets   = ARFFs,
                              data_mode  = DataMode,
                              excl_attrs = ExclAttrs,
+                             learner    = Learner,
                              work_csvs  = WorkCSVs,
                              jvm_node   = JVM}) ->
 
@@ -970,6 +978,7 @@ run_model(Eval, Data = #data{datasets   = ARFFs,
     {say, JVM} ! {self(), WorkRef, regress, jsx:encode(#{datasets  => ARFFs,
                                                          data_mode => DataMode,
                                                          exclude   => list_to_binary(ExclRE),
+                                                         learner   => Learner,
                                                          work_csvs => WorkCSVs,
                                                          eval_mode => Eval})},
     Data#data{work_ref = WorkRef,
