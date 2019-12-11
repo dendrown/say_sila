@@ -57,9 +57,22 @@
 %period(train) -> [{start, {2017, 12, 01}}, {stop, {2018, 09, 01}}];
 %period(test)  -> [{start, {2018, 09, 01}}, {stop, {2019, 01, 01}}].
 
-period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
-period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
-period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+%%--------------------------------------------------------------------
+%% Best RUN-2 so far
+%%--------------------------------------------------------------------
+%period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
+%period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
+%period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+%%--------------------------------------------------------------------
+
+% variation:
+% A @
+% F @
+% S @
+% J @
+period(parms) -> [{start, {2018, 06, 01}}, {stop, {2018, 09, 01}}];
+period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 06, 01}}];
+period(test)  -> [{start, {2019, 06, 01}}, {stop, {2019, 09, 01}}].
 -else.
 %%--------------------------------------------------------------------
 %% RUN-1: October 1, 2017 -- June 30, 2018              (10-fold CV)
@@ -285,7 +298,7 @@ report_run(Tracker, Method, DataMode, Emotion, RunResults, RefResults) ->
     end,
     [Warner(W) || W <- lists:reverse(Warnings)],
 
-    verify_run(Tracker, Method, DataMode,  oter, fear, RunResults).
+    verify_run(Tracker, Method, DataMode,  oter, Emotion, RunResults).
 
 
 
@@ -341,7 +354,7 @@ verify_run(Tracker, Method, DataMode, Comm, Emo, Results) ->
     Key = Hash(Cfg),
     Val = Hash(Results),
 
-    ?info("RUN % ~p: ~p => ~p", [Cfg, Key, Val]),
+    ?info("RUN % ~p: ~p => ~p,", [Cfg, Key, Val]),
     case get_run_hash(Key) of
         none -> ?warning("No previous results to compare"),                         undefined;
         Val  -> ?notice("Results are consistent!"),                                 ack;
@@ -378,20 +391,33 @@ get_run_hash(Key) ->
                   % ----------------------------------------------------------------    % -------------------- --
                   %"E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",      % Oct 2017 -- Mar 2018 T
 
+                  % --------------------------------------------------------------------------------------------
+                   % [{run,2},gw,{top_n,5,25},level,oter,anger]:
+                   "AE727F720DC172FE4BBD63AC7C84486B980B6FF98F5FBC1A1790A0BFCE43" =>
+                   "92AB3A2DE53B3D77DE92C5A2B49D5A93297CB6852B92CB11A1EFDB3124C8313",   % 2018-01-01__2018-10-01 T
+
                    % [{run,2},gw,{top_n,5,25},level,oter,fear]:
                    "A437A83557F7D366B99B08D3F21D2BF156ECEF24F99E9CB7BF58F3D316DC058" =>
                    "3B19F02B1BA0B221EBDC7CEFE3F37F7211A8E65FE92F7A47B463A9F47F120",     % 2018-01-01__2018-10-01 T
-                  %"505A9EE982212738D6A891E093E42286D46B3628431E313BFC8596C9591DC151",  % Sep 2018 -- Aug 2019 T
 
+                  % [{run,2},gw,{top_n,5,25},level,oter,sadness]:
+                  "6B3483AA23EE5DED56CC7CC135723E27DC98C3B56357FA848C53AED09E3F" =>
+                  "FA3A463A60D2113FFE38AC162BF4F0C2BEC742746FB867830368CA7B476EF2",     % 2018-01-01__2018-10-01 T
+
+                  % [{run,2},gw,{top_n,5,25},level,oter,joy]:
+                  "5CA7052114ED28E2EE37247EFB63FE78BA892A4295641612B8CF8DDB8BAB" =>
+                  "DBA15EA46B7A5D62D6271C7C8693924FB878FD648FB2CA7D7972DD5885CC4AA",    % 2018-01-01__2018-10-01 T
+
+                  % --------------------------------------------------------------------------------------------
                   % [{run,2},gw,{top_n,5,25},variation,oter,anger]:
                   "FIXME" =>
-                  "B5D010FE5C4FF8BA0B1B7AB8A5B3B396723EC772A9ED7D15CD014381EB4EDE7",  % Sep 2018 -- Aug 2019 T
+                  "B5D010FE5C4FF8BA0B1B7AB8A5B3B396723EC772A9ED7D15CD014381EB4EDE7",    % Sep 2018 -- Aug 2019 T
 
                   % [{run,2},gw,{top_n,5,25},variation,oter,fear]:
                   "42115A234D67D1E668535FC402F6FAA7E6CA2424AF817678D5F637F12851D96" =>
                   "74FDC59D6B9698067CCEB68078BB947D32DB6B4F739F4C6FBE7BBE38DC172A",     % 2018-01-01__2018-10-01 T
-                 %"3EDBCCDB958495E35F2EE819ED1C28C9BAF12C56FA574E4713FF52E59F17E1A",    % Sep 2018 -- Aug 2019 T
 
+                  % --------------------------------------------------------------------------------------------
                    % [gw,{top_n,10,25},oter,fear]: [TODO]
                    "C9D3FC24B8A4CC261E436434E7AA6CCCF6855A8D27554784ECA9EF9D41FC9374" =>
                    "62FD21C13BC2EF8891B5B8E9BA88817D42411862FFE8464B64C6FC26E1224BB"
