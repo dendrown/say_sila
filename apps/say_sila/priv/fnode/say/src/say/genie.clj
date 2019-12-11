@@ -18,10 +18,37 @@
 
 (set! *warn-on-reflection* true)
 
+(def ^:const EPSILON 1e-12)
+
+(defonce NO-OBJS    (into-array Object []))
+
 (def RNG-SEED       (atom 12345))
 (def RNG            (Random. @RNG-SEED))
 
-(defonce NO-OBJS    (into-array Object []))
+
+;;; --------------------------------------------------------------------------
+(defprotocol Equivalency
+  "Defines functions for equivalency with relative levels of strictness."
+  (equiv? [x y] "Determines if x and y are loosely equivalent."))
+
+(extend-protocol Equivalency
+  Object
+  (equiv? [x y]
+    (= x y))
+
+  String
+  (equiv? [x y]
+    (if (string? y)
+        (apply = (map str/lower-case [x y]))
+        (equiv? x (str y))))
+
+  Number
+  (equiv? [x y]
+    (if (number? y)
+        (> EPSILON (Math/abs (- (double x) (double y))))
+        (equiv? (str x) y))))
+
+
 
 
 ;;; --------------------------------------------------------------------------
