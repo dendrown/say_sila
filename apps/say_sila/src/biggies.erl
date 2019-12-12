@@ -32,7 +32,8 @@
 -type verification()  :: ack | nak | undefined.
 -type verifications() :: [verification()].
 
--type run_fun() :: fun((tracker(), stringy(), comm_code(), emotion(), proplist()) -> proplist()).
+-type run_code() :: n | nn.
+%type run_fun()  :: fun((tracker(), stringy(), comm_code(), emotion(), proplist()) -> proplist()).
 
 
 %%--------------------------------------------------------------------
@@ -45,8 +46,8 @@
 %%          Sep 2019 -- Dec 2019                        (test)
 %%--------------------------------------------------------------------
 -define(RUN, 2).
-%% biggies:run_top_nn(gw, run2L, [{data_mode, level}]).
-%% biggies:run_top_nn(gw, run2V, [{data_mode, variation}]).
+%% biggies:run_top_n(gw, run2L, [{data_mode, level}]).      biggies:run_top_nn(gw, run2LL, [{data_mode, level}]).
+%% biggies:run_top_n(gw, run2V, [{data_mode, variation}]).  biggies:run_top_nn(gw, run2VV, [{data_mode, variation}]).
 %%--------------------------------------------------------------------
 -if(?RUN =:= 2).
 %period(parms) -> [{start, {2018, 05, 01}}, {stop, {2018, 09, 01}}];
@@ -177,7 +178,7 @@ run_top_n(Tracker, RunTag) ->
 
 
 run_top_n(Tracker, RunTag, Options) ->
-    run_run(fun influence:run_top_n/5, Tracker, RunTag, Options).
+    run_run(n, Tracker, RunTag, Options).
 
 
 
@@ -207,14 +208,14 @@ run_top_nn(Tracker, RunTag) ->
 
 
 run_top_nn(Tracker, RunTag, Options) ->
-    run_run(fun influence:run_top_nn/5, Tracker, RunTag, Options).
+    run_run(nn, Tracker, RunTag, Options).
 
 
 
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec run_run(RunFun  :: run_fun(),
+-spec run_run(RunCode :: run_code(),
               Tracker :: tracker(),
               RunTag  :: stringy(),
               Options :: proplist()) -> verifications().
@@ -224,13 +225,13 @@ run_top_nn(Tracker, RunTag, Options) ->
 %       range of Ns for one emotion and communication type.  But first
 %       warn the user that this will reset Say-Sila.
 % @end  --
-run_run(RunFun, Tracker, RunTag, Options) ->
+run_run(RunCode, Tracker, RunTag, Options) ->
     io:format("This will destroy the current raven and player states.~n"),
     case ioo:read_down("Are you sure? ") of
         "yes" ->
             case weka:ping(raven:get_jvm_node(Tracker)) of
                 timeout -> [];
-                _       -> do_run_run(RunFun, Tracker, RunTag, Options)
+                _       -> do_run_run(RunCode, Tracker, RunTag, Options)
             end;
         _ -> []
     end.
@@ -238,7 +239,7 @@ run_run(RunFun, Tracker, RunTag, Options) ->
 
 
 %%--------------------------------------------------------------------
--spec do_run_run(RunFun  :: run_fun(),
+-spec do_run_run(RunCode :: run_code(),
                  Tracker :: tracker(),
                  RunTag  :: stringy(),
                  Options :: proplist()) -> verifications().
@@ -247,7 +248,13 @@ run_run(RunFun, Tracker, RunTag, Options) ->
 %       tracker and selecting the Top N big-player accounts across a
 %       range of Ns for one emotion and communication type.
 % @end  --
-do_run_run(RunFun, Tracker, RunTag, Options) ->
+do_run_run(RunCode, Tracker, RunTag, Options) ->
+
+    % We'll be calling into one of the `influence' run functions
+    RunFun = case RunCode of
+        n  -> fun influence:run_top_n/5;
+        nn -> fun influence:run_top_nn/5
+    end,
 
     % Function to pull and organize players and their tweets for a given dataset
     GetPlayers = fun(D) ->
@@ -259,7 +266,7 @@ do_run_run(RunFun, Tracker, RunTag, Options) ->
 
     % The training dataset gives the player community that deines the Top-N groups
     Players = GetPlayers(train),
-    Method  = {top_n, Min, Max} = influence:init_range(top_n),
+    Method  = {RunCode, {top_n, Min, Max} = influence:init_range(top_n)},
     TopBiggies = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
     TopMediums = maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end,
                           TopBiggies),
