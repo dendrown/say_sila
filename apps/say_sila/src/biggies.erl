@@ -34,6 +34,7 @@
 
 -type run_code() :: n | nn.
 %type run_fun()  :: fun((tracker(), stringy(), comm_code(), emotion(), proplist()) -> proplist()).
+-type method()   :: {run_code(), {atom, pos_integer(), pos_integer}}.
 
 
 %%--------------------------------------------------------------------
@@ -215,6 +216,39 @@ run_top_nn(Tracker, RunTag, Options) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
+-spec prep_data(RunCode :: run_code(),
+                Tracker :: tracker(),
+                Options :: proplist()) -> {method(), map(), map(), map()}.
+%%
+% @doc  Prepares the `train', `parms' and  `test' datasets as well as
+%       the Big and Medium (null hypothesis) player communities.
+% @end  --
+prep_data(RunCode, Tracker, Options) ->
+
+    Method = {RunCode, {top_n, Min, Max} = influence:init_range(top_n)},
+
+    % Function to pull and organize players and their tweets for a given dataset
+    GetPlayers = fun(D) ->
+        sila:reset(),
+        ok = raven:emote(Tracker, period(D)),
+        wait_on_players(Tracker),
+        player:get_players(Tracker)
+    end,
+    Players = GetPlayers(train),
+
+    % The training dataset gives the player community that deines the Top-N groups
+    TopBiggies = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
+    TopMediums = maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end,
+                          TopBiggies),
+
+    % TODO: Implement `parms_pct' option
+    DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
+
+    {Method, DataSets, TopBiggies, TopMediums}.
+
+
+
+%%--------------------------------------------------------------------
 -spec run_run(RunCode :: run_code(),
               Tracker :: tracker(),
               RunTag  :: stringy(),
@@ -256,24 +290,12 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
         nn -> fun influence:run_top_nn/5
     end,
 
-    % Function to pull and organize players and their tweets for a given dataset
-    GetPlayers = fun(D) ->
-        sila:reset(),
-        ok = raven:emote(Tracker, period(D)),
-        wait_on_players(Tracker),
-        player:get_players(Tracker)
-    end,
-
-    % The training dataset gives the player community that deines the Top-N groups
-    Players = GetPlayers(train),
-    Method  = {RunCode, {top_n, Min, Max} = influence:init_range(top_n)},
-    TopBiggies = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
-    TopMediums = maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end,
-                          TopBiggies),
-
-    % We need player communities for the other datasets as well.  "Ref" here means "null hypothesis".
+    % We need Big and Medium (H0) player communities.  "Ref" here means "null hypothesis".
+    {Method,
+     DataSets,
+     TopBiggies,
+     TopMediums} = prep_data(RunCode, Tracker, Options),
     DataMode = proplists:get_value(data_mode, Options, level),
-    DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
     RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies} | Options],
     RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums} | Options],
     RefTag   = ?str_fmt("~s_H0", [RunTag]),
