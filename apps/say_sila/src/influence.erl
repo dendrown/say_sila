@@ -50,7 +50,7 @@
          report_open/2,
          report_line/3,
          run_biggies/2, run_biggies/3,  run_biggies/4,
-         run_top_n/3,   run_top_n/4,
+         run_top_n/3,   run_top_n/4,    run_top_n/5,
          run_top_nn/3,  run_top_nn/4,   run_top_nn/5]).
 
 -export([terminate/3, code_change/4, init/1, callback_mode/0]).

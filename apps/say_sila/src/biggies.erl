@@ -16,6 +16,7 @@
 
 -export([period/1]).
 -export([make_h0/2,
+         run_top_n/2,  run_top_n/3,
          run_top_nn/2, run_top_nn/3]).
 
 -include("sila.hrl").
@@ -27,8 +28,11 @@
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
 
--type dataset()      :: parms | train | test.
--type verification() :: ack | nak | undefined.
+-type dataset()       :: parms | train | test.
+-type verification()  :: ack | nak | undefined.
+-type verifications() :: [verification()].
+
+-type run_fun() :: fun((tracker(), stringy(), comm_code(), emotion(), proplist()) -> proplist()).
 
 
 %%--------------------------------------------------------------------
@@ -60,9 +64,9 @@
 %%--------------------------------------------------------------------
 %% Best RUN-2 so far
 %%--------------------------------------------------------------------
-%period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
-%period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
-%period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
+period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
+period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 %%--------------------------------------------------------------------
 
 % variation:
@@ -70,9 +74,9 @@
 % F @
 % S @
 % J @
-period(parms) -> [{start, {2018, 06, 01}}, {stop, {2018, 09, 01}}];
-period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 06, 01}}];
-period(test)  -> [{start, {2019, 06, 01}}, {stop, {2019, 09, 01}}].
+%period(parms) -> [{start, {2018, 06, 01}}, {stop, {2018, 09, 01}}];
+%period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 06, 01}}];
+%period(test)  -> [{start, {2019, 06, 01}}, {stop, {2019, 09, 01}}].
 -else.
 %%--------------------------------------------------------------------
 %% RUN-1: October 1, 2017 -- June 30, 2018              (10-fold CV)
@@ -148,12 +152,42 @@ make_h0(Biggies, Players) ->
 
 
 %%--------------------------------------------------------------------
+-spec run_top_n(Tracker :: tracker(),
+                RunTag  :: stringy()) -> verifications().
+
+-spec run_top_n(Tracker :: tracker(),
+                RunTag  :: stringy(),
+                Options :: proplist()) -> verifications().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.
+%
+%       Supported options are:
+%       - `period'      : Number of days per data instance (default: 7)
+%       - `data_mode'   : The `level'(default) mode uses the raw emotion
+%                         values to create models, while `variation' use
+%                         the difference from one time step to the next.
+%       - `learner'     : Learning algorithm.  Choose:
+%                           `lreg' (default) for LinearRegression, or
+%                           `gproc' for GaussianProcesses.
+% @end  --
+run_top_n(Tracker, RunTag) ->
+    run_top_n(Tracker, RunTag, []).
+
+
+run_top_n(Tracker, RunTag, Options) ->
+    run_run(fun influence:run_top_n/5, Tracker, RunTag, Options).
+
+
+
+%%--------------------------------------------------------------------
 -spec run_top_nn(Tracker :: tracker(),
-                 RunTag  :: stringy()) -> [verification()].
+                 RunTag  :: stringy()) -> verifications().
 
 -spec run_top_nn(Tracker :: tracker(),
                  RunTag  :: stringy(),
-                 Options :: proplist()) -> [verification()].
+                 Options :: proplist()) -> verifications().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -173,31 +207,47 @@ run_top_nn(Tracker, RunTag) ->
 
 
 run_top_nn(Tracker, RunTag, Options) ->
-
-    io:format("This will destroy the current raven and player states.~n"),
-    case ioo:read_down("Are you sure? ") of
-        "yes" ->
-            case weka:ping(raven:get_jvm_node(Tracker)) of
-                timeout -> [];
-                _       -> run_top_nn_aux(Tracker, RunTag, Options)
-            end;
-        _ -> []
-    end.
+    run_run(fun influence:run_top_nn/5, Tracker, RunTag, Options).
 
 
 
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec run_top_nn_aux(Tracker :: tracker(),
-                     RunTag  :: stringy(),
-                     Options :: proplist()) -> [verification()].
+-spec run_run(RunFun  :: run_fun(),
+              Tracker :: tracker(),
+              RunTag  :: stringy(),
+              Options :: proplist()) -> verifications().
+%%
+% @doc  Do the Twitter/Emo influence experiments using the specified
+%       tracker and selecting the Top N big-player accounts across a
+%       range of Ns for one emotion and communication type.  But first
+%       warn the user that this will reset Say-Sila.
+% @end  --
+run_run(RunFun, Tracker, RunTag, Options) ->
+    io:format("This will destroy the current raven and player states.~n"),
+    case ioo:read_down("Are you sure? ") of
+        "yes" ->
+            case weka:ping(raven:get_jvm_node(Tracker)) of
+                timeout -> [];
+                _       -> do_run_run(RunFun, Tracker, RunTag, Options)
+            end;
+        _ -> []
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec do_run_run(RunFun  :: run_fun(),
+                 Tracker :: tracker(),
+                 RunTag  :: stringy(),
+                 Options :: proplist()) -> verifications().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
 %       range of Ns for one emotion and communication type.
 % @end  --
-run_top_nn_aux(Tracker, RunTag, Options) ->
+do_run_run(RunFun, Tracker, RunTag, Options) ->
 
     % Function to pull and organize players and their tweets for a given dataset
     GetPlayers = fun(D) ->
@@ -229,7 +279,7 @@ run_top_nn_aux(Tracker, RunTag, Options) ->
 
     % Function to create and run models for all emotions
     Process = fun(Tag, Opts) ->
-        [{Emo, influence:run_top_nn(Tracker, Tag, oter, Emo, Opts)} || Emo <- ?EMOTIONS]
+        [{Emo, RunFun(Tracker, Tag, oter, Emo, Opts)} || Emo <- ?EMOTIONS]
     end,
 
     % Process sets of run and reference models
