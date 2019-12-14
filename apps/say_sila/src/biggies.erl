@@ -111,7 +111,7 @@ make_h0(Biggies, Players) ->
     % Function to turn a big-comm entry into a medium-comm entry
     FindMedComm = fun ({Comm, {_,_,Bigs}}) ->
         % We want to choose from users with some level of activity that are not big players
-        % Fold the usernames into a map indexed by non-negative integers for random retreival
+        % Fold the usernames into a map indexed by non-negative integers for random retrieval
         FindMediums = fun(Usr, Info, Acc = {Cnt, Meds}) ->
             IsMedium = case maps:get(Comm, Info#profile.comms, none) of
                 none -> false;
@@ -241,9 +241,17 @@ prep_data(RunCode, Tracker, Options) ->
     TopMediums = maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end,
                           TopBiggies),
 
-    % TODO: Implement `parms_pct' option
-    DataSets = maps:from_list([{train, Players} | [{D, GetPlayers(D)} || D <- [parms, test]]]),
+    % The `parms_pct' option specifies the percentage of training data to reserve
+    % for parameter optimization.  0% means we should use an independent dataset.
+    ParmsData = case proplists:get_value(parms_data, Options, 0) of
+        0    -> GetPlayers(parms);
+        P100 -> P100
+    end,
 
+    % The `test' dataset player community is always independent
+    DataSets = maps:from_list([{train, Players},
+                               {parms, ParmsData},
+                               {test,  GetPlayers(test)}]),
     {Method, DataSets, TopBiggies, TopMediums}.
 
 

@@ -544,25 +544,35 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
     %   - The ARFF data keeps same map structure
     %   - Instance counts collapse to combine the train/parms/test steps
     DataSetter = fun(Step, Players, {DataAcc, CntsAcc}) ->
-        % Tag the ARFF with the Step (train, parms, test)
-        Relation = ?str_fmt("~s.~s", [Name, Step]),
-        ?info("Creating ARFF: ~s", [Relation]),
 
-        % The Big Players are the same for each dataset
-        % Example Counts: #{reg => #{oter => 26},
-        %                   big => #{oter => 26,rted => 26,rter => 26,tmed => 26}}
-        {ok,
-         ARFF,
-         Counts} = arff:from_biggies(Relation, RegComm, RegEmo, Biggies, Players, Params),
+        % If `parms' Players is a number, then Weka will sample instances from the trainers
+        case {Step, Players} of
 
-        % Function to aggregate one grouping (big|reg) of comm-code counts
-        Recounter = fun(Grp, GrpCounts) ->
-            GrpCntsAcc = maps:get(Grp, CntsAcc, #{}),
-            maps:map(fun(Comm, Cnt) -> Cnt + maps:get(Comm, GrpCntsAcc, 0) end, GrpCounts)
-        end,
+            {parms, P100} when is_float(P100) ->
+                ?info("Resampling ~.1f% of training data for parameter optimization", [100 * P100]),
+                {maps:put(Step, P100, DataAcc), CntsAcc};
 
-        {maps:put(Step, list_to_binary(ARFF), DataAcc),         % Keys: train|parms|test
-         maps:map(Recounter, Counts)}                           % Keys: big|reg => oter|rter|rted|tmed
+            {_,_} ->
+                % Tag the ARFF with the Step (train, parms, test)
+                Relation = ?str_fmt("~s.~s", [Name, Step]),
+                ?info("Creating ARFF: ~s", [Relation]),
+
+                % The Big Players are the same for each dataset
+                % Example Counts: #{reg => #{oter => 26},
+                %                   big => #{oter => 26,rted => 26,rter => 26,tmed => 26}}
+                {ok,
+                 ARFF,
+                 Counts} = arff:from_biggies(Relation, RegComm, RegEmo, Biggies, Players, Params),
+
+                % Function to aggregate one grouping (big|reg) of comm-code counts
+                Recounter = fun(Grp, GrpCounts) ->
+                    GrpCntsAcc = maps:get(Grp, CntsAcc, #{}),
+                    maps:map(fun(Comm, Cnt) -> Cnt + maps:get(Comm, GrpCntsAcc, 0) end, GrpCounts)
+                end,
+
+                {maps:put(Step, list_to_binary(ARFF), DataAcc),     % Keys: train|parms|test
+                 maps:map(Recounter, Counts)}                       % Keys: big|reg => oter|rter|rted|tmed
+        end
     end,
     {ARFFs,
      Counts} = maps:fold(DataSetter, {#{}, #{}}, DataSets),

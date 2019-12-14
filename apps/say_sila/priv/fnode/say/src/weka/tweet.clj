@@ -37,7 +37,8 @@
                                                  TweetToLexiconFeatureVector
                                                  TweetToSentiStrengthFeatureVector
                                                  ;; Say-Sila extensions
-                                                 TweetToGenderFeatures]))
+                                                 TweetToGenderFeatures]
+            [weka.filters.unsupervised.instance Resample]))
 (set! *warn-on-reflection* true)
 
 (def ^:const RNG-SEED    1)                             ; Weka's default random seed
@@ -190,6 +191,31 @@
                               (if var? "var" "lvl"))
                 dset))
 
+
+            ;; ---------------------------------------------------------------
+            (split-parms [insts p100]
+              ;; Determine the required train/test dataset configuration
+              (let [flt (Resample.)
+                    pct  (str (Math/round (* 100 p100)))
+                    opts ["-Z" pct "-no-replacement"]]
+                [weka/filter-instances insts flt (into-array (conj opts "-V"))  ; training data
+                 weka/filter-instances insts flt (into-array opts)]))           ; optimize parms
+
+
+            ;; ---------------------------------------------------------------
+            (prep-data [insts]
+              ;; Determine the required train/test dataset configuration
+              ;; NOTE: a nil test dataset will mean cross-validation
+              (case eval_mode
+                "parms"  (if-let [p100 (number? (datasets :parms))]
+                             (split-parms insts p100)
+                             [insts (load-data :parms)])
+                "test"  [insts (load-data :test)]
+                "cv"    [insts (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)]
+                        [insts (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode)]))
+
+
+
             ;; ---------------------------------------------------------------
             (load-model []
               (case (get conf :learner "lreg")
@@ -197,33 +223,30 @@
                 "gproc" (GaussianProcesses.)))]
 
 
-      (let [insts   ^Instances (load-data :train)
-            tests   (cond
-                      (= eval_mode "parms") (load-data :parms)
-                      (= eval_mode "test")  (load-data :test)
-                      (= eval_mode "cv")    (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)
-                      :else                 (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode))]
+      ;; What we load depends
+      (let [insts           (load-data :train)
+            [trains tests]  (prep-data insts)]
 
         ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
         (when work_csvs
-          (weka/save-file (:train work_csvs) insts :csv))
+          (weka/save-file (:train work_csvs) trains :csv))
 
         ;; Use N-fold cross validation for training/evaluation
         (let [model       (load-model)
-              audit       (Evaluation. insts)
+              audit       (Evaluation. trains)
               attr-coeff  (fn [[ndx coeff]]
                             (let [attr (.attribute insts (int ndx))
                                   tag  (.name attr)]
                               [tag coeff]))]
 
           ;; The final model training always uses the full dataset
-          (.buildClassifier model insts)
+          (.buildClassifier model trains)
           (log/fmt-info "Model [~a]:\n~a" (type model) (str model))
 
           ;; How do they want the results evaluated?
           (if tests
               (.evaluateModel audit model ^Instances tests NO-OBJS)
-              (.crossValidateModel audit model insts CV-FOLDS (Random. RNG-SEED)))
+              (.crossValidateModel audit model trains CV-FOLDS (Random. RNG-SEED)))
           (log/info "Summary:\n" (.toSummaryString audit))
 
           ;; Prepare a response for the caller
@@ -242,7 +265,7 @@
                 coeff-cnt    (- (count coefficients) 2)                             ; See note above
                 intercept    (last coefficients)]
             (assoc ACK :model        (type model)
-                       :instances    (.numInstances insts)
+                       :instances    (.numInstances trains)
                        :correlation  (.correlationCoefficient audit)
                        :intercept    intercept
                        :coefficients (into {} (map attr-coeff                       ; ZIP:
