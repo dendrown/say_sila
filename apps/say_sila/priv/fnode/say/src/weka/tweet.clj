@@ -22,7 +22,8 @@
             [weka.core  DenseInstance
                         Instance
                         Instances]
-            [weka.classifiers Evaluation]
+            [weka.classifiers AbstractClassifier
+                              Evaluation]
             [weka.classifiers.functions GaussianProcesses
                                         LinearRegression]
             [weka.core.stemmers SnowballStemmer]
@@ -196,7 +197,7 @@
             (split-parms [insts p100]
               ;; Determine the required train/test dataset configuration
               (let [flt (Resample.)
-                    pct  (str (Math/round (* 100 p100)))
+                    pct  (str (Math/round (double (* 100 p100))))
                     opts ["-Z" pct "-no-replacement"]]
                 [weka/filter-instances insts flt (into-array (conj opts "-V"))  ; training data
                  weka/filter-instances insts flt (into-array opts)]))           ; optimize parms
@@ -215,7 +216,6 @@
                         [insts (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode)]))
 
 
-
             ;; ---------------------------------------------------------------
             (load-model []
               (case (get conf :learner "lreg")
@@ -224,8 +224,9 @@
 
 
       ;; What we load depends
-      (let [insts           (load-data :train)
-            [trains tests]  (prep-data insts)]
+      (let [^Instances insts    (load-data :train)
+            [^Instances trains
+             ^Instances tests]  (prep-data insts)]
 
         ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
         (when work_csvs
@@ -235,12 +236,12 @@
         (let [model       (load-model)
               audit       (Evaluation. trains)
               attr-coeff  (fn [[ndx coeff]]
-                            (let [attr (.attribute insts (int ndx))
+                            (let [attr (.attribute ^Instances insts (int ndx))
                                   tag  (.name attr)]
                               [tag coeff]))]
 
           ;; The final model training always uses the full dataset
-          (.buildClassifier model trains)
+          (.buildClassifier ^AbstractClassifier model trains)
           (log/fmt-info "Model [~a]:\n~a" (type model) (str model))
 
           ;; How do they want the results evaluated?
@@ -261,7 +262,7 @@
           ;; TODO: As Weka documentation seems to be lacking here, I should take the
           ;;       time to verify the array structure in the Weka source code.
           (let [;param-cnt   (.numParameters model)
-                coefficients    (if (weka/white-box? model) (.coefficientss model) [])
+                coefficients    (if (weka/white-box? model) (.coefficients ^LinearRegression model) [])
                 [coeff-cnt
                  intercept]     (if (empty? coefficients)
                                         [0 0]                           ; Unexplainable!

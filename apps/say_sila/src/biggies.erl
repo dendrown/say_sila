@@ -329,7 +329,7 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
             Verifications;
         Recur([{Emo, Run} | RestRuns],
               [{Emo, Ref} | RestRefs], Verifications) ->
-            V = report_run(Tracker, Method, DataMode, Emo, Run, Ref),
+            V = report_run(Tracker, Method, DataMode, Emo, Options, Run, Ref),
             Recur(RestRuns, RestRefs, [V|Verifications])
     end,
     Report(RunResults, RefResults, []).
@@ -341,12 +341,13 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
                  Method     :: tuple(),
                  DataMode   :: data_mode(),
                  Emotion    :: emotion(),
+                 Options    :: proplist(),
                  RunResults :: proplist(),
                  RefResults :: proplist()) -> verification().
 %%
 % @doc  Hold processing until Weka has returned all tweet batches and
 % @end  --
-report_run(Tracker, Method, DataMode, Emotion, RunResults, RefResults) ->
+report_run(Tracker, Method, DataMode, Emotion, Options, RunResults, RefResults) ->
 
     % Announce the report and log the time periods
     ?notice("Reporting '~s' run for ~s", [DataMode, Emotion]),
@@ -385,7 +386,7 @@ report_run(Tracker, Method, DataMode, Emotion, RunResults, RefResults) ->
     end,
     [Warner(W) || W <- lists:reverse(Warnings)],
 
-    verify_run(Tracker, Method, DataMode,  oter, Emotion, RunResults).
+    verify_run(Tracker, Method, DataMode,  oter, Emotion, Options, RunResults).
 
 
 
@@ -423,6 +424,7 @@ wait_on_players(Tracker) ->
                  DataMode :: data_mode(),
                  Comm     :: comm_code(),
                  Emo      :: emotion(),
+                 Options  :: proplist(),
                  Results  :: proplist()) -> verification().
 %%
 % @doc  Generates a hash representing the results of a given run.
@@ -430,14 +432,14 @@ wait_on_players(Tracker) ->
 %       a previous run), then we compare the current run's results
 %       and warn the user they don't match up.
 % @end  --
-verify_run(Tracker, Method, DataMode, Comm, Emo, Results) ->
+verify_run(Tracker, Method, DataMode, Comm, Emo, Options, Results) ->
 
     % Function to create a hexstring SHA-256 fingerprint
     Hash = fun(Elm) ->
         lists:flatten([io_lib:format("~.16B", [X]) || <<X>> <= crypto:hash(sha256, term_to_binary(Elm))])
     end,
 
-    Cfg = [{run,?RUN}, Tracker, Method, DataMode, Comm, Emo],
+    Cfg = [{run,?RUN}, Tracker, Method, DataMode, Comm, Emo | lists:sort(Options)],
     Key = Hash(Cfg),
     Val = Hash(Results),
 
@@ -462,23 +464,26 @@ verify_run(Tracker, Method, DataMode, Comm, Emo, Results) ->
 %             during this initial implementation.
 % @end  --
 get_run_hash(Key) ->
-    RunResults = #{% [{run,1},gw,{top_n,5,25},level,oter,fear]:
+    RunResults = #{% TOP N RUNS:
+                   %
+                   % [{run,1},gw,{top_n,5,25},level,oter,fear]:
                    "D61A164696BDDDAA50CCEA917D9B19F984889A5489B47DC1E3F2FE40C81CF64C" =>
-%% PREV!!!         "1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",    % Oct 2017 -- Jun 2018 T PREV
                    "2ECC755C6BB3F5E4D384364AE0FC65B284F2BF433C803FD32E4099549B86B4",    % Oct 2017 -- Jun 2018 T
+                  %"1E5D27DE436A96BF5BE1C1B7513C2D196AF75CC4BC88678F8F6F95E17CB3C6",    % Oct 2017 -- Jun 2018 T PREV!
                   %"B9256B9D997E9F9FA8DE95A3615833A2F1EB061B01EE55F7DA50A5D09D4F32",    % Oct 2017 -- Jun 2018 CV
                   %"F3D06C823253176CB6E7CD31AF35BF7534E82DCB931412A27A45DF85A9C6",      % Oct 2017 -- Jun 2018 P
                   % ----------------------------------------------------------------    % -------------------- --
                   %"B877D1A57904AD967A8AA3A5774B18C4D276FD6ABBF2A1A56ED4D72CFC28D7C",   % Oct 2017 -- Mar 2018 CV
 
+                   % --------------------------------------------------------------------------------------------
                    % [gw,{top_n,5,25},variation,oter,fear]:
                    "8A69D3DEA8771FC29DE45C2C4F51D97E5E1CA679E70581AA6882E39B05D79CF" =>
                    "349D3D34F24861ED24C5E7875173A1C1A1E17F07EB178F21668E49051825F0",    % Oct 2017 -- Jun 2018 T
-                  %"1BFCA2360158A88FB45CF6BCCD5D310D43ADD371A9BB9A259640789C9EE066",    % Oct 2017 -- Jun 2018 CV
+                  %%1BFCA2360158A88FB45CF6BCCD5D310D43ADD371A9BB9A259640789C9EE066",    % Oct 2017 -- Jun 2018 CV
                   % ----------------------------------------------------------------    % -------------------- --
-                  %"E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",      % Oct 2017 -- Mar 2018 T
+                  %%E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",      % Oct 2017 -- Mar 2018 T
 
-                  % --------------------------------------------------------------------------------------------
+                   % --------------------------------------------------------------------------------------------
                    % [{run,2},gw,{top_n,5,25},level,oter,anger]:
                    "AE727F720DC172FE4BBD63AC7C84486B980B6FF98F5FBC1A1790A0BFCE43" =>
                    "92AB3A2DE53B3D77DE92C5A2B49D5A93297CB6852B92CB11A1EFDB3124C8313",   % 2018-01-01__2018-10-01 T
@@ -487,27 +492,41 @@ get_run_hash(Key) ->
                    "A437A83557F7D366B99B08D3F21D2BF156ECEF24F99E9CB7BF58F3D316DC058" =>
                    "3B19F02B1BA0B221EBDC7CEFE3F37F7211A8E65FE92F7A47B463A9F47F120",     % 2018-01-01__2018-10-01 T
 
-                  % [{run,2},gw,{top_n,5,25},level,oter,sadness]:
-                  "6B3483AA23EE5DED56CC7CC135723E27DC98C3B56357FA848C53AED09E3F" =>
-                  "FA3A463A60D2113FFE38AC162BF4F0C2BEC742746FB867830368CA7B476EF2",     % 2018-01-01__2018-10-01 T
+                   % [{run,2},gw,{top_n,5,25},level,oter,sadness]:
+                   "6B3483AA23EE5DED56CC7CC135723E27DC98C3B56357FA848C53AED09E3F" =>
+                   "FA3A463A60D2113FFE38AC162BF4F0C2BEC742746FB867830368CA7B476EF2",    % 2018-01-01__2018-10-01 T
 
-                  % [{run,2},gw,{top_n,5,25},level,oter,joy]:
-                  "5CA7052114ED28E2EE37247EFB63FE78BA892A4295641612B8CF8DDB8BAB" =>
-                  "DBA15EA46B7A5D62D6271C7C8693924FB878FD648FB2CA7D7972DD5885CC4AA",    % 2018-01-01__2018-10-01 T
+                   % [{run,2},gw,{top_n,5,25},level,oter,joy]:
+                   "5CA7052114ED28E2EE37247EFB63FE78BA892A4295641612B8CF8DDB8BAB" =>
+                   "DBA15EA46B7A5D62D6271C7C8693924FB878FD648FB2CA7D7972DD5885CC4AA",   % 2018-01-01__2018-10-01 T
 
-                  % --------------------------------------------------------------------------------------------
-                  % [{run,2},gw,{top_n,5,25},variation,oter,anger]:
-                  "FIXME" =>
-                  "B5D010FE5C4FF8BA0B1B7AB8A5B3B396723EC772A9ED7D15CD014381EB4EDE7",    % Sep 2018 -- Aug 2019 T
+                   % -------------------------------------------------------------------------------------------
+                   % [{run,2},gw,{top_n,5,25},variation,oter,anger]:
+                   "FIXME" =>
+                   "B5D010FE5C4FF8BA0B1B7AB8A5B3B396723EC772A9ED7D15CD014381EB4EDE7",   % Sep 2018 -- Aug 2019 T
 
-                  % [{run,2},gw,{top_n,5,25},variation,oter,fear]:
-                  "42115A234D67D1E668535FC402F6FAA7E6CA2424AF817678D5F637F12851D96" =>
-                  "74FDC59D6B9698067CCEB68078BB947D32DB6B4F739F4C6FBE7BBE38DC172A",     % 2018-01-01__2018-10-01 T
+                   % [{run,2},gw,{top_n,5,25},variation,oter,fear]:
+                   "42115A234D67D1E668535FC402F6FAA7E6CA2424AF817678D5F637F12851D96" =>
+                   "74FDC59D6B9698067CCEB68078BB947D32DB6B4F739F4C6FBE7BBE38DC172A",    % 2018-01-01__2018-10-01 T
 
-                  % --------------------------------------------------------------------------------------------
-                   % [gw,{top_n,10,25},oter,fear]: [TODO]
-                   "C9D3FC24B8A4CC261E436434E7AA6CCCF6855A8D27554784ECA9EF9D41FC9374" =>
-                   "62FD21C13BC2EF8891B5B8E9BA88817D42411862FFE8464B64C6FC26E1224BB"
+                   % --------------------------------------------------------------------------------------------
+                   % TOP N RUNS
+                   % --------------------------------------------------------------------------------------------
+                   % [{run,2},gw,{n,{top_n,5,25}},level,oter,anger]:
+                   "AB478199E4BCF1D1091D4C6B2EF7C57563C416455F2BA7039CE54FC4D48C7B" =>
+                   "B919945D066F32C5EED6427957D223BCA13FC13340AEB22FDC6DA35692E974",    % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},level,oter,fear]:
+                   "51A6127FB9651C6C63198F34C67394F8B93409B8268E38B7ED78B26A8FD8D31" =>
+                   "3B19F02B1BA0B221EBDC7CEFE3F37F7211A8E65FE92F7A47B463A9F47F120",     % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},level,oter,sadness]:
+                   "FBA8E99E2D8476C4793D19E7AF9970E66909C7EA6D1E09D588733BA904045" =>
+                   "FA3A463A60D2113FFE38AC162BF4F0C2BEC742746FB867830368CA7B476EF2",    % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},level,oter,joy]:
+                   "5746887088D53AF625F451A5D169D0BEA3C38C86F8CD91BC704A79D8AA66" =>
+                   "DBA15EA46B7A5D62D6271C7C8693924FB878FD648FB2CA7D7972DD5885CC4AA"    % 2018-01-01__2018-10-01
                   },
     maps:get(Key, RunResults, none).
 
