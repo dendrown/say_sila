@@ -349,6 +349,10 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
 % @end  --
 report_run(Tracker, Method, DataMode, Emotion, Options, RunResults, RefResults) ->
 
+    % Will the models' run data (descriptions) be meaningul?  LinearRegression (our default)
+    % is currently the only "white box" model we're working with.
+    IsWhiteBox = (lreg =:= proplists:get_value(learner, Options, lreg)),
+
     % Announce the report and log the time periods
     ?notice("Reporting '~s' run for ~s", [DataMode, Emotion]),
     LogStamper = fun(Step) ->
@@ -374,7 +378,11 @@ report_run(Tracker, Method, DataMode, Emotion, Options, RunResults, RefResults) 
             % We may not have had enough data for a reference score
             {RunPCC, MidWarnings} = Checker(run, N, RunVal, RunData, Warnings),
             {RefPCC, NewWarnings} = Checker(ref, N, RefVal, RefData, MidWarnings),
-            ?info("N @ ~2B: pcc[~s] ref[~s] model~p", [N, RunPCC, RefPCC, RunData]),
+            ModelDesc = case IsWhiteBox of
+                true  -> RunData;
+                false -> <<"??">>
+            end,
+            ?info("N @ ~2B: pcc[~s] ref[~s] model~p", [N, RunPCC, RefPCC, ModelDesc]),
             Recur(RunRest, RefRest, NewWarnings)
     end,
     Warnings = Report(RunResults, RefResults, []),
@@ -484,20 +492,20 @@ get_run_hash(Key) ->
                   %%E54282667A2485BDEC43E8641523E8EAEDA0AD442373CCF1CD7F25E22CAF",      % Oct 2017 -- Mar 2018 T
 
                    % --------------------------------------------------------------------------------------------
-                   % [{run,2},gw,{top_n,5,25},level,oter,anger]:
-                   "AE727F720DC172FE4BBD63AC7C84486B980B6FF98F5FBC1A1790A0BFCE43" =>
+                   % [{run,2},gw,{nn,{top_n,5,25}},level,oter,anger,{data_mode,level}]:
+                   "DA7DE16D87C10844AAA148919CC356685F32A41B184B55215E4F1A3576A7AA8" =>
                    "92AB3A2DE53B3D77DE92C5A2B49D5A93297CB6852B92CB11A1EFDB3124C8313",   % 2018-01-01__2018-10-01 T
 
-                   % [{run,2},gw,{top_n,5,25},level,oter,fear]:
-                   "A437A83557F7D366B99B08D3F21D2BF156ECEF24F99E9CB7BF58F3D316DC058" =>
+                   % [{run,2},gw,{nn,{top_n,5,25}},level,oter,fear,{data_mode,level}]:
+                   "2A8312F129F0D7F637703EE2140B9B260092CE7E133AB048A067A963474C90" =>
                    "3B19F02B1BA0B221EBDC7CEFE3F37F7211A8E65FE92F7A47B463A9F47F120",     % 2018-01-01__2018-10-01 T
 
-                   % [{run,2},gw,{top_n,5,25},level,oter,sadness]:
-                   "6B3483AA23EE5DED56CC7CC135723E27DC98C3B56357FA848C53AED09E3F" =>
+                   % [{run,2},gw,{nn,{top_n,5,25}},level,oter,sadness,{data_mode,level}]:
+                   "5BE1D0C1E0CDFB62EDD59E30F2E023624AB4F41C8421CCE27E6B9473A32EFA12" =>
                    "FA3A463A60D2113FFE38AC162BF4F0C2BEC742746FB867830368CA7B476EF2",    % 2018-01-01__2018-10-01 T
 
-                   % [{run,2},gw,{top_n,5,25},level,oter,joy]:
-                   "5CA7052114ED28E2EE37247EFB63FE78BA892A4295641612B8CF8DDB8BAB" =>
+                   % [{run,2},gw,{nn,{top_n,5,25}},level,oter,joy,{data_mode,level}]:
+                   "8B52E11CBEFF92D741B461E829B62917E1B2FC662721C62A9B510F6545579F0" =>
                    "DBA15EA46B7A5D62D6271C7C8693924FB878FD648FB2CA7D7972DD5885CC4AA",   % 2018-01-01__2018-10-01 T
 
                    % -------------------------------------------------------------------------------------------
@@ -526,7 +534,58 @@ get_run_hash(Key) ->
 
                    % [{run,2},gw,{n,{top_n,5,25}},level,oter,joy]:
                    "5746887088D53AF625F451A5D169D0BEA3C38C86F8CD91BC704A79D8AA66" =>
-                   "DBA15EA46B7A5D62D6271C7C8693924FB878FD648FB2CA7D7972DD5885CC4AA"    % 2018-01-01__2018-10-01
+                   "DBA15EA46B7A5D62D6271C7C8693924FB878FD648FB2CA7D7972DD5885CC4AA",   % 2018-01-01__2018-10-01
+
+                   % --------------------------------------------------------------------------------------------
+                   % [{run,2},gw,{n,{top_n,5,25}},variation,oter,anger,{data_mode,variation}]:
+                   "31A65C246B78AC54430638257B51C8B513DBE84BED07F68E42F8E3862B39A" =>
+                   "4D2DDD88B0CAF8CDC86C58F9FDA0717EFCC11189B949EA93DAD59ED6676CA44",   % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},variation,oter,fear,{data_mode,variation}]:
+                   "661660D9C2B9ABCF186DA81C8EDD3E73D6CB6FD67E8731D4BAD37B434F1E2C2" =>
+                   "90E3792C96FD953DB936C62148F7750D219B397B3FB921C92E5775D392734",     % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},variation,oter,sadness,{data_mode,variation}]:
+                   "B72B105585D2E73A418C1EDB3A49CDEE1468BCEFD5AAD9ACBC3FC3BBD72E0" =>
+                   "FDE59A421B142E5BE3D192FFF79481448964467E181BCD0E4E642674DAA5D13",   % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},variation,oter,joy,{data_mode,variation}]:
+                   "31F3D57FE1647B11EE5D6C89AFA3091332410225A6C8D634DB892BFFBF5A3" =>
+                   "786CDEAA1531289169967ACCF0614D59EFB0C193F781CBDD2DF195CCD36",       % 2018-01-01__2018-10-01
+
+                   % --------------------------------------------------------------------------------------------
+                   % [{run,2},gw,{n,{top_n,5,25}},level,oter,anger,{learner,gproc}]:
+                   "4442E9AD7076639B4AD1E81C049ECD5671F3257B4BCFE8A8675EBC82AB268" =>
+                   "114475AE4B5A3FFC8FDCED624EAC2B81D36381616DDD0F37117244067E9B7",     % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},level,oter,fear,{learner,gproc}]:
+                   "99CAABC1F54C898C930B782FEF9DBEF951EC53BB183EBC77C65DA816784F6A" =>
+                   "524747A5C2D45537E184748A27317FE158119BD7EAA8E2941F79419A781B",      % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},level,oter,sadness,{learner,gproc}]:
+                   "958B2FFEAC63A4559D25B1A36784313472D5E0DD19801156A9FDEF36C2F420" =>
+                   "3B2431A725A11B8C837C2CC8B7C3FA459F3987B3665CDBA1056AEA3DB68B080",   % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},level,oter,joy,{learner,gproc}]:
+                   "8231D5A3E93AAD54A2C86D52A6539B13FE473DA3D61D462A9693426EB599F5" =>
+                   "EFA7BBDDD6D2CA7C73D6A5432163B1AC9BF8534DACE573441A00F1F1FE69",      % 2018-01-01__2018-10-01
+
+                   % --------------------------------------------------------------------------------------------
+                   % [{run,2},gw,{n,{top_n,5,25}},variation,oter,anger,{data_mode,variation},{learner,gproc}]:
+                   "581D7E710BDCDCEC41E1F7F7D7C63F3A06448DCBA89FFEA32D4F83E11FA7" =>
+                   "743BC97BFEFC2F9851CCC3CD5C9025FF80AAE8C3F65165135987271112AEF",     % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},variation,oter,fear,{data_mode,variation},{learner,gproc}]:
+                   "EFEF476A45B19838BCDCCB87EDFAD3AE9015A3BAF670AAB27FA3EB9CB96B10" =>
+                   "24118542D4B174734D28B9F196569E5CECDB579312E3A5404BE13D8624366716",  % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},variation,oter,sadness,{data_mode,variation},{learner,gproc}]:
+                   "474BD355E37419A6767F18E93E5E4D6409A6D209760FD26D4EA2D4BC6892F5A" =>
+                   "F55C828AC41C4F64EE33395EA79417E2E14764AEEDE0AE7B526F872ECE5AD5",    % 2018-01-01__2018-10-01
+
+                   % [{run,2},gw,{n,{top_n,5,25}},variation,oter,joy,{data_mode,variation},{learner,gproc}]:
+                   "19B4B9F182FAEFB083A9FF8569F3EB846DDEB8E574D9855832AF6FE86F66FE9D" =>
+                   "35D0602934B67E11EF2DA512BD9A4545156D647909C6DAA68D951DDF3816280"    % 2018-01-01__2018-10-01
                   },
     maps:get(Key, RunResults, none).
 
