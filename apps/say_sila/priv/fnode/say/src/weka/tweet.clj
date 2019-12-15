@@ -261,9 +261,12 @@
           ;; TODO: As Weka documentation seems to be lacking here, I should take the
           ;;       time to verify the array structure in the Weka source code.
           (let [;param-cnt   (.numParameters model)
-                coefficients (.coefficients model)
-                coeff-cnt    (- (count coefficients) 2)                             ; See note above
-                intercept    (last coefficients)]
+                coefficients    (if (weka/white-box? model) (.coefficientss model) [])
+                [coeff-cnt
+                 intercept]     (if (empty? coefficients)
+                                        [0 0]                           ; Unexplainable!
+                                        [(- (count coefficients) 2)     ; See note above
+                                         (last coefficients)])]
             (assoc ACK :model        (type model)
                        :instances    (.numInstances trains)
                        :correlation  (.correlationCoefficient audit)
@@ -272,7 +275,7 @@
                                                    (map vector (range coeff-cnt)    ; Attr-indexes
                                                                coefficients)))))))) ; Coeff-values
     (catch Exception ex
-           (log/fail ex "Linear regression failed" :stack)
+           (log/fail ex "Regression failed" :stack)
            (assoc NAK :info  (.getMessage ex)))))
 
 

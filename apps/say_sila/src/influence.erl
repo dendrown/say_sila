@@ -676,7 +676,7 @@ handle_event(cast, reset, Data = #data{name = Name}) ->
     ?notice("Resetting model ~s", [Name]),
     case Data#data.work_ref of
         none -> ok;
-        Work -> ?warning("Abandoning ourstanding model: ~p", [Work])
+        Work -> ?warning("Abandoning our standing model: ~p", [Work])
     end,
     {_,
      InclAttrs,
@@ -859,8 +859,8 @@ tune(Type, Evt, Data) ->
 %%
 % @doc  FSM state to evaluate a Weka model
 % @end  --
-eval(enter, tune, Data = #data{name    = Name,
-                               learner = Learner}) ->
+eval(enter, _, Data = #data{name    = Name,
+                            learner = Learner}) ->
 
     ?info("Evaluating final model ~s (~s) on Weka", [Name, Learner]),
     {keep_state, run_model(test, Data)};
@@ -1101,7 +1101,7 @@ report_line(#{coefficients := Coeffs,
     ?io_fmt(FOut, "~B,~s,~s,~s,~.6f,~B",
             [Line, Tracker, RegComm, RegEmo, CorrScore,InstCnt]),
     lists:foreach(Attribber, Attrs),
-    ?io_fmt(FOut, ",~.6f~n", [Intercept]),
+    ?io_fmt(FOut, ",~.6f~n", [float(Intercept)]),
 
     % Only the line number changes in the accumulator
     {FOut, Line+1, Attrs, Data}.

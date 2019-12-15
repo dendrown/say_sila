@@ -145,3 +145,24 @@
     ; Apply any requested filters.
     (reduce #(filter-instances %1 %2) insts filters))))
 
+
+;;; --------------------------------------------------------------------------
+(defn white-box?
+  "Returns true if the specified algorithm is considered a «white box model»,
+   whose results are generally explainable and interpretable by a human being."
+  [model]
+  ;; FIXME this set is not complete!
+  (contains? #{weka.classifiers.functions.LinearRegression
+               weka.classifiers.functions.Logistic
+               weka.classifiers.trees.J48}
+             (type model)))
+
+
+;;; --------------------------------------------------------------------------
+(defn black-box?
+  "Returns true if the specified algorithm is considered a «black box model»,
+   whose results are not readily explainable. "
+  [model]
+  ;; I don't know anybody else...🎵
+  (not (white-box? model)))
+
