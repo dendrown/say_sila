@@ -529,13 +529,19 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
     end,
 
     % Log some feedback for this run
+    DataInfo = fun(_, DS) ->
+        if  is_map(DS)    -> maps:size(DS);
+            is_number(DS) -> DS
+        end
+    end,
+
     BigInfo = fun({Comm, {P100, Cnt, Accts}}) ->
         ?str_FMT("{~s:~B%,tw=~B,cnt=~B}", [Comm, round(100 * P100), Cnt, length(Accts)])
     end,
 
     Name = ?bin_fmt("~s_~s_~s_~s_~s", [Tracker, RunTag, RegComm, RegEmo, BigTag]),
     ?info("Modelling '~s' influence: ds~p big~p", [Name,
-                                                   [{S,maps:size(DS)} || {S,DS} <- maps:to_list(DataSets)],
+                                                   maps:map(DataInfo, DataSets),
                                                    [BigInfo(Grp) || Grp <- Biggies]]),
 
     % Prepare Weka modelling input.  We're going to need three datasets.
@@ -579,9 +585,14 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
 
     % Function to name a working CSV file for Weka (use to fold from the ARFF map)
     ToCSV = fun(_, ARFF) ->
-        Parts = string:split(ARFF, ".", trailing),
-        CSV   = ?str_fmt("~s.csv", [hd(Parts)]),
-        list_to_binary(CSV)
+        % The `parms' dataset may just indicate how much to sample from the training data
+        case is_number(ARFF) of
+            true  -> ARFF;
+            false ->
+                Parts = string:split(ARFF, ".", trailing),
+                CSV   = ?str_fmt("~s.csv", [hd(Parts)]),
+                list_to_binary(CSV)
+        end
     end,
     CSVs = maps:map(ToCSV, ARFFs),
     % We assume that the regular players will have original tweets every week

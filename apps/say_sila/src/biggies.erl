@@ -38,7 +38,8 @@
 
 
 %%--------------------------------------------------------------------
--spec period(DataTag :: dataset()) -> proplist().
+-spec period(DataTag :: dataset()) -> proplist()
+                                    | {parms_pct, float()}.
 %%
 %% Shortcut to get tracking run period.
 %%
@@ -66,19 +67,23 @@
 %%--------------------------------------------------------------------
 %% Best RUN-2 so far
 %%--------------------------------------------------------------------
-period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
-period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
-period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+%period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
+%period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
+%period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 %%--------------------------------------------------------------------
 
-% variation:
+%period(parms) -> [{start, {2018, 06, 01}}, {stop, {2018, 09, 01}}];
+%period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 06, 01}}];
+%period(test)  -> [{start, {2019, 06, 01}}, {stop, {2019, 09, 01}}].
+
 % A @
 % F @
 % S @
 % J @
-%period(parms) -> [{start, {2018, 06, 01}}, {stop, {2018, 09, 01}}];
-%period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 06, 01}}];
-%period(test)  -> [{start, {2019, 06, 01}}, {stop, {2019, 09, 01}}].
+period(parms) -> {parms_pct, 0.25};        % <<= Specify in Options
+period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 10, 01}}];
+period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+
 -else.
 %%--------------------------------------------------------------------
 %% RUN-1: October 1, 2017 -- June 30, 2018              (10-fold CV)
@@ -128,9 +133,6 @@ make_h0(Biggies, Players) ->
          MedPlayers} = maps:fold(FindMediums, {0, #{}}, Players),
         MaxMedIndex  = MediumCnt - 1,
 
-        ?info("Choosing H0 from ~B ~s players with at least ~B tweet(s)",
-              [MediumCnt, Comm, ?MIN_H0_TWEETS]),
-
         % Function to get a random medium player
         ChooseMediums = fun
             Recur([], Acc) ->
@@ -146,7 +148,8 @@ make_h0(Biggies, Players) ->
         end,
 
         Meds = ChooseMediums(Bigs, []),
-        ?info("Medium ~s: ~B players", [Comm, length(Meds)]),
+        ?info("Sampled ~2B medium (H0) ~s players with at least ~B tweets",
+              [length(Meds), Comm, ?MIN_H0_TWEETS]),
         {Comm, {0.0,0,Meds}}
     end,
     [FindMedComm(B) || B <- Biggies].
@@ -243,7 +246,7 @@ prep_data(RunCode, Tracker, Options) ->
 
     % The `parms_pct' option specifies the percentage of training data to reserve
     % for parameter optimization.  0% means we should use an independent dataset.
-    ParmsData = case proplists:get_value(parms_data, Options, 0) of
+    ParmsData = case proplists:get_value(parms_pct, Options, 0) of
         0    -> GetPlayers(parms);
         P100 -> P100
     end,
@@ -356,8 +359,12 @@ report_run(Tracker, Method, DataMode, Emotion, Options, RunResults, RefResults) 
     % Announce the report and log the time periods
     ?notice("Reporting '~s' run for ~s", [DataMode, Emotion]),
     LogStamper = fun(Step) ->
-        Period = period(Step),
-        [?info("Period ~-5s: ~s__~s", [Step | [dts:str(proplists:get_value(T, Period)) || T <- [start,stop]]])]
+        Period = case period(Step) of
+            {_,P100} when is_float(P100) -> ?str_fmt("~.1f%", [100 * P100]);
+            DTSs     when is_list(DTSs)  -> ?str_fmt("~s__~s",
+                                                     [dts:str(proplists:get_value(T, DTSs)) || T <- [start,stop]])
+        end,
+        ?info("Period ~-5s: ~s", [Step, Period])
     end,
     [LogStamper(Step) || Step <- [parms, train, test]],
 

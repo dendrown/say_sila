@@ -189,31 +189,36 @@
                               (name tag)
                               (.name (.classAttribute ^Instances dset))
                               fpath
-                              (if var? "var" "lvl"))
+                              (if vmode? "var" "lvl"))
                 dset))
 
 
             ;; ---------------------------------------------------------------
-            (split-parms [insts p100]
+            (split-data [insts tag p100]
               ;; Determine the required train/test dataset configuration
-              (let [flt (Resample.)
+              (let [flt (Resample.)                                                 ; Seed (-S) is 1
                     pct  (str (Math/round (double (* 100 p100))))
                     opts ["-Z" pct "-no-replacement"]]
-                [weka/filter-instances insts flt (into-array (conj opts "-V"))  ; training data
-                 weka/filter-instances insts flt (into-array opts)]))           ; optimize parms
+                (log/fmt-debug "Sampling ~a @ ~a% for parameter optimization" tag p100)
+                (weka/filter-instances insts flt (if (not= :train tag)
+                                                     opts
+                                                     (into-array (conj opts "-V"))))))
 
 
             ;; ---------------------------------------------------------------
             (prep-data [insts]
               ;; Determine the required train/test dataset configuration
               ;; NOTE: a nil test dataset will mean cross-validation
-              (case eval_mode
-                "parms"  (if-let [p100 (number? (datasets :parms))]
-                             (split-parms insts p100)
-                             [insts (load-data :parms)])
-                "test"  [insts (load-data :test)]
-                "cv"    [insts (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)]
-                        [insts (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode)]))
+              (let [sp100   (datasets :parms)               ; ARFF|split-percentage
+                    split?  (number? sp100)
+                    trains  (if split? (split-data insts :train sp100) insts)]
+                (case eval_mode
+                  "parms" (if split?
+                              [trains (split-data insts :parms sp100)]
+                              [insts  (load-data :parms)])
+                  "test"  [trains (load-data :test)]
+                  "cv"    [insts (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)]
+                          [insts (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode)])))
 
 
             ;; ---------------------------------------------------------------
@@ -229,6 +234,7 @@
              ^Instances tests]  (prep-data insts)]
 
         ;; Since Weka leaves out some statistical measures, make a work CSV for Incanter
+        ;; TODO: Incanter will need the testers as well
         (when work_csvs
           (weka/save-file (:train work_csvs) trains :csv))
 
