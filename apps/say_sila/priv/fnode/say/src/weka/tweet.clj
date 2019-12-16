@@ -185,9 +185,10 @@
                 (when-not target
                   (.setClassIndex ^Instances dset (dec (.numAttributes ^Instances dset))))
 
-                (log/fmt-info "Loaded ~a dataset: tgt[~a] src[~a] mode[~a]",
+                (log/fmt-info "Loaded ~a dataset: tgt[~a] cnt[~a] src[~a] mode[~a]",
                               (name tag)
                               (.name (.classAttribute ^Instances dset))
+                              (.numInstances dset)
                               fpath
                               (if vmode? "var" "lvl"))
                 dset))
@@ -196,13 +197,19 @@
             ;; ---------------------------------------------------------------
             (split-data [insts tag p100]
               ;; Determine the required train/test dataset configuration
-              (let [flt (Resample.)                                                 ; Seed (-S) is 1
-                    pct  (str (Math/round (double (* 100 p100))))
-                    opts ["-Z" pct "-no-replacement"]]
-                (log/fmt-debug "Sampling ~a @ ~a% for parameter optimization" tag p100)
-                (weka/filter-instances insts flt (if (not= :train tag)
-                                                     opts
-                                                     (into-array (conj opts "-V"))))))
+              (let [->pct #(str (Math/round (double (* 100 %))))
+                    flt   (Resample.)                                   ; Seed (-S) is 1
+                    pct   (->pct p100)
+                    opts  ["-Z" pct "-no-replacement"]
+                    inv?  (= :train tag)
+                    split (weka/filter-instances insts flt (if inv?
+                                                               (into-array (conj opts "-V"))
+                                                               opts))]
+                (log/fmt-debug "Sampling ~a @ ~a% for parameter optimization: cnt[~a]"
+                               tag
+                               (if inv? (->pct (- 1 p100)) pct)
+                               (.numInstances split))
+                split))
 
 
             ;; ---------------------------------------------------------------

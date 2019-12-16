@@ -592,7 +592,43 @@ get_run_hash(Key) ->
 
                    % [{run,2},gw,{n,{top_n,5,25}},variation,oter,joy,{data_mode,variation},{learner,gproc}]:
                    "19B4B9F182FAEFB083A9FF8569F3EB846DDEB8E574D9855832AF6FE86F66FE9D" =>
-                   "35D0602934B67E11EF2DA512BD9A4545156D647909C6DAA68D951DDF3816280"    % 2018-01-01__2018-10-01
+                   "35D0602934B67E11EF2DA512BD9A4545156D647909C6DAA68D951DDF3816280",   % 2018-01-01__2018-10-01
+
+                   % --------------------------------------------------------------------------------------------
+                   % Sample 25% for parms:
+                   % --------------------------------------------------------------------------------------------
+                   % [{run,2},gw,{nn,{top_n,5,25}},level,oter,anger,{parms_pct,0.25}]:
+                   "21622789FA1F944C031CF54128630E4A53F2EAB63F01114D5693EE8707733AD" =>
+                   "57E5993678D6E4BC78D593B0E4FB4BD7A2A8626DA8BC66EE9052C3D9AF7763",
+
+                   % [{run,2},gw,{nn,{top_n,5,25}},level,oter,fear,{parms_pct,0.25}]:
+                   "412E1D655CAF1B63B74C9778E8755448215AC562461126F8C13C12D9B6518F" =>
+                   "3F03F433043E8A4F88BCB16F23A3B6131ADA7474E1B29E2750DA4A6CC9",        % 2017-10-01__2018-10-01
+
+                   % [{run,2},gw,{nn,{top_n,5,25}},level,oter,sadness,{parms_pct,0.25}]:
+                   "2CF16288FE5CE9D74E886B3414ADDE11E271BF78B9C5FEA169D8ABAC4B2E35DB" =>
+                   "285D7E491C36C93F77152690E2C55D0E6F21A8BC4EAF01452E05263FEBA41",     % 2018-10-01__2019-01-01
+
+                   % [{run,2},gw,{nn,{top_n,5,25}},level,oter,joy,{parms_pct,0.25}]:
+                   "9626B849CF8A48D17C975CE0276BE3D81986D149F7D2B475812DC941CE4393BD" =>
+                   "41350EDB56ECE63BC751F156A6EEB73C433A8DF472B8B11B08FD64FA552C0",     % 2018-10-01__2019-01-01
+
+                   % --------------------------------------------------------------------------------------------
+                   % [{run,2},gw,{nn,{top_n,5,25}},variation,oter,anger,{data_mode,variation},{parms_pct,0.25}]:
+                   "494FBCACB0D0D265E89C6DEAB4617EF36E4F16C0976DACFE9CFCDEAF0877" =>
+                   "8D69AC5696C28825ED18824FF93E213EDA167532F234312E145F82382CC3A39F",  % 2017-10-01__2018-10-01
+
+                   % [{run,2},gw,{nn,{top_n,5,25}},variation,oter,fear,{data_mode,variation},{parms_pct,0.25}]:
+                   "CBC4B3E07C534F5F63D3B3CBABB0EA2313B5F8595163D46C2C85CFBD2679FA7" =>
+                   "82F2A58D723F90DA671655EEBC865EE5D8E51F299C2E6AA5D1FC976E7BB2F",     % 2017-10-01__2018-10-01
+
+                   % [{run,2},gw,{nn,{top_n,5,25}},variation,oter,sadness,{data_mode,variation},{parms_pct,0.25}]:
+                   "7EFD048CF62DF9DAC443FF099C54B50EBA3E7AEDCD2FFB3EC61FB12736D95B4" =>
+                   "DD1DF84CE6FFE2FF2817A09A97325632833F5FD195249570377125F3452E2139",  % 2017-10-01__2018-10-01
+
+                   % [{run,2},gw,{nn,{top_n,5,25}},variation,oter,joy,{data_mode,variation},{parms_pct,0.25}]:
+                   "ACFCB2F977B72FA357869B89E4CE3A2260FB6BC02851884171421F9AA7AEE9A" =>
+                   "DE7CBE8D7713732C7D914A102EAAFA478D6D87CD9E3F72277811BE771EB2562"    % 2017-10-01__2018-10-01
                   },
     maps:get(Key, RunResults, none).
 
