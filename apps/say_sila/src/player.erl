@@ -17,7 +17,6 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1,      stop/1,
-         cache/2,
          clear_cache/0,
          get_biggies/2,     get_biggies/3,
          get_big_p100/2,
@@ -28,10 +27,11 @@
          get_rankings/1,
          get_top_n/2,
          get_totals/1,      get_totals/2,
+         load/2,
          plot/1,            plot/2, plot/3,
          reset/1,
+         save/2,
          tweet/2,
-         unearth/2,
          update_comm/2,
         %----------------------
         % Pending final design:
@@ -93,8 +93,11 @@
 % @doc  Startup function for Twitter account services.
 % @end  --
 start_link(Tracker) ->
-    ioo:make_fpath(?PLAYERS_CACHE),
-    dets:open_file(?PLAYERS_CACHE, [{repair, true}, {auto_save, 60000}]),
+    InitCache = fun(C) ->
+        ioo:make_fpath(C),
+        dets:open_file(C, [{repair, true}, {auto_save, 60000}])
+    end,
+    [InitCache(C) || C <- ?DETS_CACHES],
     gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Tracker], []).
 
 
@@ -106,30 +109,6 @@ start_link(Tracker) ->
 % @end  --
 stop(Tracker) ->
     gen_server:call(?reg(Tracker), stop).
-
-
-
-%%--------------------------------------------------------------------
--spec cache(Tracker :: tracker(),
-            Period  :: proplist()) -> ok
-                                    | {error, term()}.
-%%
-% @doc  Inserts current player information into the DETS cache.
-% @end  --
-cache(Tracker, Period) ->
-    Players = get_players(Tracker),
-    case maps:size(Players) of
-        0 ->
-            ?warning("No players to cache"),
-            {error, empty};
-        _ ->
-            Key = {Tracker, lists:sort(Period)},
-            Ins = [dets:insert(C, {Key,Data}) || {C,Data} <- [{?PLAYERS_CACHE,  Players},
-                                                              {?RANKINGS_CACHE, get_rankings(Tracker)},
-                                                              {?TOTALS_CACHE,   get_totals(Tracker)}]],
-        return:error_or_first(Ins)
-    end.
-
 
 
 
@@ -385,6 +364,38 @@ get_totals(Tracker, Timeout) ->
 
 
 %%--------------------------------------------------------------------
+-spec load(Tracker :: tracker(),
+           Period  :: proplist()) -> [{player|ranking|totals, non_neg_integer()}]
+                                      | none.
+%%
+% @doc  Retrives player information from the DETS cache.
+% @end  --
+load(Tracker, Period) ->
+
+    Key = {Tracker, lists:sort(Period)},
+    ?info("Checking cache for ~p", [Key]),
+
+    % Function to pull info from the DETS tables and return it as a proplist
+    Dig = fun
+        Recur([], Acc) ->
+            Acc;
+        Recur([{Cache,Item}|Rest], Acc) ->
+            case dets:lookup(Cache, Key) of
+                []           ->[];
+                [{Key,Data}] -> Recur(Rest, [{Item,Data}|Acc])
+            end
+    end,
+
+    case Dig([{?PLAYERS_CACHE,  players},
+              {?RANKINGS_CACHE, rankings},
+              {?TOTALS_CACHE,   totals}], []) of
+        []   -> none;
+        Info -> gen_server:call(?reg(Tracker), {set_info, Info})
+    end.
+
+
+
+%%--------------------------------------------------------------------
 -spec ontologize(Tracker :: tracker()) -> ok.
 %%
 % @doc  Finalizes ontology creation by sending post counts for the
@@ -469,6 +480,31 @@ reset(Tracker) ->
 
 
 %%--------------------------------------------------------------------
+-spec save(Tracker :: tracker(),
+            Period  :: proplist()) -> ok
+                                    | {error, term()}.
+%%
+% @doc  Inserts current player information into the DETS cache.
+% @end  --
+save(Tracker, Period) ->
+    Players = get_players(Tracker),
+    case maps:size(Players) of
+        0 ->
+            ?warning("No players to cache"),
+            {error, empty};
+        _ ->
+            Key = {Tracker, lists:sort(Period)},
+            ?info("Storing ~p to cache", [Key]),
+            Ins = [dets:insert(C, {Key,Data}) || {C,Data} <- [{?PLAYERS_CACHE,  Players},
+                                                              {?RANKINGS_CACHE, get_rankings(Tracker)},
+                                                              {?TOTALS_CACHE,   get_totals(Tracker)}]],
+        return:error_or_first(Ins)
+    end.
+
+
+
+
+%%--------------------------------------------------------------------
 -spec tweet(Tracker :: tracker(),
             Tweet   :: tweet()) -> ok.
 %%
@@ -476,35 +512,6 @@ reset(Tracker) ->
 % @end  --
 tweet(Tracker, Tweet) ->
     gen_server:cast(?reg(Tracker), {tweet, Tweet}).
-
-
-
-%%--------------------------------------------------------------------
--spec unearth(Tracker :: tracker(),
-              Period  :: proplist()) -> [{player|ranking|totals, non_neg_integer()}]
-                                      | none.
-%%
-% @doc  Retrives player information from the DETS cache.
-% @end  --
-unearth(Tracker, Period) ->
-
-    Key = {Tracker, lists:sort(Period)},
-    Dig = fun
-        Recur([], Acc) ->
-            Acc;
-        Recur([{Cache,Item}|Rest], Acc) ->
-            case dets:lookup(Cache, Key) of
-                []           ->[];
-                [{Key,Data}] -> Recur(Rest, [{Item,Data}|Acc])
-            end
-    end,
-
-    case Dig([{?PLAYERS_CACHE,  players},
-              {?RANKINGS_CACHE, rankings},
-              {?TOTALS_CACHE,   totals}], []) of
-        []   -> none;
-        Info -> gen_server:call(?reg(Tracker), {set_info, Info})
-    end.
 
 
 

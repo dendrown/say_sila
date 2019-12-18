@@ -38,7 +38,8 @@
 
 
 %%--------------------------------------------------------------------
--spec period(DataTag :: dataset()) -> proplist()
+-spec period(DataTag :: dataset()
+                      | parms_pct) -> proplist()
                                     | {parms_pct, float()}.
 %%
 %% Shortcut to get tracking run period.
@@ -64,12 +65,13 @@
 %period(train) -> [{start, {2017, 12, 01}}, {stop, {2018, 09, 01}}];
 %period(test)  -> [{start, {2018, 09, 01}}, {stop, {2019, 01, 01}}].
 
+period(parms_pct) -> {parms_pct, 0.25};     % <<= Specify in Options
 %%--------------------------------------------------------------------
 %% Best RUN-2 so far
 %%--------------------------------------------------------------------
-%period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
-%period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
-%period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
+period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
+period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 %%--------------------------------------------------------------------
 
 %period(parms) -> [{start, {2018, 06, 01}}, {stop, {2018, 09, 01}}];
@@ -80,9 +82,9 @@
 % F @
 % S @
 % J @
-period(parms) -> {parms_pct, 0.25};        % <<= Specify in Options
-period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 10, 01}}];
-period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+%period(parms) -> {parms_pct, 0.25};        % <<= Specify in Options
+%period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 10, 01}}];
+%period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 
 -else.
 %%--------------------------------------------------------------------
@@ -232,9 +234,17 @@ prep_data(RunCode, Tracker, Options) ->
 
     % Function to pull and organize players and their tweets for a given dataset
     GetPlayers = fun(D) ->
+        Period = period(D),
         sila:reset(),
-        ok = raven:emote(Tracker, period(D)),
-        wait_on_players(Tracker),
+        case player:load(Tracker, Period) of
+            none ->
+                % Process tweets, rank players and save the results for next time
+                ok = raven:emote(Tracker, Period),
+                wait_on_players(Tracker),
+                player:save(Tracker, Period);
+            Info ->
+                ?notice("Loaded players: ~p", [Info])
+        end,
         player:get_players(Tracker)
     end,
     Players = GetPlayers(train),
