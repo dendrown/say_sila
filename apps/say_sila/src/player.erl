@@ -8,7 +8,7 @@
 %%
 %% @doc The "Say Sila" Twitter player (account) handler
 %%
-%% @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(player).
@@ -17,6 +17,8 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1,      stop/1,
+         cache/2,
+         clear_cache/0,
          get_biggies/2,     get_biggies/3,
          get_big_p100/2,
          get_big_venn/2,
@@ -29,6 +31,7 @@
          plot/1,            plot/2, plot/3,
          reset/1,
          tweet/2,
+         unearth/2,
          update_comm/2,
         %----------------------
         % Pending final design:
@@ -49,6 +52,13 @@
                       gw => player_gw}).
 -define(reg(Key),   maps:get(Key, ?MODULES, ?MODULE)).
 
+% DETS tables
+-define(DETS_FSTUB,             ?WORK_DIR "/dets/player_").
+-define(PLAYERS_CACHE,          ?DETS_FSTUB "players").
+-define(RANKINGS_CACHE,         ?DETS_FSTUB "rankings").
+-define(TOTALS_CACHE,           ?DETS_FSTUB "totals").
+-define(DETS_CACHES,            [?PLAYERS_CACHE, ?RANKINGS_CACHE, ?TOTALS_CACHE]).
+
 %% Plotting definitions
 -define(PLOT_MARKERS,           [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.45, 0.50]).
 -define(PLOT_BP_RATES,          [0.0025, 0.0050, 0.0075, 0.0100, 0.0125, 0.0150, 0.0175, 0.0200]).
@@ -63,7 +73,7 @@
 
 
 %%--------------------------------------------------------------------
--record(state, {tracker     :: atom(),
+-record(state, {tracker     :: tracker(),
                 players     :: map(),       % map(key=acct, val=profile)
                 rankings    :: map(),
                 totals      :: map(),       % counts of tter|oter|rter|rted|tmed
@@ -76,19 +86,21 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec start_link(Tracker :: atom()) -> {ok, pid()}
+-spec start_link(Tracker :: tracker()) -> {ok, pid()}
                                      |  ignore
                                      |  {error, term()}.
 %%
 % @doc  Startup function for Twitter account services.
 % @end  --
 start_link(Tracker) ->
+    ioo:make_fpath(?PLAYERS_CACHE),
+    dets:open_file(?PLAYERS_CACHE, [{repair, true}, {auto_save, 60000}]),
     gen_server:start_link({?REG_DIST, ?reg(Tracker)}, ?MODULE, [Tracker], []).
 
 
 
 %%--------------------------------------------------------------------
--spec stop(Tracker :: atom()) -> ok.
+-spec stop(Tracker :: tracker()) -> ok.
 %%
 % @doc  Shutdown function for account services.
 % @end  --
@@ -98,7 +110,43 @@ stop(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec get_big_p100(Tracker :: atom(),
+-spec cache(Tracker :: tracker(),
+            Period  :: proplist()) -> ok
+                                    | {error, term()}.
+%%
+% @doc  Inserts current player information into the DETS cache.
+% @end  --
+cache(Tracker, Period) ->
+    Players = get_players(Tracker),
+    case maps:size(Players) of
+        0 ->
+            ?warning("No players to cache"),
+            {error, empty};
+        _ ->
+            Key = {Tracker, lists:sort(Period)},
+            Ins = [dets:insert(C, {Key,Data}) || {C,Data} <- [{?PLAYERS_CACHE,  Players},
+                                                              {?RANKINGS_CACHE, get_rankings(Tracker)},
+                                                              {?TOTALS_CACHE,   get_totals(Tracker)}]],
+        return:error_or_first(Ins)
+    end.
+
+
+
+
+%%--------------------------------------------------------------------
+-spec clear_cache() -> ok
+                     | {error, term()}.
+%%
+% @doc  Clears player-related cache.
+% @end  --
+clear_cache() ->
+    return:error_or_first([dets:delete_all_objects(C) || C <- [?DETS_CACHES]]).
+
+
+
+
+%%--------------------------------------------------------------------
+-spec get_big_p100(Tracker :: tracker(),
                    BigP100 :: float()) -> proplist().
 %%
 % @doc  Returns top P100 percent
@@ -143,7 +191,7 @@ get_big_p100(Tracker, BigP100) ->
 
 
 %%--------------------------------------------------------------------
--spec get_big_venn(Tracker :: atom(),
+-spec get_big_venn(Tracker :: tracker(),
                    BigP100 :: float()) -> proplist().
 %%
 % @doc  Generate data for a Venn diagram for the WUI.
@@ -173,7 +221,7 @@ get_big_venn(Tracker, BigP100) ->
 
 
 %%--------------------------------------------------------------------
--spec get_biggies(Tracker :: atom(),
+-spec get_biggies(Tracker :: tracker(),
                   MinRate :: float()) -> proplist().
 %%
 % @doc  Returns big players, candidate influencers
@@ -184,7 +232,7 @@ get_biggies(Tracker, MinRate) ->
 
 
 %%--------------------------------------------------------------------
--spec get_biggies(Tracker  :: atom(),
+-spec get_biggies(Tracker  :: tracker(),
                   MinRate  :: float(),
                   MinDecel :: float()) -> proplist().
 %%
@@ -248,7 +296,7 @@ get_comm_combos() ->
 
 
 %%--------------------------------------------------------------------
--spec get_players(Tracker :: atom()) -> map().
+-spec get_players(Tracker :: tracker()) -> map().
 %%
 % @doc  Returns the server's internal players map.
 %%--------------------------------------------------------------------
@@ -258,7 +306,7 @@ get_players(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec get_rankings(Tracker :: atom()) -> map().
+-spec get_rankings(Tracker :: tracker()) -> map().
 %%
 % @doc  Returns the server's internal count rankings.
 %%--------------------------------------------------------------------
@@ -268,7 +316,7 @@ get_rankings(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec get_top_n(Tracker :: atom(),
+-spec get_top_n(Tracker :: tracker(),
                 N       :: pos_integer()) -> proplist().
 %%
 % @doc  Returns a list of the top N big players, candidate influencers,
@@ -310,9 +358,9 @@ get_top_n(Tracker, N) ->
 
 
 %%--------------------------------------------------------------------
--spec get_totals(Tracker :: atom()) -> map().
+-spec get_totals(Tracker :: tracker()) -> map().
 
--spec get_totals(Tracker :: atom(),
+-spec get_totals(Tracker :: tracker(),
                  Timout  :: infinity
                           | non_neg_integer()) -> map().
 %%
@@ -337,7 +385,7 @@ get_totals(Tracker, Timeout) ->
 
 
 %%--------------------------------------------------------------------
--spec ontologize(Tracker :: atom()) -> ok.
+-spec ontologize(Tracker :: tracker()) -> ok.
 %%
 % @doc  Finalizes ontology creation by sending post counts for the
 %       original tweeters.  (Maybe there'll be more to come...)
@@ -348,7 +396,7 @@ ontologize(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec plot(Tracker  :: atom()) -> ok.
+-spec plot(Tracker  :: tracker()) -> ok.
 %%
 % @doc  Creates gnuplot scripts, data files and images.
 % @end  --
@@ -358,7 +406,7 @@ plot(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec plot(Tracker  :: atom(),
+-spec plot(Tracker  :: tracker(),
            MinDecel :: float()) -> ok.
 %%
 % @doc  Creates gnuplot scripts, data files and images.
@@ -369,7 +417,7 @@ plot(Tracker, MinDecel) ->
 
 
 %%--------------------------------------------------------------------
--spec plot(Tracker  :: atom(),
+-spec plot(Tracker  :: tracker(),
            Rates    :: float | [float()],
            MinDecel :: float()) -> ok.
 %%
@@ -411,6 +459,56 @@ plot(Tracker, Rates, MinDecel) ->
 
 
 %%--------------------------------------------------------------------
+-spec reset(Tracker :: tracker()) -> ok.
+%%
+% @doc  Reinitializes the state of the specified `player' server.
+%%--------------------------------------------------------------------
+reset(Tracker) ->
+    gen_server:call(?reg(Tracker), reset).
+
+
+
+%%--------------------------------------------------------------------
+-spec tweet(Tracker :: tracker(),
+            Tweet   :: tweet()) -> ok.
+%%
+% @doc  Process a tweet, adjusting player roles as appropriate.
+% @end  --
+tweet(Tracker, Tweet) ->
+    gen_server:cast(?reg(Tracker), {tweet, Tweet}).
+
+
+
+%%--------------------------------------------------------------------
+-spec unearth(Tracker :: tracker(),
+              Period  :: proplist()) -> [{player|ranking|totals, non_neg_integer()}]
+                                      | none.
+%%
+% @doc  Retrives player information from the DETS cache.
+% @end  --
+unearth(Tracker, Period) ->
+
+    Key = {Tracker, lists:sort(Period)},
+    Dig = fun
+        Recur([], Acc) ->
+            Acc;
+        Recur([{Cache,Item}|Rest], Acc) ->
+            case dets:lookup(Cache, Key) of
+                []           ->[];
+                [{Key,Data}] -> Recur(Rest, [{Item,Data}|Acc])
+            end
+    end,
+
+    case Dig([{?PLAYERS_CACHE,  players},
+              {?RANKINGS_CACHE, rankings},
+              {?TOTALS_CACHE,   totals}], []) of
+        []   -> none;
+        Info -> gen_server:call(?reg(Tracker), {set_info, Info})
+    end.
+
+
+
+%%--------------------------------------------------------------------
 -spec update_comm(Comm   :: comm(),
                   Update :: comm()
                           | emos()) -> comm().
@@ -430,27 +528,6 @@ update_comm(Comm = #comm{cnt = Cnt1, emos = Emos1},
     % FIXME: We already have a count in emos
     Comm#comm{cnt  = Cnt1 + Cnt2,
               emos = emo:average(Emos1, Emos2)}.
-
-
-
-%%--------------------------------------------------------------------
--spec reset(Tracker :: atom()) -> ok.
-%%
-% @doc  Reinitializes the state of the specified `player' server.
-%%--------------------------------------------------------------------
-reset(Tracker) ->
-    gen_server:call(?reg(Tracker), reset).
-
-
-
-%%--------------------------------------------------------------------
--spec tweet(Tracker :: atom(),
-            Tweet   :: tweet()) -> ok.
-%%
-% @doc  Process a tweet, adjusting player roles as appropriate.
-% @end  --
-tweet(Tracker, Tweet) ->
-    gen_server:cast(?reg(Tracker), {tweet, Tweet}).
 
 
 
@@ -533,6 +610,17 @@ handle_call(ontologize, _From, State = #state{rankings = Rankings,
     TreeItr = gb_trees:iterator(maps:get(tter, Rankings)),
     GBRunner(gb_trees:next(TreeItr)),
     {reply, ok, State};
+
+
+handle_call({set_info, Info}, _From, State) ->
+    GetField = fun(F) ->
+        proplists:get_value(F, Info, #{})
+    end,
+    Counts   = [{F, maps:size(M)} || {F,M} <- Info],
+    NewState = State#state{players  = GetField(players),
+                           rankings = GetField(rankings),
+                           totals   = GetField(totals)},
+    {reply, Counts, NewState};
 
 
 handle_call(stop, _From, State) ->
@@ -638,7 +726,7 @@ new_ranking() ->
 
 
 %%--------------------------------------------------------------------
--spec reset_state(Tracker :: atom()) -> state().
+-spec reset_state(Tracker :: tracker()) -> state().
 %%
 % @doc  (Re)initialize the server state data
 % @end  --
@@ -1093,7 +1181,7 @@ update_ranking(Acct, CommCnt, Ranking) ->
 
 
 %%--------------------------------------------------------------------
--spec plot(Tracker  :: atom(),
+-spec plot(Tracker  :: tracker(),
            CommType :: tt | ot | rt | tm,
            AcctCnt  :: non_neg_integer(),
            Rankings :: count_tree(),
