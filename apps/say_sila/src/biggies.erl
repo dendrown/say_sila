@@ -346,12 +346,10 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     RefResultss = [{I, ProcessH0(I, Opts)} || {I,Opts} <- RefOptss],
 
     ?debug("RefResultss:~n~p", [RefResultss]),
-    _RefResults = average_results(RefResultss),
-    ?info("RefResults:~n~p", [_RefResults]),
+    RefAvgResults = average_results(RefResultss),
 
-    % FIXME:
-    {_,
-     RefResults} = hd(RefResultss),
+    ?info("RefResults:~n~p", [RefAvgResults]),
+    RefResults = averages_to_results(RefAvgResults),
 
     % Function to report and compare the biggie results against the averaged reference results
     Report = fun
@@ -379,19 +377,21 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
 % @doc  Combines and averages a list of reference runs.
 %
 %       Example input:
-%
+%        ```
 %       [{1,[{anger,[{5,{need_data,#{oter => 1.0,rted => 0.32,rter => 0.83,tmed => 0.83}}},
 %                    ...
 %                    {22,{0.14,[big_oter_sadness,big_rter_joy,big_rted_joy,big_tmed_fear,big_tmed_joy]}}, ...]
 %            {fear, [...]} ...]
 %        {2,[...]}
 %        ...]
-%
+%       '''
 %        Output template:
-%           #{anger := #{N := #{good_cnt  := GC,
-%                               fail_cnt  := FC,
-%                               pcc       := PCC,
-%                               need_data := ND}}}
+%        ```
+%        #{anger := #{N := #{good_cnt  := GC,
+%                            fail_cnt  := FC,
+%                            pcc       := PCC,
+%                            need_data := ND}}}
+%       '''
 % @end  --
 average_results(Results) ->
     average_results(Results, #{}).
@@ -438,6 +438,54 @@ average_results([{_, Results}|Rest], Acc) ->
 
     % Average in the current run and recurse for the remaining runs
     average_results(Rest, lists:foldl(Emoter, Acc, Results)).
+
+
+%%--------------------------------------------------------------------
+-spec averages_to_results(AvgResults :: multi_run_average()) -> list().
+%%
+% @doc  Creates a single result set from  a list of averaged results.
+%
+%       Input:
+%        ```
+%        #{anger := #{N := #{good_cnt  := GC,
+%                            fail_cnt  := FC,
+%                            pcc       := PCC,
+%                            need_data := ND}}}
+%       '''
+%        Output:
+%        ```
+%       [{anger,[{5,{need_data,#{oter => 1.0,rted => 0.32,rter => 0.83,tmed => 0.83}}},
+%                ...
+%                {22,{0.14,[big_oter_sadness,big_rter_joy,big_rted_joy,big_tmed_fear,big_tmed_joy]}}, ...]
+%        {fear, [...]} ...]
+%       '''
+% @end  --
+averages_to_results(AvgResults) ->
+
+    % Function to associate the average successful (or alterately failed) model to a given N
+    Topper = fun(N, Averages) ->
+        AvgValue = case Averages of
+            #{good_cnt := Cnt,
+              pcc      := PCC}    when Cnt > 0  -> {PCC, ?str_fmt("Model count: ~B", [Cnt])};
+
+            #{fail_cnt  := Cnt,
+              need_data := Needs} when Cnt > 0  -> {need_data, Needs}
+        end,
+        {N, AvgValue}
+    end,
+
+    % Function to convert averaged results to the "standard" format for the specified emotion
+    Emoter = fun(Emo) ->
+        TopMap = maps:get(Emo, AvgResults),
+        TopLst = maps:to_list(TopMap),
+        [Topper(N, Avgs) || {N,Avgs} <- lists:sort(TopLst)]
+    end,
+
+    % Format the averages as standard results
+    [{Emo, Emoter(Emo)} || Emo <- ?EMOTIONS].
+
+
+
 
 
 %%--------------------------------------------------------------------
