@@ -27,7 +27,7 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
--define(NUM_H0_RUNS,    2).                 % Number of H0 runs to average together
+-define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
 
 -type dataset()       :: parms | train | test.
 -type verification()  :: ack | nak | undefined.
@@ -151,8 +151,8 @@ make_h0(Biggies, Players) ->
         end,
 
         Meds = ChooseMediums(Bigs, []),
-        ?info("Sampled ~2B medium (H0) ~s players with at least ~B tweets",
-              [length(Meds), Comm, ?MIN_H0_TWEETS]),
+        ?info("Sampled ~2B medium (H0) ~s players from ~B with at least ~B tweets",
+              [length(Meds), Comm, MediumCnt, ?MIN_H0_TWEETS]),
         {Comm, {0.0,0,Meds}}
     end,
     [FindMedComm(B) || B <- Biggies].
@@ -345,10 +345,10 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     RunResults  = Process(RunTag, RunOpts),
     RefResultss = [{I, ProcessH0(I, Opts)} || {I,Opts} <- RefOptss],
 
-    ?debug("RefResultss:~n~p", [RefResultss]),
+    %?debug("RefResultss:~n~p", [RefResultss]),
     RefAvgResults = average_results(RefResultss),
 
-    ?info("RefResults:~n~p", [RefAvgResults]),
+    %?info("RefResults:~n~p", [RefAvgResults]),
     RefResults = averages_to_results(RefAvgResults),
 
     % Function to report and compare the biggie results against the averaged reference results
@@ -385,6 +385,7 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
 %        {2,[...]}
 %        ...]
 %       '''
+%
 %        Output template:
 %        ```
 %        #{anger := #{N := #{good_cnt  := GC,
@@ -394,6 +395,7 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
 %       '''
 % @end  --
 average_results(Results) ->
+    ?info("Averaging ~B H0 run results.", [length(Results)]),
     average_results(Results, #{}).
 
 
@@ -452,6 +454,7 @@ average_results([{_, Results}|Rest], Acc) ->
 %                            pcc       := PCC,
 %                            need_data := ND}}}
 %       '''
+%
 %        Output:
 %        ```
 %       [{anger,[{5,{need_data,#{oter => 1.0,rted => 0.32,rter => 0.83,tmed => 0.83}}},
