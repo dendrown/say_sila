@@ -27,6 +27,7 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
+-define(NUM_H0_RUNS,    2).                 % Number of H0 runs to average together
 
 -type dataset()       :: parms | train | test.
 -type verification()  :: ack | nak | undefined.
@@ -223,10 +224,13 @@ run_top_nn(Tracker, RunTag, Options) ->
 %%--------------------------------------------------------------------
 -spec prep_data(RunCode :: run_code(),
                 Tracker :: tracker(),
-                Options :: proplist()) -> {method(), map(), map(), map()}.
+                Options :: proplist()) -> {method(),
+                                           map(),
+                                           map(),
+                                           [{pos_integer(), map()}]}.
 %%
 % @doc  Prepares the `train', `parms' and  `test' datasets as well as
-%       the Big and Medium (null hypothesis) player communities.
+%       the Big and several Medium (null hypothesis) player communities.
 % @end  --
 prep_data(RunCode, Tracker, Options) ->
 
@@ -250,9 +254,9 @@ prep_data(RunCode, Tracker, Options) ->
     Players = GetPlayers(train),
 
     % The training dataset gives the player community that deines the Top-N groups
-    TopBiggies = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
-    TopMediums = maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end,
-                          TopBiggies),
+    TopBiggies  = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
+    TopMediumss = [{I, maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end, TopBiggies)}
+                   || I <- lists:seq(1, ?NUM_H0_RUNS)],
 
     % The `parms_pct' option specifies the percentage of training data to reserve
     % for parameter optimization.  0% means we should use an independent dataset.
@@ -265,7 +269,7 @@ prep_data(RunCode, Tracker, Options) ->
     DataSets = maps:from_list([{train, Players},
                                {parms, ParmsData},
                                {test,  GetPlayers(test)}]),
-    {Method, DataSets, TopBiggies, TopMediums}.
+    {Method, DataSets, TopBiggies, TopMediumss}.
 
 
 
@@ -315,11 +319,11 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     {Method,
      DataSets,
      TopBiggies,
-     TopMediums} = prep_data(RunCode, Tracker, Options),
+     TopMediumss} = prep_data(RunCode, Tracker, Options),
     DataMode = proplists:get_value(data_mode, Options, level),
-    RunOpts  = [{datasets, DataSets}, {toppers,  TopBiggies} | Options],
-    RefOpts  = [{datasets, DataSets}, {toppers,  TopMediums} | Options],
-    RefTag   = ?str_fmt("~s_H0", [RunTag]),
+    PreOpts  = [{datasets, DataSets} | Options],                        % Shared by run & refs
+    RunOpts  = [{toppers,  TopBiggies} | PreOpts],
+    RefOptss = [{I, [{toppers, TMs} | PreOpts]} || {I,TMs} <- TopMediumss],
 
     Totals = #{tter := Count} = wait_on_players(Tracker),
     ?notice("Completed processing ~p tweets", [Count]),
@@ -327,16 +331,29 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
                  ?info("* ~s: ~B", [Comm, Cnt]) end,
              Totals),
 
-    % Function to create and run models for all emotions
+    % Functions to create and run models for all emotions
     Process = fun(Tag, Opts) ->
         [{Emo, RunFun(Tracker, Tag, oter, Emo, Opts)} || Emo <- ?EMOTIONS]
     end,
 
-    % Process sets of run and reference models
-    RunResults = Process(RunTag, RunOpts),
-    RefResults = Process(RefTag, RefOpts),
+    ProcessH0 = fun(I, Opts) ->
+        RefTag = ?str_fmt("~s_H0_~B", [RunTag, I]),
+        Process(RefTag, Opts)
+    end,
 
-    %
+    % Process sets of run and reference models
+    RunResults  = Process(RunTag, RunOpts),
+    RefResultss = [{I, ProcessH0(I, Opts)} || {I,Opts} <- RefOptss],
+
+    ?debug("RefResultss:~n~p", [RefResultss]),
+    _RefResults = average_results(RefResultss),
+    ?info("RefResults:~n~p", [_RefResults]),
+
+    % FIXME:
+    {_,
+     RefResults} = hd(RefResultss),
+
+    % Function to report and compare the biggie results against the averaged reference results
     Report = fun
         Recur([], [], Verifications) ->
             Verifications;
@@ -347,6 +364,80 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     end,
     Report(RunResults, RefResults, []).
 
+
+
+%%--------------------------------------------------------------------
+-spec average_results(Results :: multi_run_results()) -> multi_run_average().
+
+-spec average_results(Results :: multi_run_results(),
+                      Acc     :: multi_run_average()) -> multi_run_average().
+
+-type multi_run_result()  :: {pos_integer(), list()}.
+-type multi_run_results() :: [multi_run_result()].
+-type multi_run_average() :: #{emotion() := #{pos_integer() := map()}}.
+%%
+% @doc  Combines and averages a list of reference runs.
+%
+%       Example input:
+%
+%       [{1,[{anger,[{5,{need_data,#{oter => 1.0,rted => 0.32,rter => 0.83,tmed => 0.83}}},
+%                    ...
+%                    {22,{0.14,[big_oter_sadness,big_rter_joy,big_rted_joy,big_tmed_fear,big_tmed_joy]}}, ...]
+%            {fear, [...]} ...]
+%        {2,[...]}
+%        ...]
+%
+%        Output template:
+%           #{anger := #{N := #{good_cnt  := GC,
+%                               fail_cnt  := FC,
+%                               pcc       := PCC,
+%                               need_data := ND}}}
+% @end  --
+average_results(Results) ->
+    average_results(Results, #{}).
+
+
+average_results([], Acc) -> Acc;
+
+average_results([{_, Results}|Rest], Acc) ->
+
+    % Function to update a running Avg of Cnt elements with the next Val
+    Average = fun(Val, Avg, Cnt) ->
+        (Cnt*Avg + Val) / (Cnt+1)
+    end,
+
+    % Function to act on all Top-N values for a single emotion model
+    Topper = fun({N, {Score, Info}}, TopAcc) ->
+        NAcc = maps:get(N, TopAcc, #{}),
+        NewNAcc = case Score of
+            % Keep a running average of failure scores
+            need_data ->
+                Cnt = maps:get(fail_cnt, NAcc, 0),
+                AvgNeeds = fun(Comm, Pct) ->
+                    Average(maps:get(Comm, Info), Pct, Cnt)
+                end,
+                maps:merge(NAcc, #{fail_cnt  => Cnt+1,
+                                   need_data => maps:map(AvgNeeds, Info)});
+
+            % And a running average of good scores
+            _ ->
+                Cnt = maps:get(good_cnt, NAcc, 0),
+                PCC = maps:get(pcc, NAcc, 0.0),
+                maps:merge(NAcc, #{good_cnt => Cnt+1,
+                                   pcc      => Average(Score, PCC, Cnt)})
+        end,
+        maps:put(N, NewNAcc, TopAcc)
+    end,
+
+    % Function to act on all the emotions in a single run
+    Emoter = fun({Emo, EmoResultsByN}, EmoAcc) ->
+        TopAcc = maps:get(Emo, EmoAcc, #{}),
+        NewTopAcc = lists:foldl(Topper, TopAcc, EmoResultsByN),
+        maps:put(Emo, NewTopAcc, EmoAcc)
+    end,
+
+    % Average in the current run and recurse for the remaining runs
+    average_results(Rest, lists:foldl(Emoter, Acc, Results)).
 
 
 %%--------------------------------------------------------------------
