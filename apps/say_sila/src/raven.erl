@@ -317,9 +317,7 @@ report(Tracker, Period) ->
 % @doc  Reinitializes the state of the `raven' server.
 %%--------------------------------------------------------------------
 reset(Tracker) ->
-    Return = gen_server:call(?reg(Tracker), reset),
-    erlang:yield(),
-    Return.
+    gen_server:call(?reg(Tracker), reset).
 
 
 
