@@ -21,6 +21,7 @@
          split_on_prop/2,
          split_on_prop/3]).
 
+-include("sila.hrl").
 -include("types.hrl").
 
 
@@ -87,7 +88,7 @@ console(Level) ->
 
 
 %%--------------------------------------------------------------------
--spec reset() -> list({atom(), list()}).
+-spec reset() -> [{tracker(), [atom()]}].
 %%
 % @doc  Reinitializes the state of the `say_sila' application.
 %%--------------------------------------------------------------------
@@ -95,7 +96,10 @@ reset() ->
     Modules  = [raven, player],
     Trackers = [cc, gw],
     ResetTrk = fun(Trk) -> {Trk, [{Mod, Mod:reset(Trk)} || Mod <- Modules]} end,
-    lists:map(ResetTrk, Trackers).
+
+    Return = lists:map(ResetTrk, Trackers),
+    erlang:yield(),
+    Return.
 
 
 

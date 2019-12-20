@@ -317,7 +317,9 @@ report(Tracker, Period) ->
 % @doc  Reinitializes the state of the `raven' server.
 %%--------------------------------------------------------------------
 reset(Tracker) ->
-    gen_server:call(?reg(Tracker), reset).
+    Return = gen_server:call(?reg(Tracker), reset),
+    erlang:yield(),
+    Return.
 
 
 
@@ -459,9 +461,11 @@ handle_call(get_jvm_node, _From, State) ->
 
 
 handle_call(reset, _From, State) ->
-    {reply, ok, #state{tracker     = State#state.tracker,
-                       big_percent = State#state.big_percent,
-                       jvm_node    = State#state.jvm_node}};
+    {reply, ok,
+     #state{tracker     = State#state.tracker,
+            big_percent = State#state.big_percent,
+            jvm_node    = State#state.jvm_node},
+     hibernate};
 
 
 handle_call({report, Period}, _From, State = #state{emo_report  = undefined,
