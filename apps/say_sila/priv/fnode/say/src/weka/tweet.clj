@@ -163,9 +163,11 @@
                              ^Instance curr]
                           (let [oinst ^Instance (doto (DenseInstance. curr)
                                                       (.setDataset odata))]
+                            ;; CAREFUL: attribute values of zero will break this!
                             (doseq [^Integer a attrs]
-                              (.setValue oinst a (- (.value curr a)
-                                                    (.value prev a))))
+                              (let [cv (.value curr a)
+                                    pv (.value prev a)]
+                              (.setValue oinst a (double (/ (- cv pv) (inc pv))))))
                             (.add odata oinst)      ; Variation instance goes to output
                             curr))                  ; The current becomes the "next previous"
                         (first ins)
@@ -180,14 +182,15 @@
                     vmode?  (= data_mode "variation")
                     dset    (as-> (weka/load-arff fpath target) data
                                   (if vmode?  (calc-variations fpath data) data)
-                                  (if exclude (filter-instances data (RemoveByName.) ["-E" exclude]) data))]
+                                  (if exclude ^Instances (filter-instances data (RemoveByName.) ["-E" exclude])
+                                              ^Instances data))]
                 ;; Select the last attribute there's no target
                 (when-not target
-                  (.setClassIndex ^Instances dset (dec (.numAttributes ^Instances dset))))
+                  (.setClassIndex dset (dec (.numAttributes dset))))
 
                 (log/fmt-info "Loaded ~a dataset: tgt[~a] cnt[~a] src[~a] mode[~a]",
                               (name tag)
-                              (.name (.classAttribute ^Instances dset))
+                              (.name (.classAttribute dset))
                               (.numInstances dset)
                               fpath
                               (if vmode? "var" "lvl"))
