@@ -47,11 +47,21 @@
           Amt  :: integer(),
           Unit :: atom()) -> datetime().
 %
-%     Adds the specified amout of `second', `minute', `hour' or `day'
-%     to DTS.
+%     Adds the specified amout of `second', `minute', `hour', `day',
+%     or `month' to DTS.
 % @end  --
 add(Day = {_, _, _}, Amt, Unit) ->
     add({Day, {0, 0, 0}}, Amt, Unit);
+
+
+add({{Year, Month, Day}, Time = {_, _, _}}, Amt, month) ->
+    {NewYear,
+     NewMonth} = case Month + Amt of
+        M when M <  1 -> {Year-1, 12-M};
+        M when M > 12 -> {Year+1, M-12};
+        M             -> {Year, M}
+     end,
+    {{NewYear, NewMonth, Day}, Time};
 
 
 add(DTS, Amt, Unit) ->

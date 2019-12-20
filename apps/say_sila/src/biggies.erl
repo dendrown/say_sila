@@ -29,12 +29,14 @@
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
 -define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
 
--type dataset()       :: parms | train | test.
--type verification()  :: ack | nak | undefined.
--type verifications() :: [verification()].
+-type dataset()          :: parms | train | test.
+-type dataset_prop()     :: {dataset(), term()}.
+-type dataset_proplist() :: [dataset_prop()].
+-type verification()     :: ack | nak | undefined.
+-type verifications()    :: [verification()].
 
 -type run_code() :: n | nn.
-%type run_fun()  :: fun((tracker(), stringy(), comm_code(), emotion(), proplist()) -> proplist()).
+-type run_fun()  :: fun((tracker(), stringy(), comm_code(), emotion(), proplist()) -> proplist()).
 -type method()   :: {run_code(), {atom, pos_integer(), pos_integer}}.
 
 
@@ -224,6 +226,7 @@ run_top_nn(Tracker, RunTag, Options) ->
 %%--------------------------------------------------------------------
 -spec prep_data(RunCode :: run_code(),
                 Tracker :: tracker(),
+                Periods :: dataset_proplist(),
                 Options :: proplist()) -> {method(),
                                            map(),
                                            map(),
@@ -232,13 +235,13 @@ run_top_nn(Tracker, RunTag, Options) ->
 % @doc  Prepares the `train', `parms' and  `test' datasets as well as
 %       the Big and several Medium (null hypothesis) player communities.
 % @end  --
-prep_data(RunCode, Tracker, Options) ->
+prep_data(RunCode, Tracker, Periods, Options) ->
 
     Method = {RunCode, {top_n, Min, Max} = influence:init_range(top_n)},
 
     % Function to pull and organize players and their tweets for a given dataset
     GetPlayers = fun(D) ->
-        Period = period(D),
+        Period = proplists:get_value(D, Periods),
         sila:reset(),
         case player:load(Tracker, Period) of
             none ->
@@ -302,6 +305,13 @@ run_run(RunCode, Tracker, RunTag, Options) ->
                  Tracker :: tracker(),
                  RunTag  :: stringy(),
                  Options :: proplist()) -> verifications().
+
+-spec do_run_run(RunCode :: run_code(),
+                 RunFun  :: run_fun(),
+                 Tracker :: tracker(),
+                 RunTag  :: stringy(),
+                 Periods :: dataset_proplist(),
+                 Options :: proplist()) -> verifications().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -315,11 +325,40 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
         nn -> fun influence:run_top_nn/5
     end,
 
+    % The `period' function defines the start of our sweep (if any)
+    BasePeriodSet = [{DS, period(DS)} || DS <- [parms, train, test]],
+    MovePeriod = fun(M, Period) ->
+        case M of
+            0 -> Period;
+            _ -> [{BegEnd, dts:add(DTS, M, month)} || {BegEnd, DTS} <- Period]
+        end
+    end,
+    RunPeriodSet = fun(M) ->
+        PeriodSet = [{DS, MovePeriod(M, Per)} || {DS,Per} <- BasePeriodSet],
+        do_run_run(RunCode, RunFun, Tracker, RunTag, PeriodSet, Options)
+    end,
+
+    % Are we sweeping a period window a month at a time?
+    case proplists:get_value(sweep, Options, 1) of
+        1 ->
+            % FIXME: Combine when stable...
+            do_run_run(RunCode, RunFun, Tracker, RunTag, BasePeriodSet, Options);
+
+        S ->
+            % FIXME: We need to consolidate these for a final report
+            Runs = [{M, RunPeriodSet(M-1)} || M <- lists:seq(1, S)],
+            hd(Runs)
+    end.
+
+
+
+do_run_run(RunCode, RunFun, Tracker, RunTag, Periods, Options) ->
+
     % We need Big and Medium (H0) player communities.  "Ref" here means "null hypothesis".
     {Method,
      DataSets,
      TopBiggies,
-     TopMediumss} = prep_data(RunCode, Tracker, Options),
+     TopMediumss} = prep_data(RunCode, Tracker, Periods, Options),
     DataMode = proplists:get_value(data_mode, Options, level),
     PreOpts  = [{datasets, DataSets} | Options],                        % Shared by run & refs
     RunOpts  = [{toppers,  TopBiggies} | PreOpts],
