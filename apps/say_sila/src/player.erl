@@ -119,7 +119,7 @@ stop(Tracker) ->
 % @doc  Clears player-related cache.
 % @end  --
 clear_cache() ->
-    return:error_or_first([dets:delete_all_objects(C) || C <- [?DETS_CACHES]]).
+    return:error_or_first([dets:delete_all_objects(C) || C <- ?DETS_CACHES]).
 
 
 
