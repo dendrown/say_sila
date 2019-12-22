@@ -592,7 +592,8 @@ handle_call(get_totals, _From, State = #state{totals = Totals}) ->
 
 
 handle_call(reset, _From, #state{tracker = Tracker}) ->
-    {reply, ok, reset_state(Tracker)};
+    % Invoke garbage collection and shrink our memory footprint
+    {reply, ok, reset_state(Tracker), hibernate};
 
 
 handle_call(ontologize, _From, State = #state{rankings = Rankings,
