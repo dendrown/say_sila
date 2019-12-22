@@ -163,11 +163,13 @@
                              ^Instance curr]
                           (let [oinst ^Instance (doto (DenseInstance. curr)
                                                       (.setDataset odata))]
-                            ;; CAREFUL: attribute values of zero will break this!
+                            ;; NOTE: Normally for relative change, we'd want to divide by the
+                            ;;       previous value (pv), but we may have attribute values of
+                            ;;       zero, for which the relative change is not defined.
                             (doseq [^Integer a attrs]
                               (let [cv (.value curr a)
                                     pv (.value prev a)]
-                              (.setValue oinst a (double (/ (- cv pv) (inc pv))))))
+                              (.setValue oinst a (- cv pv))))
                             (.add odata oinst)      ; Variation instance goes to output
                             curr))                  ; The current becomes the "next previous"
                         (first ins)
