@@ -14,7 +14,8 @@
 -module(biggies).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([period/1]).
+-export([go/0,
+         period/1]).
 -export([make_h0/2,
          run_top_n/2,  run_top_n/3,
          run_top_nn/2, run_top_nn/3]).
@@ -27,7 +28,8 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
--define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
+%define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
+-define(NUM_H0_RUNS,     2).                % Number of H0 runs to average together
 
 -type dataset()          :: parms | train | test.
 -type dataset_prop()     :: {dataset(), term()}.
@@ -38,6 +40,12 @@
 -type run_code() :: n | nn.
 -type run_fun()  :: fun((tracker(), stringy(), comm_code(), emotion(), proplist()) -> proplist()).
 -type method()   :: {run_code(), {atom, pos_integer(), pos_integer}}.
+
+
+
+%%--------------------------------------------------------------------
+go() -> run_top_n(gw, lregv, [{data_mode, variation}, {sweep, 2}]).
+
 
 
 %%--------------------------------------------------------------------
@@ -342,12 +350,23 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     case proplists:get_value(sweep, Options, 1) of
         1 ->
             % FIXME: Combine when stable...
-            do_run_run(RunCode, RunFun, Tracker, RunTag, BasePeriodSet, Options);
+            %do_run_run(RunCode, RunFun, Tracker, RunTag, BasePeriodSet, Options);
+            RunPeriodSet(0);
 
         S ->
             % FIXME: We need to consolidate these for a final report
-            Runs = [{M, RunPeriodSet(M-1)} || M <- lists:seq(1, S)],
-            hd(Runs)
+            ResultsSet = [{M, RunPeriodSet(M-1)} || M <- lists:seq(1, S)],
+            ?debug("Results set: ~p", [ResultsSet]),
+
+            AvgResults = average_results(ResultsSet),
+            ?debug("Results avg: ~p", [AvgResults]),
+
+            % The model we display corresponds to the "best N" based on the averaged results
+            _Results = averages_to_results(AvgResults),
+            _BestRun = find_best_run(AvgResults, ResultsSet),
+
+            {1, Run} = hd(ResultsSet),
+            Run
     end.
 
 
@@ -396,7 +415,7 @@ do_run_run(RunCode, RunFun, Tracker, RunTag, Periods, Options) ->
             Verifications;
         Recur([{Emo, Run} | RestRuns],
               [{Emo, Ref} | RestRefs], Verifications) ->
-            V = report_run(Tracker, Method, DataMode, Emo, Options, Run, Ref),
+            V = report_run(Tracker, Method, DataMode, Emo, Periods, Options, Run, Ref),
             Recur(RestRuns, RestRefs, [V|Verifications])
     end,
     Report(RunResults, RefResults, []).
@@ -409,7 +428,7 @@ do_run_run(RunCode, RunFun, Tracker, RunTag, Periods, Options) ->
 -spec average_results(Results :: multi_run_results(),
                       Acc     :: multi_run_average()) -> multi_run_average().
 
--type multi_run_result()  :: {pos_integer(), list()}.
+-type multi_run_result()  :: {pos_integer(), emotion_proplist()}.
 -type multi_run_results() :: [multi_run_result()].
 -type multi_run_average() :: #{emotion() := #{pos_integer() := map()}}.
 %%
@@ -528,6 +547,58 @@ averages_to_results(AvgResults) ->
 
 
 
+%%--------------------------------------------------------------------
+-spec find_best_run(AvgResults :: multi_run_average(),
+                    ResultsSet :: multi_run_results()) -> #{emotion() := tuple()}.
+%%
+% @doc  Uses the AvgResults to find the best N across emotions and across
+%       a set of model results.
+% @end  --
+find_best_run(AvgResults, ResultsSet) ->
+
+    % Function to select the best N for a given emotion using the average across runs
+    FindBestEmoN = fun
+        (N, #{pcc := PCC}, Best = {_, BestPCC}) ->
+            case PCC > BestPCC of
+                false -> Best;
+                true  -> {N, PCC}
+            end;
+
+        (_, _, Best) -> Best
+    end,
+
+    % Function to fold over emotions, selecting the best N for each
+    FindBestEmoNs = fun(Emo, Avgs, Acc) ->
+        BestEmoN = maps:fold(FindBestEmoN, {0, 0.0}, Avgs),
+        [{Emo, BestEmoN} | Acc]
+    end,
+    BestEmoNs = maps:fold(FindBestEmoNs, [], AvgResults),
+    BestN = round(lists:foldl(fun({_,N}, Acc) -> Acc+N end, 0, BestEmoNs) / length(BestEmoNs)),
+
+    ?notice("Using N=~B: best~p", [BestN, BestEmoNs]),
+
+    % Reduce to find the run that has the best score for an emotion for our chosen value of N
+    FindBestEmoRun = fun({Emo, ResultsByN}, Acc = {I, EmoAcc}) ->
+
+            {PCC,_} = proplists:get_value(BestN, ResultsByN),
+            {_,_,
+             BestPCC} = maps:get(Emo, EmoAcc, {0, BestN, -1.0}),
+
+        case PCC > BestPCC of
+            false -> Acc;
+            true  -> {I, maps:put(Emo, {I, BestN, PCC}, EmoAcc)}
+        end
+    end,
+
+    % Reduce to find the best run for all emotions for our chosen value of N
+    FindBestRuns = fun({I, RunInfo}, Acc) ->
+        {_,BestEmoRuns} = lists:foldl(FindBestEmoRun, {I, Acc}, RunInfo),
+        BestEmoRuns
+    end,
+
+    Return = lists:foldl(FindBestRuns, #{}, ResultsSet),
+    ?notice("BEST: ~p", [Return]),
+    Return.
 
 
 %%--------------------------------------------------------------------
@@ -535,13 +606,14 @@ averages_to_results(AvgResults) ->
                  Method     :: tuple(),
                  DataMode   :: data_mode(),
                  Emotion    :: emotion(),
+                 Periods    :: dataset_proplist(),
                  Options    :: proplist(),
                  RunResults :: proplist(),
                  RefResults :: proplist()) -> verification().
 %%
 % @doc  Hold processing until Weka has returned all tweet batches and
 % @end  --
-report_run(Tracker, Method, DataMode, Emotion, Options, RunResults, RefResults) ->
+report_run(Tracker, Method, DataMode, Emotion, Periods, Options, RunResults, RefResults) ->
 
     % Will the models' run data (descriptions) be meaningul?  LinearRegression (our default)
     % is currently the only "white box" model we're working with.
@@ -550,7 +622,10 @@ report_run(Tracker, Method, DataMode, Emotion, Options, RunResults, RefResults) 
     % Announce the report and log the time periods
     ?notice("Reporting '~s' run for ~s", [DataMode, Emotion]),
     LogStamper = fun(Step) ->
-        Period = case period(Step) of
+        %
+        % FIXME: This will report the wrong period if we're sweeping
+        %
+        Period = case proplists:get_value(Step, Periods) of
             {_,P100} when is_float(P100) -> ?str_fmt("~.1f%", [100 * P100]);
             DTSs     when is_list(DTSs)  -> ?str_fmt("~s__~s",
                                                      [dts:str(proplists:get_value(T, DTSs)) || T <- [start,stop]])

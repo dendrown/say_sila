@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila Emotion Utilities
 %%
-%% @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -ifndef(_emo_included).
@@ -17,6 +17,7 @@
 -define(EMOTIONS,   [anger, fear, sadness, joy]).
 -type emotion()  ::  anger| fear| sadness| joy.
 -type emotions() :: [emotion()].
+-type emotion_proplist() :: [{emotion(), term()}].
 
 
 %%%-------------------------------------------------------------------
