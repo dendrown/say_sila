@@ -312,14 +312,18 @@ run_run(RunCode, Tracker, RunTag, Options) ->
 -spec do_run_run(RunCode :: run_code(),
                  Tracker :: tracker(),
                  RunTag  :: stringy(),
-                 Options :: proplist()) -> verifications().
+                 Options :: proplist()) -> ref_run_proplist().
 
 -spec do_run_run(RunCode :: run_code(),
                  RunFun  :: run_fun(),
                  Tracker :: tracker(),
                  RunTag  :: stringy(),
+                 RunNum  :: non_neg_integer(),
                  Periods :: dataset_proplist(),
-                 Options :: proplist()) -> verifications().
+                 Options :: proplist()) -> ref_run_proplist().
+
+-type ref_run_proplist() :: {emotion_proplist(),
+                             emotion_proplist()}.
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -343,7 +347,7 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     end,
     RunPeriodSet = fun(M) ->
         PeriodSet = [{DS, MovePeriod(M, Per)} || {DS,Per} <- BasePeriodSet],
-        do_run_run(RunCode, RunFun, Tracker, RunTag, PeriodSet, Options)
+        do_run_run(RunCode, RunFun, Tracker, RunTag, M, PeriodSet, Options)
     end,
 
     % Are we sweeping a period window a month at a time?
@@ -353,11 +357,16 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
             %do_run_run(RunCode, RunFun, Tracker, RunTag, BasePeriodSet, Options);
             RunPeriodSet(0);
 
-        S ->
+        S when S > 1 ->
             % FIXME: We need to consolidate these for a final report
             ResultsSet = [{M, RunPeriodSet(M-1)} || M <- lists:seq(1, S)],
             ?debug("Results set: ~p", [ResultsSet]),
 
+            %
+            %
+            % FIXME: ResultsSet now includes the H0 averages and `average_results' doesn't expect that!
+            %
+            %
             AvgResults = average_results(ResultsSet),
             ?debug("Results avg: ~p", [AvgResults]),
 
@@ -365,20 +374,17 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
             _Results = averages_to_results(AvgResults),
             _BestRun = find_best_run(AvgResults, ResultsSet),
 
-            {1, Run} = hd(ResultsSet),
-            Run
+            hd(ResultsSet)
     end.
 
 
-
-do_run_run(RunCode, RunFun, Tracker, RunTag, Periods, Options) ->
+do_run_run(RunCode, RunFun, Tracker, RunTag, RunNum, Periods, Options) ->
 
     % We need Big and Medium (H0) player communities.  "Ref" here means "null hypothesis".
     {Method,
      DataSets,
      TopBiggies,
      TopMediumss} = prep_data(RunCode, Tracker, Periods, Options),
-    DataMode = proplists:get_value(data_mode, Options, level),
     PreOpts  = [{datasets, DataSets} | Options],                        % Shared by run & refs
     RunOpts  = [{toppers,  TopBiggies} | PreOpts],
     RefOptss = [{I, [{toppers, TMs} | PreOpts]} || {I,TMs} <- TopMediumss],
@@ -390,17 +396,21 @@ do_run_run(RunCode, RunFun, Tracker, RunTag, Periods, Options) ->
              Totals),
 
     % Functions to create and run models for all emotions
+    RunTagNum = case RunNum of
+        0 -> RunTag;
+        _ -> ?str_fmt("~s+~B", [RunTag, RunNum])
+    end,
     Process = fun(Tag, Opts) ->
         [{Emo, RunFun(Tracker, Tag, oter, Emo, Opts)} || Emo <- ?EMOTIONS]
     end,
 
     ProcessH0 = fun(I, Opts) ->
-        RefTag = ?str_fmt("~s_H0_~B", [RunTag, I]),
+        RefTag = ?str_fmt("~s_H0_~B", [RunTagNum, I]),
         Process(RefTag, Opts)
     end,
 
     % Process sets of run and reference models
-    RunResults  = Process(RunTag, RunOpts),
+    RunResults  = Process(RunTagNum, RunOpts),
     RefResultss = [{I, ProcessH0(I, Opts)} || {I,Opts} <- RefOptss],
 
     %?debug("RefResultss:~n~p", [RefResultss]),
@@ -415,10 +425,12 @@ do_run_run(RunCode, RunFun, Tracker, RunTag, Periods, Options) ->
             Verifications;
         Recur([{Emo, Run} | RestRuns],
               [{Emo, Ref} | RestRefs], Verifications) ->
-            V = report_run(Tracker, Method, DataMode, Emo, Periods, Options, Run, Ref),
+            V = report_run(Tracker, Method, RunNum, Emo, Periods, Options, Run, Ref),
             Recur(RestRuns, RestRefs, [V|Verifications])
     end,
-    Report(RunResults, RefResults, []).
+    Report(RunResults, RefResults, []),
+
+    {RunResults, RefResults}.
 
 
 
@@ -604,28 +616,32 @@ find_best_run(AvgResults, ResultsSet) ->
 %%--------------------------------------------------------------------
 -spec report_run(Tracker    :: tracker(),
                  Method     :: tuple(),
-                 DataMode   :: data_mode(),
+                 RunNum     :: non_neg_integer(),
                  Emotion    :: emotion(),
-                 Periods    :: dataset_proplist(),
+                 PeriodSet  :: dataset_proplist(),
                  Options    :: proplist(),
                  RunResults :: proplist(),
                  RefResults :: proplist()) -> verification().
 %%
 % @doc  Hold processing until Weka has returned all tweet batches and
 % @end  --
-report_run(Tracker, Method, DataMode, Emotion, Periods, Options, RunResults, RefResults) ->
+report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, RefResults) ->
 
     % Will the models' run data (descriptions) be meaningul?  LinearRegression (our default)
     % is currently the only "white box" model we're working with.
     IsWhiteBox = (lreg =:= proplists:get_value(learner, Options, lreg)),
+    DataMode = proplists:get_value(data_mode, Options, level),
+
+    % Is this a multi-month sweep
+    SweepTxt = case {RunNum+1, proplists:get_value(sweep, Options, fixed)}  of
+        {1, fixed} -> <<>>;
+        {M, Sweep} -> ?str_fmt(" (~B of ~B month sweep)", [M, Sweep])
+    end,
 
     % Announce the report and log the time periods
-    ?notice("Reporting '~s' run for ~s", [DataMode, Emotion]),
+    ?notice("Reporting '~s' run for ~s~s", [DataMode, Emotion, SweepTxt]),
     LogStamper = fun(Step) ->
-        %
-        % FIXME: This will report the wrong period if we're sweeping
-        %
-        Period = case proplists:get_value(Step, Periods) of
+        Period = case proplists:get_value(Step, PeriodSet) of
             {_,P100} when is_float(P100) -> ?str_fmt("~.1f%", [100 * P100]);
             DTSs     when is_list(DTSs)  -> ?str_fmt("~s__~s",
                                                      [dts:str(proplists:get_value(T, DTSs)) || T <- [start,stop]])
