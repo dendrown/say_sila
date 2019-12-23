@@ -359,22 +359,18 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
 
         S when S > 1 ->
             % FIXME: We need to consolidate these for a final report
-            ResultsSet = [{M, RunPeriodSet(M-1)} || M <- lists:seq(1, S)],
-            ?debug("Results set: ~p", [ResultsSet]),
+            RunRefResultsSet = [{M, RunPeriodSet(M-1)} || M <- lists:seq(1, S)],
+            RunResultsSet = [{M, Run} || {M,{Run,_}} <- RunRefResultsSet],
+            ?debug("Run results set: ~p", [RunResultsSet]),
 
-            %
-            %
-            % FIXME: ResultsSet now includes the H0 averages and `average_results' doesn't expect that!
-            %
-            %
-            AvgResults = average_results(ResultsSet),
-            ?debug("Results avg: ~p", [AvgResults]),
+            AvgRunResults = average_results(RunResultsSet),
+            ?debug("Run results avg: ~p", [AvgRunResults]),
 
             % The model we display corresponds to the "best N" based on the averaged results
-            _Results = averages_to_results(AvgResults),
-            _BestRun = find_best_run(AvgResults, ResultsSet),
+            _RunResults = averages_to_results(AvgRunResults),
+            _BestRun = find_best_run(AvgRunResults, RunResultsSet),
 
-            hd(ResultsSet)
+            hd(RunResultsSet)
     end.
 
 
