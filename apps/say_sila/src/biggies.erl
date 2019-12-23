@@ -433,7 +433,8 @@ do_run_run(RunCode, RunFun, Tracker, RunTag, RunNum, Periods, Options) ->
 %%--------------------------------------------------------------------
 -spec average_results(Results :: multi_run_results()) -> multi_run_average().
 
--spec average_results(Results :: multi_run_results(),
+-spec average_results(Results :: multi_run_results()
+                               | multi_run_average(),
                       Acc     :: multi_run_average()) -> multi_run_average().
 
 -type multi_run_result()  :: {pos_integer(), emotion_proplist()}.
@@ -459,20 +460,58 @@ do_run_run(RunCode, RunFun, Tracker, RunTag, RunNum, Periods, Options) ->
 %                            pcc       := PCC,
 %                            need_data := ND}}}
 %       '''
+%
+%       TODO: [{I, Runs, Refs} | ...]
 % @end  --
 average_results(Results) ->
     ?info("Averaging ~B H0 run results.", [length(Results)]),
     average_results(Results, #{}).
 
 
-average_results([], Acc) -> Acc;
+average_results([], Acc) ->
+    Acc;
+
+average_results([{_, Results}|Rest], Acc) when is_map(Results) ->
+    % Here we are merging in a previous set of averaged results
+    %
+    % Functions to merge the N-maps for two avg-result-maps
+    MergeN = fun(N, Ns = [_, AccNs]) ->
+        Averages = [RunAvg,
+                    AccAvg] = [maps:get(N, Avgs, #{}) || Avgs <- Ns],
+
+        % Function to retrieve a good|fail count from both maps
+        ReCount = fun(CntType) ->
+            [maps:get(CntType, Avg, 0) || Avg <- Averages]
+        end,
+
+        [RunGoodCnt, AccGoodCnt] = ReCount(good_cnt),
+        [RunFailCnt, AccFailCnt] = ReCount(fail_cnt),
+
+        {NewPCC,
+         NewGoodCnt} = average(maps:get(pcc, RunAvg, 0.0), RunGoodCnt,
+                               maps:get(pcc, AccAvg, 0.0), AccGoodCnt),
+
+        {NewNeeds,
+         NewFailCnt} = average_needs(maps:get(need_data, RunAvg, #{}), RunFailCnt,
+                                     maps:get(need_data, AccAvg, #{}), AccFailCnt),
+
+        NewAvg = #{good_cnt  => NewGoodCnt,
+                   fail_cnt  => NewFailCnt,
+                   pcc       => NewPCC,
+                   need_data => NewNeeds},
+        maps:put(N, NewAvg, AccNs)
+    end,
+
+    MergeEmo = fun(Emo, EmoAcc) ->
+        RunNs = maps:get(Emo, Results, #{}),
+        AccNs = maps:get(Emo, EmoAcc,  #{}),
+        NewNs = lists:foldl(MergeN, [RunNs,AccNs], maps:keys(RunNs)),
+        maps:put(Emo, NewNs, Acc)
+    end,
+    average_results(Rest, lists:foldl(MergeEmo, Acc, ?EMOTIONS));
+
 
 average_results([{_, Results}|Rest], Acc) ->
-
-    % Function to update a running Avg of Cnt elements with the next Val
-    Average = fun(Val, Avg, Cnt) ->
-        (Cnt*Avg + Val) / (Cnt+1)
-    end,
 
     % Function to act on all Top-N values for a single emotion model
     Topper = fun({N, {Score, Info}}, TopAcc) ->
@@ -480,19 +519,21 @@ average_results([{_, Results}|Rest], Acc) ->
         NewNAcc = case Score of
             % Keep a running average of failure scores
             need_data ->
-                Cnt = maps:get(fail_cnt, NAcc, 0),
-                AvgNeeds = fun(Comm, Pct) ->
-                    Average(maps:get(Comm, Info), Pct, Cnt)
-                end,
-                maps:merge(NAcc, #{fail_cnt  => Cnt+1,
-                                   need_data => maps:map(AvgNeeds, Info)});
+                {NewNeeds,
+                 NewCnt} = average_needs(Info,
+                                         maps:get(need_data, NAcc, #{}),
+                                         maps:get(fail_cnt,  NAcc, 0)),
+                maps:merge(NAcc, #{fail_cnt  => NewCnt,
+                                   need_data => NewNeeds});
 
             % And a running average of good scores
             _ ->
-                Cnt = maps:get(good_cnt, NAcc, 0),
-                PCC = maps:get(pcc, NAcc, 0.0),
-                maps:merge(NAcc, #{good_cnt => Cnt+1,
-                                   pcc      => Average(Score, PCC, Cnt)})
+                {NewPCC,
+                 NewCnt} = average(Score,
+                                   maps:get(good_cnt, NAcc, 0),
+                                   maps:get(pcc, NAcc, 0.0)),
+                maps:merge(NAcc, #{good_cnt => NewCnt,
+                                   pcc      => NewPCC})
         end,
         maps:put(N, NewNAcc, TopAcc)
     end,
@@ -552,6 +593,57 @@ averages_to_results(AvgResults) ->
 
     % Format the averages as standard results
     [{Emo, Emoter(Emo)} || Emo <- ?EMOTIONS].
+
+
+
+%%--------------------------------------------------------------------
+-spec average(NewVal :: number(),
+              OldAvg :: float(),
+              OldCnt :: pos_integer()) -> average_count().
+
+-spec average(NewVal :: number(),
+              NewCnt :: pos_integer(),
+              OldAvg :: float(),
+              OldCnt :: pos_integer()) -> average_count().
+
+-type average_count() :: {float(), pos_integer()}.
+%%
+% @doc  Computes a new running average.
+% @end  --
+average(NewVal, OldAvg, OldCnt) ->
+    average(NewVal, 1, OldAvg, OldCnt).
+
+
+average(NewVal, NewCnt, OldAvg, OldCnt) ->
+    NewAvgCnt = NewCnt + OldCnt,
+    {(NewCnt*NewVal + OldCnt*OldAvg) / NewAvgCnt, NewAvgCnt}.
+
+
+%%--------------------------------------------------------------------
+-spec average_needs(NewNeeds :: map(),
+                    OldNeeds :: map(),
+                    OldCount :: pos_integer()) -> need_data_count().
+
+-spec average_needs(NewNeeds :: map(),
+                    NewCount :: pos_integer(),
+                    OldNeeds :: map(),
+                    OldCount :: pos_integer()) -> need_data_count().
+
+-type need_data_count() :: {map(), pos_integer()}.
+%%
+% @doc  Computes a new running average for a `need_data' map.
+% @end  --
+average_needs(NewNeeds, OldNeeds, OldCount) ->
+    average_needs(NewNeeds, 1, OldNeeds, OldCount).
+
+
+average_needs(NewNeeds, NewCount, OldNeeds, OldCount) ->
+
+    Average = fun(Comm, OldPct) ->
+        average(maps:get(Comm, NewNeeds), NewCount, OldPct, OldCount)
+    end,
+
+    {maps:map(Average, OldNeeds), NewCount+OldCount}.
 
 
 
