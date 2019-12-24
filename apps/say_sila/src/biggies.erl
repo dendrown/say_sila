@@ -25,6 +25,7 @@
 -include("ioo.hrl").
 -include("player.hrl").
 -include("types.hrl").
+-include_lib("eunit/include/eunit.hrl").
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
@@ -599,12 +600,12 @@ averages_to_results(AvgResults) ->
 %%--------------------------------------------------------------------
 -spec average(NewVal :: number(),
               OldAvg :: float(),
-              OldCnt :: pos_integer()) -> average_count().
+              OldCnt :: non_neg_integer()) -> average_count().
 
 -spec average(NewVal :: number(),
               NewCnt :: pos_integer(),
               OldAvg :: float(),
-              OldCnt :: pos_integer()) -> average_count().
+              OldCnt :: non_neg_integer()) -> average_count().
 
 -type average_count() :: {float(), pos_integer()}.
 %%
@@ -622,12 +623,12 @@ average(NewVal, NewCnt, OldAvg, OldCnt) ->
 %%--------------------------------------------------------------------
 -spec average_needs(NewNeeds :: map(),
                     OldNeeds :: map(),
-                    OldCount :: pos_integer()) -> need_data_count().
+                    OldCount :: non_neg_integer()) -> need_data_count().
 
 -spec average_needs(NewNeeds :: map(),
                     NewCount :: pos_integer(),
                     OldNeeds :: map(),
-                    OldCount :: pos_integer()) -> need_data_count().
+                    OldCount :: non_neg_integer()) -> need_data_count().
 
 -type need_data_count() :: {map(), pos_integer()}.
 %%
@@ -640,10 +641,14 @@ average_needs(NewNeeds, OldNeeds, OldCount) ->
 average_needs(NewNeeds, NewCount, OldNeeds, OldCount) ->
 
     Average = fun(Comm, OldPct) ->
-        average(maps:get(Comm, NewNeeds), NewCount, OldPct, OldCount)
+        {Avg,_} = average(maps:get(Comm, OldNeeds, 0.0), NewCount, OldPct, OldCount),
+        Avg
     end,
 
-    {maps:map(Average, OldNeeds), NewCount+OldCount}.
+    case {maps:size(OldNeeds), OldCount} of
+        {0,0} -> {NewNeeds, NewCount};
+        _     -> {maps:map(Average, NewNeeds), NewCount+OldCount}
+    end.
 
 
 
@@ -1001,4 +1006,27 @@ get_run_hash(Key) ->
                    "DE7CBE8D7713732C7D914A102EAAFA478D6D87CD9E3F72277811BE771EB2562"    % 2017-10-01__2018-10-01
                   },
     maps:get(Key, RunResults, none).
+
+
+
+%%====================================================================
+%% Internal functions
+%%--------------------------------------------------------------------
+average_test() ->
+    {10.0, 1} = average(10,  0.0, 0),
+    { 5.0, 2} = average( 0, 10.0, 1),
+
+    { 7.5, 4} = average( 5, 2, 10.0, 2).
+
+
+%%--------------------------------------------------------------------
+average_needs_test() ->
+    Full = #{oter => 1.00, rter => 1.00, rted => 1.00, tmed => 1.00},
+    Half = #{oter => 0.50, rter => 0.50, rted => 0.50, tmed => 0.50},
+    X_75 = #{oter => 0.75, rter => 0.75, rted => 0.75, tmed => 0.75},
+
+    {Full, 1} = average_needs(Full, #{},  0),
+    {X_75, 2} = average_needs(Half, Full, 1),
+
+    {X_75, 4} = average_needs(Half, 2, Full, 2).
 
