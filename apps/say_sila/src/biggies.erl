@@ -524,17 +524,17 @@ average_results([{_, Results}|Rest], Acc) ->
                  NewCnt} = average_needs(Info,
                                          maps:get(need_data, NAcc, #{}),
                                          maps:get(fail_cnt,  NAcc, 0)),
-                maps:merge(NAcc, #{fail_cnt  => NewCnt,
-                                   need_data => NewNeeds});
+                maps:merge(NAcc, #{need_data => NewNeeds,
+                                   fail_cnt  => NewCnt});
 
             % And a running average of good scores
             _ ->
                 {NewPCC,
                  NewCnt} = average(Score,
-                                   maps:get(good_cnt, NAcc, 0),
-                                   maps:get(pcc, NAcc, 0.0)),
-                maps:merge(NAcc, #{good_cnt => NewCnt,
-                                   pcc      => NewPCC})
+                                   maps:get(pcc, NAcc, 0.0),
+                                   maps:get(good_cnt, NAcc, 0)),
+                maps:merge(NAcc, #{pcc      => NewPCC,
+                                   good_cnt => NewCnt})
         end,
         maps:put(N, NewNAcc, TopAcc)
     end,
@@ -674,7 +674,7 @@ find_best_run(AvgResults, ResultsSet) ->
 
     % Function to fold over emotions, selecting the best N for each
     FindBestEmoNs = fun(Emo, Avgs, Acc) ->
-        BestEmoN = maps:fold(FindBestEmoN, {0, 0.0}, Avgs),
+        {BestEmoN,_} = maps:fold(FindBestEmoN, {0, -1.0}, Avgs),
         [{Emo, BestEmoN} | Acc]
     end,
     BestEmoNs = maps:fold(FindBestEmoNs, [], AvgResults),
