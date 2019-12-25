@@ -40,12 +40,13 @@
 
 -type run_code() :: n | nn.
 -type run_fun()  :: fun((tracker(), stringy(), comm_code(), emotion(), proplist()) -> proplist()).
--type method()   :: {run_code(), {atom, pos_integer(), pos_integer}}.
+-type method()   :: {run_code(), {atom(), pos_integer(), pos_integer()}}.
 
 
 
 %%--------------------------------------------------------------------
-go() -> run_top_n(gw, lregv, [{data_mode, variation}, {sweep, 2}]).
+go() ->
+    run_top_n(gw, lregv, [{data_mode, variation}, {sweep, 2}]).
 
 
 
@@ -233,20 +234,20 @@ run_top_nn(Tracker, RunTag, Options) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec prep_data(RunCode :: run_code(),
-                Tracker :: tracker(),
+-spec prep_data(Tracker :: tracker(),
+                Method  :: method(),
                 Periods :: dataset_proplist(),
-                Options :: proplist()) -> {method(),
-                                           map(),
+                Options :: proplist()) -> {map(),
                                            map(),
                                            [{pos_integer(), map()}]}.
 %%
 % @doc  Prepares the `train', `parms' and  `test' datasets as well as
 %       the Big and several Medium (null hypothesis) player communities.
 % @end  --
-prep_data(RunCode, Tracker, Periods, Options) ->
+prep_data(Tracker, Method, Periods, Options) ->
 
-    Method = {RunCode, {top_n, Min, Max} = influence:init_range(top_n)},
+    % The Method tuple gives us our data range
+    {_, {top_n, Min, Max}} = Method,
 
     % Function to pull and organize players and their tweets for a given dataset
     GetPlayers = fun(D) ->
@@ -281,7 +282,7 @@ prep_data(RunCode, Tracker, Periods, Options) ->
     DataSets = maps:from_list([{train, Players},
                                {parms, ParmsData},
                                {test,  GetPlayers(test)}]),
-    {Method, DataSets, TopBiggies, TopMediumss}.
+    {DataSets, TopBiggies, TopMediumss}.
 
 
 
@@ -315,9 +316,9 @@ run_run(RunCode, Tracker, RunTag, Options) ->
                  RunTag  :: stringy(),
                  Options :: proplist()) -> ref_run_proplist().
 
--spec do_run_run(RunCode :: run_code(),
-                 RunFun  :: run_fun(),
+-spec do_run_run(RunFun  :: run_fun(),
                  Tracker :: tracker(),
+                 Method  :: method(),
                  RunTag  :: stringy(),
                  RunNum  :: non_neg_integer(),
                  Periods :: dataset_proplist(),
@@ -331,6 +332,8 @@ run_run(RunCode, Tracker, RunTag, Options) ->
 %       range of Ns for one emotion and communication type.
 % @end  --
 do_run_run(RunCode, Tracker, RunTag, Options) ->
+
+    Method = {RunCode, {top_n, Min, Max} = influence:init_range(top_n)},
 
     % We'll be calling into one of the `influence' run functions
     RunFun = case RunCode of
@@ -348,40 +351,54 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     end,
     RunPeriodSet = fun(M) ->
         PeriodSet = [{DS, MovePeriod(M, Per)} || {DS,Per} <- BasePeriodSet],
-        do_run_run(RunCode, RunFun, Tracker, RunTag, M, PeriodSet, Options)
+        do_run_run(RunFun, Tracker, Method, RunTag, M, PeriodSet, Options)
     end,
 
     % Are we sweeping a period window a month at a time?
     case proplists:get_value(sweep, Options, 1) of
         1 ->
             % FIXME: Combine when stable...
-            %do_run_run(RunCode, RunFun, Tracker, RunTag, BasePeriodSet, Options);
             RunPeriodSet(0);
 
         S when S > 1 ->
             % FIXME: We need to consolidate these for a final report
             RunRefResultsSet = [{M, RunPeriodSet(M-1)} || M <- lists:seq(1, S)],
+
+            % FIXME: Make `average_results' do this automatically
             RunResultsSet = [{M, Run} || {M,{Run,_}} <- RunRefResultsSet],
+            RefResultsSet = [{M, Ref} || {M,{_,Ref}} <- RunRefResultsSet],
             ?debug("Run results set: ~p", [RunResultsSet]),
+            ?debug("Ref results set: ~p", [RefResultsSet]),
 
             AvgRunResults = average_results(RunResultsSet),
+            AvgRefResults = average_results(RefResultsSet),
             ?debug("Run results avg: ~p", [AvgRunResults]),
+            ?debug("Ref results avg: ~p", [AvgRefResults]),
 
             % The model we display corresponds to the "best N" based on the averaged results
-            _RunResults = averages_to_results(AvgRunResults),
-            _BestRun = find_best_run(AvgRunResults, RunResultsSet),
+            RunResults = averages_to_results(AvgRunResults),
+            RefResults = averages_to_results(AvgRefResults),
+            BestRun = find_best_run(AvgRunResults, RunResultsSet),
 
+            % For reporting, we'll show the full period sweep
+            SweepPeriod = fun(Period) ->
+                {DTS, Rest} = pprops:get_split(stop, Period),
+                [{stop, dts:add(DTS, S, month)} | Rest]
+            end,
+            RptPeriodSet = [{DS, SweepPeriod(Per)} || {DS,Per} <- BasePeriodSet],
+
+            report(Tracker, Method, roll_up, RptPeriodSet, Options, RunResults, RefResults),
             hd(RunResultsSet)
     end.
 
 
-do_run_run(RunCode, RunFun, Tracker, RunTag, RunNum, Periods, Options) ->
+do_run_run(RunFun, Tracker, Method, RunTag, RunNum, PeriodSet, Options) ->
 
     % We need Big and Medium (H0) player communities.  "Ref" here means "null hypothesis".
-    {Method,
-     DataSets,
+    {DataSets,
      TopBiggies,
-     TopMediumss} = prep_data(RunCode, Tracker, Periods, Options),
+     TopMediumss} = prep_data(Tracker, Method, PeriodSet, Options),
+
     PreOpts  = [{datasets, DataSets} | Options],                        % Shared by run & refs
     RunOpts  = [{toppers,  TopBiggies} | PreOpts],
     RefOptss = [{I, [{toppers, TMs} | PreOpts]} || {I,TMs} <- TopMediumss],
@@ -416,17 +433,7 @@ do_run_run(RunCode, RunFun, Tracker, RunTag, RunNum, Periods, Options) ->
     %?info("RefResults:~n~p", [RefAvgResults]),
     RefResults = averages_to_results(RefAvgResults),
 
-    % Function to report and compare the biggie results against the averaged reference results
-    Report = fun
-        Recur([], [], Verifications) ->
-            Verifications;
-        Recur([{Emo, Run} | RestRuns],
-              [{Emo, Ref} | RestRefs], Verifications) ->
-            V = report_run(Tracker, Method, RunNum, Emo, Periods, Options, Run, Ref),
-            Recur(RestRuns, RestRefs, [V|Verifications])
-    end,
-    Report(RunResults, RefResults, []),
-
+    report(Tracker, Method, RunNum, PeriodSet, Options, RunResults, RefResults),
     {RunResults, RefResults}.
 
 
@@ -531,7 +538,7 @@ average_results([{_, Results}|Rest], Acc) ->
             _ ->
                 {NewPCC,
                  NewCnt} = average(Score,
-                                   maps:get(pcc, NAcc, 0.0),
+                                   maps:get(pcc,      NAcc, 0.0),
                                    maps:get(good_cnt, NAcc, 0)),
                 maps:merge(NAcc, #{pcc      => NewPCC,
                                    good_cnt => NewCnt})
@@ -548,6 +555,7 @@ average_results([{_, Results}|Rest], Acc) ->
 
     % Average in the current run and recurse for the remaining runs
     average_results(Rest, lists:foldl(Emoter, Acc, Results)).
+
 
 
 %%--------------------------------------------------------------------
@@ -707,6 +715,31 @@ find_best_run(AvgResults, ResultsSet) ->
 
 
 %%--------------------------------------------------------------------
+-spec report(Tracker    :: tracker(),
+             Method     :: tuple(),
+             RunNum     :: non_neg_integer() | roll_up,
+             PeriodSet  :: dataset_proplist(),
+             Options    :: proplist(),
+             RunResults :: proplist(),
+             RefResults :: proplist()) -> verifications().
+%%
+% @doc  Report and compare the biggie results against the averaged reference results
+% @end  --
+report(Tracker, Method, RunNum, PeriodSet, Options, RunResults, RefResults) ->
+
+    Report = fun
+        Recur([], [], Verifications) ->
+            Verifications;
+        Recur([{Emo, Run} | RestRuns],
+              [{Emo, Ref} | RestRefs], Verifications) ->
+            V = report_run(Tracker, Method, RunNum, Emo, PeriodSet, Options, Run, Ref),
+            Recur(RestRuns, RestRefs, [V|Verifications])
+    end,
+    Report(RunResults, RefResults, []).
+
+
+
+%%--------------------------------------------------------------------
 -spec report_run(Tracker    :: tracker(),
                  Method     :: tuple(),
                  RunNum     :: non_neg_integer(),
@@ -716,7 +749,7 @@ find_best_run(AvgResults, ResultsSet) ->
                  RunResults :: proplist(),
                  RefResults :: proplist()) -> verification().
 %%
-% @doc  Hold processing until Weka has returned all tweet batches and
+% @doc  Reports the results of one run (with reference) for one emotion.
 % @end  --
 report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, RefResults) ->
 
@@ -725,10 +758,15 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
     IsWhiteBox = (lreg =:= proplists:get_value(learner, Options, lreg)),
     DataMode = proplists:get_value(data_mode, Options, level),
 
-    % Is this a multi-month sweep
-    SweepTxt = case {RunNum+1, proplists:get_value(sweep, Options, fixed)}  of
-        {1, fixed} -> <<>>;
-        {M, Sweep} -> ?str_fmt(" (~B of ~B month sweep)", [M, Sweep])
+    % Is this a multi-month sweep?  We'll get M = 0, 1, ..., roll_up
+    SweepTxt = case {RunNum, proplists:get_value(sweep, Options, fixed)}  of
+        {0, fixed} -> <<>>;
+        {M, Sweep} ->
+            RunTxt = case M of
+                roll_up -> <<"Final results">>;
+                _       -> ?str_fmt("~B", [M+1])
+            end,
+            ?str_fmt(" (~s of ~B month sweep)", [RunTxt, Sweep])
     end,
 
     % Announce the report and log the time periods
@@ -1010,7 +1048,7 @@ get_run_hash(Key) ->
 
 
 %%====================================================================
-%% Internal functions
+%% Unit tests
 %%--------------------------------------------------------------------
 average_test() ->
     {10.0, 1} = average(10,  0.0, 0),
