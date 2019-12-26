@@ -29,8 +29,8 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
+-define(NUM_H0_RUNS,     5).                % Number of H0 runs to average together
 %define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
--define(NUM_H0_RUNS,     2).                % Number of H0 runs to average together
 
 -type dataset()          :: parms | train | test.
 -type dataset_prop()     :: {dataset(), term()}.
@@ -46,7 +46,7 @@
 
 %%--------------------------------------------------------------------
 go() ->
-    run_top_n(gw, lregv, [{data_mode, variation}, {sweep, 2}]).
+    run_top_n(gw, lregv, [{data_mode, variation}, {sweep, 9}]).
 
 
 
@@ -314,7 +314,7 @@ run_run(RunCode, Tracker, RunTag, Options) ->
 -spec do_run_run(RunCode :: run_code(),
                  Tracker :: tracker(),
                  RunTag  :: stringy(),
-                 Options :: proplist()) -> ref_run_proplist().
+                 Options :: proplist()) -> ok.
 
 -spec do_run_run(RunFun  :: run_fun(),
                  Tracker :: tracker(),
@@ -357,8 +357,8 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     % Are we sweeping a period window a month at a time?
     case proplists:get_value(sweep, Options, 1) of
         1 ->
-            % FIXME: Combine when stable...
-            RunPeriodSet(0);
+            RunPeriodSet(0),
+            ?notice("End of single-period run");
 
         S when S > 1 ->
             % FIXME: We need to consolidate these for a final report
@@ -388,7 +388,7 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
             RptPeriodSet = [{DS, SweepPeriod(Per)} || {DS,Per} <- BasePeriodSet],
 
             report(Tracker, Method, roll_up, RptPeriodSet, Options, RunResults, RefResults),
-            hd(RunResultsSet)
+            ?notice("BEST: ~p", [BestRun])
     end.
 
 
@@ -585,7 +585,7 @@ averages_to_results(AvgResults) ->
     Topper = fun(N, Averages) ->
         AvgValue = case Averages of
             #{good_cnt := Cnt,
-              pcc      := PCC}    when Cnt > 0  -> {PCC, ?str_fmt("Model count: ~B", [Cnt])};
+              pcc      := PCC}    when Cnt > 0  -> {PCC, {count, Cnt}};
 
             #{fail_cnt  := Cnt,
               need_data := Needs} when Cnt > 0  -> {need_data, Needs}
@@ -709,9 +709,7 @@ find_best_run(AvgResults, ResultsSet) ->
         BestEmoRuns
     end,
 
-    Return = lists:foldl(FindBestRuns, #{}, ResultsSet),
-    ?notice("BEST: ~p", [Return]),
-    Return.
+    lists:foldl(FindBestRuns, #{}, ResultsSet).
 
 
 %%--------------------------------------------------------------------
