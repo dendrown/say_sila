@@ -235,9 +235,13 @@
 
             ;; ---------------------------------------------------------------
             (load-model []
+              ;; TODO: Generalize passing of learner options
               (case (get conf :learner "lreg")
-                "lreg"  (LinearRegression.)
-                "gproc" (GaussianProcesses.)))]
+                "lreg"   (LinearRegression.)
+                "gproc"  (GaussianProcesses.)
+                "gproc2" (doto (GaussianProcesses.)
+                               (.setOptions
+                                  (into-array ["-K" "weka.classifiers.functions.supportVector.PolyKernel -E 2"])))))]
 
 
       ;; What we load depends
