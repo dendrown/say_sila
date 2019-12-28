@@ -14,9 +14,10 @@
 -module(biggies).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([go/0,
+-export([go/0,                              % Shortcut/convenience functions
          period/1]).
--export([make_h0/2,
+-export([clear_cache/0,
+         make_h0/2,
          run_top_n/2,  run_top_n/3,
          run_top_nn/2, run_top_nn/3]).
 
@@ -31,6 +32,7 @@
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
 -define(NUM_H0_RUNS,     5).                % Number of H0 runs to average together
 %define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
+-define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
 
 -type dataset()          :: parms | train | test.
 -type dataset_prop()     :: {dataset(), term()}.
@@ -110,6 +112,17 @@ period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
 period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %eriod(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
 -endif.
+
+
+%%--------------------------------------------------------------------
+-spec clear_cache() -> ok
+                     | {error, term()}.
+%%
+% @doc  Clear development cache.
+% @end  --
+clear_cache() ->
+    dets:delete_all_objects(?RUNS_CACHE).
+
 
 
 %%--------------------------------------------------------------------
@@ -298,16 +311,21 @@ prep_data(Tracker, Method, Periods, Options) ->
 %       warn the user that this will reset Say-Sila.
 % @end  --
 run_run(RunCode, Tracker, RunTag, Options) ->
+
+    ioo:make_fpath(?RUNS_CACHE),
+    dets:open_file(?RUNS_CACHE, [{repair, true}, {auto_save, 60000}]),
+
     io:format("This will destroy the current raven and player states.~n"),
-    case ioo:read_down("Are you sure? ") of
+    Return = case ioo:read_down("Are you sure? ") of
         "yes" ->
             case weka:ping(raven:get_jvm_node(Tracker)) of
                 timeout -> [];
                 _       -> do_run_run(RunCode, Tracker, RunTag, Options)
             end;
         _ -> []
-    end.
-
+    end,
+    dets:close(?RUNS_CACHE),
+    Return.
 
 
 %%--------------------------------------------------------------------

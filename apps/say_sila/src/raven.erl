@@ -97,12 +97,14 @@ start_link(Tracker) ->
 
 
 %%--------------------------------------------------------------------
--spec stop(Tracker :: atom()) -> ok.
+-spec stop(Tracker :: atom()) -> ok
+                               | {error, term()}.
 %%
 % @doc  Shutdown function for Twitter services
 % @end  --
 stop(Tracker) ->
-    gen_server:call(?reg(Tracker), stop).
+    gen_server:call(?reg(Tracker), stop),
+    dets:close(?DEV_CACHE).
 
 
 
