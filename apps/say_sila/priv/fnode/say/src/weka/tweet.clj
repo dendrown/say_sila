@@ -24,8 +24,7 @@
                         Instances]
             [weka.classifiers AbstractClassifier
                               Evaluation]
-            [weka.classifiers.functions GaussianProcesses
-                                        LinearRegression]
+            [weka.classifiers.functions LinearRegression]
             [weka.core.stemmers SnowballStemmer]
             [weka.core.stopwords WordsFromFile]
             [weka.filters Filter]
@@ -145,8 +144,9 @@
 ;;; --------------------------------------------------------------------------
 (defn regress
   "Runs a Linear Regression model on the ARFF at the specified filepath."
-  [{:as   conf
-    :keys [datasets data_mode eval_mode exclude target work_csvs]}]
+  [{:keys [datasets data_mode eval_mode exclude learner target work_csvs]
+    :or   {learner "lreg"}
+    :as   conf}]
 
   (log/info "Excluding attributes:" exclude)
   (try
@@ -230,19 +230,7 @@
                               [insts  (load-data :parms)])
                   "test"  [trains (load-data :test)]
                   "cv"    [insts (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)]
-                          [insts (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode)])))
-
-
-            ;; ---------------------------------------------------------------
-            (load-model []
-              ;; TODO: Generalize passing of learner options
-              (case (get conf :learner "lreg")
-                "lreg"   (LinearRegression.)
-                "gproc"  (GaussianProcesses.)
-                "gproc2" (doto (GaussianProcesses.)
-                               (.setOptions
-                                  (into-array ["-K" "weka.classifiers.functions.supportVector.PolyKernel -E 2"])))))]
-
+                          [insts (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode)])))]
 
       ;; What we load depends
       (let [^Instances insts    (load-data :train)
@@ -255,7 +243,7 @@
           (weka/save-file (:train work_csvs) trains :csv))
 
         ;; Use N-fold cross validation for training/evaluation
-        (let [model       (load-model)
+        (let [model       (weka/make-learner learner)
               audit       (Evaluation. trains)
               attr-coeff  (fn [[ndx coeff]]
                             (let [attr (.attribute ^Instances insts (int ndx))
@@ -263,7 +251,7 @@
                               [tag coeff]))]
 
           ;; The final model training always uses the full dataset
-          (.buildClassifier ^AbstractClassifier model trains)
+          (.buildClassifier model trains)
           (log/fmt-info "Model [~a]:\n~a" (type model) (str model))
 
           ;; How do they want the results evaluated?

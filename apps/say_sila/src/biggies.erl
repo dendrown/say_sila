@@ -204,6 +204,7 @@ make_h0(Biggies, Players) ->
 %       - `learner'     : Learning algorithm.  Choose:
 %                           `lreg' (default) for LinearRegression, or
 %                           `gproc' for GaussianProcesses.
+%                           `m5rules' for M5Rules.
 % @end  --
 run_top_n(Tracker, RunTag) ->
     run_top_n(Tracker, RunTag, []).

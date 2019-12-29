@@ -19,7 +19,8 @@
             [clojure.string  :as str])
   (:import  [weka.core  Instance
                         Instances]
-            [weka.classifiers Evaluation]
+            [weka.classifiers AbstractClassifier
+                              Evaluation]
             [weka.core.converters AbstractSaver
                                   ArffLoader
                                   ArffSaver
@@ -120,6 +121,27 @@
     (.setOptions sieve (into-array String opts)))
   (.setInputFormat sieve data)
   (Filter/useFilter data sieve)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ^AbstractClassifier make-learner
+  "Instantiates/configures a Weka learning algorithm based on the specified tag."
+  [tag]
+  (let [alg (first (str/split tag #"_"))
+        ^AbstractClassifier
+        learner (case alg
+                  "lreg"    (weka.classifiers.functions.LinearRegression.)
+                  "gproc"   (weka.classifiers.functions.GaussianProcesses.)
+                  "m5rules" (weka.classifiers.rules.M5Rules.))]
+
+    ;; Instantiate the learner and handle any non-default parameters
+    (case tag
+      "gproc_2" (.setOptions learner
+                             (into-array ["-K" "weka.classifiers.functions.supportVector.PolyKernel -E 2"]))
+                :defaults)
+
+    learner))
 
 
 
