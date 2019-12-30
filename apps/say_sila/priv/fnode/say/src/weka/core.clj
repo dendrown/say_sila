@@ -135,7 +135,8 @@
                   "lreg"    (weka.classifiers.functions.LinearRegression.)
                   "gproc"   (weka.classifiers.functions.GaussianProcesses.)
                   "smo"     (weka.classifiers.functions.SMOreg.)
-                  "m5rules" (weka.classifiers.rules.M5Rules.))]
+                  "m5rules" (weka.classifiers.rules.M5Rules.)
+                  "rforest" (weka.classifiers.trees.RandomForest.))]
 
     ;; Instantiate the learner and handle any non-default parameters
     (when (some #{"gproc_2" "smo_2"} [tag])

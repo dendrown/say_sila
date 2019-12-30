@@ -30,8 +30,7 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
--define(NUM_H0_RUNS,     5).                % Number of H0 runs to average together
-%define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
+-define(NUM_H0_RUNS,    10).                % Number of H0 runs to average together
 -define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
 
 -type dataset()          :: parms | train | test.
