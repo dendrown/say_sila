@@ -759,7 +759,7 @@ report(Tracker, Method, RunNum, PeriodSet, Options, RunResults, RefResults) ->
 %%--------------------------------------------------------------------
 -spec report_run(Tracker    :: tracker(),
                  Method     :: tuple(),
-                 RunNum     :: non_neg_integer(),
+                 RunNum     :: non_neg_integer() | roll_up,
                  Emotion    :: emotion(),
                  PeriodSet  :: dataset_proplist(),
                  Options    :: proplist(),
@@ -815,7 +815,7 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
             % We may not have had enough data for a reference score
             {RunPCC, MidWarnings} = Checker(run, N, RunVal, RunData, Warnings),
             {RefPCC, NewWarnings} = Checker(ref, N, RefVal, RefData, MidWarnings),
-            ModelDesc = case IsWhiteBox of
+            ModelDesc = case IsWhiteBox orelse (RunNum =:= roll_up) of
                 true  -> RunData;
                 false -> <<"??">>
             end,
