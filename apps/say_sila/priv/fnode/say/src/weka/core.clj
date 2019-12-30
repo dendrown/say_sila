@@ -128,18 +128,18 @@
 (defn ^AbstractClassifier make-learner
   "Instantiates/configures a Weka learning algorithm based on the specified tag."
   [tag]
-  (let [alg (first (str/split tag #"_"))
+  (let [pke #(str "weka.classifiers.functions.supportVector.PolyKernel -E " %)
+        alg (first (str/split tag #"_"))
         ^AbstractClassifier
         learner (case alg
                   "lreg"    (weka.classifiers.functions.LinearRegression.)
                   "gproc"   (weka.classifiers.functions.GaussianProcesses.)
+                  "smo"     (weka.classifiers.functions.SMOreg.)
                   "m5rules" (weka.classifiers.rules.M5Rules.))]
 
     ;; Instantiate the learner and handle any non-default parameters
-    (case tag
-      "gproc_2" (.setOptions learner
-                             (into-array ["-K" "weka.classifiers.functions.supportVector.PolyKernel -E 2"]))
-                :defaults)
+    (when (some #{"gproc_2" "smo_2"} [tag])
+      (.setOptions learner (into-array ["-K" (pke 2)])))
 
     learner))
 
@@ -176,6 +176,7 @@
   ;; FIXME this set is not complete!
   (contains? #{weka.classifiers.functions.LinearRegression
                weka.classifiers.functions.Logistic
+              ;weka.classifiers.rules.M5Rules
                weka.classifiers.trees.J48}
              (type model)))
 
