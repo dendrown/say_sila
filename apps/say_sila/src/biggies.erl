@@ -833,7 +833,7 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
     % The model description changes based on what happened and if it's a composite
     Describe = fun
         (#{incl_attrs := Attrs}) -> Attrs;                  % Linear regression
-        (#{count := Cnt})        -> [valid_count, Cnt];     % Average across runs
+        (#{good_count := Cnt})   -> [valid, Cnt];           % Average across runs
         ({need_data, CommPcts})  -> CommPcts;               % All four comms not @ 100%
         (_)                      -> <<"??">>                % Black box
     end,
@@ -847,7 +847,7 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
             % We may not have had enough data for a reference score
             {RunScores, MidWarnings} = Checker(run, N, RunInfo, Warnings),
             {RefScores, NewWarnings} = Checker(ref, N, RefInfo, MidWarnings),
-            ?info("N @ ~2B: big< ~s> ref< ~s> model~p", [N, RunScores, RefScores, Describe(RunInfo)]),
+            ?info("N @ ~2B: BIG< ~s> REF< ~s> model~p", [N, RunScores, RefScores, Describe(RunInfo)]),
             Recur(RunRest, RefRest, NewWarnings)
     end,
     Warnings = Report(RunResults, RefResults, []),
