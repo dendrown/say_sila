@@ -709,7 +709,7 @@ find_best_run(AvgResults, ResultsSet) ->
 
     % Function to select the best N for a given emotion using the average across runs
     FindBestEmoN = fun
-        (N, #{pcc := PCC}, Best = {_, BestPCC}) ->
+        (N, #{correlation := PCC}, Best = {_, BestPCC}) ->
             case PCC > BestPCC of
                 false -> Best;
                 true  -> {N, PCC}
@@ -731,9 +731,11 @@ find_best_run(AvgResults, ResultsSet) ->
     % Reduce to find the run that has the best score for an emotion for our chosen value of N
     FindBestEmoRun = fun({Emo, ResultsByN}, Acc = {I, EmoAcc}) ->
 
-            {PCC,_} = proplists:get_value(BestN, ResultsByN),
-            {_,_,
-             BestPCC} = maps:get(Emo, EmoAcc, {0, BestN, -1.0}),
+        PCC = maps:get(correlation,
+                       proplists:get_value(BestN, ResultsByN, #{}),
+                       -1.0),
+        {_,_,
+         BestPCC} = maps:get(Emo, EmoAcc, {0, BestN, -1.0}),
 
         case PCC > BestPCC of
             false -> Acc;
