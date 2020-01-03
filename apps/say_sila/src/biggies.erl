@@ -31,7 +31,9 @@
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
 -define(NUM_H0_RUNS,    10).                % Number of H0 runs to average together
+%define(NUM_H0_RUNS,     1).                % Number of H0 runs to average together
 -define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
+-define(MEASURES,       [correlation, error_mae, error_rmse]).
 
 -type dataset()          :: parms | train | test.
 -type dataset_prop()     :: {dataset(), term()}.
@@ -446,10 +448,10 @@ do_run_run(RunFun, Tracker, Method, RunTag, RunNum, PeriodSet, Options) ->
     RefResultss = [{I, ProcessH0(I, Opts)} || {I,Opts} <- RefOptss],
 
     %?debug("RefResultss:~n~p", [RefResultss]),
-    RefAvgResults = average_results(RefResultss),
+    AvgRefResults = average_results(RefResultss),
 
     %?info("RefResults:~n~p", [RefAvgResults]),
-    RefResults = averages_to_results(RefAvgResults),
+    RefResults = averages_to_results(AvgRefResults),
 
     report(Tracker, Method, RunNum, PeriodSet, Options, RunResults, RefResults),
     {RunResults, RefResults}.
@@ -473,7 +475,7 @@ do_run_run(RunFun, Tracker, Method, RunTag, RunNum, PeriodSet, Options) ->
 %        ```
 %       [{1,[{anger,[{5,{need_data,#{oter => 1.0,rted => 0.32,rter => 0.83,tmed => 0.83}}},
 %                    ...
-%                    {22,{0.14,[big_oter_sadness,big_rter_joy,big_rted_joy,big_tmed_fear,big_tmed_joy]}}, ...]
+%                    {22,#{correlation => 0.0403, error_mae => 0.0173, error_rmse => 0.0209}, ...]
 %            {fear, [...]} ...]
 %        {2,[...]}
 %        ...]
@@ -513,18 +515,32 @@ average_results([{_, Results}|Rest], Acc) when is_map(Results) ->
         [RunGoodCnt, AccGoodCnt] = ReCount(good_cnt),
         [RunFailCnt, AccFailCnt] = ReCount(fail_cnt),
 
-        {NewPCC,
-         NewGoodCnt} = average(maps:get(pcc, RunAvg, 0.0), RunGoodCnt,
-                               maps:get(pcc, AccAvg, 0.0), AccGoodCnt),
+        % We're working with a few measures for good models
+        RunGoodAverage = fun(X) ->
+            {X, average(maps:get(X, RunAvg, 0.0), RunGoodCnt,
+                        maps:get(X, AccAvg, 0.0), AccGoodCnt)}
+        end,
 
+        GoodMeasures = [RunGoodAverage(X) || X <- ?MEASURES],
+        GetGoodness  = fun(X, Elm) ->
+            element(case Elm of
+                        measure -> 1;
+                        count   -> 2
+                    end,
+                    proplists:get_value(X, GoodMeasures))
+        end,
+
+        % Also get averages for models that didn't make it
         {NewNeeds,
          NewFailCnt} = average_needs(maps:get(need_data, RunAvg, #{}), RunFailCnt,
                                      maps:get(need_data, AccAvg, #{}), AccFailCnt),
 
-        NewAvg = #{good_cnt  => NewGoodCnt,
-                   fail_cnt  => NewFailCnt,
-                   pcc       => NewPCC,
-                   need_data => NewNeeds},
+        NewAvg = #{good_cnt    => GetGoodness(correlation, count),
+                   correlation => GetGoodness(correlation, measure),
+                   error_mae   => GetGoodness(error_mae,   measure),
+                   error_rmse  => GetGoodness(error_rmse,  measure),
+                   fail_cnt    => NewFailCnt,
+                   need_data   => NewNeeds},
         maps:put(N, NewAvg, AccNs)
     end,
 
@@ -540,13 +556,13 @@ average_results([{_, Results}|Rest], Acc) when is_map(Results) ->
 average_results([{_, Results}|Rest], Acc) ->
 
     % Function to act on all Top-N values for a single emotion model
-    Topper = fun({N, {Score, Info}}, TopAcc) ->
+    Topper = fun({N, Info}, TopAcc) ->
         NAcc = maps:get(N, TopAcc, #{}),
-        NewNAcc = case Score of
+        NewNAcc = case Info of
             % Keep a running average of failure scores
-            need_data ->
+            {need_data, CommCats} ->
                 {NewNeeds,
-                 NewCnt} = average_needs(Info,
+                 NewCnt} = average_needs(CommCats,
                                          maps:get(need_data, NAcc, #{}),
                                          maps:get(fail_cnt,  NAcc, 0)),
                 maps:merge(NAcc, #{need_data => NewNeeds,
@@ -554,12 +570,15 @@ average_results([{_, Results}|Rest], Acc) ->
 
             % And a running average of good scores
             _ ->
-                {NewPCC,
-                 NewCnt} = average(Score,
-                                   maps:get(pcc,      NAcc, 0.0),
-                                   maps:get(good_cnt, NAcc, 0)),
-                maps:merge(NAcc, #{pcc      => NewPCC,
-                                   good_cnt => NewCnt})
+                % Add one good model to the running average for each measure X
+                GoodCnt = maps:get(good_cnt, NAcc, 0),
+                RunGoodAverage = fun(X, Val) ->
+                    {NewAvg, _} = average(Val, maps:get(X, NAcc, 0.0), GoodCnt),
+                    NewAvg
+                end,
+                Measures = maps:with(?MEASURES, Info),
+                maps:merge(maps:put(good_cnt, GoodCnt+1, NAcc),
+                           maps:map(RunGoodAverage, Measures))
         end,
         maps:put(N, NewNAcc, TopAcc)
     end,
@@ -583,30 +602,31 @@ average_results([{_, Results}|Rest], Acc) ->
 %
 %       Input:
 %        ```
-%        #{anger := #{N := #{good_cnt  := GC,
-%                            fail_cnt  := FC,
-%                            pcc       := PCC,
-%                            need_data := ND}}}
+%        #{anger := #{N := #{good_cnt    := GC,
+%                            fail_cnt    := FC,
+%                            correlation := PCC,
+%                            need_data   := ND}}}
 %       '''
 %
 %        Output:
 %        ```
 %       [{anger,[{5,{need_data,#{oter => 1.0,rted => 0.32,rter => 0.83,tmed => 0.83}}},
 %                ...
-%                {22,{0.14,[big_oter_sadness,big_rter_joy,big_rted_joy,big_tmed_fear,big_tmed_joy]}}, ...]
+%                {22,#{correlation => 0.0403, error_mae => 0.0173, error_rmse => 0.0209}, ...]
 %        {fear, [...]} ...]
 %       '''
 % @end  --
 averages_to_results(AvgResults) ->
 
+    % FIXME: Make the good/bad roll_up results match run results: {code, map}
+    %
     % Function to associate the average successful (or alterately failed) model to a given N
     Topper = fun(N, Averages) ->
         AvgValue = case Averages of
-            #{good_cnt := Cnt,
-              pcc      := PCC}    when Cnt > 0  -> {PCC, {count, Cnt}};
+            #{good_cnt  := Cnt}     when Cnt > 0  -> Averages;
 
             #{fail_cnt  := Cnt,
-              need_data := Needs} when Cnt > 0  -> {need_data, Needs}
+              need_data := Needs}   when Cnt > 0  -> {need_data, Needs}
         end,
         {N, AvgValue}
     end,
@@ -769,9 +789,6 @@ report(Tracker, Method, RunNum, PeriodSet, Options, RunResults, RefResults) ->
 % @end  --
 report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, RefResults) ->
 
-    % Will the models' run data (descriptions) be meaningul?  LinearRegression (our default)
-    % is currently the only "white box" model we're working with.
-    IsWhiteBox = (lreg =:= proplists:get_value(learner, Options, lreg)),
     DataMode = proplists:get_value(data_mode, Options, level),
 
     % Is this a multi-month sweep?  We'll get M = 0, 1, ..., roll_up
@@ -798,27 +815,32 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
     [LogStamper(Step) || Step <- [parms, train, test]],
 
     % Function to check a value and add a warning to a collection if it is not correct
-    Checker = fun(Step, N, Score, Data, Warnings) ->
-         case Score of
-            S when is_float(S)  -> {?str_fmt("~7.4f", [S]), Warnings};
-            need_data           -> {"*******",              [{Step, N, Data} | Warnings]}
-        end
+    Checker = fun
+        (_, _, #{correlation := PCC}, Warnings) ->
+            {?str_fmt("~7.4f", [PCC]), Warnings};
+
+        (Step, N, {need_data, CommPcts}, Warnings) ->
+            {"*******", [{Step, N, CommPcts} | Warnings]}
+    end,
+
+    % The model description changes based on what happened and if it's a composite
+    Describe = fun
+        (#{incl_attrs := Attrs}) -> Attrs;                  % Linear regression
+        (#{count := Cnt})        -> [valid_count, Cnt];     % Average across runs
+        ({need_data, CommPcts})  -> CommPcts;               % All four comms not @ 100%
+        (_)                      -> <<"??">>                % Black box
     end,
 
     % Report the results, collecting the warnings so we can log them all after the report
     Report = fun
         Recur([], [], Warnings) ->
             Warnings;
-        Recur([{N, {RunVal, RunData}} | RunRest],
-              [{N, {RefVal, RefData}} | RefRest], Warnings) ->
+        Recur([{N, RunInfo} | RunRest],
+              [{N, RefInfo} | RefRest], Warnings) ->
             % We may not have had enough data for a reference score
-            {RunPCC, MidWarnings} = Checker(run, N, RunVal, RunData, Warnings),
-            {RefPCC, NewWarnings} = Checker(ref, N, RefVal, RefData, MidWarnings),
-            ModelDesc = case IsWhiteBox orelse (RunNum =:= roll_up) of
-                true  -> RunData;
-                false -> <<"??">>
-            end,
-            ?info("N @ ~2B: pcc[~s] ref[~s] model~p", [N, RunPCC, RefPCC, ModelDesc]),
+            {RunPCC, MidWarnings} = Checker(run, N, RunInfo, Warnings),
+            {RefPCC, NewWarnings} = Checker(ref, N, RefInfo, MidWarnings),
+            ?info("N @ ~2B: pcc[~s] ref[~s] model~p", [N, RunPCC, RefPCC, Describe(RunInfo)]),
             Recur(RunRest, RefRest, NewWarnings)
     end,
     Warnings = Report(RunResults, RefResults, []),

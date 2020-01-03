@@ -469,8 +469,8 @@ run_top_nn(Tracker, RunTag, Comm, Emo, Params) ->
     % Aborted models tagged with `need_data' are NOT considered.
     TagTopN  = extend_run_tag(RunTag, Comm, Emo, ?INIT_TOP_RANGE),
     MinScore = ?MIN_NN_SCORE,
-    BaseRun  = lists:filter(fun({_, {need_data, _}}) -> false;
-                               ({_, {Score, _}})     -> abs(Score) >= MinScore end,
+    BaseRun  = lists:filter(fun({_, {need_data, _}})          -> false;
+                               ({_, #{correlation := Score}}) -> abs(Score) >= MinScore end,
                             run_top_n(Tracker, TagTopN, Comm, Emo, Params)),
 
     % Function to tally up attribute usage across the models
@@ -488,7 +488,7 @@ run_top_nn(Tracker, RunTag, Comm, Emo, Params) ->
     MinCount = round(length(BaseRun) / 2),
     TagTopNN = ?str_FMT("~s_NN", [TagTopN]),
 
-    AttrCnts = lists:foldl(fun({_, {_, Attrs}}, Acc) -> Counter(Attrs, Acc) end,
+    AttrCnts = lists:foldl(fun({_, #{incl_attrs := Attrs}}, Acc) -> Counter(Attrs, Acc) end,
                            [],
                            BaseRun),
 
@@ -919,7 +919,9 @@ done({call, From}, get_outcome, #data{name       = Name,
     CorrScore = maps:get(correlation, Results, 0.0),
     ?info("Model ~s outcome: score[~.4f] attrs~p", [Name, CorrScore, InclAttrs]),
 
-    {keep_state_and_data, [{reply, From, {CorrScore, InclAttrs}}]};
+    Reply = maps:merge(#{incl_attrs => InclAttrs},
+                       maps:with([correlation, error_mae, error_rmse], Results)),
+    {keep_state_and_data, [{reply, From, Reply}]};
 
 
 done({call, From}, {report_line, FOut, Line}, Data = #data{name       = Name,
@@ -1226,9 +1228,9 @@ run_influence(Tracker, RunTag, CommCodes, Emotions, Params) ->
             influence:report_line(Model, FOut, Ndx),
             Return = case is_pid(Model) of
                 true ->
-                    Attrs = influence:get_outcome(Model),
+                    Outcome = influence:get_outcome(Model),
                     influence:stop(Model),
-                    Attrs;
+                    Outcome;
                 false ->
                     % The Model is actually a failure tuple
                     Model

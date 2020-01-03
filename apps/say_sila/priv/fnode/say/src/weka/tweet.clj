@@ -150,7 +150,7 @@
 
   (log/info "Excluding attributes:" exclude)
   (try
-    ;; FIXME: Collapse to ONE letfn over a let
+    ;; TODO: Collapse to ONE letfn over a let
     (letfn [;; ---------------------------------------------------------------
             (calc-variations [fpath ^Instances idata]
               ;; The instances should already be sorted, but now it's crucial!
@@ -282,6 +282,8 @@
             (assoc ACK :model        (type model)
                        :instances    (.numInstances trains)
                        :correlation  (.correlationCoefficient audit)
+                       :error_mae    (.meanAbsoluteError audit)
+                       :error_rmse   (.rootMeanSquaredError audit)
                        :intercept    intercept
                        :coefficients (into {} (map attr-coeff                       ; ZIP:
                                                    (map vector (range coeff-cnt)    ; Attr-indexes
