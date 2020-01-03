@@ -815,12 +815,17 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
     [LogStamper(Step) || Step <- [parms, train, test]],
 
     % Function to check a value and add a warning to a collection if it is not correct
-    Checker = fun
-        (_, _, #{correlation := PCC}, Warnings) ->
-            {?str_fmt("~7.4f", [PCC]), Warnings};
+    Measures = [pcc,mae,rmse],
+    Checker  = fun
+        (_, _, #{correlation := PCC,
+                 error_mae   := MAE,
+                 error_rmse  := RMSE}, Warnings) ->
+            Scores = [?str_fmt("~s[~7.4f] ", [Tag, X]) || {Tag, X} <- lists:zip(Measures, [PCC,MAE,RMSE])],
+            {lists:flatten(Scores), Warnings};
 
         (Step, N, {need_data, CommPcts}, Warnings) ->
-            {"*******", [{Step, N, CommPcts} | Warnings]}
+            Scores = [?str_fmt("~s[*******] ", [Txt]) || Txt <- Measures],
+            {lists:flatten(Scores), [{Step, N, CommPcts} | Warnings]}
     end,
 
     % The model description changes based on what happened and if it's a composite
@@ -838,9 +843,9 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
         Recur([{N, RunInfo} | RunRest],
               [{N, RefInfo} | RefRest], Warnings) ->
             % We may not have had enough data for a reference score
-            {RunPCC, MidWarnings} = Checker(run, N, RunInfo, Warnings),
-            {RefPCC, NewWarnings} = Checker(ref, N, RefInfo, MidWarnings),
-            ?info("N @ ~2B: pcc[~s] ref[~s] model~p", [N, RunPCC, RefPCC, Describe(RunInfo)]),
+            {RunScores, MidWarnings} = Checker(run, N, RunInfo, Warnings),
+            {RefScores, NewWarnings} = Checker(ref, N, RefInfo, MidWarnings),
+            ?info("N @ ~2B: big< ~s> ref< ~s> model~p", [N, RunScores, RefScores, Describe(RunInfo)]),
             Recur(RunRest, RefRest, NewWarnings)
     end,
     Warnings = Report(RunResults, RefResults, []),
