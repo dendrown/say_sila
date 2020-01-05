@@ -14,7 +14,7 @@
 -module(biggies).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([go/0,                              % Shortcut/convenience functions
+-export([go/1,                              % Shortcut/convenience functions
          period/1]).
 -export([clear_cache/0,
          make_h0/2,
@@ -48,8 +48,10 @@
 
 
 %%--------------------------------------------------------------------
-go() ->
-    run_top_n(gw, lregv, [{data_mode, variation}, {sweep, 9}]).
+go(Method) ->
+    Go = maps:get(Method, #{n  => fun run_top_n/3,
+                            nn => fun run_top_nn/3}),
+    Go(gw, lregv, [{data_mode, variation}, {sweep, 9}]).
 
 
 
