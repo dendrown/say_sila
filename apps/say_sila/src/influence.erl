@@ -748,8 +748,8 @@ idle(Type, Evt, Data) ->
 run(enter, _OldState, Data = #data{name = Name}) ->
 
     ?info("Model ~s running on Weka", [Name]),
-    {keep_state, run_model(parms, Data)};
-   %{keep_state, run_model(cv, Data)};
+   %{keep_state, run_model(parms, Data)};
+    {keep_state, run_model(cv, Data)};
 
 
 run(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,
@@ -874,8 +874,8 @@ eval(enter, _, Data = #data{name    = Name,
                             learner = Learner}) ->
 
     ?info("Evaluating final model ~s (~s) on Weka", [Name, Learner]),
-    {keep_state, run_model(test, Data)};
-   %{keep_state, run_model(cv, Data)};
+   %{keep_state, run_model(test, Data)};
+    {keep_state, run_model(cv, Data)};
 
 
 eval(info, {From, WorkRef, regress, Results}, Data = #data{name     = Name,

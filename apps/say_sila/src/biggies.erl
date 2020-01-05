@@ -30,8 +30,8 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
--define(NUM_H0_RUNS,    10).                % Number of H0 runs to average together
-%define(NUM_H0_RUNS,     1).                % Number of H0 runs to average together
+-define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
+%define(NUM_H0_RUNS,     2).                % Number of H0 runs to average together
 -define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
 -define(MEASURES,       [correlation, error_mae, error_rmse]).
 
@@ -345,7 +345,7 @@ run_run(RunCode, Tracker, RunTag, Options) ->
                  Options :: proplist()) -> ref_run_proplist().
 
 -type ref_run_proplist() :: {emotion_proplist(),
-                             emotion_proplist()}.
+                             multi_run_average()}.
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
@@ -381,10 +381,10 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
             ?notice("End of single-period run");
 
         S when S > 1 ->
-            % FIXME: We need to consolidate these for a final report
+            % NOTE: the RefResultsSets are running averages of the H0 runs in a period.
             RunRefResultsSet = [{M, RunPeriodSet(M-1)} || M <- lists:seq(1, S)],
 
-            % FIXME: Make `average_results' do this automatically
+            % TODO: Make `average_results' do this automatically
             RunResultsSet = [{M, Run} || {M,{Run,_}} <- RunRefResultsSet],
             RefResultsSet = [{M, Ref} || {M,{_,Ref}} <- RunRefResultsSet],
             ?debug("Run results set: ~p", [RunResultsSet]),
@@ -454,7 +454,7 @@ do_run_run(RunFun, Tracker, Method, RunTag, RunNum, PeriodSet, Options) ->
     RefResults = averages_to_results(AvgRefResults),
 
     report(Tracker, Method, RunNum, PeriodSet, Options, RunResults, RefResults),
-    {RunResults, RefResults}.
+    {RunResults, AvgRefResults}.
 
 
 
@@ -492,7 +492,7 @@ do_run_run(RunFun, Tracker, Method, RunTag, RunNum, PeriodSet, Options) ->
 %       TODO: [{I, Runs, Refs} | ...]
 % @end  --
 average_results(Results) ->
-    ?info("Averaging ~B H0 run results.", [length(Results)]),
+    ?info("Averaging ~B run results.", [length(Results)]),
     average_results(Results, #{}).
 
 
@@ -503,7 +503,7 @@ average_results([{_, Results}|Rest], Acc) when is_map(Results) ->
     % Here we are merging in a previous set of averaged results
     %
     % Functions to merge the N-maps for two avg-result-maps
-    MergeN = fun(N, Ns = [_, AccNs]) ->
+    MergeN = fun(N, Ns = [RunNs, AccNs]) ->
         Averages = [RunAvg,
                     AccAvg] = [maps:get(N, Avgs, #{}) || Avgs <- Ns],
 
@@ -512,43 +512,52 @@ average_results([{_, Results}|Rest], Acc) when is_map(Results) ->
             [maps:get(CntType, Avg, 0) || Avg <- Averages]
         end,
 
-        [RunGoodCnt, AccGoodCnt] = ReCount(good_cnt),
-        [RunFailCnt, AccFailCnt] = ReCount(fail_cnt),
+        % Make sure we have at least one good run
+        NewGoodAvg = case ReCount(good_cnt) of
+            [0, 0] -> #{};
 
-        % We're working with a few measures for good models
-        RunGoodAverage = fun(X) ->
-            {X, average(maps:get(X, RunAvg, 0.0), RunGoodCnt,
-                        maps:get(X, AccAvg, 0.0), AccGoodCnt)}
+            [RunGoodCnt, AccGoodCnt] ->
+                % We're working with a few measures for good models
+                RunGoodAverage = fun(X) ->
+                    {X, average(maps:get(X, RunAvg, 0.0), RunGoodCnt,
+                                maps:get(X, AccAvg, 0.0), AccGoodCnt)}
+                end,
+
+                GoodMeasures = [RunGoodAverage(X) || X <- ?MEASURES],
+                GetGoodness  = fun(X, Elm) ->
+                    element(case Elm of
+                                measure -> 1;
+                                count   -> 2
+                            end,
+                            proplists:get_value(X, GoodMeasures))
+                end,
+                #{good_cnt    => GetGoodness(correlation, count),
+                  correlation => GetGoodness(correlation, measure),
+                  error_mae   => GetGoodness(error_mae,   measure),
+                  error_rmse  => GetGoodness(error_rmse,  measure)}
         end,
 
-        GoodMeasures = [RunGoodAverage(X) || X <- ?MEASURES],
-        GetGoodness  = fun(X, Elm) ->
-            element(case Elm of
-                        measure -> 1;
-                        count   -> 2
-                    end,
-                    proplists:get_value(X, GoodMeasures))
+        % Also, do we have at least one model that didn't make it...?
+        NewFailAvg = case ReCount(fail_cnt) of
+            [0, 0] -> #{};
+
+            [RunFailCnt, AccFailCnt] ->
+                {NewNeeds,
+                 NewFailCnt} = average_needs(maps:get(need_data, RunAvg, #{}), RunFailCnt,
+                                             maps:get(need_data, AccAvg, #{}), AccFailCnt),
+                #{fail_cnt  => NewFailCnt,
+                  need_data => NewNeeds}
         end,
-
-        % Also get averages for models that didn't make it
-        {NewNeeds,
-         NewFailCnt} = average_needs(maps:get(need_data, RunAvg, #{}), RunFailCnt,
-                                     maps:get(need_data, AccAvg, #{}), AccFailCnt),
-
-        NewAvg = #{good_cnt    => GetGoodness(correlation, count),
-                   correlation => GetGoodness(correlation, measure),
-                   error_mae   => GetGoodness(error_mae,   measure),
-                   error_rmse  => GetGoodness(error_rmse,  measure),
-                   fail_cnt    => NewFailCnt,
-                   need_data   => NewNeeds},
-        maps:put(N, NewAvg, AccNs)
+        NewAvg = maps:merge(NewGoodAvg, NewFailAvg),
+        [RunNs, maps:put(N, NewAvg, AccNs)]
     end,
 
     MergeEmo = fun(Emo, EmoAcc) ->
         RunNs = maps:get(Emo, Results, #{}),
         AccNs = maps:get(Emo, EmoAcc,  #{}),
-        NewNs = lists:foldl(MergeN, [RunNs,AccNs], maps:keys(RunNs)),
-        maps:put(Emo, NewNs, Acc)
+        [_,
+         NewNs] = lists:foldl(MergeN, [RunNs,AccNs], maps:keys(RunNs)),
+        maps:put(Emo, NewNs, EmoAcc)
     end,
     average_results(Rest, lists:foldl(MergeEmo, Acc, ?EMOTIONS));
 
@@ -833,7 +842,7 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
     % The model description changes based on what happened and if it's a composite
     Describe = fun
         (#{incl_attrs := Attrs}) -> Attrs;                  % Linear regression
-        (#{good_count := Cnt})   -> [valid, Cnt];           % Average across runs
+        (#{good_cnt := Cnt})     -> [valid, Cnt];           % Average across runs
         ({need_data, CommPcts})  -> CommPcts;               % All four comms not @ 100%
         (_)                      -> <<"??">>                % Black box
     end,
