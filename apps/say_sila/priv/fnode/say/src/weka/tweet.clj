@@ -320,8 +320,8 @@
   ;; Set our standard options for both the NLP and default modes
   (doto emoter
         (.setToLowerCase true)
-        (.setReduceRepeatedLetters true)
-        (.setStandarizeUrlsUsers true)
+       ;(.setReduceRepeatedLetters true)
+       ;(.setStandarizeUrlsUsers true)
         (.setTextIndex (str text-index)))))
 
 

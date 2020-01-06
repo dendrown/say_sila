@@ -60,7 +60,7 @@ go(Method) ->
     % Make it so...!
     Go = maps:get(Method, #{n  => fun run_top_n/3,
                             nn => fun run_top_nn/3}),
-    Go(gw, lregv, [{data_mode, variation}, {sweep, 9}]).
+    Go(gw, lregv12, [{data_mode, variation}, {sweep, 9}]).
 
 
 
@@ -80,38 +80,12 @@ go(Method) ->
 %% biggies:run_top_n(gw, run2V, [{data_mode, variation}]).  biggies:run_top_nn(gw, run2VV, [{data_mode, variation}]).
 %%--------------------------------------------------------------------
 -if(?RUN =:= 2).
-%period(parms) -> [{start, {2018, 05, 01}}, {stop, {2018, 09, 01}}];
-%period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 09, 01}}];
-%period(test)  -> [{start, {2019, 09, 01}}, {stop, {2019, 12,  8}}]. % TODO: goto 2020/1/1
-
-%period(parms) -> [{start, {2018, 09, 01}}, {stop, {2018, 12, 01}}];
-%period(train) -> [{start, {2018, 12, 01}}, {stop, {2019, 09, 01}}];
-%period(test)  -> [{start, {2019, 09, 01}}, {stop, {2019, 12,  1}}]. % TODO: goto 2020/1/1
-
-%period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}];
-%period(train) -> [{start, {2017, 12, 01}}, {stop, {2018, 09, 01}}];
-%period(test)  -> [{start, {2018, 09, 01}}, {stop, {2019, 01, 01}}].
 
 period(parms_pct) -> {parms_pct, 0.25};     % <<= Specify in Options
-%%--------------------------------------------------------------------
-%% Best RUN-2 so far
-%%--------------------------------------------------------------------
 period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
-period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
-period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+period(train) -> [{start, {2018, 01, 01}}, {stop, {2019, 01, 01}}];
+period(test)  -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}].
 %%--------------------------------------------------------------------
-
-%period(parms) -> [{start, {2018, 06, 01}}, {stop, {2018, 09, 01}}];
-%period(train) -> [{start, {2018, 09, 01}}, {stop, {2019, 06, 01}}];
-%period(test)  -> [{start, {2019, 06, 01}}, {stop, {2019, 09, 01}}].
-
-% A @
-% F @
-% S @
-% J @
-%period(parms) -> {parms_pct, 0.25};        % <<= Specify in Options
-%period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 10, 01}}];
-%period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 
 -else.
 %%--------------------------------------------------------------------
@@ -119,7 +93,7 @@ period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 %%--------------------------------------------------------------------
 %eriod(parms) -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}];
 period(parms) -> [{start, {2017, 09, 01}}, {stop, {2017, 12, 01}}]; % FIXME: overlap!
-period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}]; % FIXME!
+period(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 07, 01}}];
 %eriod(train) -> [{start, {2017, 10, 01}}, {stop, {2018, 04, 01}}]; % FIXME! shortie
 period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 %eriod(test)  -> [{start, {2019, 10, 01}}, {stop, {2019, 12, 31}}].
