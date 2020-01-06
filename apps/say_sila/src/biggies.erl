@@ -30,8 +30,9 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
--define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
+-define(NUM_H0_RUNS,    10).                % Number of H0 runs to average together
 %define(NUM_H0_RUNS,     2).                % Number of H0 runs to average together
+-define(FPATH_RNG_SEED, ?WORK_DIR "/influence/rand.seed.etf").
 -define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
 -define(MEASURES,       [correlation, error_mae, error_rmse]).
 
@@ -49,6 +50,14 @@
 
 %%--------------------------------------------------------------------
 go(Method) ->
+    % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
+    rand:uniform(),
+    Seed = rand:export_seed(),
+    ?debug("Random seed: ~p", [Seed]),
+    file:write_file(?FPATH_RNG_SEED, term_to_binary(Seed)),
+    %rand:seed_s(exsss),
+
+    % Make it so...!
     Go = maps:get(Method, #{n  => fun run_top_n/3,
                             nn => fun run_top_nn/3}),
     Go(gw, lregv, [{data_mode, variation}, {sweep, 9}]).
@@ -136,9 +145,6 @@ clear_cache() ->
 %       comparison runs.
 % @end  --
 make_h0(Biggies, Players) ->
-    % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
-    %rand:seed_s(exsss),
-
     % Combine the big player accounts from all categories except `tter'
     AllBigs = lists:foldl(fun ({_, {_,_,Bigs}}, Acc) -> Bigs ++ Acc end,
                           [],

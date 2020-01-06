@@ -313,13 +313,15 @@
                          (.setStopwords (io/file STOPLIST-EN)))]
       ;; Prepare the filter for English texts
       (doto emoter
-            (.setToLowerCase true)
-           ;(.setStandarizeUrlsUsers true)
            ;(.setReduceRepeatedLetters true)
             (.setStopwordsHandler stoplist)
             (.setStemmer (SnowballStemmer. "english")))))
 
+  ;; Set our standard options for both the NLP and default modes
   (doto emoter
+        (.setToLowerCase true)
+        (.setReduceRepeatedLetters true)
+        (.setStandarizeUrlsUsers true)
         (.setTextIndex (str text-index)))))
 
 
