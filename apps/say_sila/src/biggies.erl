@@ -60,7 +60,7 @@ go(Method) ->
     % Make it so...!
     Go = maps:get(Method, #{n  => fun run_top_n/3,
                             nn => fun run_top_nn/3}),
-    Go(gw, lregv12, [{data_mode, variation}, {sweep, 9}]).
+    Go(gw, lregv, [{data_mode, variation}, {sweep, 9}]).
 
 
 
@@ -83,8 +83,8 @@ go(Method) ->
 
 period(parms_pct) -> {parms_pct, 0.25};     % <<= Specify in Options
 period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
-period(train) -> [{start, {2018, 01, 01}}, {stop, {2019, 01, 01}}];
-period(test)  -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}].
+period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
+period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 %%--------------------------------------------------------------------
 
 -else.
