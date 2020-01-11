@@ -14,7 +14,7 @@
 -module(biggies).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([go/1,                              % Shortcut/convenience functions
+-export([go/0,          go/1,               % Shortcut/convenience functions
          period/1]).
 -export([clear_cache/0,
          make_h0/2,
@@ -49,6 +49,10 @@
 
 
 %%--------------------------------------------------------------------
+go() ->
+    go(n).
+
+
 go(Method) ->
     % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
     rand:uniform(),
@@ -60,14 +64,13 @@ go(Method) ->
     % Make it so...!
     Go = maps:get(Method, #{n  => fun run_top_n/3,
                             nn => fun run_top_nn/3}),
-    Go(gw, lregv, [{data_mode, variation}, {sweep, 9}]).
+    Go(gw, lregv12r25, [{data_mode, variation}, {sweep, 9}]).
 
 
 
 %%--------------------------------------------------------------------
--spec period(DataTag :: dataset()
-                      | parms_pct) -> proplist()
-                                    | {parms_pct, float()}.
+-spec period(DataTag :: dataset() | p100) -> proplist()
+                                           | {p100, float()}.
 %%
 %% Shortcut to get tracking run period.
 %%
@@ -81,11 +84,20 @@ go(Method) ->
 %%--------------------------------------------------------------------
 -if(?RUN =:= 2).
 
-period(parms_pct) -> {parms_pct, 0.25};     % <<= Specify in Options
+period(parms_pct) -> {p100, 0.25};     % <<= Specify in Options
 period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
-period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
-period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+%eriod(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
+%eriod(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 %%--------------------------------------------------------------------
+%% CV : 9 periods of 12 months
+%%--------------------------------------------------------------------
+%eriod(train) -> [{start, {2018, 01, 01}}, {stop, {2019, 01, 01}}];
+%eriod(test)  -> [{start, {2019, 01, 01}}, {stop, {2019, 04, 01}}].
+%%--------------------------------------------------------------------
+%% Random sample test : 9 periods of 12 months
+%%--------------------------------------------------------------------
+period(train) -> [{start, {2018, 01, 01}}, {stop, {2019, 01, 01}}];
+period(test)  -> {p100, 0.25}.
 
 -else.
 %%--------------------------------------------------------------------
@@ -241,14 +253,14 @@ run_top_nn(Tracker, RunTag, Options) ->
 % @doc  Prepares the `train', `parms' and  `test' datasets as well as
 %       the Big and several Medium (null hypothesis) player communities.
 % @end  --
-prep_data(Tracker, Method, Periods, Options) ->
+prep_data(Tracker, Method, Periods, _Options) ->
 
     % The Method tuple gives us our data range
     {_, {top_n, Min, Max}} = Method,
 
     % Function to pull and organize players and their tweets for a given dataset
-    GetPlayers = fun(D) ->
-        Period = proplists:get_value(D, Periods),
+    GetPlayers = fun(Step) ->
+        Period = proplists:get_value(Step, Periods),
         sila:reset(),
         case player:load(Tracker, Period) of
             none ->
@@ -268,17 +280,18 @@ prep_data(Tracker, Method, Periods, Options) ->
     TopMediumss = [{I, maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end, TopBiggies)}
                    || I <- lists:seq(1, ?NUM_H0_RUNS)],
 
-    % The `parms_pct' option specifies the percentage of training data to reserve
+    % The `p100' option specifies the percentage of training data to reserve
     % for parameter optimization.  0% means we should use an independent dataset.
-    ParmsData = case proplists:get_value(parms_pct, Options, 0) of
-        0    -> GetPlayers(parms);
-        P100 -> P100
+    GetData = fun(Step) ->
+        case proplists:get_value(Step, Periods) of
+            {p100, P100} -> P100;
+            _            -> GetPlayers(Step)
+        end
     end,
 
     % The `test' dataset player community is always independent
-    DataSets = maps:from_list([{train, Players},
-                               {parms, ParmsData},
-                               {test,  GetPlayers(test)}]),
+    DataSets = maps:from_list([{train, Players}
+                               | [{Step, GetData(Step)} || Step <- [parms, test]]]),
     {DataSets, TopBiggies, TopMediumss}.
 
 

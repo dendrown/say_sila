@@ -365,12 +365,13 @@ get_totals(Tracker, Timeout) ->
 
 %%--------------------------------------------------------------------
 -spec load(Tracker :: tracker(),
-           Period  :: proplist()) -> [{player|ranking|totals, non_neg_integer()}]
-                                      | none.
+           Period  :: proplist()
+                    | float()) -> [{player|ranking|totals, non_neg_integer()}]
+                                | none.
 %%
 % @doc  Retrives player information from the DETS cache.
 % @end  --
-load(Tracker, Period) ->
+load(Tracker, Period) when is_list(Period) ->
 
     Key = {Tracker, lists:sort(Period)},
     ?info("Checking cache for ~p", [Key]),
@@ -391,7 +392,12 @@ load(Tracker, Period) ->
               {?TOTALS_CACHE,   totals}], []) of
         []   -> none;
         Info -> gen_server:call(?reg(Tracker), {set_info, Info})
-    end.
+    end;
+
+
+load(Tracker, Period) ->
+    ?info("No cache for non-standard ~s period: ~p", [Tracker, Period]),
+    none.
 
 
 

@@ -551,10 +551,10 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
     %   - Instance counts collapse to combine the train/parms/test steps
     DataSetter = fun(Step, Players, {DataAcc, CntsAcc}) ->
 
-        % If `parms' Players is a number, then Weka will sample instances from the trainers
-        case {Step, Players} of
+        % If parms|test Players is a number, then Weka will sample instances from the trainers
+        case {lists:member(Step, [parms, test]), Players} of
 
-            {parms, P100} when is_float(P100) ->
+            {true, P100} when is_float(P100) ->
                 ?info("Resampling ~.1f% of training data for parameter optimization", [100 * P100]),
                 {maps:put(Step, P100, DataAcc), CntsAcc};
 

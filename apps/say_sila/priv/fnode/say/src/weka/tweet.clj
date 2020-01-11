@@ -221,14 +221,17 @@
             (prep-data [insts]
               ;; Determine the required train/test dataset configuration
               ;; NOTE: a nil test dataset will mean cross-validation
-              (let [sp100   (datasets :parms)               ; ARFF|split-percentage
-                    split?  (number? sp100)
-                    trains  (if split? (split-data insts :train sp100) insts)]
+              (let [split   #(let [ds (% datasets)]
+                               (when (number? ds) ds))                  ; Split p100|nil
+                    sp100   (some split [:parms :test])
+                    trains  (if sp100 (split-data insts :train sp100) insts)
+                    dload   #(if-let [p100 (split %)]
+                               [trains (split-data insts % p100)]
+                               [insts  (load-data %)])]
+
                 (case eval_mode
-                  "parms" (if split?
-                              [trains (split-data insts :parms sp100)]
-                              [insts  (load-data :parms)])
-                  "test"  [trains (load-data :test)]
+                  "parms" (dload :parms)
+                  "test"  (dload :test)
                   "cv"    [insts (log/fmt-info "Using ~a-fold cross validation" CV-FOLDS)]
                           [insts (log/fmt-warn "Invalid evaluation mode: ~a" eval_mode)])))]
 
