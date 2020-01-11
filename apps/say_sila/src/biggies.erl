@@ -359,9 +359,11 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
     % The `period' function defines the start of our sweep (if any)
     BasePeriodSet = [{DS, period(DS)} || DS <- [parms, train, test]],
     MovePeriod = fun(M, Period) ->
-        case M of
-            0 -> Period;
-            _ -> [{BegEnd, dts:add(DTS, M, month)} || {BegEnd, DTS} <- Period]
+        case {M, Period} of
+            {0, _}          -> Period;
+            {_, {p100, _}}  -> Period;
+            _ ->
+                [{BegEnd, dts:add(DTS, M, month)} || {BegEnd, DTS} <- Period]
         end
     end,
     RunPeriodSet = fun(M) ->
