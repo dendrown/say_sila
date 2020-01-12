@@ -30,10 +30,12 @@
 -include_lib("llog/include/llog.hrl").
 
 -define(MIN_H0_TWEETS,  40).                % Low values make for empty rter|tmed days
--define(NUM_H0_RUNS,    10).                % Number of H0 runs to average together
-%define(NUM_H0_RUNS,     2).                % Number of H0 runs to average together
--define(FPATH_RNG_SEED, ?WORK_DIR "/influence/rand.seed.etf").
+-define(NUM_H0_RUNS,    20).                % Number of H0 runs to average together
+%define(NUM_H0_RUNS,     2).                % Number of H0 runs to average together (DEBUG)
+
 -define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
+-define(FPATH_RNG_SEED, ?WORK_DIR "/influence/rand.seed.etf").
+-define(RNG_SEED,       {exrop,[58821664360726008|182501911145310049]}).
 -define(MEASURES,       [correlation, error_mae, error_rmse]).
 
 -type dataset()          :: parms | train | test.
@@ -55,16 +57,16 @@ go() ->
 
 go(Method) ->
     % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
-    rand:uniform(),
-    Seed = rand:export_seed(),
-    ?debug("Random seed: ~p", [Seed]),
-    file:write_file(?FPATH_RNG_SEED, term_to_binary(Seed)),
-    %rand:seed_s(exsss),
+    %rand:uniform(),
+    %Seed = rand:export_seed(),
+    %file:write_file(?FPATH_RNG_SEED, term_to_binary(Seed)),
+    rand:seed_s(?RNG_SEED),
+    ?notice("Random seed: ~p", [Seed]),
 
     % Make it so...!
     Go = maps:get(Method, #{n  => fun run_top_n/3,
                             nn => fun run_top_nn/3}),
-    Go(gw, lregv12r25, [{data_mode, variation}, {sweep, 9}]).
+    Go(gw, lregv9_ref20, [{data_mode, variation}, {sweep, 9}]).
 
 
 
@@ -86,8 +88,8 @@ go(Method) ->
 
 period(parms_pct) -> {p100, 0.25};     % <<= Specify in Options
 period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
-%eriod(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
-%eriod(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
+period(train) -> [{start, {2018, 01, 01}}, {stop, {2018, 10, 01}}];
+period(test)  -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}].
 %%--------------------------------------------------------------------
 %% CV : 9 periods of 12 months
 %%--------------------------------------------------------------------
@@ -96,8 +98,8 @@ period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
 %%--------------------------------------------------------------------
 %% Random sample test : 9 periods of 12 months
 %%--------------------------------------------------------------------
-period(train) -> [{start, {2018, 01, 01}}, {stop, {2019, 01, 01}}];
-period(test)  -> {p100, 0.25}.
+%eriod(train) -> [{start, {2018, 01, 01}}, {stop, {2019, 01, 01}}];
+%eriod(test)  -> {p100, 0.25}.
 
 -else.
 %%--------------------------------------------------------------------
