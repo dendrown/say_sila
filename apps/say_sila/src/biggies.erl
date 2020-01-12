@@ -399,8 +399,14 @@ do_run_run(RunCode, Tracker, RunTag, Options) ->
 
             % For reporting, we'll show the full period sweep
             SweepPeriod = fun(Period) ->
-                {DTS, Rest} = pprops:get_split(stop, Period),
-                [{stop, dts:add(DTS, S, month)} | Rest]
+                case Period of
+                        % Sampling  Percentage
+                    {p100,_}
+                        -> Period;
+                    _ ->
+                        {DTS, Rest} = pprops:get_split(stop, Period),
+                        [{stop, dts:add(DTS, S, month)} | Rest]
+                end
             end,
             RptPeriodSet = [{DS, SweepPeriod(Per)} || {DS,Per} <- BasePeriodSet],
 
