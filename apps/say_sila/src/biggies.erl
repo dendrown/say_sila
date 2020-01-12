@@ -35,7 +35,7 @@
 
 -define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
 -define(FPATH_RNG_SEED, ?WORK_DIR "/influence/rand.seed.etf").
--define(RNG_SEED,       {exrop,[58821664360726008|182501911145310049]}).
+%define(RNG_SEED,       {exrop,[58821664360726008|182501911145310049]}).
 -define(MEASURES,       [correlation, error_mae, error_rmse]).
 
 -type dataset()          :: parms | train | test.
@@ -56,11 +56,15 @@ go() ->
 
 
 go(Method) ->
-    % Ref: http://vigna.di.unimi.it/ftp/papers/ScrambledLinear.pdf
+    % RNG: Xoroshiro116+, 58 bits precision and period of 2^116-1
+    %      http://prng.di.unimi.it/
     %rand:uniform(),
     %Seed = rand:export_seed(),
     %file:write_file(?FPATH_RNG_SEED, term_to_binary(Seed)),
-    rand:seed_s(?RNG_SEED),
+
+    {ok, Bin} = file:read_file("/srv/say_sila/influence/rand.seed.etf"),
+    Seed = binary_to_term(Bin),
+    rand:seed_s(Seed),
     ?notice("Random seed: ~p", [Seed]),
 
     % Make it so...!
