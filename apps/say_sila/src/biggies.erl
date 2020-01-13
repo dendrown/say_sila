@@ -58,19 +58,19 @@ go() ->
 go(Method) ->
     % RNG: Xoroshiro116+, 58 bits precision and period of 2^116-1
     %      http://prng.di.unimi.it/
-    %rand:uniform(),
+    rand:uniform(),
     %Seed = rand:export_seed(),
     %file:write_file(?FPATH_RNG_SEED, term_to_binary(Seed)),
 
     {ok, Bin} = file:read_file("/srv/say_sila/influence/rand.seed.etf"),
     Seed = binary_to_term(Bin),
-    rand:seed_s(Seed),
+    rand:seed(Seed),
     ?notice("Random seed: ~p", [Seed]),
 
     % Make it so...!
     Go = maps:get(Method, #{n  => fun run_top_n/3,
                             nn => fun run_top_nn/3}),
-    Go(gw, lregv9_ref20, [{data_mode, variation}, {sweep, 9}]).
+    Go(gw, lregVp9_ref20, [{data_mode, variation}, {sweep, 9}]).
 
 
 
