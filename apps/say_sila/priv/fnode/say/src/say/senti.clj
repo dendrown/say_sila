@@ -43,7 +43,7 @@
                          :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
-(def ^:const NUM-EXAMPLES 30)           ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES 10)           ; FIXME: use a subset until we get everything squared away
 
 (defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
 
