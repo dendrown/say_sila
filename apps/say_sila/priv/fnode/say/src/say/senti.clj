@@ -44,7 +44,7 @@
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 (def ^:const TWEET-TAG  "t")            ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES 10)           ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES 20)           ; FIXME: use a subset until we get everything squared away
 
 (defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
 
@@ -266,13 +266,13 @@
   (pn-examples nil))
 
   ([prefix]
-  (let [tag    (str prefix (when prefix ":") TWEET-TAG)
-        assign #(conj %1 (str tag %2))]
+  (let [tag     (str prefix (when prefix ":") TWEET-TAG)
+        ->tag   #(str tag %)
+        ids     (reduce (fn [[p n] [id info]]
+                          (case (:polarity info)
+                            :positive [(conj p id) n]
+                            :negative [p (conj n id)]))
+                        (repeat 2 (sorted-set))         ; Collect IDs for pos/neg examples
+                        @Examples-pos)]
 
-    ;; Separate & tag the positive/negative examples
-    (reduce (fn [[p n] [id info]]
-              (case (:polarity info)
-                :positive [(assign p id) n]
-                :negative [p (assign n id)]))
-            (repeat 2 (sorted-set))
-            @Examples-pos))))
+    (map #(map ->tag %) ids))))
