@@ -130,8 +130,7 @@
       ;; Add an entity representing the text itself.  Note that we'll be creating
       ;; the referenced token "tN-1" in the reduce expression below.
       (individual id
-        :type (case polarity :negative NegativeText
-                             :positive PositiveText)
+        :type Text
         :fact (is dul/hasComponent (individual (str id "-1"))))
 
       ;; And entities for each of the terms, linking them together and to the text
