@@ -43,6 +43,7 @@
                          :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
+(def ^:const TWEET-TAG  "t")            ; Tweet individual have this tag plus the ID, e.g., "t42"
 (def ^:const NUM-EXAMPLES 10)           ; FIXME: use a subset until we get everything squared away
 
 (defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
@@ -125,7 +126,7 @@
              pos-tags]}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
-    (let [id (str "t" n)]
+    (let [id (str TWEET-TAG n)]
 
       ;; Add an entity representing the text itself.  Note that we'll be creating
       ;; the referenced token "tN-1" in the reduce expression below.
@@ -254,3 +255,25 @@
                          (weka/save-file fpath dset (xform iinsts) :arff)))
             {}
             @dsets))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn pn-examples
+  "Returns the IDs of the tweets with positive polarities and those with
+  negative polarities.  The caller may optionally specify a prefix for easy
+  insertion into a DL-Learner configuration file."
+  ([]
+  (pn-examples nil))
+
+  ([prefix]
+  (let [tag    (str prefix (when prefix ":") TWEET-TAG)
+        assign #(conj %1 (str tag %2))]
+
+    ;; Separate & tag the positive/negative examples
+    (reduce (fn [[p n] [id info]]
+              (case (:polarity info)
+                :positive [(assign p id) n]
+                :negative [p (assign n id)]))
+            (repeat 2 (sorted-set))
+            @Examples-pos))))
