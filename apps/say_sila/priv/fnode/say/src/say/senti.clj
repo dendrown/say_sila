@@ -293,20 +293,21 @@
   (pn-examples prefix 8))
 
   ([prefix n]
-  (let [tag     (str prefix (when prefix ":") TWEET-TAG)
+  (let [delims  (conj (repeat \,) \space)
+        tag     (str prefix (when prefix ":") TWEET-TAG)
         tagger  #(str tag %)
-        liner   #(apply print "\n    " (interpose \, (domap pr-str %)))
+        liner   #(apply print "\n    " %1 (interpose \, (domap pr-str %2)))
         ids     (reduce (fn [[p n] [id info]]
                           (case (:polarity info)
                             :positive [(conj p id) n]
                             :negative [p (conj n id)]))
                         (repeat 2 (sorted-set))             ; Collect IDs for pos/neg examples
-                        @Examples-pos)]
+                        @Examples-pos)
+        xmps    (map #(map tagger %) ids)]                  ; Prefix % tag pos/neg IDs
 
     ;; Report our P/N examples
-    (doseq [[klass xs] (zip ["POSITIVE" "NEGATIVE"]
-                            (map #(map tagger %) ids))]     ; Prefix % tag pos/neg IDs
+    (doseq [[klass xs] (zip ["POSITIVE" "NEGATIVE"] xmps)]  ; Title X examples
       (print klass ": {")
-      (domap liner (partition-all n xs))
+      (domap liner delims (partition-all n xs))
       (println "\n}")))))
 
