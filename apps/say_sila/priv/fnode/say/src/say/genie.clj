@@ -62,6 +62,14 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro domap
+  "Shortcut for (doall (map ...))"
+  [& args]
+  `(doall (map ~@args)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defmacro jcall
   "Sorta-kinda-not-really similar to apply, but works for java static methods
   with zero or more normal parameters and a series of parameters that involve

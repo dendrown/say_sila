@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion and sentiment analysis Ontology
 ;;;;
-;;;; @copyright 2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.senti
   (:require [say.genie          :refer :all]
@@ -44,7 +44,13 @@
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 (def ^:const TWEET-TAG  "t")            ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES 20)           ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES 100)          ; FIXME: use a subset until we get everything squared away
+
+
+;;; --------------------------------------------------------------------------
+;;; TODO: we have a number of decisions that are not yet final...
+(def ^:const IMPORT?    false)
+
 
 (defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
 
@@ -55,20 +61,38 @@
   :prefix  "senti"
   :comment "Ontology for training sentiment models.")
 
-(doseq [imp [dul/dul
-             pos/cmu-pos]]
-  (owl-import imp))
+
+(when true ;IMPORT?
+  (doseq [imp [;dul/dul
+               pos/cmu-pos]]
+    (owl-import imp)))
 
 
 (defcopy dul/associatedWith)
-(defcopy dul/follows)
-(defcopy dul/directlyFollows)
 
-(defcopy dul/precedes)
-(defcopy dul/directlyPrecedes)
+(as-inverse
+  (defcopy dul/precedes)
+  (defcopy dul/follows))
+
+(doseq [op [dul/precedes
+            dul/follows]]
+  (refine op :super dul/associatedWith
+             :characteristic :transitive))
+
+(as-inverse
+  (defcopy dul/directlyPrecedes)
+  (defcopy dul/directlyFollows))
+
+(refine dul/directlyPrecedes :super dul/precedes)
+(refine dul/directlyFollows  :super dul/follows)
+
 
 (defcopy dul/hasPart)
+(refine dul/hasPart :super dul/associatedWith :characteristic :transitive)
+
 (defcopy dul/hasComponent)
+(refine dul/hasComponent :super dul/hasPart)
+
 
 (as-subclasses dul/InformationObject
   :disjoint
@@ -259,20 +283,30 @@
 
 ;;; --------------------------------------------------------------------------
 (defn pn-examples
-  "Returns the IDs of the tweets with positive polarities and those with
+  "Prints the IDs of the tweets with positive polarities and those with
   negative polarities.  The caller may optionally specify a prefix for easy
   insertion into a DL-Learner configuration file."
   ([]
   (pn-examples nil))
 
   ([prefix]
+  (pn-examples prefix 8))
+
+  ([prefix n]
   (let [tag     (str prefix (when prefix ":") TWEET-TAG)
-        ->tag   #(str tag %)
+        tagger  #(str tag %)
+        liner   #(apply print "\n    " (interpose \, (domap pr-str %)))
         ids     (reduce (fn [[p n] [id info]]
                           (case (:polarity info)
                             :positive [(conj p id) n]
                             :negative [p (conj n id)]))
-                        (repeat 2 (sorted-set))         ; Collect IDs for pos/neg examples
+                        (repeat 2 (sorted-set))             ; Collect IDs for pos/neg examples
                         @Examples-pos)]
 
-    (map #(map ->tag %) ids))))
+    ;; Report our P/N examples
+    (doseq [[klass xs] (zip ["POSITIVE" "NEGATIVE"]
+                            (map #(map tagger %) ids))]     ; Prefix % tag pos/neg IDs
+      (print klass ": {")
+      (domap liner (partition-all n xs))
+      (println "\n}")))))
+
