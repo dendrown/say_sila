@@ -44,12 +44,13 @@
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 (def ^:const TWEET-TAG  "t")            ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES 100)          ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES 400)          ; FIXME: use a subset until we get everything squared away
 
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
 (def ^:const IMPORT?    false)
+(def ^:const POS-NEG?   true)
 
 
 (defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
@@ -113,15 +114,16 @@
 (defcopy pos/Token)
 (refine Token :equivalent (dl/or Term Punctuation))
 
-(as-subclasses Text
-  :disjoint
-  (defclass NegativeText
-    :label "Negative Text"
-    :comment "A Text which expresses sentiment of a negative polarity")
+(when POS-NEG?
+  (as-subclasses Text
+    :disjoint
+    (defclass NegativeText
+      :label "Negative Text"
+      :comment "A Text which expresses sentiment of a negative polarity")
 
-  (defclass PositiveText
-    :label "Positive Text"
-    :comment "A Text which expresses sentiment of a positive polarity."))
+    (defclass PositiveText
+      :label "Positive Text"
+      :comment "A Text which expresses sentiment of a positive polarity.")))
 
 
 
@@ -155,7 +157,10 @@
       ;; Add an entity representing the text itself.  Note that we'll be creating
       ;; the referenced token "tN-1" in the reduce expression below.
       (individual id
-        :type Text
+        :type (if POS-NEG?
+                  (case polarity :negative NegativeText
+                                 :positive PositiveText)
+                  Text)
         :fact (is dul/hasComponent (individual (str id "-1"))))
 
       ;; And entities for each of the terms, linking them together and to the text
