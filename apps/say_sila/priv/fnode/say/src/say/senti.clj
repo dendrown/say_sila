@@ -71,15 +71,17 @@
     (refine dul/InformationEntity   :super dul/Entity)
     (refine dul/InformationObject   :super dul/InformationEntity)
 
-    (refine dul/Abstract            :super dul/Entity)
-    (refine dul/FormalEntity        :super dul/Abstract)
+    (refine dul/Objekt              :super dul/Entity)
+    (refine dul/SocialObject        :super dul/Objekt)
+    (refine dul/Concept             :super dul/SocialObject)
 
     (defcopy dul/associatedWith)
     (as-inverse
       (defcopy dul/precedes)
       (defcopy dul/follows))
 
-    (doseq [op [dul/precedes
+    (doseq [op [dul/expresses               ; Do we want isExpressedBy ?
+                dul/precedes
                 dul/follows]]
       (refine op :super dul/associatedWith
                  :characteristic :transitive))
@@ -139,7 +141,7 @@
 ;;; \ref{bing2015}
 ;;; --------------------------------------------------------------------------
 (defclass SentimentCompositionRule
-  :super   dul/FormalEntity
+  :super   dul/Concept
   :label   "Sentiment Composition Rule"
   :comment (str "An abstraction describing a Text or portion of a Text according to its
                  positive or negative contribution to the polarity of that Text."))
@@ -202,10 +204,12 @@
   "Adds a text individual to the ontology given a numeric identifier, n, and
   a list of part-of-speech tags for term in the text."
   [n {:keys [polarity
-             pos-tags]}]
+             pos-tags
+             tokens-pn]}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
-    (let [id (str TWEET-TAG n)]
+    (let [id      (str TWEET-TAG n)
+          express #(refine %1 :fact (is dul/expresses (individual %2)))]
 
       ;; Add an entity representing the text itself.  Note that we'll be creating
       ;; the referenced token "tN-1" in the reduce expression below.
@@ -218,7 +222,7 @@
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
-        (fn [info tag]
+        (fn [info [tag pn]]
           (let [cnt  (:cnt info)
                 tid  (str id "-" cnt)
                 curr (individual tid
@@ -234,11 +238,17 @@
             (when-let [prev (:prev info)]
               (refine curr :fact (is dul/directlyFollows prev)))
 
+            ;; Express sentiment composition rules
+            (case pn
+              :p (express curr "P")
+              :n (express curr "N")
+              :- :ok)
+
             ;; Continue the reduction
             {:cnt (inc cnt), :prev curr}))
 
         {:cnt 1}
-        pos-tags))))
+        (zip pos-tags tokens-pn)))))
 
 
 
@@ -256,8 +266,9 @@
 (defn create-examples
   "Create examples based on part-of-speech tokens.
 
-  Example: [357 {:pos-tags («,» «V» «P» «V» «R» «,» «$» «A» «N» «,» «V» «V» «V»),
-                 :polarity :negative}]"
+  Example: [10 {:pos-tags («!» «,» «O» «V» «R» «O» «D» «N» «E»),
+                :tokens-pn (:-  :-  :-  :p  :-  :-  :-  :-  :-),
+                 :polarity :positive}]"
   ([] (create-examples :Sentiment140))
 
 
@@ -266,9 +277,9 @@
         insts (weka/load-arff arff "sentiment")
         lex   (tw/make-pn-lexicon :bing-liu)
         ->pn  #(case (.retrieveValue lex %)
-                 "positive" :p
-                 "negative" :n
-                            :-)]
+                 "positive"  :p
+                 "negative"  :n
+                 "not_found" :-)]
     (reset! Examples
             (reduce (fn [acc ^Instance inst]
                       (let [id    (long (.value inst COL-ID))
@@ -276,8 +287,8 @@
                                         (str/split (.stringValue inst COL-TEXT) #" "))
                             poss  (map first pairs)
                             poles (map #(->pn (second %)) pairs)]
-                       (assoc acc id {:pos-tags poss
-                                      :token-pn poles
+                       (assoc acc id {:pos-tags  poss
+                                      :tokens-pn poles
                                       :polarity (polarize inst)})))
                     {}
                     (enumeration-seq (.enumerateInstances insts)))))))

@@ -43,6 +43,7 @@
 
 
 ;;; TBox: building on dul:Object ⊑ dul:Entity
+(redef :class Objekt ONT-IRI "Object")      ; Avoid clash with java.lang.Object
 (redefclass InformationEntity)
 (redefclass InformationObject)
 
@@ -52,12 +53,14 @@
 (redefclass Organization)
 
 ;;; TBox: building on dul:Concept ⊑ dul:SocialObject
+(redefclass SocialObject)
 (redefclass Concept)
 (redefclass Role)
 
 
 ;;; Object properties
 (redefoproperty associatedWith)
+(redefoproperty expresses)
 (redefoproperty hasQuality)
 (redefoproperty isMemberOf)
 
