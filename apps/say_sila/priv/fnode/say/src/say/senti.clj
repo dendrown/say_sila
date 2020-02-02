@@ -17,6 +17,7 @@
             [say.log            :as log]
             [say.cmu-pos        :as pos]
             [weka.core          :as weka]
+            [weka.tweet         :as tw]
             [clojure.core.match :refer [match]]
             [clojure.data.csv   :as csv]
             [clojure.java.io    :as io]
@@ -50,10 +51,10 @@
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
 (def ^:const IMPORT?    false)
-(def ^:const POS-NEG?   true)
+(def ^:const POS-NEG?   false)
 
 
-(defonce Examples-pos (atom {}))        ; FIXME: We don't really want this
+(defonce Examples   (atom {}))        ; FIXME: We don't really want this
 
 
 ;;; --------------------------------------------------------------------------
@@ -62,11 +63,10 @@
   :prefix  "senti"
   :comment "Ontology for training sentiment models.")
 
-
-(when true ;IMPORT?
-  (doseq [imp [;dul/dul
-               pos/cmu-pos]]
-    (owl-import imp)))
+;; Are we importing the full DUL foundational ontology?
+(doseq [imp (conj (when IMPORT? [dul/dul])
+                   pos/cmu-pos)]
+  (owl-import imp))
 
 
 (defcopy dul/associatedWith)
@@ -101,19 +101,21 @@
     :label   "Text"
     :comment "An Information Object consisting of text.")
 
-  (defclass Term
-    ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
-    :label   "Term"
-    :comment "An Information Object representing a syntactic unit of meaning, such as a word.")
-
+  ; TODO: Differentiate between Punctuation as an Information Object and a "Part of Speech" Quality
   (defclass Punctuation
     :label   "Punctuation"
     :comment (str "An Information Object representing a grammatical symbol to organize and"
-                  "aid the understanding of written text.")))
+                  "aid the understanding of written text."))
+
+  (defclass Term
+    ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
+    :label   "Term"
+    :comment "An Information Object representing a syntactic unit of meaning, such as a word."))
 
 (defcopy pos/Token)
 (refine Token :equivalent (dl/or Term Punctuation))
 
+;; DL-Learner isn't handling Pos/Neg Text subclasses well
 (when POS-NEG?
   (as-subclasses Text
     :disjoint
@@ -125,6 +127,30 @@
       :label "Positive Text"
       :comment "A Text which expresses sentiment of a positive polarity.")))
 
+
+;;; --------------------------------------------------------------------------
+(defclass SentimentPolarity
+  :super   dul/Quality
+  :label   "Sentiment Polarity"
+  :comment "A Quality describing an Information Object's expression as positive, negative, or neutral.")
+
+(as-subclasses SentimentPolarity
+  :disjoint
+  (defclass PositiveSentimentPolarity
+    :label   "Positive Sentiment Polarity"
+    :comment "A Sentiment Polarity expressing positive sentiment")
+  (defclass NegativeSentimentPolarity
+    :label   "Negative Sentiment Polarity"
+    :comment "A Sentiment Polarity expressing negative sentiment"))
+(defpun PositiveSentimentPolarity)
+(defpun NegativeSentimentPolarity)
+
+
+(defoproperty hasPolarity
+  :super    dul/hasQuality
+  :label    "is part of speech"
+  :domain   dul/InformationObject
+  :range    SentimentPolarity)
 
 
 ;;; --------------------------------------------------------------------------
@@ -194,29 +220,37 @@
   "Populates the senti ontology using examples from the ARFFs"
   []
   ;; FIXME: Pass in the values from the ARFF
-  (doseq [[id example] @Examples-pos]
+  (doseq [[id example] @Examples]
     (add-text id example)))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn create-pos
+(defn create-examples
   "Create examples based on part-of-speech tokens.
 
-  FIXME: Currently this function updates Examples-pos, but this will very
-         likely not be the final behaviour."
-  ([] (create-pos :Sentiment140))
+  Example: [357 {:pos-tags («,» «V» «P» «V» «R» «,» «$» «A» «N» «,» «V» «V» «V»),
+                 :polarity :negative}]"
+  ([] (create-examples :Sentiment140))
 
 
   ([dset]
   (let [arff  (ARFFs dset)
-        insts (weka/load-arff arff "sentiment")]
-    (reset! Examples-pos
+        insts (weka/load-arff arff "sentiment")
+        lex   (tw/make-pn-lexicon :bing-liu)
+        ->pn  #(case (.retrieveValue lex %)
+                 "positive" :p
+                 "negative" :n
+                            :-)]
+    (reset! Examples
             (reduce (fn [acc ^Instance inst]
                       (let [id    (long (.value inst COL-ID))
-                            toks  (str/split (.stringValue inst COL-TEXT) #" ")
-                            poss  (map #(first (str/split % #"_" 2)) toks)]
+                            pairs (map #(str/split % #"_" 2)
+                                        (str/split (.stringValue inst COL-TEXT) #" "))
+                            poss  (map first pairs)
+                            poles (map #(->pn (second %)) pairs)]
                        (assoc acc id {:pos-tags poss
+                                      :token-pn poles
                                       :polarity (polarize inst)})))
                     {}
                     (enumeration-seq (.enumerateInstances insts)))))))
@@ -235,6 +269,7 @@
         acnt    (.numAttributes base)
 
         tamer   (doto (TweetToSentiStrengthFeatureVector.)
+                      (.setToLowerCase true)
                       (.setTextIndex "2")                       ; 1-based index
                       (.setStandarizeUrlsUsers true)            ; anonymize
                       (.setReduceRepeatedLetters true))         ; loooove => loove
@@ -307,7 +342,7 @@
                             :positive [(conj p id) n]
                             :negative [p (conj n id)]))
                         (repeat 2 (sorted-set))             ; Collect IDs for pos/neg examples
-                        @Examples-pos)
+                        @Examples)
         xmps    (map #(map tagger %) ids)]                  ; Prefix % tag pos/neg IDs
 
     ;; Report our P/N examples

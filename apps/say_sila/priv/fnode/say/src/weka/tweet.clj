@@ -17,7 +17,8 @@
             [weka.core       :as weka]
             [clojure.java.io :as io]
             [clojure.string  :as str])
-  (:import  [affective.core ArffLexiconEvaluator]
+  (:import  [affective.core ArffLexiconEvaluator
+                            PolarityLexiconEvaluator]
             [java.util  Random]
             [weka.core  DenseInstance
                         Instance
@@ -105,6 +106,17 @@
                                            "-R" (str "1-" (count ATTRS-OUT)
                                                      ","  (inc (count ATTRS-IN)) "-last")]}})
 
+(def ^:const LEXICONS   {:bing-liu TweetToLexiconFeatureVector/BING_LIU_FILE_NAME
+                         :mpqa     TweetToLexiconFeatureVector/MPQA_FILE_NAME})
+
+
+;;; --------------------------------------------------------------------------
+(defn ^PolarityLexiconEvaluator make-pn-lexicon
+  "Returns a positive/negative polarity lexicon evaluator as implemented in
+  the AffectiveTweets Weka plugin.  Choices are :bing-liu and :mpqa"
+  [tag]
+  (doto (PolarityLexiconEvaluator. (LEXICONS tag) (name tag))
+        (.processDict)))
 
 
 ;;; --------------------------------------------------------------------------
