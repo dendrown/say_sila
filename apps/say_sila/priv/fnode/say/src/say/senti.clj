@@ -64,37 +64,43 @@
   :comment "Ontology for training sentiment models.")
 
 ;; Are we importing the full DUL foundational ontology?
-(doseq [imp (conj (when IMPORT? [dul/dul])
-                   pos/cmu-pos)]
-  (owl-import imp))
+(if IMPORT?
+  (owl-import dul/dul)
+  (do
+    ;; We want a minimal ontology.  Recreate just the parts of DUL that we need.
+    (refine dul/InformationEntity   :super dul/Entity)
+    (refine dul/InformationObject   :super dul/InformationEntity)
+
+    (refine dul/Abstract            :super dul/Entity)
+    (refine dul/FormalEntity        :super dul/Abstract)
+
+    (defcopy dul/associatedWith)
+    (as-inverse
+      (defcopy dul/precedes)
+      (defcopy dul/follows))
+
+    (doseq [op [dul/precedes
+                dul/follows]]
+      (refine op :super dul/associatedWith
+                 :characteristic :transitive))
+
+    (as-inverse
+      (defcopy dul/directlyPrecedes)
+      (defcopy dul/directlyFollows))
+    (refine dul/directlyPrecedes :super dul/precedes)
+    (refine dul/directlyFollows  :super dul/follows)
 
 
-(defcopy dul/associatedWith)
+    (defcopy dul/hasPart)
+    (refine dul/hasPart :super dul/associatedWith :characteristic :transitive)
 
-(as-inverse
-  (defcopy dul/precedes)
-  (defcopy dul/follows))
-
-(doseq [op [dul/precedes
-            dul/follows]]
-  (refine op :super dul/associatedWith
-             :characteristic :transitive))
-
-(as-inverse
-  (defcopy dul/directlyPrecedes)
-  (defcopy dul/directlyFollows))
-
-(refine dul/directlyPrecedes :super dul/precedes)
-(refine dul/directlyFollows  :super dul/follows)
+    (defcopy dul/hasComponent)
+    (refine dul/hasComponent :super dul/hasPart)))
 
 
-(defcopy dul/hasPart)
-(refine dul/hasPart :super dul/associatedWith :characteristic :transitive)
 
-(defcopy dul/hasComponent)
-(refine dul/hasComponent :super dul/hasPart)
-
-
+;;; --------------------------------------------------------------------------
+(owl-import pos/cmu-pos)
 (as-subclasses dul/InformationObject
   :disjoint
   (defclass Text
@@ -129,6 +135,28 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; Sentiment Composition Rules
+;;; \ref{bing2015}
+;;; --------------------------------------------------------------------------
+(defclass SentimentCompositionRule
+  :super   dul/FormalEntity
+  :label   "Sentiment Composition Rule"
+  :comment (str "An abstraction describing a Text or portion of a Text according to its
+                 positive or negative contribution to the polarity of that Text."))
+
+(defmacro defscr
+  "Adds a Sentiment Composition Rule (component) subclass to the say-senti ontology"
+  [tag descr]
+  `(do (defclass ~tag
+         :super   SentimentCompositionRule
+         :label   (str "Sentiment Composition Rule - " (name '~tag))
+         :comment ~descr)
+       (defpun ~tag)))
+
+(defscr P   "An atomic, nonterminal sentiment composition expressing positive sentiment.")
+(defscr N   "An atomic, nonterminal sentiment composition expressing negative sentiment.")
+
+
 (defclass SentimentPolarity
   :super   dul/Quality
   :label   "Sentiment Polarity"
@@ -145,10 +173,9 @@
 (defpun PositiveSentimentPolarity)
 (defpun NegativeSentimentPolarity)
 
-
 (defoproperty hasPolarity
   :super    dul/hasQuality
-  :label    "is part of speech"
+  :label    "has Polarity"
   :domain   dul/InformationObject
   :range    SentimentPolarity)
 

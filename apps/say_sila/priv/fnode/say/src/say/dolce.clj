@@ -38,6 +38,7 @@
 ;;; TBox: building on owl:Thing
 (redefclass Entity)
 (redefclass Abstract)
+(redefclass FormalEntity)
 (redefclass Quality)
 
 
