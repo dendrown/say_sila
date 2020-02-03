@@ -44,8 +44,25 @@
                          :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
-(def ^:const TWEET-TAG  "t")            ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES 1000)         ; FIXME: use a subset until we get everything squared away
+
+(def ^:const TWEET-TAG      "t")        ; Tweet individual have this tag plus the ID, e.g., "t42"
+(def ^:const NUM-EXAMPLES   1000)       ; FIXME: use a subset until we get everything squared away
+
+(def ^:const EXPR-DECREASE  ["alleviate" "attenuate" "block" "cancel" "cease" "combat"  ; "come down"
+                             "crackdown"        ; "crack down"
+                             "cut"              ; "cut back" "cut down" "cut off" "cut out"
+                                                ; "die off" "die out"
+                             "decrease" "deduct" "diminish" "disappear" "discontinue"
+                             "discount" "downgrade" "drop" "dwindle" "eliminate" "fade"
+                             "fall" "filter"    ; "get around" "get off" "get over" "go away" "go down"
+                             "halt"             ; "have gone"
+                            ])
+
+
+(def ^:const EXPRESSIONS    {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
+                                              "resolve" "soothe" "subside" "waive"}
+
+                             "DECREASE-P"   #{"lack" "lose" "omit" "miss"}})
 
 
 ;;; --------------------------------------------------------------------------
@@ -155,8 +172,10 @@
          :comment ~descr)
        (defpun ~tag)))
 
-(defscr P   "An atomic, nonterminal sentiment composition expressing positive sentiment.")
-(defscr N   "An atomic, nonterminal sentiment composition expressing negative sentiment.")
+(defscr P           "An atomic, nonterminal sentiment composition expressing positive sentiment.")
+(defscr N           "An atomic, nonterminal sentiment composition expressing negative sentiment.")
+(defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
+(defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
 
 
 (defclass SentimentPolarity
@@ -205,7 +224,7 @@
   a list of part-of-speech tags for term in the text."
   [n {:keys [polarity
              pos-tags
-             tokens-pn]}]
+             rules]}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [id      (str TWEET-TAG n)
@@ -222,7 +241,7 @@
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
-        (fn [info [tag pn]]
+        (fn [info [tag rules]]
           (let [cnt  (:cnt info)
                 tid  (str id "-" cnt)
                 curr (individual tid
@@ -239,14 +258,14 @@
               (refine curr :fact (is dul/directlyFollows prev)))
 
             ;; Express sentiment composition rules
-            (when pn
-              (express curr pn))
+            (doseq [rule rules]
+              (express curr rule))
 
             ;; Continue the reduction
             {:cnt (inc cnt), :prev curr}))
 
         {:cnt 1}
-        (zip pos-tags tokens-pn)))))
+        (zip pos-tags rules)))))
 
 
 
@@ -264,7 +283,9 @@
 (defn create-examples
   "Create examples based on part-of-speech tokens.
 
-  Example: [10 {:pos-tags («!» «,» «O» «V» «R» «O» «D» «N» «E»),
+  Example:  #10   hmmmm.... i wonder how she my number @-)
+
+            [10 {:pos-tags («!» «,» «O» «V» «R» «O» «D» «N» «E»),
                 :tokens-pn (nil nil nil «P» nil nil nil nil nil),
                  :polarity :positive}]"
   ([] (create-examples :Sentiment140))
@@ -273,20 +294,34 @@
   ([dset]
   (let [arff  (ARFFs dset)
         insts (weka/load-arff arff "sentiment")
+        sball (tw/make-stemmer)
+        stem  #(.stem sball %)
+        exprs (update-values EXPRESSIONS
+                             #(into #{} (map stem %)))
         lex   (tw/make-pn-lexicon :bing-liu)
-        ->pn  #(case (.retrieveValue lex %)
+        ->pn  #(case (.retrieveValue lex %)             ; Lexicon lookup for P/N rules
                  "positive"  "P"
                  "negative"  "N"
-                 "not_found" nil)]
+                 "not_found" nil)
+        ->scr #(let [term (stem %)]                     ; Match terms for other sentiment composite rules
+                 (reduce (fn [acc [scr terms]]
+                           (if (contains? terms term)
+                               (conj acc term)
+                               acc))
+                         #{}
+                         exprs))]
     (reset! Examples
             (reduce (fn [acc ^Instance inst]
                       (let [id    (long (.value inst COL-ID))
                             pairs (map #(str/split % #"_" 2)
                                         (str/split (.stringValue inst COL-TEXT) #" "))
-                            poss  (map first pairs)
-                            poles (map #(->pn (second %)) pairs)]
-                       (assoc acc id {:pos-tags  poss
-                                      :tokens-pn poles
+                            poss  (map first  pairs)
+                            terms (map second pairs)
+                            rules (map #(if %1 (conj %2 %1) %2)
+                                        (map ->pn  terms)       ; Single P|N rule or nil
+                                        (map ->scr terms))]     ; Sequence of match-term rules
+                       (assoc acc id {:pos-tags poss
+                                      :rules    rules
                                       :polarity (polarize inst)})))
                     {}
                     (enumeration-seq (.enumerateInstances insts))))

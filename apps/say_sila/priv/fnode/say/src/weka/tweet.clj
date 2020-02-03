@@ -120,6 +120,17 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn ^SnowballStemmer make-stemmer
+  "Returns a Snowball stemmer for the specified language (default: english)."
+  ([]
+  (make-stemmer "english"))
+
+
+  ([lang]
+  (SnowballStemmer. lang)))
+
+
+;;; --------------------------------------------------------------------------
 (defn ^Instances filter-instances
   "Applies a pre-defined filter to the specified data Instances.  The arity/3
   version acts as a pass-through to weka.core's function of the same name."

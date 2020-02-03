@@ -168,6 +168,51 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn update-keys
+  "
+  Maps the specified function across all the elements in a hashmap, updating
+  the keys with the value returned by the passed funtion.  This fuction is of
+  arity one, accepting the hashmap key.  It has no access to the value.
+  "
+  [hmap fun]
+  (into {} (map (fn [[k v]] [(fun k) v]) hmap)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn update-values
+  "
+  Maps the specified function across all the values in a hashmap.
+  The passed fuction is of arity one, accepting the old hashmap value.
+  "
+  [hmap fun]
+  (into {} (map (fn [[k v]] [k (fun v)]) hmap)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn update-kv-keys
+  "
+  Maps the specified function across all the elements in a hashmap, updating
+  the keys with the value returned by the passed funtion.  This fuction is of
+  arity two, accepting the old hashmap key and the old value.
+  "
+  [hmap fun]
+  (into {} (map (fn [[k v]] [(fun k v) v]) hmap)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn update-kv-values
+  "
+  Maps the specified function across all the elements in a hashmap.
+  The passed fuction is of arity two, accepting the hashmap key and the old value.
+  "
+  [hmap fun]
+  (into {} (map (fn [[k v]] [k (fun k v)]) hmap)))
+
+
+;;; --------------------------------------------------------------------------
 (defmacro zip
   "Returns a sequence of the zipped up elements from the specified collections."
   [& colls]
