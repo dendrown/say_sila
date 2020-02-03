@@ -259,6 +259,7 @@
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
+              (log/debug "Tweet token" tid "expresses" rule)
               (express curr rule))
 
             ;; Continue the reduction
@@ -303,10 +304,10 @@
                  "positive"  "P"
                  "negative"  "N"
                  "not_found" nil)
-        ->scr #(let [term (stem %)]                     ; Match terms for other sentiment composite rules
+        ->scr #(let [term (stem %)]                     ; Match terms for other Sentiment Composite Rules
                  (reduce (fn [acc [scr terms]]
                            (if (contains? terms term)
-                               (conj acc term)
+                               (conj acc scr)
                                acc))
                          #{}
                          exprs))]
