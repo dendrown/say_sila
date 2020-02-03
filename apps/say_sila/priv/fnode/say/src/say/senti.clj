@@ -45,7 +45,7 @@
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 (def ^:const TWEET-TAG  "t")            ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES 400)          ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES 1000)         ; FIXME: use a subset until we get everything squared away
 
 
 ;;; --------------------------------------------------------------------------
@@ -239,10 +239,8 @@
               (refine curr :fact (is dul/directlyFollows prev)))
 
             ;; Express sentiment composition rules
-            (case pn
-              :p (express curr "P")
-              :n (express curr "N")
-              :- :ok)
+            (when pn
+              (express curr pn))
 
             ;; Continue the reduction
             {:cnt (inc cnt), :prev curr}))
@@ -267,7 +265,7 @@
   "Create examples based on part-of-speech tokens.
 
   Example: [10 {:pos-tags («!» «,» «O» «V» «R» «O» «D» «N» «E»),
-                :tokens-pn (:-  :-  :-  :p  :-  :-  :-  :-  :-),
+                :tokens-pn (nil nil nil «P» nil nil nil nil nil),
                  :polarity :positive}]"
   ([] (create-examples :Sentiment140))
 
@@ -277,9 +275,9 @@
         insts (weka/load-arff arff "sentiment")
         lex   (tw/make-pn-lexicon :bing-liu)
         ->pn  #(case (.retrieveValue lex %)
-                 "positive"  :p
-                 "negative"  :n
-                 "not_found" :-)]
+                 "positive"  "P"
+                 "negative"  "N"
+                 "not_found" nil)]
     (reset! Examples
             (reduce (fn [acc ^Instance inst]
                       (let [id    (long (.value inst COL-ID))
@@ -291,7 +289,10 @@
                                       :tokens-pn poles
                                       :polarity (polarize inst)})))
                     {}
-                    (enumeration-seq (.enumerateInstances insts)))))))
+                    (enumeration-seq (.enumerateInstances insts))))
+
+    ;; Just tell them how many we have now
+    (count @Examples))))
 
 
 
@@ -368,7 +369,7 @@
   (pn-examples nil))
 
   ([prefix]
-  (pn-examples prefix 8))
+  (pn-examples prefix 6))
 
   ([prefix n]
   (let [delims  (conj (repeat \,) \space)
