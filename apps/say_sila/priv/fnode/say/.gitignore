@@ -18,6 +18,7 @@ config/*.config
 java/
 resources/emo-sa/*.*.arff
 resources/emo-sa/*.csv
+resources/emo-sa/*.edn
 resources/dllearner/*.owl
 resources/gender/*.csv
 resources/gender/*.zip

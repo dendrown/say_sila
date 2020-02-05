@@ -38,6 +38,7 @@
 
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-senti.owl#")
 (def ^:const ONT-FPATH  "resources/KB/say-senti.owl")
+(def ^:const ONT-PREFIX "senti")
 (def ^:const DATASET    "resources/emo-sa/sentiment-analysis.csv")
 (def ^:const ARFFs      {:base          "resources/emo-sa/sentiment-analysis.arff"
                          :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
@@ -46,7 +47,7 @@
 (def ^:const COL-TEXT   1)
 
 (def ^:const TWEET-TAG      "t")        ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES   1000)       ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES   4000)       ; FIXME: use a subset until we get everything squared away
 
 (def ^:const EXPR-DECREASE  ["alleviate" "attenuate" "block" "cancel" "cease" "combat"  ; "come down"
                              "crackdown"        ; "crack down"
@@ -77,7 +78,7 @@
 ;;; --------------------------------------------------------------------------
 (defontology say-senti
   :iri     ONT-IRI
-  :prefix  "senti"
+  :prefix  ONT-PREFIX
   :comment "Ontology for training sentiment models.")
 
 ;; Are we importing the full DUL foundational ontology?
@@ -259,7 +260,7 @@
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
-              (log/debug "Tweet token" tid "expresses" rule)
+              ;(log/debug "Tweet token" tid "expresses" rule)
               (express curr rule))
 
             ;; Continue the reduction
@@ -286,8 +287,8 @@
 
   Example:  #10   hmmmm.... i wonder how she my number @-)
 
-            [10 {:pos-tags («!» «,» «O» «V» «R» «O» «D» «N» «E»),
-                :tokens-pn (nil nil nil «P» nil nil nil nil nil),
+            [10 {:pos-tags  («!» «,» «O»   «V»  «R» «O» «D» «N» «E»),
+                 :tokens-pn (#{} #{} #{} #{«P»} #{} #{} #{} #{} #{}),
                  :polarity :positive}]"
   ([] (create-examples :Sentiment140))
 
@@ -402,7 +403,7 @@
   negative polarities.  The caller may optionally specify a prefix for easy
   insertion into a DL-Learner configuration file."
   ([]
-  (pn-examples nil))
+  (pn-examples ONT-PREFIX))
 
   ([prefix]
   (pn-examples prefix 6))
@@ -412,17 +413,29 @@
         tag     (str prefix (when prefix ":") TWEET-TAG)
         tagger  #(str tag %)
         liner   #(apply print "\n    " %1 (interpose \, (domap pr-str %2)))
-        ids     (reduce (fn [[p n] [id info]]
-                          (case (:polarity info)
-                            :positive [(conj p id) n]
-                            :negative [p (conj n id)]))
-                        (repeat 2 (sorted-set))             ; Collect IDs for pos/neg examples
+        ids     (reduce (fn [acc [id info]]
+                          (update-in acc
+                                     [(:polarity info)]
+                                     #(conj % id)))
+                        {:positive (sorted-set)             ; Collect IDs for pos/neg examples
+                         :negative (sorted-set)}
                         @Examples)
-        xmps    (map #(map tagger %) ids)]                  ; Prefix % tag pos/neg IDs
+        xmps    (update-values ids #(map tagger %))]        ; Prefix % tag pos/neg IDs
+
+    ;; Save P/N Text to pull in for DL-Learner runs
+    (spit (str "resources/emo-sa/pn-examples.edn")
+          (pr-str xmps))
 
     ;; Report our P/N examples
-    (doseq [[klass xs] (zip ["POSITIVE" "NEGATIVE"] xmps)]  ; Title X examples
+    (doseq [[klass xs] xmps]
       (print klass ": {")
       (domap liner delims (partition-all n xs))
       (println "\n}")))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn run
+  "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
+  []
+  :todo)
