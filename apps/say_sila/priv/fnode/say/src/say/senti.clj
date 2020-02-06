@@ -13,6 +13,7 @@
 (ns say.senti
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
+            [say.dllearner      :as dll]
             [say.dolce          :as dul]
             [say.log            :as log]
             [say.cmu-pos        :as pos]
@@ -63,7 +64,15 @@
 (def ^:const EXPRESSIONS    {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
                                               "resolve" "soothe" "subside" "waive"}
 
-                             "DECREASE-P"   #{"lack" "lose" "omit" "miss"}})
+                             "DECREASE-P"   #{"lack" "lose" "omit" "miss"}
+                             "INCREASE-N"   #{"burst" "climb" "escalate" "intensify"
+                                             ; 2-grams: "go up" "grow" "mark up" "pile up"
+                                             }
+                             "INCREASE-P"   #{"elevate" "enlarge" "expand" "extend" "increase" "progress"
+                                              "raise" "return" "rise" "soar" "surge"
+                                             ; 2-grams: "be up" "build up" "come back"
+                                             }})
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -260,7 +269,8 @@
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
-              ;(log/debug "Tweet token" tid "expresses" rule)
+              (when-not (contains? #{"P" "N"} rule)
+                (log/debug "Tweet token" tid "expresses" rule))
               (express curr rule))
 
             ;; Continue the reduction
@@ -399,20 +409,16 @@
 
 ;;; --------------------------------------------------------------------------
 (defn pn-examples
-  "Prints the IDs of the tweets with positive polarities and those with
+  "Returns a map of the IDs of tweets with positive polarities and those with
   negative polarities.  The caller may optionally specify a prefix for easy
   insertion into a DL-Learner configuration file."
   ([]
   (pn-examples ONT-PREFIX))
 
   ([prefix]
-  (pn-examples prefix 6))
-
-  ([prefix n]
-  (let [delims  (conj (repeat \,) \space)
+  (let [
         tag     (str prefix (when prefix ":") TWEET-TAG)
         tagger  #(str tag %)
-        liner   #(apply print "\n    " %1 (interpose \, (domap pr-str %2)))
         ids     (reduce (fn [acc [id info]]
                           (update-in acc
                                      [(:polarity info)]
@@ -426,11 +432,7 @@
     (spit (str "resources/emo-sa/pn-examples.edn")
           (pr-str xmps))
 
-    ;; Report our P/N examples
-    (doseq [[klass xs] xmps]
-      (print klass ": {")
-      (domap liner delims (partition-all n xs))
-      (println "\n}")))))
+    xmps)))
 
 
 
