@@ -80,8 +80,7 @@
 (def ^:const IMPORT?    false)
 (def ^:const POS-NEG?   false)
 
-
-(defonce Examples   (atom {}))        ; FIXME: We don't really want this
+(defonce Examples   (atom (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -164,8 +163,13 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; Sentiment Composition Rules
+;;; Sentiment Composition Rules (SCR):
 ;;; \ref{bing2015}
+;;;
+;;; Note that we will be creating individual say-senti-RULE ontologies which
+;;; include the individuals (Texts) from the training corpus which express
+;;; a given rule.  However, it is in this, the main say-senti ontology, that
+;;; all the SCRs are defined.
 ;;; --------------------------------------------------------------------------
 (defclass SentimentCompositionRule
   :super   dul/Concept
@@ -186,6 +190,8 @@
 (defscr N           "An atomic, nonterminal sentiment composition expressing negative sentiment.")
 (defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
 (defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
+(defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
+(defscr INCREASE-P  "Expressions which increase PPI and PO terms.")
 
 
 (defclass SentimentPolarity
@@ -209,6 +215,23 @@
   :label    "has Polarity"
   :domain   dul/InformationObject
   :range    SentimentPolarity)
+
+
+;;; --------------------------------------------------------------------------
+(defn make-scr-ontology
+  "Creates a version (copy) of the say-senti ontology, intended to include
+  individuals expressing the specified Sentiment Composition Rule (SCR)"
+  [rule]
+  (let [prefix   #(apply str % "-" rule %&)
+        iri-end  ".owl#"
+        iri-stub (str/replace ONT-IRI iri-end "")]
+    (ontology
+      :tawny.owl/name (prefix "say-senti")
+      :iri     (prefix iri-stub iri-end)
+      :prefix  (prefix "scr")
+      :import  say-senti
+      :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " rule))))
+
 
 
 ;;; --------------------------------------------------------------------------
