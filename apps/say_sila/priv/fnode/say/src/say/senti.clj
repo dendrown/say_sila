@@ -22,6 +22,7 @@
             [clojure.core.match :refer [match]]
             [clojure.data.csv   :as csv]
             [clojure.java.io    :as io]
+            [clojure.set        :as set]
             [clojure.string     :as str]
             [clojure.pprint     :as prt :refer [pp pprint]]
             [tawny.english      :as dl]
@@ -50,17 +51,6 @@
 (def ^:const TWEET-TAG      "t")        ; Tweet individual have this tag plus the ID, e.g., "t42"
 (def ^:const NUM-EXAMPLES   4000)       ; FIXME: use a subset until we get everything squared away
 
-(def ^:const EXPR-DECREASE  ["alleviate" "attenuate" "block" "cancel" "cease" "combat"  ; "come down"
-                             "crackdown"        ; "crack down"
-                             "cut"              ; "cut back" "cut down" "cut off" "cut out"
-                                                ; "die off" "die out"
-                             "decrease" "deduct" "diminish" "disappear" "discontinue"
-                             "discount" "downgrade" "drop" "dwindle" "eliminate" "fade"
-                             "fall" "filter"    ; "get around" "get off" "get over" "go away" "go down"
-                             "halt"             ; "have gone"
-                            ])
-
-
 (def ^:const EXPRESSIONS    {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
                                               "resolve" "soothe" "subside" "waive"}
 
@@ -80,7 +70,7 @@
 (def ^:const IMPORT?    false)
 (def ^:const POS-NEG?   false)
 
-(defonce Examples   (atom (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))))
+(defonce Examples   (atom {}))
 
 
 ;;; --------------------------------------------------------------------------
@@ -318,11 +308,13 @@
 (defn create-examples
   "Create examples based on part-of-speech tokens.
 
-  Example:  #10   hmmmm.... i wonder how she my number @-)
+  Example:  #3955 '- toothache subsiding, thank god for extra strength painkillers'
 
-            [10 {:pos-tags  («!» «,» «O»   «V»  «R» «O» «D» «N» «E»),
-                 :tokens-pn (#{} #{} #{} #{«P»} #{} #{} #{} #{} #{}),
-                 :polarity :positive}]"
+  Results in this entry being added to the @Examples value set under the key «DECREASE-N»:
+            {:id 3955
+             :polarity :positive
+             :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
+             :rules    (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
   ([] (create-examples :Sentiment140))
 
 
@@ -344,25 +336,33 @@
                                (conj acc scr)
                                acc))
                          #{}
-                         exprs))]
+                         exprs))
+        unite #(if %2 (conj %1 %2) %1)]                 ; Accepts a P|N (%2) into a set of SCRs (%1)
+
     (reset! Examples
             (reduce (fn [acc ^Instance inst]
                       (let [id    (long (.value inst COL-ID))
-                            pairs (map #(str/split % #"_" 2)
+                            pairs (map #(str/split % #"_" 2)    ; Pairs are "pos_term"
                                         (str/split (.stringValue inst COL-TEXT) #" "))
-                            poss  (map first  pairs)
                             terms (map second pairs)
-                            rules (map #(if %1 (conj %2 %1) %2)
-                                        (map ->pn  terms)       ; Single P|N rule or nil
-                                        (map ->scr terms))]     ; Sequence of match-term rules
-                       (assoc acc id {:pos-tags poss
-                                      :rules    rules
-                                      :polarity (polarize inst)})))
-                    {}
-                    (enumeration-seq (.enumerateInstances insts))))
+                            pns   (map ->pn  terms)             ; Single P|N rule or nil per term
+                            rules (map ->scr terms)]            ; Set of match-term rules per term
 
-    ;; Just tell them how many we have now
-    (count @Examples))))
+                        ;; NOTE: we're dropping Texts that don't match an SCR
+                        (when-not (empty? rules)
+                          ;; Add this example for all rules that it covers.
+                          (update-values acc
+                                         #(conj % {:id       id
+                                                   :polarity (polarize inst)
+                                                   :pos-tags (map first pairs)
+                                                   :rules    (map unite rules pns)})
+                                         (apply set/union rules)))))
+
+                    (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))   ; Start w/ empty rule sets
+                    (enumeration-seq (.enumerateInstances insts))))     ; Run through Weka instances
+
+    ;; Just tell them how many we have for each rule
+    (update-values @Examples count))))
 
 
 

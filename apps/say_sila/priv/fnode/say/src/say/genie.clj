@@ -169,11 +169,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defn update-keys
-  "
-  Maps the specified function across all the elements in a hashmap, updating
+  "Maps the specified function across all the elements in a hashmap, updating
   the keys with the value returned by the passed funtion.  This fuction is of
-  arity one, accepting the hashmap key.  It has no access to the value.
-  "
+  arity one, accepting the hashmap key.  It has no access to the value."
   [hmap fun]
   (into {} (map (fn [[k v]] [(fun k) v]) hmap)))
 
@@ -181,22 +179,22 @@
 
 ;;; --------------------------------------------------------------------------
 (defn update-values
-  "
-  Maps the specified function across all the values in a hashmap.
+  "Maps the specified function across all the values in a hashmap.
   The passed fuction is of arity one, accepting the old hashmap value.
-  "
-  [hmap fun]
+  The caller may optionally specify a sequence of keys, in which case, the
+  function is applied only values corresponding to those keys are updated."
+  ([hmap fun]
   (into {} (map (fn [[k v]] [k (fun v)]) hmap)))
 
+  ([hmap fun ks]
+  (reduce #(assoc %1 %2 (fun (%1 %2))) hmap ks)))
 
 
 ;;; --------------------------------------------------------------------------
 (defn update-kv-keys
-  "
-  Maps the specified function across all the elements in a hashmap, updating
+  "Maps the specified function across all the elements in a hashmap, updating
   the keys with the value returned by the passed funtion.  This fuction is of
-  arity two, accepting the old hashmap key and the old value.
-  "
+  arity two, accepting the old hashmap key and the old value."
   [hmap fun]
   (into {} (map (fn [[k v]] [(fun k v) v]) hmap)))
 
@@ -204,10 +202,8 @@
 
 ;;; --------------------------------------------------------------------------
 (defn update-kv-values
-  "
-  Maps the specified function across all the elements in a hashmap.
-  The passed fuction is of arity two, accepting the hashmap key and the old value.
-  "
+  "Maps the specified function across all the elements in a hashmap.
+  The passed fuction is of arity two, accepting the hashmap key and the old value."
   [hmap fun]
   (into {} (map (fn [[k v]] [k (fun k v)]) hmap)))
 
