@@ -39,6 +39,7 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-senti.owl#")
+(def ^:const ONT-FSTUB  "resources/KB/say-senti")
 (def ^:const ONT-FPATH  "resources/KB/say-senti.owl")
 (def ^:const ONT-PREFIX "senti")
 (def ^:const DATASET    "resources/emo-sa/sentiment-analysis.csv")
@@ -70,7 +71,8 @@
 (def ^:const IMPORT?    false)
 (def ^:const POS-NEG?   false)
 
-(defonce Examples   (atom {}))
+(defonce SCR-Examples   (atom {}))
+(defonce SCR-Ontologies (atom {}))
 
 
 ;;; --------------------------------------------------------------------------
@@ -242,46 +244,43 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn add-text
+(defn- add-text
   "Adds a Text individual to the specified Sentiment Component Rule ontology."
-  [scr-ont
+  [ont
    {:keys [id polarity pos-tags rules]}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (str TWEET-TAG id)
-          express #(refine %1 :ontology scr-ont
-                              :fact (is dul/expresses (individual %2)))]
+          text    (individual ont tid
+                    :type (if POS-NEG?
+                              (case polarity :negative NegativeText
+                                             :positive PositiveText)
+                              Text))
+          express #(refine ont %1 :fact (is dul/expresses (individual ont %2)))]
 
       ;; Add an entity representing the text itself.  Note that we'll be creating
       ;; the referenced token "tN-1" in the reduce expression below.
-      (individual tid
-        :ontology scr-ont
-        :type (if POS-NEG?
-                  (case polarity :negative NegativeText
-                                 :positive PositiveText)
-                  Text)
-        :fact (is dul/hasComponent (individual (str tid "-1"))))
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
         (fn [info [tag rules]]
           (let [cnt  (:cnt info)
                 ttid (str tid "-" cnt)
-                curr (individual ttid
-                       :ontology scr-ont
-                       :type  Token
-                       :label (str ttid " (" tag ")"))]
+                curr (individual ont ttid
+                                 :type  Token
+                                 :label (str ttid " (" tag ")"))]
+
+            ;; Link Token to the original Text
+            (refine ont text :fact (is dul/hasComponent curr))
 
             ;; Set POS Quality
             (if-let [pos (pos/lookup# tag)]
-              (refine curr :ontology scr-ont
-                           :fact (is pos/isPartOfSpeech pos))
+              (refine ont curr :fact (is pos/isPartOfSpeech pos))
               (log/fmt-warn "No POS tag '~a': id[~]" tag ttid))
 
             ;; Link tokens to each other
             (when-let [prev (:prev info)]
-              (refine curr :ontology scr-ont
-                           :fact (is dul/directlyFollows prev)))
+              (refine ont curr :fact (is dul/directlyFollows prev)))
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
@@ -299,31 +298,55 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn populate
-  "Populates the senti ontology using examples from the ARFFs"
+(defn save-scr-ontologies
+  "Saves Sentiment Composition Rule ontologies in OWL format."
   []
   ;; Create ontologies for each SCR, each populated with individuals expressing the rule
   (update-kv-values
-    @Examples
-    (fn [rule xmps]
-         (let [ont (make-scr-ontology rule)]
-           (map #(add-text ont %) xmps)
-           ont))))
+    @SCR-Ontologies
+    (fn [rule ont]
+      (let [fpath (str ONT-FSTUB "-" rule ".owl")]
+        (save-ontology ont fpath :owl)
+        fpath))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn create-examples
+(defn save-ontologies
+  "Saves the say-senti ontology and all the SCR ontologies in OWL format."
+  []
+  (save-ontology say-senti "resources/KB/say-senti.owl" :owl)
+  (save-scr-ontologies))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn populate-scr-ontologies!
+  "Populates the senti ontology using examples from the ARFFs"
+  []
+  ;; Create ontologies for each SCR, each populated with individuals expressing the rule
+  (reset! SCR-Ontologies
+          (update-kv-values @SCR-Examples
+                            (fn [rule xmps]
+                              (let [ont (make-scr-ontology rule)]
+                                (domap #(add-text ont %) xmps)
+                                ont))))
+  (keys @SCR-Ontologies))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn create-scr-examples!
   "Create examples based on part-of-speech tokens.
 
   Example:  #3955 '- toothache subsiding, thank god for extra strength painkillers'
 
-  Results in this entry being added to the @Examples value set under the key «DECREASE-N»:
+  Results in this entry being added to the @SCR-Examples value set under the key «DECREASE-N»:
             {:id 3955
              :polarity :positive
              :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
              :rules    (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
-  ([] (create-examples :Sentiment140))
+  ([] (create-scr-examples! :Sentiment140))
 
 
   ([dset]
@@ -347,7 +370,7 @@
                          exprs))
         unite #(if %2 (conj %1 %2) %1)]                 ; Accepts a P|N (%2) into a set of SCRs (%1)
 
-    (reset! Examples
+    (reset! SCR-Examples
             (reduce (fn [acc ^Instance inst]
                       (let [id    (long (.value inst COL-ID))
                             pairs (map #(str/split % #"_" 2)    ; Pairs are "pos_term"
@@ -370,7 +393,7 @@
                     (enumeration-seq (.enumerateInstances insts))))     ; Run through Weka instances
 
     ;; Just tell them how many we have for each rule
-    (update-values @Examples count))))
+    (update-values @SCR-Examples count))))
 
 
 
@@ -456,7 +479,7 @@
                                      #(conj % id)))
                         {:positive (sorted-set)             ; Collect IDs for pos/neg examples
                          :negative (sorted-set)}
-                        @Examples)
+                        @SCR-Examples)
         xmps    (update-values ids #(map tagger %))]        ; Prefix % tag pos/neg IDs
 
     ;; Save P/N Text to pull in for DL-Learner runs
@@ -470,5 +493,10 @@
 ;;; --------------------------------------------------------------------------
 (defn run
   "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
-  []
-  :todo)
+  [& opts]
+  (when (some #{:arff} opts)
+    (create-arffs))
+
+  (create-scr-examples!)
+  (populate-scr-ontologies!)
+  (save-ontologies))
