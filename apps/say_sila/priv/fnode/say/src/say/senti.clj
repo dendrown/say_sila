@@ -243,47 +243,50 @@
 
 ;;; --------------------------------------------------------------------------
 (defn add-text
-  "Adds a text individual to the ontology given a numeric identifier, n, and
-  a list of part-of-speech tags for term in the text."
-  [n {:keys [polarity
-             pos-tags
-             rules]}]
+  "Adds a Text individual to the specified Sentiment Component Rule ontology."
+  [scr-ont
+   {:keys [id polarity pos-tags rules]}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
-    (let [id      (str TWEET-TAG n)
-          express #(refine %1 :fact (is dul/expresses (individual %2)))]
+    (let [tid     (str TWEET-TAG id)
+          express #(refine %1 :ontology scr-ont
+                              :fact (is dul/expresses (individual %2)))]
 
       ;; Add an entity representing the text itself.  Note that we'll be creating
       ;; the referenced token "tN-1" in the reduce expression below.
-      (individual id
+      (individual tid
+        :ontology scr-ont
         :type (if POS-NEG?
                   (case polarity :negative NegativeText
                                  :positive PositiveText)
                   Text)
-        :fact (is dul/hasComponent (individual (str id "-1"))))
+        :fact (is dul/hasComponent (individual (str tid "-1"))))
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
         (fn [info [tag rules]]
           (let [cnt  (:cnt info)
-                tid  (str id "-" cnt)
-                curr (individual tid
+                ttid (str tid "-" cnt)
+                curr (individual ttid
+                       :ontology scr-ont
                        :type  Token
-                       :label (str tid " (" tag ")"))]
+                       :label (str ttid " (" tag ")"))]
 
             ;; Set POS Quality
             (if-let [pos (pos/lookup# tag)]
-              (refine curr :fact (is pos/isPartOfSpeech pos))
-              (log/warn "No POS tag:" tag))
+              (refine curr :ontology scr-ont
+                           :fact (is pos/isPartOfSpeech pos))
+              (log/fmt-warn "No POS tag '~a': id[~]" tag ttid))
 
             ;; Link tokens to each other
             (when-let [prev (:prev info)]
-              (refine curr :fact (is dul/directlyFollows prev)))
+              (refine curr :ontology scr-ont
+                           :fact (is dul/directlyFollows prev)))
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
               (when-not (contains? #{"P" "N"} rule)
-                (log/debug "Tweet token" tid "expresses" rule))
+                (log/debug "Tweet token" ttid "expresses" rule))
               (express curr rule))
 
             ;; Continue the reduction
@@ -294,13 +297,18 @@
 
 
 
+
 ;;; --------------------------------------------------------------------------
 (defn populate
   "Populates the senti ontology using examples from the ARFFs"
   []
-  ;; FIXME: Pass in the values from the ARFF
-  (doseq [[id example] @Examples]
-    (add-text id example)))
+  ;; Create ontologies for each SCR, each populated with individuals expressing the rule
+  (update-kv-values
+    @Examples
+    (fn [rule xmps]
+         (let [ont (make-scr-ontology rule)]
+           (map #(add-text ont %) xmps)
+           ont))))
 
 
 
@@ -352,11 +360,11 @@
                         (when-not (empty? rules)
                           ;; Add this example for all rules that it covers.
                           (update-values acc
+                                         (apply set/union rules)
                                          #(conj % {:id       id
                                                    :polarity (polarize inst)
                                                    :pos-tags (map first pairs)
-                                                   :rules    (map unite rules pns)})
-                                         (apply set/union rules)))))
+                                                   :rules    (map unite rules pns)})))))
 
                     (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))   ; Start w/ empty rule sets
                     (enumeration-seq (.enumerateInstances insts))))     ; Run through Weka instances

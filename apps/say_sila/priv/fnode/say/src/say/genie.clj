@@ -186,7 +186,7 @@
   ([hmap fun]
   (into {} (map (fn [[k v]] [k (fun v)]) hmap)))
 
-  ([hmap fun ks]
+  ([hmap ks fun]
   (reduce #(assoc %1 %2 (fun (%1 %2))) hmap ks)))
 
 
