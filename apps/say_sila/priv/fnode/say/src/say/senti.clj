@@ -38,6 +38,7 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
+(def ^:const ONT-ISTUB  "http://www.dendrown.net/uqam/say-senti")
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-senti.owl#")
 (def ^:const ONT-FSTUB  "resources/KB/say-senti")
 (def ^:const ONT-FPATH  "resources/KB/say-senti.owl")
@@ -210,16 +211,22 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn make-scr-iri
+  "Creates a (String) IRI for the specified Sentiment Composition Rule (SCR)."
+  [rule]
+  (str ONT-ISTUB "-" rule ".owl#"))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn make-scr-ontology
   "Creates a version (copy) of the say-senti ontology, intended to include
   individuals expressing the specified Sentiment Composition Rule (SCR)"
   [rule]
-  (let [prefix   #(apply str % "-" rule %&)
-        iri-end  ".owl#"
-        iri-stub (str/replace ONT-IRI iri-end "")]
+  (let [prefix #(apply str % "-" rule %&)]
     (ontology
       :tawny.owl/name (prefix "say-senti")
-      :iri     (prefix iri-stub iri-end)
+      :iri     (make-scr-iri rule)
       :prefix  (prefix "scr")
       :import  say-senti
       :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " rule))))
@@ -466,24 +473,25 @@
   "Returns a map of the IDs of tweets with positive polarities and those with
   negative polarities.  The caller may optionally specify a prefix for easy
   insertion into a DL-Learner configuration file."
-  ([]
-  (pn-examples ONT-PREFIX))
+  ([rule]
+  (pn-examples rule ONT-PREFIX))
 
-  ([prefix]
-  (let [
-        tag     (str prefix (when prefix ":") TWEET-TAG)
+  ([rule prefix]
+  (pn-examples rule prefix (get @SCR-Examples rule)))
+
+  ([rule prefix examples]
+  (let [tag     (str prefix (when prefix ":") TWEET-TAG)
         tagger  #(str tag %)
-        ids     (reduce (fn [acc [id info]]
-                          (update-in acc
-                                     [(:polarity info)]
-                                     #(conj % id)))
+        ids     (reduce (fn [acc {:keys[id polarity]}]
+                          (update-in acc [polarity]
+                                         #(conj % id)))
                         {:positive (sorted-set)             ; Collect IDs for pos/neg examples
                          :negative (sorted-set)}
-                        @SCR-Examples)
+                        examples)
         xmps    (update-values ids #(map tagger %))]        ; Prefix % tag pos/neg IDs
 
     ;; Save P/N Text to pull in for DL-Learner runs
-    (spit (str "resources/emo-sa/pn-examples.edn")
+    (spit (str "resources/emo-sa/pn-examples-" rule ".edn")
           (pr-str xmps))
 
     xmps)))
@@ -499,4 +507,11 @@
 
   (create-scr-examples!)
   (populate-scr-ontologies!)
-  (save-ontologies))
+  (save-ontologies)
+  (update-kv-values @SCR-Examples
+    (fn [rule xmps]
+      (dll/write-pn-config :base     "say-senti"
+                           :rule     rule
+                           :prefixes {"senti" "http://www.dendrown.net/uqam/say-senti.owl#"
+                                      "scr"   (make-scr-iri rule)}
+                           :examples (pn-examples rule "scr" xmps)))))

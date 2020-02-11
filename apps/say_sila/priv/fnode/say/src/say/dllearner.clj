@@ -20,8 +20,9 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const DLL-DIR    "resources/dllearner/")
-
-(defonce BASE-CONF      (str DLL-DIR "say-senti.base.conf"))
+(def ^:const KB-DIR     "resources/KB/")
+(def ^:const PREFIXES   {"owl"   "http://www.w3.org/2002/07/owl#"
+                         "dul"   "http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#"})
 
 
 ;;; --------------------------------------------------------------------------
@@ -56,12 +57,35 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn print-prefixes
+  "Prints DL-Learner prefixes (probably to a rebout *out*)."
+  [prefixes]
+  (letfn [(prt-prefix [[pre iri]]
+            (println "    (\"" pre "\", \"" iri "\")"))]
+
+    ;; Write the prefixes out in DL-Learner config style
+    (println "prefixes = ["
+    (domap prt-prefix (merge PREFIXES prefixes)))
+    (println "]")))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn write-pn-config
   "Creates a DL-Learner configuration file from the specified config map."
-  [fname xmps]
+  [& {:keys [base rule prefixes examples]}]
   ;; Most of the config is in the base.  We need to add the p/n examples.
-  (with-open [wtr (io/writer (make-config-fpath fname))]
-    (.write wtr (slurp BASE-CONF))
-    (binding [*out* wtr]
-      (print-pn-examples xmps))))
+  (let [fname       (str base "-" rule)
+        fpath       (make-config-fpath fname)
+        [head body] (map #(slurp (str DLL-DIR base "." (name %) ".conf"))
+                         [:head :body])]
+    (with-open [wtr (io/writer fpath)]
+      (binding [*out* wtr]
+        (println head)
+        (println (str "ks.fileName = \"KB/" fname ".owl\""))
+        (print-prefixes prefixes)
+        (println body)
+        (print-pn-examples examples)))
+  fpath))
+
 
