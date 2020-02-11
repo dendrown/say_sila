@@ -24,6 +24,7 @@
 (def ^:const PREFIXES   {"owl"   "http://www.w3.org/2002/07/owl#"
                          "dul"   "http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#"})
 
+(defonce DELIMS         (conj (repeat \,) \space))      ; For printing comma-separated series
 
 ;;; --------------------------------------------------------------------------
 (defn make-config-fpath
@@ -46,13 +47,13 @@
 
 
   ([xmps n]
-  (let [delims  (conj (repeat \,) \space)
-        liner   #(apply print "\n    " %1 (interpose \, (domap pr-str %2)))]
-  ;; Report our P/N examples
-  (doseq [[klass xs] xmps]
-    (print (str "lp." (name klass) "Examples = {"))
-    (domap liner delims (partition-all n xs))
-    (println "\n}")))))
+  (let [liner #(apply print "\n    " %1 (interpose \, (domap pr-str %2)))]
+
+    ;; Report our P/N examples
+    (doseq [[klass xs] xmps]
+      (print (str "lp." (name klass) "Examples = {"))
+      (domap liner DELIMS (partition-all n xs))
+      (println "\n}")))))
 
 
 
@@ -60,12 +61,12 @@
 (defn print-prefixes
   "Prints DL-Learner prefixes (probably to a rebout *out*)."
   [prefixes]
-  (letfn [(prt-prefix [[pre iri]]
-            (println "    (\"" pre "\", \"" iri "\")"))]
+  (letfn [(prt-prefix [delim [pre iri]]
+            (println (str "    " delim " (\"" pre "\", \"" iri "\")")))]
 
     ;; Write the prefixes out in DL-Learner config style
-    (println "prefixes = ["
-    (domap prt-prefix (merge PREFIXES prefixes)))
+    (println "prefixes = [")
+    (domap prt-prefix DELIMS (merge PREFIXES prefixes))
     (println "]")))
 
 

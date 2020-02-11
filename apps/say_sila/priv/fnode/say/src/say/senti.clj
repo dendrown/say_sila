@@ -51,7 +51,7 @@
 (def ^:const COL-TEXT   1)
 
 (def ^:const TWEET-TAG      "t")        ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES   4000)       ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES   100000)     ; FIXME: use a subset until we get everything squared away
 
 (def ^:const EXPRESSIONS    {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
                                               "resolve" "soothe" "subside" "waive"}
