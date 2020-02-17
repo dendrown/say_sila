@@ -26,9 +26,11 @@
             [clojure.string     :as str]
             [clojure.pprint     :as prt :refer [pp pprint]]
             [tawny.english      :as dl]
+            [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                       ; <= DEBUG
             [tawny.owl          :refer :all])
-  (:import  [weka.core DenseInstance
+  (:import  [org.semanticweb.HermiT Configuration]
+            [weka.core DenseInstance
                        Instance
                        Instances]
             [weka.filters.unsupervised.attribute TweetNLPPOSTagger
@@ -515,3 +517,44 @@
                            :prefixes {"senti" "http://www.dendrown.net/uqam/say-senti.owl#"
                                       "scr"   (make-scr-iri rule)}
                            :examples (pn-examples rule "scr" xmps)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defprotocol Reasoning
+  "Look into exactly what is going on during reasoning."
+
+  (show-reasoning [rsnr ont]
+    "Look into exactly what is going on during reasoning."))
+
+
+(extend-protocol Reasoning
+  clojure.lang.Keyword
+  (show-reasoning [rsnr ont]
+    (if (rsn/reasoner-factory rsnr)
+        (let [r (rsn/reasoner ont)]
+          (log/info "Reasoner:" (type r))
+          (show-reasoning r ont))
+        (log/error "Reasoner" (name rsnr) "is not supported")))
+
+
+  org.semanticweb.HermiT.Reasoner
+  (show-reasoning [rsnr ont]
+    (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-text-debug)]
+      (rsn/consistent? ont))))
+
+
+
+
+
+;;; --------------------------------------------------------------------------
+(defn reason
+  "Runs the specified OWL reasoner on (a) say-senti ontology."
+  ([]
+  (reason :hermit))
+
+  ([rkey]
+  (reason rkey say-senti))
+
+  ([rkey ont]
+  (show-reasoning rkey ont)))
