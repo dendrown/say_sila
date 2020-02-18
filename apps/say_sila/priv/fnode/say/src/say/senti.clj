@@ -27,9 +27,15 @@
             [clojure.pprint     :as prt :refer [pp pprint]]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
-            [tawny.repl         :as repl]                       ; <= DEBUG
+            [tawny.repl         :as repl]                           ; <= DEBUG
             [tawny.owl          :refer :all])
-  (:import  [org.semanticweb.HermiT Configuration]
+  (:import  [net.dendrown.uqam.hermit ConfigTools]                  ; TODO: Move HermiT to say.ontology
+            [org.semanticweb.HermiT Configuration
+                                    Configuration$TableauMonitorType
+                                    Reasoner]
+            [org.semanticweb.HermiT.monitor ;CountingMonitor
+                                            Timer]
+            [org.semanticweb.owlapi.reasoner InferenceType]
             [weka.core DenseInstance
                        Instance
                        Instances]
@@ -523,6 +529,13 @@
 ;;; --------------------------------------------------------------------------
 (defprotocol Reasoning
   "Look into exactly what is going on during reasoning."
+  ;; TODO: Move this code to say.ontology once it's stable
+
+  (invoke-reasoner [rsnr ont]
+    "Returns the reasoner (not the factory) connected to Tawny-OWL for the specified ontogy.")
+
+  (make-reasoner [rsnr ont]
+    "Create an OWL reasoner outside of Tawny-OWL so we can customize it.")
 
   (show-reasoning [rsnr ont]
     "Look into exactly what is going on during reasoning."))
@@ -530,18 +543,34 @@
 
 (extend-protocol Reasoning
   clojure.lang.Keyword
-  (show-reasoning [rsnr ont]
+  (invoke-reasoner [rsnr ont]
     (if (rsn/reasoner-factory rsnr)
-        (let [r (rsn/reasoner ont)]
-          (log/info "Reasoner:" (type r))
-          (show-reasoning r ont))
-        (log/error "Reasoner" (name rsnr) "is not supported")))
+        (rsn/reasoner ont)
+        (log/error "Reasoner" (name rsnr) "is not supported in Tawny OWL!")))
+
+
+  (make-reasoner [rsnr ont]
+    (let [cfg (Configuration.)
+          mon (Timer. System/out)]
+      ;; FIXME: the tableauMonitorType field seems to be final w/ a value of NONE
+      ;;        even though the source on github doesn't reflect this.
+
+      (set! (.-monitor cfg) mon)
+      (Reasoner. cfg ont)))
+
+
+  (show-reasoning [rsnr ont]
+    ;; FIXME: We want to call make-reasoner
+    (show-reasoning (make-reasoner rsnr ont) ont))
 
 
   org.semanticweb.HermiT.Reasoner
   (show-reasoning [rsnr ont]
-    (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-text-debug)]
-      (rsn/consistent? ont))))
+    (log/info "Reasoner:" (type rsnr))
+    (.precomputeInferences rsnr InferenceType/CLASS_HIERARCHY)))
+
+    ;(binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-text-debug)]
+    ;  (rsn/consistent? ont))))
 
 
 

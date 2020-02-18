@@ -5,6 +5,7 @@
             :url "https://spdx.org/licenses/BSD-3-Clause.html"}
   :main say.core
   :aot [weka.filters.unsupervised.attribute.TweetToGenderFeatures]
+  :java-source-paths ["java/src"]
   :plugins [[lein-localrepo "0.5.4"]]
   :dependencies [[org.clojure/clojure                   "1.10.1"]
                  [org.erlang.otp/jinterface             "1.9.1"]

@@ -15,7 +15,6 @@ pom.xml.asc
 .settings/
 bin/
 config/*.config
-java/
 resources/emo-sa/*.*.arff
 resources/emo-sa/*.csv
 resources/emo-sa/*.edn
