@@ -567,7 +567,7 @@
   org.semanticweb.HermiT.Reasoner
   (show-reasoning [rsnr ont]
     (log/info "Reasoner:" (type rsnr))
-    (.precomputeInferences rsnr InferenceType/CLASS_HIERARCHY)))
+    (.precomputeInferences rsnr (into-array InferenceType [InferenceType/CLASS_HIERARCHY]))))
 
     ;(binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-text-debug)]
     ;  (rsn/consistent? ont))))
