@@ -33,8 +33,7 @@
             [org.semanticweb.HermiT Configuration
                                     Configuration$TableauMonitorType
                                     Reasoner]
-            [org.semanticweb.HermiT.monitor ;CountingMonitor
-                                            Timer]
+            [org.semanticweb.HermiT.monitor CountingMonitor Timer]  ; TODO: Decide and then remove one of these
             [org.semanticweb.owlapi.reasoner InferenceType]
             [weka.core DenseInstance
                        Instance
@@ -551,10 +550,32 @@
 
   (make-reasoner [rsnr ont]
     (let [cfg (Configuration.)
-          mon (Timer. System/out)]
-      ;; FIXME: the tableauMonitorType field seems to be final w/ a value of NONE
-      ;;        even though the source on github doesn't reflect this.
+          mon (proxy [CountingMonitor] []
 
+                (isSatisfiableStarted [task]
+                  (log/info "Checking" (str task))
+                  (proxy-super isSatisfiableStarted task))
+
+                (saturateStarted []
+                  ;(log/debug "Saturate started")
+                  (proxy-super saturateStarted))
+
+                (nodeCreated [node]
+                  ;(log/debug "Node:" (str node "/" (.getTreeDepth node)))
+                  (proxy-super nodeCreated node))
+
+                (addFactStarted [tuple core?]
+                  (log/debug "Fact:" (when core? "CORE"))
+                  (doseq [elm (seq tuple)]
+                     (log/info "-" elm))
+                  (proxy-super addFactStarted tuple core?))
+
+                (backtrackToFinished [branch]
+                  (log/debug "Backtracking<" (.getLevel branch) ">")
+                  (proxy-super backtrackToFinished branch))
+                )]
+      ;; We don't need to set the monitor type if we're attaching our own monitor
+      ;(set! (.-tableauMonitorType cfg) Configuration$TableauMonitorType/TIMING)
       (set! (.-monitor cfg) mon)
       (Reasoner. cfg ont)))
 
