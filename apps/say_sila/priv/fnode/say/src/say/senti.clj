@@ -34,7 +34,8 @@
                                     Configuration$TableauMonitorType
                                     Prefixes
                                     Reasoner]
-            [org.semanticweb.HermiT.monitor CountingMonitor Timer]  ; TODO: Decide and then remove one of these
+            [org.semanticweb.HermiT.monitor  TableauMonitorAdapter]
+            [org.semanticweb.HermiT.tableau  Tableau]
             [org.semanticweb.owlapi.reasoner InferenceType]
             [weka.core DenseInstance
                        Instance
@@ -532,7 +533,7 @@
   [& opts]
   ;; FIXME: Move this to say.ontology when stable
   (let [tableau  (atom nil)
-        log?     (atom 25)
+        log?     (atom 30)
         log      #(when (pos? @log?) (apply println %&))
         prefixes (reduce
                    (fn [^Prefixes ps [tag iri]]
@@ -540,7 +541,9 @@
                      ps)
                    (Prefixes.)
                    (merge PREFIXES Prefixes/s_semanticWebPrefixes))]
-    (proxy [CountingMonitor] []
+    ;; TODO: If we proixy TableauMonitorAdapter (rather than CountingMonitor),
+    ;;       then remove the proxy-super calls to clean up the reflection warnings.
+    (proxy [TableauMonitorAdapter] []
 
           (setTableau [tbl]
             ;; Our parent class keeps a protected copy.  Use that if we convert to gen-class
@@ -578,22 +581,23 @@
             (proxy-super dlClauseMatchedStarted clause ndx))
 
           (startNextBranchingPointStarted [branch]
-            (log "Branch Point" (.getLevel branch) ">")
-            (when-let [tbl @tableau]
-              (let [dsj (.getFirstUnprocessedGroundDisjunction tbl)]
-                (log (.toString dsj prefixes))))
+            (when-let [tbl ^Tableau @tableau]
+              (let [lvl (.getLevel branch)
+                    dsj (.getFirstUnprocessedGroundDisjunction tbl)]
+                (log (log/<> "BP" lvl)
+                     (.toString dsj prefixes))))
             (swap! log? dec)
             (proxy-super startNextBranchingPointStarted branch))
 
           (pushBranchingPointStarted [branch]
-            (log "Push branch point" (.getLevel branch) ">")
+           ;(log "Push branch point" (.getLevel branch) ">")
            ;(when-let [tbl @tableau]
            ;  (
            ;  )
             (proxy-super pushBranchingPointStarted branch))
 
           (backtrackToFinished [branch]
-            (log "Backtracking<" (.getLevel branch) ">")
+            ;(log "Backtracking<" (.getLevel branch) ">")
             (proxy-super backtrackToFinished branch)))))
 
 
