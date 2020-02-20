@@ -532,15 +532,17 @@
   "Creates a custom monitor for a HemiT reasoner."
   [& opts]
   ;; FIXME: Move this to say.ontology when stable
-  (let [tableau  (atom nil)
-        log?     (atom 30)
-        log      #(when (pos? @log?) (apply println %&))
-        prefixes (reduce
-                   (fn [^Prefixes ps [tag iri]]
-                     (.declarePrefix ps tag iri)
-                     ps)
-                   (Prefixes.)
-                   (merge PREFIXES Prefixes/s_semanticWebPrefixes))]
+  (let [tableau   (atom nil)
+        log-limit (agent 200)
+        log       #(when (pos? @log-limit)
+                     (apply println %&)
+                     (send log-limit dec))
+        prefixes  (reduce
+                    (fn [^Prefixes ps [tag iri]]
+                      (.declarePrefix ps tag iri)
+                      ps)
+                    (Prefixes.)
+                    (merge PREFIXES Prefixes/s_semanticWebPrefixes))]
     ;; TODO: If we proixy TableauMonitorAdapter (rather than CountingMonitor),
     ;;       then remove the proxy-super calls to clean up the reflection warnings.
     (proxy [TableauMonitorAdapter] []
@@ -558,7 +560,7 @@
           (isSatisfiableFinished [task result]
             (log (if result "YES" "NO"))
             ;; Turn off after ABox!
-            (reset! log? 0)
+            (send log-limit (fn [_] 0))
             (proxy-super isSatisfiableFinished task result))
 
           (saturateStarted []
@@ -581,19 +583,15 @@
             (proxy-super dlClauseMatchedStarted clause ndx))
 
           (startNextBranchingPointStarted [branch]
-            (when-let [tbl ^Tableau @tableau]
-              (let [lvl (.getLevel branch)
-                    dsj (.getFirstUnprocessedGroundDisjunction tbl)]
-                (log (log/<> "BP" lvl)
-                     (.toString dsj prefixes))))
-            (swap! log? dec)
+            ; NOTE: This method is called for our POS punned individuals, but not the Text & Tokens
+            ;(log "Branch point")
             (proxy-super startNextBranchingPointStarted branch))
 
           (pushBranchingPointStarted [branch]
-           ;(log "Push branch point" (.getLevel branch) ">")
-           ;(when-let [tbl @tableau]
-           ;  (
-           ;  )
+            (when-let [^Tableau tbl (and branch @tableau)]
+              (when-let [dsj (.getFirstUnprocessedGroundDisjunction tbl)]
+                (log (log/<> "bp" (.getLevel branch))
+                     (.toString dsj prefixes))))
             (proxy-super pushBranchingPointStarted branch))
 
           (backtrackToFinished [branch]
