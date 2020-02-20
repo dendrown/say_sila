@@ -32,6 +32,7 @@
   (:import  [net.dendrown.uqam.hermit ConfigTools]                  ; TODO: Move HermiT to say.ontology
             [org.semanticweb.HermiT Configuration
                                     Configuration$TableauMonitorType
+                                    Prefixes
                                     Reasoner]
             [org.semanticweb.HermiT.monitor CountingMonitor Timer]  ; TODO: Decide and then remove one of these
             [org.semanticweb.owlapi.reasoner InferenceType]
@@ -72,7 +73,8 @@
                                              ; 2-grams: "be up" "build up" "come back"
                                              }})
 
-
+(def ^:const PREFIXES   {"senti:"   ONT-IRI
+                         "pos:"     pos/ONT-IRI})
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
@@ -519,10 +521,80 @@
     (fn [rule xmps]
       (dll/write-pn-config :base     "say-senti"
                            :rule     rule
-                           :prefixes {"senti" "http://www.dendrown.net/uqam/say-senti.owl#"
-                                      "scr"   (make-scr-iri rule)}
+                           :prefixes (merge PREFIXES {"scr" (make-scr-iri rule)})
                            :examples (pn-examples rule "scr" xmps)))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn make-monitor
+  "Creates a custom monitor for a HemiT reasoner."
+  [& opts]
+  ;; FIXME: Move this to say.ontology when stable
+  (let [tableau  (atom nil)
+        log?     (atom 25)
+        log      #(when (pos? @log?) (apply println %&))
+        prefixes (reduce
+                   (fn [^Prefixes ps [tag iri]]
+                     (.declarePrefix ps tag iri)
+                     ps)
+                   (Prefixes.)
+                   (merge PREFIXES Prefixes/s_semanticWebPrefixes))]
+    (proxy [CountingMonitor] []
+
+          (setTableau [tbl]
+            ;; Our parent class keeps a protected copy.  Use that if we convert to gen-class
+            (log "Tableau:" (str tbl))
+            (reset! tableau tbl)
+            (proxy-super setTableau tbl))
+
+          (isSatisfiableStarted [task]
+            (log "Checking" (str task))
+            (proxy-super isSatisfiableStarted task))
+
+          (isSatisfiableFinished [task result]
+            (log (if result "YES" "NO"))
+            ;; Turn off after ABox!
+            (reset! log? 0)
+            (proxy-super isSatisfiableFinished task result))
+
+          (saturateStarted []
+            ;(log "Saturate started")
+            (proxy-super saturateStarted))
+
+          (nodeCreated [node]
+            ;(log "Node:" (str node "/" (.getTreeDepth node)))
+            (proxy-super nodeCreated node))
+
+          (addFactStarted [tuple core?]
+            ;(log "Fact:" (when core? "[core]") (count tuple))
+            ;(doseq [elm (seq tuple)]
+            ;  (log "-" (str elm)))
+            ;(swap! log? dec)
+            (proxy-super addFactStarted tuple core?))
+
+          (dlClauseMatchedStarted [clause ndx]
+            ;(log (str "DL clause<"  ndx ">\n" clause))
+            (proxy-super dlClauseMatchedStarted clause ndx))
+
+          (startNextBranchingPointStarted [branch]
+            (log "Branch Point" (.getLevel branch) ">")
+            (when-let [tbl @tableau]
+              (let [dsj (.getFirstUnprocessedGroundDisjunction tbl)]
+                (log (.toString dsj prefixes))))
+            (swap! log? dec)
+            (proxy-super startNextBranchingPointStarted branch))
+
+          (pushBranchingPointStarted [branch]
+            (log "Push branch point" (.getLevel branch) ">")
+           ;(when-let [tbl @tableau]
+           ;  (
+           ;  )
+            (proxy-super pushBranchingPointStarted branch))
+
+          (backtrackToFinished [branch]
+            (log "Backtracking<" (.getLevel branch) ">")
+            (proxy-super backtrackToFinished branch)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -550,30 +622,7 @@
 
   (make-reasoner [rsnr ont]
     (let [cfg (Configuration.)
-          mon (proxy [CountingMonitor] []
-
-                (isSatisfiableStarted [task]
-                  (log/info "Checking" (str task))
-                  (proxy-super isSatisfiableStarted task))
-
-                (saturateStarted []
-                  ;(log/debug "Saturate started")
-                  (proxy-super saturateStarted))
-
-                (nodeCreated [node]
-                  ;(log/debug "Node:" (str node "/" (.getTreeDepth node)))
-                  (proxy-super nodeCreated node))
-
-                (addFactStarted [tuple core?]
-                  (log/debug "Fact:" (when core? "CORE"))
-                  (doseq [elm (seq tuple)]
-                     (log/info "-" elm))
-                  (proxy-super addFactStarted tuple core?))
-
-                (backtrackToFinished [branch]
-                  (log/debug "Backtracking<" (.getLevel branch) ">")
-                  (proxy-super backtrackToFinished branch))
-                )]
+          mon (make-monitor)]
       ;; We don't need to set the monitor type if we're attaching our own monitor
       ;(set! (.-tableauMonitorType cfg) Configuration$TableauMonitorType/TIMING)
       (set! (.-monitor cfg) mon)
@@ -581,14 +630,14 @@
 
 
   (show-reasoning [rsnr ont]
-    ;; FIXME: We want to call make-reasoner
     (show-reasoning (make-reasoner rsnr ont) ont))
 
 
   org.semanticweb.HermiT.Reasoner
   (show-reasoning [rsnr ont]
     (log/info "Reasoner:" (type rsnr))
-    (.precomputeInferences rsnr (into-array InferenceType [InferenceType/CLASS_HIERARCHY]))))
+    (.precomputeInferences rsnr (into-array InferenceType [InferenceType/CLASS_HIERARCHY]))
+    rsnr))
 
     ;(binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-text-debug)]
     ;  (rsn/consistent? ont))))
