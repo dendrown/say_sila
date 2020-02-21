@@ -34,8 +34,9 @@
                                     Configuration$TableauMonitorType
                                     Prefixes
                                     Reasoner]
-            [org.semanticweb.HermiT.monitor  TableauMonitorAdapter]
-            [org.semanticweb.HermiT.tableau  Tableau]
+            [org.semanticweb.HermiT.monitor TableauMonitorAdapter]
+            [org.semanticweb.HermiT.tableau BranchingPoint
+                                            Tableau]
             [org.semanticweb.owlapi.reasoner InferenceType]
             [weka.core DenseInstance
                        Instance
@@ -60,7 +61,7 @@
 (def ^:const COL-TEXT   1)
 
 (def ^:const TWEET-TAG      "t")        ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES   100000)     ; FIXME: use a subset until we get everything squared away
+(def ^:const NUM-EXAMPLES   10)         ; FIXME: use a subset until we get everything squared away
 
 (def ^:const EXPRESSIONS    {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
                                               "resolve" "soothe" "subside" "waive"}
@@ -322,7 +323,7 @@
   (update-kv-values
     @SCR-Ontologies
     (fn [rule ont]
-      (let [fpath (str ONT-FSTUB "-" rule ".owl")]
+      (let [fpath (str ONT-FSTUB "-" (name rule) ".owl")]
         (save-ontology ont fpath :owl)
         fpath))))
 
@@ -398,9 +399,9 @@
 
                         ;; NOTE: we're dropping Texts that don't match an SCR
                         (when-not (empty? rules)
-                          ;; Add this example for all rules that it covers.
+                          ;; Add this example for the full set and for all rules that it covers.
                           (update-values acc
-                                         (apply set/union rules)
+                                         (apply set/union #{dset} rules)
                                          #(conj % {:id       id
                                                    :polarity (polarize inst)
                                                    :pos-tags (map first pairs)
@@ -533,6 +534,7 @@
   [& opts]
   ;; FIXME: Move this to say.ontology when stable
   (let [tableau   (atom nil)
+        start-ms  (atom 0)
         log-limit (agent 200)
         log       #(when (pos? @log-limit)
                      (apply println %&)
@@ -543,6 +545,10 @@
                       ps)
                     (Prefixes.)
                     (merge PREFIXES Prefixes/s_semanticWebPrefixes))]
+
+    ;; The local logger uses println, so sync first with the main logger
+    (await log/Logger)
+
     ;; TODO: If we proixy TableauMonitorAdapter (rather than CountingMonitor),
     ;;       then remove the proxy-super calls to clean up the reflection warnings.
     (proxy [TableauMonitorAdapter] []
@@ -550,53 +556,49 @@
           (setTableau [tbl]
             ;; Our parent class keeps a protected copy.  Use that if we convert to gen-class
             (log "Tableau:" (str tbl))
-            (reset! tableau tbl)
-            (proxy-super setTableau tbl))
+            (reset! tableau tbl))
 
           (isSatisfiableStarted [task]
-            (log "Checking" (str task))
-            (proxy-super isSatisfiableStarted task))
+            (let [descr (str task)]
+              (log "Checking" descr)
+              ;; We need to check the timing for ABox satisfiability (consistency)
+              (when (str/starts-with? descr "ABox")
+                (reset! start-ms (System/currentTimeMillis)))))
 
           (isSatisfiableFinished [task result]
             (log (if result "YES" "NO"))
             ;; Turn off after ABox!
-            (send log-limit (fn [_] 0))
-            (proxy-super isSatisfiableFinished task result))
+            (when (str/starts-with? (str task) "ABox")
+              (println "ABox satisfiability checked in" (- (System/currentTimeMillis) @start-ms) "ms")
+              (send log-limit (fn [_] 0))))
 
           (saturateStarted []
-            ;(log "Saturate started")
-            (proxy-super saturateStarted))
+            (comment (log "Saturate started")))
 
           (nodeCreated [node]
-            ;(log "Node:" (str node "/" (.getTreeDepth node)))
-            (proxy-super nodeCreated node))
+            (comment (log "Node:" (str node "/" (.getTreeDepth node)))))
 
           (addFactStarted [tuple core?]
-            ;(log "Fact:" (when core? "[core]") (count tuple))
-            ;(doseq [elm (seq tuple)]
-            ;  (log "-" (str elm)))
-            ;(swap! log? dec)
-            (proxy-super addFactStarted tuple core?))
+            (comment
+              (log "Fact:" (when core? "[core]") (count tuple))
+              (doseq [elm (seq tuple)]
+                (log "-" (str elm)))))
 
           (dlClauseMatchedStarted [clause ndx]
-            ;(log (str "DL clause<"  ndx ">\n" clause))
-            (proxy-super dlClauseMatchedStarted clause ndx))
+            (comment (log (str "DL clause<"  ndx ">\n" clause))))
 
           (startNextBranchingPointStarted [branch]
             ; NOTE: This method is called for our POS punned individuals, but not the Text & Tokens
-            ;(log "Branch point")
-            (proxy-super startNextBranchingPointStarted branch))
+            (comment (log "Branch point")))
 
-          (pushBranchingPointStarted [branch]
+          (pushBranchingPointStarted [^BranchingPoint branch]
             (when-let [^Tableau tbl (and branch @tableau)]
               (when-let [dsj (.getFirstUnprocessedGroundDisjunction tbl)]
                 (log (log/<> "bp" (.getLevel branch))
-                     (.toString dsj prefixes))))
-            (proxy-super pushBranchingPointStarted branch))
+                     (.toString dsj prefixes)))))
 
           (backtrackToFinished [branch]
-            ;(log "Backtracking<" (.getLevel branch) ">")
-            (proxy-super backtrackToFinished branch)))))
+            (comment (log "Backtracking<" (.getLevel branch) ">"))))))
 
 
 ;;; --------------------------------------------------------------------------
