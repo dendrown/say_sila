@@ -61,8 +61,6 @@
 (def ^:const COL-TEXT   1)
 
 (def ^:const TWEET-TAG      "t")        ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const NUM-EXAMPLES   10)         ; FIXME: use a subset until we get everything squared away
-
 (def ^:const EXPRESSIONS    {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
                                               "resolve" "soothe" "subside" "waive"}
 
@@ -83,6 +81,7 @@
 (def ^:const IMPORT?    false)
 (def ^:const POS-NEG?   false)
 
+(defonce Num-Examples   (atom 100))     ; Use a subset until we get everything squared away
 (defonce SCR-Examples   (atom {}))
 (defonce SCR-Ontologies (atom {}))
 
@@ -140,10 +139,10 @@
     :comment "An Information Object consisting of text.")
 
   ; TODO: Differentiate between Punctuation as an Information Object and a "Part of Speech" Quality
-  (defclass Punctuation
-    :label   "Punctuation"
-    :comment (str "An Information Object representing a grammatical symbol to organize and"
-                  "aid the understanding of written text."))
+  ;(defclass Punctuation
+  ;  :label   "Punctuation"
+  ;  :comment (str "An Information Object representing a grammatical symbol to organize and"
+  ;                "aid the understanding of written text."))
 
   (defclass Term
     ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
@@ -151,7 +150,7 @@
     :comment "An Information Object representing a syntactic unit of meaning, such as a word."))
 
 (defcopy pos/Token)
-(refine Token :equivalent (dl/or Term Punctuation))
+(refine Token :equivalent Term) ;(dl/or Term Punctuation))
 
 ;; DL-Learner isn't handling Pos/Neg Text subclasses well
 (when POS-NEG?
@@ -219,6 +218,14 @@
   :label    "has Polarity"
   :domain   dul/InformationObject
   :range    SentimentPolarity)
+
+
+;;; --------------------------------------------------------------------------
+(defn set-num-examples!
+  "Defines the number of examples we should use from the source tweet data."
+  [n]
+  (reset! Num-Examples n))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -466,8 +473,8 @@
     ;; Process the CSV, separating the sentiment sources
     (with-open [rdr (io/reader fpath)]
       (let [[_ & dlines] (csv/read-csv rdr)]
-         ;; FIXME: use a subset until we get everything squared away
-         (doseq [line (take NUM-EXAMPLES dlines)]
+         ;; TODO use a subset until we get everything squared away
+         (doseq [line (take @Num-Examples dlines)]
            (data+ line))))
 
     ;; Save the ARFFs to disk and return the result info in a map
@@ -535,7 +542,8 @@
   ;; FIXME: Move this to say.ontology when stable
   (let [tableau   (atom nil)
         start-ms  (atom 0)
-        log-limit (agent 200)
+        forms     (agent {})
+        log-limit (agent 2000)
         log       #(when (pos? @log-limit)
                      (apply println %&)
                      (send log-limit dec))
@@ -567,10 +575,15 @@
 
           (isSatisfiableFinished [task result]
             (log (if result "YES" "NO"))
-            ;; Turn off after ABox!
+            ;; Turn off logger after ABox!
             (when (str/starts-with? (str task) "ABox")
-              (println "ABox satisfiability checked in" (- (System/currentTimeMillis) @start-ms) "ms")
-              (send log-limit (fn [_] 0))))
+              (send log-limit (fn [_] 0))
+              (await forms)
+              (let [fcnts @forms]
+                (println "ABox satisfiability checked in" (- (System/currentTimeMillis) @start-ms) "ms")
+                (println "Checks on individuals:")
+                (pprint fcnts)
+                (println "TOTAL:" (reduce + 0 (vals fcnts))))))
 
           (saturateStarted []
             (comment (log "Saturate started")))
@@ -587,15 +600,20 @@
           (dlClauseMatchedStarted [clause ndx]
             (comment (log (str "DL clause<"  ndx ">\n" clause))))
 
-          (startNextBranchingPointStarted [branch]
+          (startNextBranchingPointStarted [^BranchingPoint branch]
             ; NOTE: This method is called for our POS punned individuals, but not the Text & Tokens
-            (comment (log "Branch point")))
+            (comment (log "Branch point<" (.getLevel branch) ">")))
 
           (pushBranchingPointStarted [^BranchingPoint branch]
             (when-let [^Tableau tbl (and branch @tableau)]
               (when-let [dsj (.getFirstUnprocessedGroundDisjunction tbl)]
-                (log (log/<> "bp" (.getLevel branch))
-                     (.toString dsj prefixes)))))
+                (let [form (.toString dsj prefixes)]
+                  (send forms
+                        #(let [[lvar _] (str/split %2 #"\(" 2)      ; Strip the node ID from the logical var
+                               cnt      (get %1 lvar 0)]            ; How many times have we seen this variable?
+                           (assoc %1 lvar (inc cnt)))
+                        form)
+                  (log (log/<> "bp" (.getLevel branch)) form)))))
 
           (backtrackToFinished [branch]
             (comment (log "Backtracking<" (.getLevel branch) ">"))))))
@@ -627,7 +645,7 @@
   (make-reasoner [rsnr ont]
     (let [cfg (Configuration.)
           mon (make-monitor)]
-      ;; We don't need to set the monitor type if we're attaching our own monitor
+      ;; If we set the monitor type, it's an additional monitor to the custom one we're attaching
       ;(set! (.-tableauMonitorType cfg) Configuration$TableauMonitorType/TIMING)
       (set! (.-monitor cfg) mon)
       (Reasoner. cfg ont)))

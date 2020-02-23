@@ -168,6 +168,15 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro uncomment
+  "Allows for easy debugging, going from (comment ...) to (uncomment ...)
+   and back as required during development."
+  [& args]
+  `(do ~@args))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn update-keys
   "Maps the specified function across all the elements in a hashmap, updating
   the keys with the value returned by the passed funtion.  This fuction is of
