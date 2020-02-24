@@ -232,7 +232,7 @@
 (defn make-scr-iri
   "Creates a (String) IRI for the specified Sentiment Composition Rule (SCR)."
   [rule]
-  (str ONT-ISTUB "-" rule ".owl#"))
+  (str ONT-ISTUB "-" (name rule) ".owl#"))
 
 
 
@@ -241,13 +241,14 @@
   "Creates a version (copy) of the say-senti ontology, intended to include
   individuals expressing the specified Sentiment Composition Rule (SCR)"
   [rule]
-  (let [prefix #(apply str % "-" rule %&)]
+  (let [scr    (name rule)
+        prefix #(apply str % "-" scr %&)]
     (ontology
       :tawny.owl/name (prefix "say-senti")
-      :iri     (make-scr-iri rule)
+      :iri     (make-scr-iri scr)
       :prefix  (prefix "scr")
       :import  say-senti
-      :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " rule))))
+      :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))))
 
 
 
