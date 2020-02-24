@@ -77,11 +77,22 @@
                          "pos:"     pos/ONT-IRI})
 
 ;;; --------------------------------------------------------------------------
+;; FIXME: Debugging, remove this soon!
+(defonce ITs    (into-array [InferenceType/CLASS_HIERARCHY
+                             InferenceType/CLASS_ASSERTIONS
+                             InferenceType/OBJECT_PROPERTY_HIERARCHY
+                             InferenceType/DATA_PROPERTY_HIERARCHY
+                             InferenceType/OBJECT_PROPERTY_ASSERTIONS
+                             InferenceType/DATA_PROPERTY_ASSERTIONS
+                             InferenceType/SAME_INDIVIDUAL]))
+
+
+;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
 (def ^:const IMPORT?    false)
 (def ^:const POS-NEG?   false)
 
-(defonce Num-Examples   (atom 5000))    ; Use a subset until we get everything squared away
+(defonce Num-Examples   (atom 1000))    ; Use a subset until we get everything squared away
 (defonce SCR-Examples   (atom {}))
 (defonce SCR-Ontologies (atom {}))
 
