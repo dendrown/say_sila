@@ -81,7 +81,7 @@
 (def ^:const IMPORT?    false)
 (def ^:const POS-NEG?   false)
 
-(defonce Num-Examples   (atom 100))     ; Use a subset until we get everything squared away
+(defonce Num-Examples   (atom 5000))    ; Use a subset until we get everything squared away
 (defonce SCR-Examples   (atom {}))
 (defonce SCR-Ontologies (atom {}))
 
@@ -607,13 +607,15 @@
           (pushBranchingPointStarted [^BranchingPoint branch]
             (when-let [^Tableau tbl (and branch @tableau)]
               (when-let [dsj (.getFirstUnprocessedGroundDisjunction tbl)]
-                (let [form (.toString dsj prefixes)]
+                (let [form      (.toString dsj prefixes)
+                      [lvar _]  (str/split form #"\(" 2)]           ; Strip the node ID from the logical var
+                  ;; First time? log the var as a sample!
+                  (when-not (get @forms lvar)
+                    (log (log/<> "bp" (.getLevel branch)) form))
+                  ;; Keep counts for logical vars
                   (send forms
-                        #(let [[lvar _] (str/split %2 #"\(" 2)      ; Strip the node ID from the logical var
-                               cnt      (get %1 lvar 0)]            ; How many times have we seen this variable?
-                           (assoc %1 lvar (inc cnt)))
-                        form)
-                  (log (log/<> "bp" (.getLevel branch)) form)))))
+                        #(let [cnt (get % lvar 0)]                 ; How many times have we seen this variable?
+                           (assoc % lvar (inc cnt))))))))
 
           (backtrackToFinished [branch]
             (comment (log "Backtracking<" (.getLevel branch) ">"))))))

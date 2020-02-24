@@ -76,7 +76,7 @@
   "Creates a DL-Learner configuration file from the specified config map."
   [& {:keys [base rule prefixes examples]}]
   ;; Most of the config is in the base.  We need to add the p/n examples.
-  (let [fname       (str base "-" rule)
+  (let [fname       (str base "-" (name rule))
         fpath       (make-config-fpath fname)
         [head body] (map #(slurp (str DLL-DIR base "." (name %) ".conf"))
                          [:head :body])]
