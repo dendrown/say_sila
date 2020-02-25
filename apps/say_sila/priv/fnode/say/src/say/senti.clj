@@ -76,6 +76,9 @@
 (def ^:const PREFIXES   {"senti:"   ONT-IRI
                          "pos:"     pos/ONT-IRI})
 
+(def ^:const IGNORE-POS #{","})
+
+
 ;;; --------------------------------------------------------------------------
 ;; FIXME: Debugging, remove this soon!
 (defonce ITs    (into-array [InferenceType/CLASS_HIERARCHY
@@ -301,19 +304,20 @@
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
         (fn [info [tag rules]]
-          (let [cnt  (:cnt info)
-                ttid (str tid "-" cnt)
-                curr (individual ont ttid
-                                 :type  Token
-                                 :label (str ttid " (" tag ")"))]
+          ;; Get the Part of Speech for the tag reported by Weka
+          (if-let [pos (and (not (contains? IGNORE-POS tag))
+                            (pos/lookup# tag))]
 
-            ;; Link Token to the original Text
-            (refine ont text :fact (is dul/hasComponent curr))
+            ;; Set up an individual for this Token
+            (let [cnt  (:cnt info)
+                  ttid (str tid "-" cnt)
+                  curr (individual ont ttid
+                                   :type  Token
+                                   :label (str ttid " (" tag ")"))]
 
-            ;; Set POS Quality
-            (if-let [pos (pos/lookup# tag)]
+              ;; Link Token to the original Text and set POS Quality
+              (refine ont text :fact (is dul/hasComponent curr))
               (refine ont curr :fact (is pos/isPartOfSpeech pos))
-              (log/fmt-warn "No POS tag '~a': id[~]" tag ttid))
 
             ;; Link tokens to each other
             (when-let [prev (:prev info)]
@@ -326,7 +330,11 @@
               (express curr rule))
 
             ;; Continue the reduction
-            {:cnt (inc cnt), :prev curr}))
+            {:cnt (inc cnt), :prev curr})
+
+            ;; Ignored/invalid Part of Speech tag
+            (do ;(log/fmt-debug "Ignoring POS tag '~a'" tag)
+                info)))
 
         {:cnt 1}
         (zip pos-tags rules)))))
