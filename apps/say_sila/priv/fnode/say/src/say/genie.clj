@@ -70,6 +70,25 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn fizzbuzz
+  "There is no good reason to have this here..."
+  ([]
+  (fizzbuzz 100))
+
+  ([n & {:as wordmap}]
+  (let [gen    #(fn [i] (when (zero? (rem i %1)) (name %2)))
+        funs    (map (fn [[word i]] (gen i word))
+                     (merge {:fizz 3,
+                             :buzz 5}
+                            wordmap))
+        ->words (fn [i] (apply str (map #(% i) funs)))]
+    (apply println
+           (map #(if-let [word (not-empty (->words %))] word %)
+                 (range 1 (inc n)))))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defmacro jcall
   "Sorta-kinda-not-really similar to apply, but works for java static methods
   with zero or more normal parameters and a series of parameters that involve
