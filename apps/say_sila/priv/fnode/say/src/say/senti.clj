@@ -118,15 +118,17 @@
     (refine dul/SocialObject        :super dul/Objekt)
     (refine dul/Concept             :super dul/SocialObject)
 
-    (defcopy dul/associatedWith)
+   ;(defcopy dul/associatedWith)
+    (defcopy dul/expresses)         ; Do we want isExpressedBy ?
+    (refine dul/expresses)
+
     (as-inverse
       (defcopy dul/precedes)
       (defcopy dul/follows))
 
-    (doseq [op [dul/expresses               ; Do we want isExpressedBy ?
-                dul/precedes
+    (doseq [op [dul/precedes
                 dul/follows]]
-      (refine op :super dul/associatedWith
+      (refine op ;:super dul/associatedWith
                  :characteristic :transitive))
 
     (as-inverse
@@ -137,7 +139,8 @@
 
 
     (defcopy dul/hasPart)
-    (refine dul/hasPart :super dul/associatedWith :characteristic :transitive)
+    (refine dul/hasPart ;:super dul/associatedWith
+                        :characteristic :transitive)
 
     (defcopy dul/hasComponent)
     (refine dul/hasComponent :super dul/hasPart)))
@@ -641,6 +644,7 @@
             (comment (log "Backtracking<" (.getLevel branch) ">"))))))
 
 
+
 ;;; --------------------------------------------------------------------------
 (defprotocol Reasoning
   "Look into exactly what is going on during reasoning."
@@ -688,8 +692,6 @@
 
 
 
-
-
 ;;; --------------------------------------------------------------------------
 (defn reason
   "Runs the specified OWL reasoner on (a) say-senti ontology."
@@ -701,3 +703,23 @@
 
   ([rkey ont]
   (show-reasoning rkey ont)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn run-timings
+  "Performs timing checks for an ontology (defaults to :Sentiment140)."
+  ([]
+  (run-timings :Sentiment140))
+
+  ([tag]
+  (if-let[ont (get @SCR-Ontologies tag)]
+
+    ;; Right now, we're just testing with HermiT.
+    (let [rsnr (make-reasoner :hermit ont)]
+      (map #(do (print (str %) ":")
+                (time (.precomputeInferences rsnr (into-array [%]))))
+           ITs))
+
+    ;; Oops, someone skipped a step!
+    (println "Please execute 'run' to create the ontologies"))))
