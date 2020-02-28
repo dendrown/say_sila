@@ -94,6 +94,17 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro redefcopy
+  "Recreates an OWL object from another Tawny-OWL (ontology) namespace in the
+  current (ontology) namespace.  You generally need this instead of defcopy
+  if you have no need to refine the object after copying it."
+  [obj]
+  `(do (defcopy ~obj)
+       (refine  ~obj)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defmacro defpun
   "Creates an individual with the same IRI as the specified class.  The class
   must already exist and the variable representing the individual is prepended

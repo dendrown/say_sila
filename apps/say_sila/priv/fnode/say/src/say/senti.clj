@@ -81,18 +81,18 @@
 
 ;;; --------------------------------------------------------------------------
 ;; FIXME: Debugging, remove this soon!
-(defonce ITs    (into-array [InferenceType/CLASS_HIERARCHY
-                             InferenceType/CLASS_ASSERTIONS
-                             InferenceType/OBJECT_PROPERTY_HIERARCHY
-                             InferenceType/DATA_PROPERTY_HIERARCHY
-                             InferenceType/OBJECT_PROPERTY_ASSERTIONS
-                             InferenceType/DATA_PROPERTY_ASSERTIONS
-                             InferenceType/SAME_INDIVIDUAL]))
+(defonce Inferences (into-array [InferenceType/CLASS_HIERARCHY
+                                 InferenceType/CLASS_ASSERTIONS
+                                 InferenceType/OBJECT_PROPERTY_HIERARCHY
+                                 InferenceType/DATA_PROPERTY_HIERARCHY
+                                 InferenceType/OBJECT_PROPERTY_ASSERTIONS
+                                 InferenceType/DATA_PROPERTY_ASSERTIONS
+                                 InferenceType/SAME_INDIVIDUAL]))
 
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const IMPORT?    false)
+(def ^:const DUL-ACCESS :hierarchy)     ; #{:import :hierarchy :minimal}
 (def ^:const POS-NEG?   false)
 
 (defonce Num-Examples   (atom 1000))    ; Use a subset until we get everything squared away
@@ -107,29 +107,18 @@
   :comment "Ontology for training sentiment models.")
 
 ;; Are we importing the full DUL foundational ontology?
-(if IMPORT?
+(if (= :import DUL-ACCESS)
   (owl-import dul/dul)
-  (do
-    ;; We want a minimal ontology.  Recreate just the parts of DUL that we need.
-    (refine dul/InformationEntity   :super dul/Entity)
-    (refine dul/InformationObject   :super dul/InformationEntity)
+  (let [->trans #(doseq [op %]
+                   (refine op :characteristic :transitive))]
 
-    (refine dul/Objekt              :super dul/Entity)
-    (refine dul/SocialObject        :super dul/Objekt)
-    (refine dul/Concept             :super dul/SocialObject)
-
-   ;(defcopy dul/associatedWith)
-    (defcopy dul/expresses)         ; Do we want isExpressedBy ?
-    (refine dul/expresses)
+    ;; Bring in the bare-bones minimum from DUL
+    (redefcopy dul/expresses)           ; Do we want isExpressedBy?
+    (redefcopy dul/hasComponent)        ; Likewise, isComponentOf?
 
     (as-inverse
       (defcopy dul/precedes)
       (defcopy dul/follows))
-
-    (doseq [op [dul/precedes
-                dul/follows]]
-      (refine op ;:super dul/associatedWith
-                 :characteristic :transitive))
 
     (as-inverse
       (defcopy dul/directlyPrecedes)
@@ -137,13 +126,29 @@
     (refine dul/directlyPrecedes :super dul/precedes)
     (refine dul/directlyFollows  :super dul/follows)
 
+    ;; Mark transitive properties as such. (Likage is transitive, direct linkage is not.)
+    (->trans [precedes
+              follows])
 
-    (defcopy dul/hasPart)
-    (refine dul/hasPart ;:super dul/associatedWith
-                        :characteristic :transitive)
+    ;; Do we want our part of the DUL hierarchy?
+    (when (= :hierarchy DUL-ACCESS)
 
-    (defcopy dul/hasComponent)
-    (refine dul/hasComponent :super dul/hasPart)))
+      (refine dul/InformationEntity   :super dul/Entity)
+      (refine dul/InformationObject   :super dul/InformationEntity)
+
+      (refine dul/Objekt              :super dul/Entity)
+      (refine dul/SocialObject        :super dul/Objekt)
+      (refine dul/Concept             :super dul/SocialObject)
+
+      ;; FIXME: The associatedWith parent property needs to go back into the hierarchy
+      (comment (defcopy dul/associatedWith)
+      (doseq [op [precedes
+                  follows]]
+        (refine op :super dul/associatedWith)))
+
+      (->trans [(redefcopy dul/hasPart)])               ; FIXME: redef
+     ;(refine hasPart      :super dul/associatedWith)   ; FIXME: uncomment
+      (refine hasComponent :super dul/hasPart))))
 
 
 
@@ -719,7 +724,7 @@
     (let [rsnr (make-reasoner :hermit ont)]
       (map #(do (print (str %) ":")
                 (time (.precomputeInferences rsnr (into-array [%]))))
-           ITs))
+           Inferences))
 
     ;; Oops, someone skipped a step!
     (println "Please execute 'run' to create the ontologies"))))
