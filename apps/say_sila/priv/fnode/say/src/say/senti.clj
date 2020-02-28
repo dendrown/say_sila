@@ -92,7 +92,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const DUL-ACCESS :hierarchy)     ; #{:import :hierarchy :minimal}
+(def ^:const DUL-ACCESS :minimal)       ; #{:import :hierarchy :minimal}
 (def ^:const POS-NEG?   false)
 
 (defonce Num-Examples   (atom 1000))    ; Use a subset until we get everything squared away
@@ -545,25 +545,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn run
-  "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
-  [& opts]
-  (when (some #{:arff} opts)
-    (create-arffs))
-
-  (create-scr-examples!)
-  (populate-scr-ontologies!)
-  (save-ontologies)
-  (update-kv-values @SCR-Examples
-    (fn [rule xmps]
-      (dll/write-pn-config :base     "say-senti"
-                           :rule     rule
-                           :prefixes (merge PREFIXES {"scr" (make-scr-iri rule)})
-                           :examples (pn-examples rule "scr" xmps)))))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn make-monitor
   "Creates a custom monitor for a HemiT reasoner."
   [& opts]
@@ -728,3 +709,29 @@
 
     ;; Oops, someone skipped a step!
     (println "Please execute 'run' to create the ontologies"))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn run
+  "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
+  [& opts]
+  ;; We generally need to recreate the ARFF if Num-Examples has been updated
+  (when (some #{:arff} opts)
+    (create-arffs))
+
+  ;; Use ARFF to generate the examples and ontologies
+  (create-scr-examples!)
+  (populate-scr-ontologies!)
+  (save-ontologies)
+  (update-kv-values @SCR-Examples
+    (fn [rule xmps]
+      (dll/write-pn-config :base     "say-senti"
+                           :rule     rule
+                           :prefixes (merge PREFIXES {"scr" (make-scr-iri rule)})
+                           :examples (pn-examples rule "scr" xmps))))
+
+  ;; Do tests if requested
+  (when (some #{:timings} opts)
+    (run-timings)))
+
