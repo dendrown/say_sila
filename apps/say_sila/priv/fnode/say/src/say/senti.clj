@@ -92,7 +92,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const DUL-ACCESS :minimal)       ; #{:import :hierarchy :minimal}
+(def ^:const DUL-ACCESS :hierarchy)     ; #{:import :hierarchy :minimal}
 (def ^:const POS-NEG?   false)
 
 (defonce Num-Examples   (atom 1000))    ; Use a subset until we get everything squared away
@@ -113,9 +113,13 @@
                    (refine op :characteristic :transitive))]
 
     ;; Bring in the bare-bones minimum from DUL
-    (redefcopy dul/expresses)           ; Do we want isExpressedBy?
-    (redefcopy dul/hasComponent)        ; Likewise, isComponentOf?
+    (defcopy dul/expresses)             ; Do we want isExpressedBy?
+    (refine expresses :domain dul/InformationObject :range dul/SocialObject)
 
+    (defcopy dul/hasComponent)          ; Likewise, isComponentOf?
+    (refine hasComponent :domain dul/Entity :range dul/Entity)
+
+    ;; Properties for linking Tokens
     (as-inverse
       (defcopy dul/precedes)
       (defcopy dul/follows))
@@ -125,6 +129,11 @@
       (defcopy dul/directlyFollows))
     (refine dul/directlyPrecedes :super dul/precedes)
     (refine dul/directlyFollows  :super dul/follows)
+
+    (doseq [op [precedes directlyPrecedes
+                follows  directlyFollows]]
+      (refine op :range  dul/Entity
+                 :domain dul/Entity))
 
     ;; Mark transitive properties as such. (Likage is transitive, direct linkage is not.)
     (->trans [precedes
@@ -146,9 +155,9 @@
                   follows]]
         (refine op :super dul/associatedWith)))
 
-      (->trans [(redefcopy dul/hasPart)])               ; FIXME: redef
-     ;(refine hasPart      :super dul/associatedWith)   ; FIXME: uncomment
-      (refine hasComponent :super dul/hasPart))))
+      (->trans [(redefcopy dul/hasPart)])
+      (refine dul/hasPart      :super dul/associatedWith)
+      (refine dul/hasComponent :super dul/hasPart))))
 
 
 
@@ -368,8 +377,9 @@
 (defn save-ontologies
   "Saves the say-senti ontology and all the SCR ontologies in OWL format."
   []
-  (save-ontology say-senti "resources/KB/say-senti.owl" :owl)
-  (save-scr-ontologies))
+  (save-ontology say-senti ONT-FPATH :owl)
+  (merge {:say-senti ONT-FPATH}
+         (save-scr-ontologies)))
 
 
 
