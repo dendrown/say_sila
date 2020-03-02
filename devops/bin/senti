@@ -1,0 +1,18 @@
+#!/bin/bash
+
+ONTOLOGY=say-senti
+CONF=${1}
+WEB_DIR=/srv/www/html/uqam
+SLINK=${ONTOLOGY}.owl
+NEW_ONT=${ONTOLOGY}.${CONF}.owl
+
+echo
+cd $WEB_DIR
+if [ -f $NEW_ONT ]; then
+    echo Using $CONF configuration for $ONTOLOGY
+    echo
+    rm $SLINK
+    ln -s $NEW_ONT $SLINK
+fi
+ls -lh ${ONTOLOGY}*
+cd -
