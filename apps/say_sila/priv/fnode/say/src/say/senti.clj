@@ -80,7 +80,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const DUL-ACCESS :hierarchy)     ; #{:import :hierarchy :minimal}
+(def ^:const DUL-ACCESS :minimal)       ; #{:import :hierarchy :minimal}
 (def ^:const POS-NEG?   false)
 (def ^:const USE-SCR?   false)          ; Model Bing Liu's Sentiment Composition Rules
 
@@ -121,7 +121,15 @@
   (let[dom->rng #(apply refine   % :domain %2 :range %3  %&)
        ent->ent #(apply dom->rng % dul/Entity dul/Entity %&)]
 
+    ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
     (defcopy dul/Entity)
+    (refine dul/InformationEntity   :super dul/Entity)
+    (refine dul/InformationObject   :super dul/InformationEntity)
+
+    (refine dul/Objekt              :super dul/Entity)
+    (refine dul/SocialObject        :super dul/Objekt)
+    (refine dul/Concept             :super dul/SocialObject)
+
     (ent->ent dul/hasComponent)                                         ; Do we want isComponentOf?
     (dom->rng dul/expresses dul/InformationObject dul/SocialObject)     ; Likewise with isExpressedBy?
 
@@ -147,13 +155,6 @@
 
     ;; Do we want our part of the DUL hierarchy?
     (when (= :hierarchy DUL-ACCESS)
-
-      (refine dul/InformationEntity   :super dul/Entity)
-      (refine dul/InformationObject   :super dul/InformationEntity)
-
-      (refine dul/Objekt              :super dul/Entity)
-      (refine dul/SocialObject        :super dul/Objekt)
-      (refine dul/Concept             :super dul/SocialObject)
 
       ;; associatedWith is the top parent property for all DUL object properties
       (ent->ent dul/associatedWith)
