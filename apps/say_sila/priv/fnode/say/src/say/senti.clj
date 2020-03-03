@@ -61,18 +61,6 @@
 (def ^:const COL-TEXT   1)
 
 (def ^:const TWEET-TAG      "t")        ; Tweet individual have this tag plus the ID, e.g., "t42"
-(def ^:const EXPRESSIONS    {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
-                                              "resolve" "soothe" "subside" "waive"}
-
-                             "DECREASE-P"   #{"lack" "lose" "omit" "miss"}
-                             "INCREASE-N"   #{"burst" "climb" "escalate" "intensify"
-                                             ; 2-grams: "go up" "grow" "mark up" "pile up"
-                                             }
-                             "INCREASE-P"   #{"elevate" "enlarge" "expand" "extend" "increase" "progress"
-                                              "raise" "return" "rise" "soar" "surge"
-                                             ; 2-grams: "be up" "build up" "come back"
-                                             }})
-
 (def ^:const PREFIXES   {"senti:"   ONT-IRI
                          "pos:"     pos/ONT-IRI})
 
@@ -94,10 +82,27 @@
 ;;; TODO: we have a number of decisions that are not yet final...
 (def ^:const DUL-ACCESS :hierarchy)     ; #{:import :hierarchy :minimal}
 (def ^:const POS-NEG?   false)
+(def ^:const USE-SCR?   false)          ; Model Bing Liu's Sentiment Composition Rules
 
 (defonce Num-Examples   (atom 1000))    ; Use a subset until we get everything squared away
 (defonce SCR-Examples   (atom {}))
 (defonce SCR-Ontologies (atom {}))
+
+(defonce EXPRESSIONS    (if USE-SCR?
+                            ;; Word sets which invoke Sentiment Composition Rules
+                            {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
+                                              "resolve" "soothe" "subside" "waive"}
+
+                             "DECREASE-P"   #{"lack" "lose" "omit" "miss"}
+                             "INCREASE-N"   #{"burst" "climb" "escalate" "intensify"
+                                             ; 2-grams: "go up" "grow" "mark up" "pile up"
+                                             }
+                             "INCREASE-P"   #{"elevate" "enlarge" "expand" "extend" "increase" "progress"
+                                              "raise" "return" "rise" "soar" "surge"
+                                             ; 2-grams: "be up" "build up" "come back"
+                                             }}
+                            ;; Disable all Rules
+                            {:no-rule        #{}}))
 
 
 ;;; --------------------------------------------------------------------------
@@ -106,18 +111,19 @@
   :prefix  ONT-PREFIX
   :comment "Ontology for training sentiment models.")
 
-;; Are we importing the full DUL foundational ontology?
+;; How are we interfacing with Dolce+DnS Ultralite?
 (if (= :import DUL-ACCESS)
+
+  ;; Import the full DUL foundational ontology
   (owl-import dul/dul)
-  (let [->trans #(doseq [op %]
-                   (refine op :characteristic :transitive))]
 
-    ;; Bring in the bare-bones minimum from DUL
-    (defcopy dul/expresses)             ; Do we want isExpressedBy?
-    (refine expresses :domain dul/InformationObject :range dul/SocialObject)
+  ;; Bring in the bare-bones minimum from DUL
+  (let[dom->rng #(apply refine   % :domain %2 :range %3  %&)
+       ent->ent #(apply dom->rng % dul/Entity dul/Entity %&)]
 
-    (defcopy dul/hasComponent)          ; Likewise, isComponentOf?
-    (refine hasComponent :domain dul/Entity :range dul/Entity)
+    (defcopy dul/Entity)
+    (ent->ent dul/hasComponent)                                         ; Do we want isComponentOf?
+    (dom->rng dul/expresses dul/InformationObject dul/SocialObject)     ; Likewise with isExpressedBy?
 
     ;; Properties for linking Tokens
     (as-inverse
@@ -132,12 +138,12 @@
 
     (doseq [op [precedes directlyPrecedes
                 follows  directlyFollows]]
-      (refine op :range  dul/Entity
-                 :domain dul/Entity))
+      (ent->ent op))
 
     ;; Mark transitive properties as such. (Likage is transitive, direct linkage is not.)
-    (->trans [precedes
-              follows])
+    (doseq [op [precedes
+                follows]]
+      (refine op :characteristic :transitive))
 
     ;; Do we want our part of the DUL hierarchy?
     (when (= :hierarchy DUL-ACCESS)
@@ -149,15 +155,15 @@
       (refine dul/SocialObject        :super dul/Objekt)
       (refine dul/Concept             :super dul/SocialObject)
 
-      ;; FIXME: The associatedWith parent property needs to go back into the hierarchy
-      (comment (defcopy dul/associatedWith)
-      (doseq [op [precedes
-                  follows]]
-        (refine op :super dul/associatedWith)))
+      ;; associatedWith is the top parent property for all DUL object properties
+      (ent->ent dul/associatedWith)
+      (doseq [op [dul/expresses
+                  dul/precedes
+                  dul/follows]]
+        (refine op :super dul/associatedWith))
 
-      (->trans [(redefcopy dul/hasPart)])
-      (refine dul/hasPart      :super dul/associatedWith)
-      (refine dul/hasComponent :super dul/hasPart))))
+      (ent->ent dul/hasPart      :super dul/associatedWith :characteristic :transitive)
+      (refine   dul/hasComponent :super dul/hasPart))))
 
 
 
@@ -220,12 +226,14 @@
          :comment ~descr)
        (defpun ~tag)))
 
+;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
 (defscr P           "An atomic, nonterminal sentiment composition expressing positive sentiment.")
 (defscr N           "An atomic, nonterminal sentiment composition expressing negative sentiment.")
-(defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
-(defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
-(defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
-(defscr INCREASE-P  "Expressions which increase PPI and PO terms.")
+(when USE-SCR?
+  (defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
+  (defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
+  (defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
+  (defscr INCREASE-P  "Expressions which increase PPI and PO terms."))
 
 
 (defclass SentimentPolarity

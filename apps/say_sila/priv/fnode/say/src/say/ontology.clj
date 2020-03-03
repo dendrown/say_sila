@@ -98,9 +98,9 @@
   "Recreates an OWL object from another Tawny-OWL (ontology) namespace in the
   current (ontology) namespace.  You generally need this instead of defcopy
   if you have no need to refine the object after copying it."
-  [obj]
+  [obj & args]
   `(do (defcopy ~obj)
-       (refine  ~obj)))
+       (refine ~obj ~@args)))
 
 
 
