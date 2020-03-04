@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Configuration utilities for Say Sila
 ;;;;
-;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.config
   (:require [say.log         :as log]
@@ -100,16 +100,15 @@
   Returns the configured value for the specified parameter(s).  If the caller
   includes a second parameter, this value is used as a default if the key
   does not exist in the configuration.
-
-  IMPORTANT: callers supplying the configuration map (first of three args)
-             *must* specify a default value (third of three args).
   "
   ([param]
-   (? param nil))
+  (? (get-config) param nil))
 
 
-  ([param default]
-  (? (get-config) param default))
+  ([konf x]
+  (if (map? konf)
+      (? konf x nil)                ; konf=sub-map, x=key
+      (? (get-config) konf x)))     ; konf=key, x=default
 
 
   ([conf param default]

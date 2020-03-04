@@ -8,14 +8,15 @@
 ;;;;
 ;;;; DOLCE+D&S Ultralite (DUL) Top-Level Ontology
 ;;;;
-;;;; @copyright 2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.dolce
   (:require [say.genie      :refer :all]
             [say.ontology   :refer :all]
+            [say.config     :as cfg]
             [say.log        :as log]
             [tawny.repl     :as repl]               ; <= DEBUG
-            [tawny.owl      :as owl]))
+            [tawny.owl      :refer :all]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -25,9 +26,11 @@
 (def ^:const ONT-FPATH  "resources/KB/DUL.owl")
 (def ^:const ONTOLOGY   (load-ontology ONT-IRI ONT-FPATH))
 
+(defonce Access         (atom (cfg/?? :ontology :dul-access :import)))
+
 
 ;;; --------------------------------------------------------------------------
-(owl/defontology dul
+(defontology dul
   :iri    ONT-IRI
   :prefix "dul")
 
@@ -72,3 +75,64 @@
 
 (redefoproperty hasPart)
 (redefoproperty hasComponent)
+
+
+;;; --------------------------------------------------------------------------
+(defn access
+  "Sets up DOLCE+DnS Ultralite in the caller's ontology according to the
+  access method specified in the configuration."
+  []
+  (if (= :import @Access)
+
+    ;; Import the full DUL foundational ontology
+    (owl-import dul)
+
+    ;; Recreate the bare-bones minimum from DUL in the client's ontology
+    (let[dom->rng #(apply refine % :domain %2 :range %3  %&)
+         ent->ent #(apply dom->rng % Entity Entity %&)]
+
+      ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
+      (refine InformationEntity   :super Entity)
+      (refine InformationObject   :super InformationEntity)
+
+      (refine Objekt              :super Entity)
+      (refine SocialObject        :super Objekt)
+      (refine Concept             :super SocialObject)
+
+      (ent->ent hasComponent)                                   ; Do we want isComponentOf?
+      (dom->rng expresses InformationObject SocialObject)       ; Likewise with isExpressedBy?
+
+      ;; Recreate what we need for Qualities
+      (refine Quality :super Entity)
+      (dom->rng hasQuality Entity Quality)
+
+      ;; Properties for linking Entities
+      (as-inverse precedes follows)
+      (as-inverse directlyPrecedes directlyFollows)
+
+      (refine directlyPrecedes :super precedes)
+      (refine directlyFollows  :super follows)
+
+      (doseq [op [precedes directlyPrecedes
+                  follows  directlyFollows]]
+        (ent->ent op))
+
+      ;; Mark transitive properties as such. (Likage is transitive, direct linkage is not.)
+      (doseq [op [precedes
+                  follows]]
+        (refine op :characteristic :transitive))
+
+      ;; Do we want our part of the DUL hierarchy?
+      (when (= :hierarchy @Access)
+
+        ;; associatedWith is the top parent property for all DUL object properties
+        (ent->ent associatedWith)
+        (doseq [op [hasQuality
+                    expresses
+                    precedes
+                    follows]]
+          (refine op :super associatedWith))
+
+        (ent->ent hasPart      :super associatedWith :characteristic :transitive)
+        (refine   hasComponent :super hasPart)))))
+

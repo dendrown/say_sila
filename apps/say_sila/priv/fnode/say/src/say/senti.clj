@@ -68,7 +68,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-;; FIXME: Debugging, remove this soon!
+;; TODO: Debugging, remove this soon!
 (defonce Inferences (into-array [InferenceType/CLASS_HIERARCHY
                                  InferenceType/CLASS_ASSERTIONS
                                  InferenceType/OBJECT_PROPERTY_HIERARCHY
@@ -80,7 +80,6 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const DUL-ACCESS :minimal)       ; #{:import :hierarchy :minimal}
 (def ^:const POS-NEG?   false)
 (def ^:const USE-SCR?   false)          ; Model Bing Liu's Sentiment Composition Rules
 
@@ -111,61 +110,8 @@
   :prefix  ONT-PREFIX
   :comment "Ontology for training sentiment models.")
 
-;; How are we interfacing with Dolce+DnS Ultralite?
-(if (= :import DUL-ACCESS)
-
-  ;; Import the full DUL foundational ontology
-  (owl-import dul/dul)
-
-  ;; Bring in the bare-bones minimum from DUL
-  (let[dom->rng #(apply refine   % :domain %2 :range %3  %&)
-       ent->ent #(apply dom->rng % dul/Entity dul/Entity %&)]
-
-    ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
-    (defcopy dul/Entity)
-    (refine dul/InformationEntity   :super dul/Entity)
-    (refine dul/InformationObject   :super dul/InformationEntity)
-
-    (refine dul/Objekt              :super dul/Entity)
-    (refine dul/SocialObject        :super dul/Objekt)
-    (refine dul/Concept             :super dul/SocialObject)
-
-    (ent->ent dul/hasComponent)                                         ; Do we want isComponentOf?
-    (dom->rng dul/expresses dul/InformationObject dul/SocialObject)     ; Likewise with isExpressedBy?
-
-    ;; Properties for linking Tokens
-    (as-inverse
-      (defcopy dul/precedes)
-      (defcopy dul/follows))
-
-    (as-inverse
-      (defcopy dul/directlyPrecedes)
-      (defcopy dul/directlyFollows))
-    (refine dul/directlyPrecedes :super dul/precedes)
-    (refine dul/directlyFollows  :super dul/follows)
-
-    (doseq [op [precedes directlyPrecedes
-                follows  directlyFollows]]
-      (ent->ent op))
-
-    ;; Mark transitive properties as such. (Likage is transitive, direct linkage is not.)
-    (doseq [op [precedes
-                follows]]
-      (refine op :characteristic :transitive))
-
-    ;; Do we want our part of the DUL hierarchy?
-    (when (= :hierarchy DUL-ACCESS)
-
-      ;; associatedWith is the top parent property for all DUL object properties
-      (ent->ent dul/associatedWith)
-      (doseq [op [dul/expresses
-                  dul/precedes
-                  dul/follows]]
-        (refine op :super dul/associatedWith))
-
-      (ent->ent dul/hasPart      :super dul/associatedWith :characteristic :transitive)
-      (refine   dul/hasComponent :super dul/hasPart))))
-
+;; Bring in the DOLCE+DnS Ultralite foundational ontology as configured
+(dul/access)
 
 
 ;;; --------------------------------------------------------------------------

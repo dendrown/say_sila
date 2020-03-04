@@ -10,4 +10,7 @@
      :full-name-index   4
      :description-index 5
      :text-index-index  6}
+
+  :ontology
+    {:dul-access        :import}       ; Options: import|hierarchy|minimal
 }

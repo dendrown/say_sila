@@ -38,7 +38,7 @@
 (defontology cmu-pos
   :iri    ONT-IRI
   :prefix "pos")
-;(owl-import dul/dul)
+(dul/access)
 
 (defclass Token
   :super   dul/InformationObject
