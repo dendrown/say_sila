@@ -257,7 +257,7 @@
   "Adds a Text individual to the specified Sentiment Component Rule ontology."
   [ont
    {:keys [id polarity pos-tags rules]}
-   {:keys [pos-neg?]}]
+   {:keys [full-links? pos-neg?]}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (str TWEET-TAG id)
@@ -273,14 +273,14 @@
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
-        (fn [info [tag rules]]
+        (fn [[cnt tokens :as info]
+             [tag rules]]
           ;; Get the Part of Speech for the tag reported by Weka
           (if-let [pos (and (not (contains? IGNORE-POS tag))
                             (pos/lookup# tag))]
 
             ;; Set up an individual for this Token
-            (let [cnt  (:cnt info)
-                  ttid (str tid "-" cnt)
+            (let [ttid (str tid "-" cnt)
                   curr (individual ont ttid
                                    :type  Token
                                    :label (str ttid " (" tag ")"))]
@@ -290,8 +290,17 @@
               (refine ont curr :fact (is pos/isPartOfSpeech pos))
 
             ;; Link tokens to each other
-            (when-let [prev (:prev info)]
-              (refine ont curr :fact (is dul/directlyFollows prev)))
+            (when-let [prev (first tokens)]
+              (refine ont curr :fact (is dul/directlyFollows prev))
+
+              ;; The reasoner can figure out the rest, but being explicit may be faster
+              (when full-links?
+                ;; The current Token comes after all the tokens we've seen so far
+                (refine ont prev :fact (is dul/directlyPrecedes curr))
+                (domap (fn [tok]
+                         (refine ont curr :fact (is dul/follows tok))
+                         (refine ont tok  :fact (is dul/precedes curr)))
+                       tokens)))
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
@@ -300,13 +309,14 @@
               (express curr rule))
 
             ;; Continue the reduction
-            {:cnt (inc cnt), :prev curr})
+            [(inc cnt)
+             (conj tokens curr)])
 
             ;; Ignored/invalid Part of Speech tag
             (do ;(log/fmt-debug "Ignoring POS tag '~a'" tag)
                 info)))
 
-        {:cnt 1}
+        [1 nil]                             ; Acc: Token counter, reverse seq of tokens
         (zip pos-tags rules)))))
 
 

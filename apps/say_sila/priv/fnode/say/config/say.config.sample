@@ -15,7 +15,8 @@
     {:access            :minimal}      ; Options: import|hierarchy|minimal
 
   :senti
-    {:pos-neg?          false          ; Assign Texts to Positive|Negative subclass
+    {:full-links?       false          ; Create links explicitly rather than depending on reasoner
+     :pos-neg?          false          ; Assign Texts to Positive|Negative subclass
      :use-scr?          false          ; Model Bing Liu's Sentiment Composition Rules
      :num-examples      1000}          ; Use a subset until we get everything squared away
 }
