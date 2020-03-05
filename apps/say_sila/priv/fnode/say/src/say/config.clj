@@ -24,50 +24,35 @@
                              :base   "config/say.config"
                              :sample "config/say.config.sample"})
 
-(def CONFIG-FPATH   (atom (:base CONFIG-FPATHS)))
-(def RNG-SEED       (atom 1248))
+(defonce Config         (atom {}))
+(defonce RNG-Seed       (atom 1248))
 
 
 ;;; --------------------------------------------------------------------------
 (defn ^Long rng-seed
-  "
-  Handle random number generator
-  "
+  "Handle random number generator."
   ([]
-  (let [seed @RNG-SEED]
-    (swap! RNG-SEED inc)
+  (let [seed @RNG-Seed]
+    (swap! RNG-Seed inc)
     seed))
 
   ([seed]
-  (swap! RNG-SEED (fn [_] (long seed)))))
+  (swap! RNG-Seed (fn [_] (long seed)))))
 
-
-
-;;; --------------------------------------------------------------------------
-(defn get-fpath
-  "
-  Returns the local filepath for the current configuration.
-  "
-  []
-  @CONFIG-FPATH)
 
 
 ;;; --------------------------------------------------------------------------
 (defn get-config
-  "
-  Returns the running instance's configuration as a map.
-  "
+  "Returns the running instance's configuration as a map."
   []
-  (clojure.edn/read-string (slurp @CONFIG-FPATH)))
+  @Config)
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn set!
-  "
-  Changes the active configuration for the specified market and returns the
-  new configuration (local) filepath.
-  "
+(defn set-config!
+  "Changes the active configuration for the specified market and returns the
+  map representing the new configuration."
   [key & keys]
   (let [fpval (CONFIG-FPATHS key)
         fpath (if fpval
@@ -77,61 +62,48 @@
                        (:extn CONFIG-FPATHS)))]
 
     (log/debug "Config:" fpath)
-    (when (.exists (io/file fpath))
-      (swap! CONFIG-FPATH (fn [_] fpath)))))
+    (if (.exists (io/file fpath))
+      (reset! Config (merge (edn/read-string (slurp fpath))
+                            {:fpath fpath}))
+      (log/warn "Configuration unchanged"))
 
-
-
-;;; --------------------------------------------------------------------------
-(defn set-config!
-  "
-  Changes the active configuration for the specified market and returns the
-  map representing the new configuration.
-  "
-  [key & keys]
-  (apply set! key keys)
-  (get-config))
+    @Config))
 
 
 
 ;;; --------------------------------------------------------------------------
 (defn ?
-  "
-  Returns the configured value for the specified parameter(s).  If the caller
+  "Returns the configured value for the specified parameter(s).  If the caller
   includes a second parameter, this value is used as a default if the key
-  does not exist in the configuration.
-  "
+  does not exist in the configuration."
   ([param]
-  (? (get-config) param nil))
+  (? @Config param nil))
 
 
   ([konf x]
   (if (map? konf)
       (? konf x nil)                ; konf=sub-map, x=key
-      (? (get-config) konf x)))     ; konf=key, x=default
+      (? @Config konf x)))          ; konf=key, x=default
 
 
   ([conf param default]
-  (let [value (conf param)]
-    (if value value default))))
+  (get conf param default)))
 
 
 
 ;;; --------------------------------------------------------------------------
 (defn ??
-  "
-  Returns the configured value for a parameter buried inside a sub-map in
+  "Returns the configured value for a parameter buried inside a sub-map in
   the main configuration map.
 
   IMPORTANT: callers supplying the configuration map (first of four args)
-             *must* specify a default value (fourth of four args).
-  "
+             *must* specify a default value (fourth of four args)."
   ([outer inner]
   (?? outer inner nil))
 
 
   ([outer inner default]
-  (?? (get-config) outer inner default))
+  (?? @Config outer inner default))
 
 
   ([conf outer inner default]
@@ -144,14 +116,34 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ¿
-  "
-  Returns the configured value for the specified parameter(s).  A singleton
+  "Returns the configured value for the specified parameter(s).  A singleton
   parameter returns a singleton value (like #'? ).  A sequence of parameters
-  returns a sequence of values.
-  "
+  returns a sequence of values."
   [param & params]
-  (let [conf (get-config)]
+  (let [conf @Config]
     (if params
         (map conf (conj params param))
         (conf param))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn !
+  "Updates the configuration, setting the value associated with the specified
+  parameter key."
+  ([param value]
+  (swap! Config assoc param value)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn !!
+  "Updates the configuration, setting the value associated with the inner key
+  inside the submap specified by the outer key (:outer => :inner => value)."
+  ([outer inner value]
+  (swap! Config assoc-in [outer inner] value)))
+
+
+
+;;; --------------------------------------------------------------------------
+(set-config! :base)

@@ -26,8 +26,6 @@
 (def ^:const ONT-FPATH  "resources/KB/DUL.owl")
 (def ^:const ONTOLOGY   (load-ontology ONT-IRI ONT-FPATH))
 
-(defonce Access         (atom (cfg/?? :ontology :dul-access :import)))
-
 
 ;;; --------------------------------------------------------------------------
 (defontology dul
@@ -82,57 +80,60 @@
   "Sets up DOLCE+DnS Ultralite in the caller's ontology according to the
   access method specified in the configuration."
   []
-  (if (= :import @Access)
+  (let [mode (cfg/?? :dolce :access)]
 
-    ;; Import the full DUL foundational ontology
-    (owl-import dul)
+    ;; The choice is basically import vs. rebuild
+    (if (= mode :import)
 
-    ;; Recreate the bare-bones minimum from DUL in the client's ontology
-    (let[dom->rng #(apply refine % :domain %2 :range %3  %&)
-         ent->ent #(apply dom->rng % Entity Entity %&)]
+      ;; Import the full DUL foundational ontology
+      (owl-import dul)
 
-      ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
-      (refine InformationEntity   :super Entity)
-      (refine InformationObject   :super InformationEntity)
+      ;; Recreate the bare-bones minimum from DUL in the client's ontology
+      (let[dom->rng #(apply refine % :domain %2 :range %3  %&)
+           ent->ent #(apply dom->rng % Entity Entity %&)]
 
-      (refine Objekt              :super Entity)
-      (refine SocialObject        :super Objekt)
-      (refine Concept             :super SocialObject)
+        ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
+        (refine InformationEntity   :super Entity)
+        (refine InformationObject   :super InformationEntity)
 
-      (ent->ent hasComponent)                                   ; Do we want isComponentOf?
-      (dom->rng expresses InformationObject SocialObject)       ; Likewise with isExpressedBy?
+        (refine Objekt              :super Entity)
+        (refine SocialObject        :super Objekt)
+        (refine Concept             :super SocialObject)
 
-      ;; Recreate what we need for Qualities
-      (refine Quality :super Entity)
-      (dom->rng hasQuality Entity Quality)
+        (ent->ent hasComponent)                                   ; Do we want isComponentOf?
+        (dom->rng expresses InformationObject SocialObject)       ; Likewise with isExpressedBy?
 
-      ;; Properties for linking Entities
-      (as-inverse precedes follows)
-      (as-inverse directlyPrecedes directlyFollows)
+        ;; Recreate what we need for Qualities
+        (refine Quality :super Entity)
+        (dom->rng hasQuality Entity Quality)
 
-      (refine directlyPrecedes :super precedes)
-      (refine directlyFollows  :super follows)
+        ;; Properties for linking Entities
+        (as-inverse precedes follows)
+        (as-inverse directlyPrecedes directlyFollows)
 
-      (doseq [op [precedes directlyPrecedes
-                  follows  directlyFollows]]
-        (ent->ent op))
+        (refine directlyPrecedes :super precedes)
+        (refine directlyFollows  :super follows)
 
-      ;; Mark transitive properties as such. (Likage is transitive, direct linkage is not.)
-      (doseq [op [precedes
-                  follows]]
-        (refine op :characteristic :transitive))
+        (doseq [op [precedes directlyPrecedes
+                    follows  directlyFollows]]
+          (ent->ent op))
 
-      ;; Do we want our part of the DUL hierarchy?
-      (when (= :hierarchy @Access)
-
-        ;; associatedWith is the top parent property for all DUL object properties
-        (ent->ent associatedWith)
-        (doseq [op [hasQuality
-                    expresses
-                    precedes
+        ;; Mark transitive properties as such. (Likage is transitive, direct linkage is not.)
+        (doseq [op [precedes
                     follows]]
-          (refine op :super associatedWith))
+          (refine op :characteristic :transitive))
 
-        (ent->ent hasPart      :super associatedWith :characteristic :transitive)
-        (refine   hasComponent :super hasPart)))))
+        ;; Do we want our part of the DUL hierarchy?
+        (when (= mode :hierarchy)
+
+          ;; associatedWith is the top parent property for all DUL object properties
+          (ent->ent associatedWith)
+          (doseq [op [hasQuality
+                      expresses
+                      precedes
+                      follows]]
+            (refine op :super associatedWith))
+
+          (ent->ent hasPart      :super associatedWith :characteristic :transitive)
+          (refine   hasComponent :super hasPart))))))
 

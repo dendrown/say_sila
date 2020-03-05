@@ -13,6 +13,7 @@
 (ns say.senti
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
+            [say.config         :as cfg]
             [say.dllearner      :as dll]
             [say.dolce          :as dul]
             [say.log            :as log]
@@ -79,15 +80,10 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const POS-NEG?   false)
-(def ^:const USE-SCR?   false)          ; Model Bing Liu's Sentiment Composition Rules
-
-(defonce Num-Examples   (atom 1000))    ; Use a subset until we get everything squared away
 (defonce SCR-Examples   (atom {}))
 (defonce SCR-Ontologies (atom {}))
 
-(defonce EXPRESSIONS    (if USE-SCR?
+(defonce EXPRESSIONS    (if (cfg/?? :senti :use-scr?)
                             ;; Word sets which invoke Sentiment Composition Rules
                             {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
                                               "resolve" "soothe" "subside" "waive"}
@@ -137,7 +133,7 @@
 (refine Token :equivalent Term) ;(dl/or Term Punctuation))
 
 ;; DL-Learner isn't handling Pos/Neg Text subclasses well
-(when POS-NEG?
+(when (cfg/?? :senti :pos-neg?)
   (as-subclasses Text
     :disjoint
     (defclass NegativeText
@@ -174,9 +170,10 @@
        (defpun ~tag)))
 
 ;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
-(defscr P           "An atomic, nonterminal sentiment composition expressing positive sentiment.")
-(defscr N           "An atomic, nonterminal sentiment composition expressing negative sentiment.")
-(when USE-SCR?
+(defscr P "An atomic, nonterminal sentiment composition expressing positive sentiment.")
+(defscr N "An atomic, nonterminal sentiment composition expressing negative sentiment.")
+(when (cfg/?? :senti :use-scr?)
+  (log/notice "Creating Sentiment Composition Rules")
   (defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
   (defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
   (defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
@@ -210,7 +207,7 @@
 (defn set-num-examples!
   "Defines the number of examples we should use from the source tweet data."
   [n]
-  (reset! Num-Examples n))
+  (cfg/!! :senti :num-examples n))
 
 
 
@@ -259,12 +256,13 @@
 (defn- add-text
   "Adds a Text individual to the specified Sentiment Component Rule ontology."
   [ont
-   {:keys [id polarity pos-tags rules]}]
+   {:keys [id polarity pos-tags rules]}
+   {:keys [pos-neg?]}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (str TWEET-TAG id)
           text    (individual ont tid
-                    :type (if POS-NEG?
+                    :type (if pos-neg?
                               (case polarity :negative NegativeText
                                              :positive PositiveText)
                               Text))
@@ -342,14 +340,15 @@
 (defn populate-scr-ontologies!
   "Populates the senti ontology using examples from the ARFFs"
   []
-  ;; Create ontologies for each SCR, each populated with individuals expressing the rule
-  (reset! SCR-Ontologies
-          (update-kv-values @SCR-Examples
-                            (fn [rule xmps]
-                              (let [ont (make-scr-ontology rule)]
-                                (domap #(add-text ont %) xmps)
-                                ont))))
-  (keys @SCR-Ontologies))
+  (let [conf (cfg/? :senti)]                ; Freeze the configuration while we work
+    ;; Create ontologies for each SCR, each populated with individuals expressing the rule
+    (reset! SCR-Ontologies
+            (update-kv-values @SCR-Examples
+                              (fn [rule xmps]
+                                (let [ont (make-scr-ontology rule)]
+                                  (domap #(add-text ont % conf) xmps)
+                                  ont))))
+    (keys @SCR-Ontologies)))
 
 
 
@@ -425,6 +424,7 @@
         base    (weka/load-arff (:base ARFFs))
         rname   (.relationName base)
         acnt    (.numAttributes base)
+        icnt    (cfg/?? :senti :num-examples 100)
 
         tamer   (doto (TweetToSentiStrengthFeatureVector.)
                       (.setToLowerCase true)
@@ -467,7 +467,7 @@
     (with-open [rdr (io/reader fpath)]
       (let [[_ & dlines] (csv/read-csv rdr)]
          ;; TODO use a subset until we get everything squared away
-         (doseq [line (take @Num-Examples dlines)]
+         (doseq [line (take icnt dlines)]
            (data+ line))))
 
     ;; Save the ARFFs to disk and return the result info in a map
@@ -681,7 +681,7 @@
 (defn run
   "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
   [& opts]
-  ;; We generally need to recreate the ARFF if Num-Examples has been updated
+  ;; Recreate the ARFF if num-examples has been updated in the Config
   (when (some #{:arff} opts)
     (create-arffs))
 

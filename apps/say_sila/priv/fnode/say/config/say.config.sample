@@ -11,6 +11,11 @@
      :description-index 5
      :text-index-index  6}
 
-  :ontology
-    {:dul-access        :import}       ; Options: import|hierarchy|minimal
+  :dolce
+    {:access            :minimal}      ; Options: import|hierarchy|minimal
+
+  :senti
+    {:pos-neg?          false          ; Assign Texts to Positive|Negative subclass
+     :use-scr?          false          ; Model Bing Liu's Sentiment Composition Rules
+     :num-examples      1000}          ; Use a subset until we get everything squared away
 }
