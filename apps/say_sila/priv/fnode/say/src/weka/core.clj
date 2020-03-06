@@ -44,7 +44,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn index1->0
+(defn ^Long index1->0
   "Converts a 1-based (numeric or string) index to a 0-based long."
   [i]
   (dec (longify i)))

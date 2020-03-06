@@ -614,7 +614,7 @@
   (invoke-reasoner [rsnr ont]
     "Returns the reasoner (not the factory) connected to Tawny-OWL for the specified ontogy.")
 
-  (make-reasoner [rsnr ont]
+  (^Reasoner make-reasoner [rsnr ont]
     "Create an OWL reasoner outside of Tawny-OWL so we can customize it.")
 
   (show-reasoning [rsnr ont]
@@ -645,7 +645,7 @@
   org.semanticweb.HermiT.Reasoner
   (show-reasoning [rsnr ont]
     (log/info "Reasoner:" (type rsnr))
-    (.precomputeInferences rsnr (into-array InferenceType [InferenceType/CLASS_HIERARCHY]))
+    (.precomputeInferences rsnr (into-array [InferenceType/CLASS_HIERARCHY]))
     rsnr))
 
     ;(binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-text-debug)]
