@@ -13,6 +13,7 @@
 (ns say.cmu-pos
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
+            [say.config         :as cfg]
             [say.dolce          :as dul]
             [say.log            :as log]
             [say.social         :as soc]
@@ -132,13 +133,15 @@
   "Returns the PartOfSpeech entity corresponding to the specified tag.
   NOTE: You probably want to use the (equivalent) memoized lookup# function."
   [tag]
-  ;; The caller may be in another namespace, but we need this namespace's ontology
-  (binding [*ns* (find-ns 'say.cmu-pos)]
+  (when-not (contains? (cfg/?? :cmu-pos :ignore) tag)
 
-    ;; Run through the set of POS enitities until we find a matching tag
-    (reduce #(when (= tag (:literal (check-fact %2 hasPartOfSpeechTag)))
-               (reduced %2))
-            nil
-            POS)))
+    ;; The caller may be in another namespace, but we need this namespace's ontology
+    (binding [*ns* (find-ns 'say.cmu-pos)]
+
+      ;; Run through the set of POS enitities until we find a matching tag
+      (reduce #(when (= tag (:literal (check-fact %2 hasPartOfSpeechTag)))
+                 (reduced %2))
+              nil
+              POS))))
 
 (def lookup# (memoize lookup))

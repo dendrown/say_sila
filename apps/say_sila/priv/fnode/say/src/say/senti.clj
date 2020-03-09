@@ -65,7 +65,6 @@
 (def ^:const PREFIXES   {"senti:"   ONT-IRI
                          "pos:"     pos/ONT-IRI})
 
-(def ^:const IGNORE-POS #{","})
 
 
 ;;; --------------------------------------------------------------------------
@@ -180,27 +179,28 @@
   (defscr INCREASE-P  "Expressions which increase PPI and PO terms."))
 
 
-(defclass SentimentPolarity
-  :super   dul/Quality
-  :label   "Sentiment Polarity"
-  :comment "A Quality describing an Information Object's expression as positive, negative, or neutral.")
-
-(as-subclasses SentimentPolarity
-  :disjoint
-  (defclass PositiveSentimentPolarity
-    :label   "Positive Sentiment Polarity"
-    :comment "A Sentiment Polarity expressing positive sentiment")
-  (defclass NegativeSentimentPolarity
-    :label   "Negative Sentiment Polarity"
-    :comment "A Sentiment Polarity expressing negative sentiment"))
-(defpun PositiveSentimentPolarity)
-(defpun NegativeSentimentPolarity)
-
-(defoproperty hasPolarity
-  :super    dul/hasQuality
-  :label    "has Polarity"
-  :domain   dul/InformationObject
-  :range    SentimentPolarity)
+;; TODO: Put SentimentPolarity back in after we handle timing considerations
+;(defclass SentimentPolarity
+;  :super   dul/Quality
+;  :label   "Sentiment Polarity"
+;  :comment "A Quality describing an Information Object's expression as positive, negative, or neutral.")
+;
+;(as-subclasses SentimentPolarity
+;  :disjoint
+;  (defclass PositiveSentimentPolarity
+;    :label   "Positive Sentiment Polarity"
+;    :comment "A Sentiment Polarity expressing positive sentiment")
+;  (defclass NegativeSentimentPolarity
+;    :label   "Negative Sentiment Polarity"
+;    :comment "A Sentiment Polarity expressing negative sentiment"))
+;(defpun PositiveSentimentPolarity)
+;(defpun NegativeSentimentPolarity)
+;
+;(defoproperty hasPolarity
+;  :super    dul/hasQuality
+;  :label    "has Polarity"
+;  :domain   dul/InformationObject
+;  :range    SentimentPolarity)
 
 
 ;;; --------------------------------------------------------------------------
@@ -256,8 +256,8 @@
 (defn- add-text
   "Adds a Text individual to the specified Sentiment Component Rule ontology."
   [ont
-   {:keys [id polarity pos-tags rules]}
-   {:keys [full-links? pos-neg?]}]
+   {:keys [id polarity pos-tags rules]}     ; Text (tweet) breakdown
+   {:keys [full-links? pos-neg?]}]          ; Configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (str TWEET-TAG id)
@@ -268,6 +268,10 @@
                               Text))
           express #(refine ont %1 :fact (is dul/expresses (individual ont %2)))]
 
+      ;; Note that we're receiving the Texts in reverse order
+      (when (zero? (rem id 100))
+        (log/debug "Processing" id "texts..."))
+
       ;; Add an entity representing the text itself.  Note that we'll be creating
       ;; the referenced token "tN-1" in the reduce expression below.
 
@@ -276,8 +280,7 @@
         (fn [[cnt tokens :as info]
              [tag rules]]
           ;; Get the Part of Speech for the tag reported by Weka
-          (if-let [pos (and (not (contains? IGNORE-POS tag))
-                            (pos/lookup# tag))]
+          (if-let [pos (pos/lookup# tag)]
 
             ;; Set up an individual for this Token
             (let [ttid (str tid "-" cnt)
