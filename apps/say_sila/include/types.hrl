@@ -8,7 +8,7 @@
 %%
 %% @doc Common dialyzer type definitions
 %%
-%% @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -ifndef(_types_included).
@@ -30,9 +30,11 @@
 -type rec_integer() :: undefined | integer().
 -type rec_map()     :: undefined | map().
 -type rec_pid()     :: undefined | pid().
+-type rec_port()    :: undefined | closed | port().
 -type rec_string()  :: undefined | string().
 -type rec_stringy() :: undefined | stringy().
 
 -type node_reference()  :: {node(), reference()}.
+-type port_data()       :: timeout  | {eol|noeol, string()}.
 
 -endif.

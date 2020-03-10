@@ -3,13 +3,14 @@
  [{description, "Analysis of Sentiment on Climate Change"},
   {vsn, "0.2.0-SNAPSHOT"},
   {registered, []},
-  {mod, { say_sila_app, []}},
-  {applications, [kernel, stdlib ]},    % Possibly: oauth, hackney
+  {mod, {say_sila_app, []}},
+  {applications, [kernel, stdlib]},     % Possibly: oauth, hackney
   {env,[]},
   {modules, [arff,
              biggies,
              dts,
              emo,
+             fnode,
              influence,
              ioo,
              pan,
