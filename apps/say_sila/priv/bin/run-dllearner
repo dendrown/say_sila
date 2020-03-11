@@ -1,0 +1,7 @@
+#!/bin/bash
+
+WORKDIR=${1:?workdir}
+CONFIG=${2:-fnode/say/resources/dllearner/say-senti.conf}
+
+cd $WORKDIR
+dll -c $CONFIG

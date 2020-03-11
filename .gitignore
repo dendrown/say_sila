@@ -18,9 +18,9 @@ _*
 *.swo
 .erlang.cookie
 ebin
-log
 erl_crash.dump
 .rebar
+log
 logs
 _build
 .DS_Store
