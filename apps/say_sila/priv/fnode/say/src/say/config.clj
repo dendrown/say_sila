@@ -107,8 +107,8 @@
 
 
   ([conf outer inner default]
-  (let [info  (conf outer)
-        value (info inner)]
+  (let [info  (get conf outer)
+        value (get info inner)]
 
     (if value value default))))
 
