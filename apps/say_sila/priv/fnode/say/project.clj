@@ -9,7 +9,7 @@
   :plugins [[lein-localrepo "0.5.4"]]
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.erlang.otp/jinterface "1.9.1"]
-                 [org.clojure/core.async "0.4.500"]
+                 [org.clojure/core.async "1.0.567"]
                  [org.clojure/core.logic "0.8.11"]
                  [org.clojure/data.csv "0.1.4"]
                  [org.clojure/data.json "0.2.6"]

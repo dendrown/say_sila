@@ -31,9 +31,10 @@
 
 
 %%--------------------------------------------------------------------
--record(data, {fnode_pid :: rec_pid(),
-               jvm_node  :: node() }).
--type data()  :: #data{}.                       % FSM internal state data
+-record(data, {jvm_node :: node(),
+               dll_pid  :: rec_pid(),
+               work_ref :: rec_reference() }).
+%type data()  :: #data{}.                       % FSM internal state data
 
 
 %%====================================================================
@@ -72,7 +73,7 @@ init([]) ->
     % We'll be needing the JVM, so warn the sysop if we can't contact it
     gen_statem:cast(self(), is_jvm_ready),
 
-    {ok, ontology, #data{%fnode_pid = fnode:start_link(say, dllearner), % FIXME! not yet!
+    {ok, ontology, #data{%dll_pid = fnode:start_link(say, dllearner), % FIXME! not yet!
                          jvm_node  = raven:get_jvm_node()}}.
 
 
@@ -92,10 +93,10 @@ callback_mode() ->
 %%
 % @doc  FSM shutdown callback.
 % @end  --
-terminate(Why, State, #data{fnode_pid = FNodePid}) ->
+terminate(Why, State, #data{dll_pid = DLL}) ->
 
     ?notice("DL-Learner shutdown: st[~p] why[~p]", [State, Why]),
-    fnode:stop(FNodePid).
+    fnode:stop(DLL).
 
 
 
@@ -115,6 +116,14 @@ code_change(OldVsn, _State, Data, _Extra) ->
 %%
 % @doc  Handle state-independent events
 % @end  --
+handle_event(cast, is_jvm_ready, #data{jvm_node = JVM}) ->
+    case weka:ping(JVM) of
+        ok      -> ?info("JVM is ready on ~p", [JVM]);
+        timeout -> ?warning("Cannot contact JVM on ~p", [JVM])
+    end,
+    keep_state_and_data;
+
+
 handle_event(Type, Evt, _) ->
     ?warning("Received an unexpected '~p' event: type[~p]", [Evt, Type]),
     keep_state_and_data.
@@ -126,9 +135,17 @@ handle_event(Type, Evt, _) ->
 %%
 % @doc  Synchronous messages for engineering knowledge.
 % @end  --
-ontology(enter, _, _) ->
+ontology(enter, _, Data = #data{jvm_node = JVM}) ->
     ?info("Constructing ontology"),
-    keep_state_and_data;
+    WorkRef = make_ref(),
+    weka:send({JVM, WorkRef}, senti_run, arff),
+    {keep_state, Data#data{work_ref = WorkRef}};
+
+
+ontology(info, {_, WorkRef, senti_run, Rsp}, Data = #data{jvm_node = JVM,
+                                                          work_ref =  WorkRef}) ->
+    ?info("Senti+individuals created on ~p: rsp~p", [JVM, Rsp]),
+    {next_state, dllearner, Data};
 
 
 ontology(Type, Evt, Data) ->

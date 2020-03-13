@@ -12,7 +12,8 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.core
   (:refer-clojure :exclude [==])
-  (:require [say.config         :as cfg]
+  (:require [say.genie          :refer :all]
+            [say.config         :as cfg]
             [say.data           :as data]
             [say.log            :as log]
             [say.hierarchy      :as inua]
@@ -21,8 +22,7 @@
             [say.senti          :as senti]
             [weka.core          :as weka]
             [weka.tweet         :as wtw]
-            [clojure.core.async :as a :refer [go >!!]]
-            [clojure.core.logic :as l :refer [run* ==]]     ; <= debug
+           ;[clojure.core.logic :as l :refer [run* ==]]     ; <= debug
             [tawny.repl         :as repl]
             [clojure.data.json  :as json]
             [clojure.string     :as str]
@@ -57,28 +57,47 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn map->otp
-  "Our standard communication to Erlang Sila is {self(), atom(), map()}.
+(defn ->otp
+  "Our standard communication to Erlang Sibyl is {self(), atom(), map()}.
   This function converts a clojure map in the form {:keyword «string»}
   to an Erlang map to handle that third element in response tuples."
-  [clj-map]
-  (letfn [(->otp [x]
-            (cond
-              (keyword? x) (OtpErlangAtom.   (name x))
-              (symbol?  x) (OtpErlangAtom.   (name x))
-              (float?   x) (OtpErlangDouble. (double x))
-              (number?  x) (OtpErlangLong.   (long x))
-              (string?  x) (OtpErlangBinary. (.getBytes ^String x))
-              (class?   x) (OtpErlangBinary. (.getBytes ^String (second (str/split (str x) #" "))))
-              (map?     x) (map->otp x)
-              :else        (OtpErlangAtom.   "undefined")))]
+  [arg & opts]
+  (let [keyer (if (= :binary (cfg/?? :erlang :keyword))
+                  #(OtpErlangBinary. (.getBytes (name %)))
+                  #(OtpErlangAtom.   (name %)))]
 
-    (let [clj-keys (keys clj-map)
-          clj-vals (vals clj-map)
-          otp-keys (into-array OtpErlangObject (map #(OtpErlangAtom. (name %))    clj-keys))
-          otp-vals (into-array OtpErlangObject (map ->otp clj-vals))]
-      (OtpErlangMap. otp-keys otp-vals))))
+    (letfn [(==>otp [x]
+              (cond
+                (keyword? x) (keyer x)
+                (symbol?  x) (OtpErlangBinary. (name x))
+                (float?   x) (OtpErlangDouble. (double x))
+                (number?  x) (OtpErlangLong.   (long x))
+                (string?  x) (OtpErlangBinary. (.getBytes ^String x))
+                (class?   x) (OtpErlangBinary. (.getBytes ^String (second (str/split (str x) #" "))))
+                (map?     x) (map->otp x)
+                (seqable? x) (OtpErlangList.   ^"[Lcom.ericsson.otp.erlang.OtpErlangObject;"
+                                               (into-array OtpErlangObject (map ==>otp x)))
+                :else        (OtpErlangAtom.   "undefined")))
 
+            (map->otp [x]
+              (let [clj-keys (keys x)
+                    clj-vals (vals x)
+                    otp-keys (into-array OtpErlangObject (map ==>otp clj-keys))
+                    otp-vals (into-array OtpErlangObject (map ==>otp clj-vals))]
+                 (OtpErlangMap. otp-keys otp-vals)))]
+
+      (try
+        (if (map? arg)
+          ;;
+          ;; A map is special for one of two reasons...
+          (if (some #{:json} opts)
+            (==>otp (json/write-str arg))   ;; The caller wants it converted to JSON, or
+            (map->otp arg))                 ;; We must handle keys and values separately
+
+          ;; Singleton and simple-series datatypes can just call the converter
+          (==>otp arg))
+
+         (catch Exception ex (log/fail ex "Cannot create Erlang structure" :stack))))))
 
 
 
@@ -111,19 +130,21 @@
   [msg fun & parms]
   `(let [{cmd# :cmd
           arg# :arg} ~msg]
-
     (log/info "->> weka<" cmd# ">:" (str arg#))
-    (go
-      (let [wfun# (ns-resolve 'weka.tweet (symbol '~fun))
+
+    (go-let [wfun# (ns-resolve 'weka.tweet (symbol '~fun))
             rsp#  (apply wfun# arg# '~parms)]
         (log/info "<<- weka<" cmd# ">" rsp# "[OK]")
-        (answer-sila ~msg (keyword cmd#) (map->otp rsp#))))))
+        (answer-sila ~msg (keyword cmd#) (->otp rsp#)))))
 
 
 
 ;;; --------------------------------------------------------------------------
 (defmulti dispatch
-  "Process commands coming in from Sila Erlang nodes."
+  "Process commands coming in from Sila Erlang nodes.
+
+  TODO: Refactor the older weka/sila dispatch methods so requests go through
+        the default method."
   :cmd)
 
 (defmethod dispatch "emote"   [msg] (do-weka msg emote-arff))
@@ -134,20 +155,6 @@
 (defmethod dispatch "sila" [msg]
   ;; Handle updates to the say-sila ontology (no response back to Erlang)
   (sila/execute (:arg msg)))
-
-
-(defmethod dispatch "embed" [msg]
-  (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
-    (log/info "Filter/EMBED:" fpath)
-    (wtw/filter-arff fpath :embed)
-    (log/info "Filter/EMBED:" fpath "[OK]")))
-
-
-(defmethod dispatch "lex" [msg]
-  (let [fpath (.stringValue ^OtpErlangString (:arg msg))]
-    (log/info "Filter/LEX:" fpath)
-    (wtw/filter-arff fpath :lex)
-    (log/info "Filter/LEX:" fpath "[OK]")))
 
 
 (defmethod dispatch "ping" [msg]
@@ -161,26 +168,42 @@
   :quit)
 
 
-(defmethod dispatch :default [msg]
-  (log/warn "HUH? Unknown command:" (:cmd msg)))
+(defmethod dispatch :default [{:as   msg
+                               :keys [cmd arg]}]
+  ;; Sibyl/Erlang interface. Commands have the form 'scope_function'
+  (go-let [[fun
+            scope]  (reverse (str/split cmd #"_" 2))
+           qfun     (ns-resolve (symbol (str "say." (if scope scope "core")))
+                                (symbol fun))
+           rsp      (apply qfun (listify arg))]
+    ;; Return results to Erlang
+    (answer-sila msg (keyword cmd) (->otp rsp))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defmulti parse-arg
-  "The optional argument (fourth) element of an incoming message from Erlang
-  may be either a simple string or a JSON formatted map."
-  class)
+(defprotocol OtpParser
+  "Parsing functionality for messages coming in from Erlang/OTP"
+  (parse-arg [arg]  "The optional argument (fourth) element of an incoming message
+                     from Erlang may be either a simple string or a JSON formatted map."))
 
 
-(defmethod parse-arg OtpErlangString [arg]
-  (.stringValue ^OtpErlangString arg))
+(extend-protocol OtpParser
+  OtpErlangAtom
+  (parse-arg [arg]
+    (keyword (.atomValue arg)))
 
 
-(defmethod parse-arg OtpErlangBinary [arg]
-  (-> (.binaryValue ^OtpErlangBinary  arg)
-      (String.)
-      (json/read-str :key-fn keyword)))
+  OtpErlangString
+  (parse-arg [arg]
+    (.stringValue arg))
+
+
+  OtpErlangBinary
+  (parse-arg [arg]
+    (-> (.binaryValue arg)
+        (String.)
+        (json/read-str :key-fn keyword))))
 
 
 

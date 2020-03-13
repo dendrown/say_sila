@@ -89,6 +89,14 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro go-let
+  "Shortcut for (go (let ...))"
+  [& args]
+  `(clojure.core.async/go (let ~@args)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defmacro jcall
   "Sorta-kinda-not-really similar to apply, but works for java static methods
   with zero or more normal parameters and a series of parameters that involve
@@ -158,10 +166,26 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^clojure.lang.PersistentList listify
-  "If the input argument is not a list, contain it in a list."
-  [arg]
-  (if (list? arg) arg (list arg)))
+  "If the input argument is not a list, contain it in a list.  However, nil
+  is returned as nil.
 
+  NOTE: you probably want to use seqify instead of this function."
+  [arg]
+  (when arg
+    (if (list? arg) arg (list arg))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ^clojure.lang.PersistentList seqify
+  "If the input argument is not a sequence, contain it in one. Note that nil
+  returns as nil, and passing a String will return («Hello»), rather than
+  a sequence of Character values."
+  [arg]
+  (seq (cond
+         (string? arg)  [arg]
+         (seqable? arg) arg
+         :else          [arg])))
 
 
 ;;; --------------------------------------------------------------------------

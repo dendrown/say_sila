@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila code relating to research on the "Big Players"
 %%
-%% @copyright 2019 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(biggies).
@@ -354,7 +354,7 @@ run_run(RunCode, Tracker, RunTag, Options) ->
 % @end  --
 do_run_run(RunCode, Tracker, RunTag, Options) ->
 
-    Method = {RunCode, {top_n, Min, Max} = influence:init_range(top_n)},
+    Method = {RunCode, {top_n, _, _} = influence:init_range(top_n)},
 
     % We'll be calling into one of the `influence' run functions
     RunFun = case RunCode of
