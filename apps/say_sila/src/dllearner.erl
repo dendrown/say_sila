@@ -6,19 +6,21 @@
 %%         _/    _/    _/        _/    _/
 %%  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 %%
-%% @doc A server to handle port-based runs with DL-Learner.
+%% @doc FSM to handle runs with DL-Learner.
 %%
 %% @copyright 2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(dllearner).
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
--behaviour(gen_server).
+-behaviour(gen_statem).
 
 -export([start_link/0,
-         stop/1,
-         call/2,    call/3]).
--export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
+         stop/1]).
+-export([terminate/3, code_change/4, init/1, callback_mode/0]).
+-export([ontology/3,
+         dllearner/3,
+         report/3]).
 
 -include("ioo.hrl").
 -include("types.hrl").
@@ -26,25 +28,23 @@
 
 
 -define(RECV_TIMEOUT,   10000).                         % A bit bigger than fnode:?RECV_TIMEOUT
--define(dll(Fmt, Args),  io_lib:format(Fmt, Args)).     % DL-Learner command builder
-
 
 
 %%--------------------------------------------------------------------
--record(state, {os_pid      :: rec_integer(),
-                port        :: rec_port()}).
--type state() :: #state{}.
+-record(data, {fnode_pid :: rec_pid(),
+               jvm_node  :: node() }).
+-type data()  :: #data{}.                       % FSM internal state data
 
 
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec start_link() -> gen:start_ret().
+-spec start_link() -> gen_statem:start_ret().
 %%
 % @doc  Starts a server to handle external modelling.
 % @end  --
 start_link() ->
-    gen_server:start_link(?MODULE, [], []).
+    gen_statem:start_link(?MODULE, [], []).
 
 
 
@@ -54,33 +54,7 @@ start_link() ->
 % @doc  Shutdown function for a DL-Learner handler.
 % @end  --
 stop(Pid)  ->
-    gen_server:call(Pid, stop).
-
-
-
-%%--------------------------------------------------------------------
--spec call(Pid :: pid(),
-           Msg :: string()) -> port_data().
-%%
-% @doc  Sends a message to the specified DL-Learner handler.
-% @end  --
-call(Pid, Msg) ->
-    Rsp = gen_server:call(Pid, {call, Msg}, ?RECV_TIMEOUT),
-    ?debug("~s >> ~p", [Msg, Rsp]),
-    Rsp.
-
-
-
-%%--------------------------------------------------------------------
--spec call(Pid :: pid(),
-           Fmt  :: string(),
-           Args :: list()) -> port_data().
-%%
-% @doc  Creates a message from the specified format string and arguments
-%       and sends it to the specified DL-Learner handler.
-% @end  --
-call(Pid, Fmt, Args) ->
-    call(Pid, ?dll(Fmt, Args)).
+    gen_statem:call(Pid, stop).
 
 
 
@@ -92,109 +66,104 @@ call(Pid, Fmt, Args) ->
 % @doc  Initializes a process responsible for external modelling.
 % @end  --
 init([]) ->
-    ?notice("Launching DL-Learner"),
+    ?notice("Launching DL-Learner FSM"),
     process_flag(trap_exit, true),
 
-    Port = fnode:run(say, dllearner),
-    case erlang:port_info(Port) of
-        undefined ->
-            ?error("Could not run DL-Learner"),
-            fnode:close(Port),
-            {stop, bad_run};
+    % We'll be needing the JVM, so warn the sysop if we can't contact it
+    gen_statem:cast(self(), is_jvm_ready),
 
-        Info ->
-            ProcID = proplists:get_value(os_pid, Info),
-            ?info("Connected ~p <=> ~p<os:~p>", [self(), Port, ProcID]),
-            {ok, #state{port   = Port,
-                        os_pid = ProcID}}
-    end.
+    {ok, ontology, #data{%fnode_pid = fnode:start_link(say, dllearner), % FIXME! not yet!
+                         jvm_node  = raven:get_jvm_node()}}.
 
 
 
 %%--------------------------------------------------------------------
--spec terminate(Why   :: term(),
-                State :: state()) -> normal.
+%% callback_mode:
 %%
-% @doc  Server shutdown callback.
+% @doc  Reports FSM callback mode.
 % @end  --
-terminate(Why, #state{port   = Port,
-                      os_pid = ProcID}) ->
+callback_mode() ->
+    [state_functions, state_enter].
 
-    ?notice("DL-Learner shutdown: why[~p]", [Why]),
-    case ProcID of
-        undefined -> ok;
-        _         -> os:cmd(?dll("kill ~B", [ProcID]))
-    end,
-    fnode:close(Port),
-    Why.
+
+
+%%--------------------------------------------------------------------
+%% terminate:
+%%
+% @doc  FSM shutdown callback.
+% @end  --
+terminate(Why, State, #data{fnode_pid = FNodePid}) ->
+
+    ?notice("DL-Learner shutdown: st[~p] why[~p]", [State, Why]),
+    fnode:stop(FNodePid).
 
 
 
 %%--------------------------------------------------------------------
 %% code_change:
 %%
-% @doc  Hot code update processing.
+% @doc  Hot code update processing: a placeholder.
 % @end  --
-code_change(OldVsn, OldState, _Extra) ->
+code_change(OldVsn, _State, Data, _Extra) ->
     ?notice("Hot code update: old[~p]", [OldVsn]),
-    {ok, OldState}.
+    {ok, Data}.
 
 
 
 %%--------------------------------------------------------------------
-%% handle_call:
+%% handle_event:
+%%
+% @doc  Handle state-independent events
+% @end  --
+handle_event(Type, Evt, _) ->
+    ?warning("Received an unexpected '~p' event: type[~p]", [Evt, Type]),
+    keep_state_and_data.
+
+
+
+%%--------------------------------------------------------------------
+%% ontology:
 %%
 % @doc  Synchronous messages for engineering knowledge.
 % @end  --
-handle_call({call, Msg}, _From, State = #state{port = Port}) ->
-    Reply = fnode:send_recv(Port, Msg),
-    {reply, Reply, State};
+ontology(enter, _, _) ->
+    ?info("Constructing ontology"),
+    keep_state_and_data;
 
 
-handle_call(get_os_pid, _From, State = #state{os_pid = ProcID}) ->
-    {reply, ProcID, State};
-
-
-handle_call(stop, _From, State) ->
-    {stop, normal, ok, State};
-
-
-handle_call(Msg, _From, State) ->
-    ?warning("Unknown call: ~p", [Msg]),
-    {noreply, State}.
+ontology(Type, Evt, Data) ->
+    handle_event(Type, Evt, Data).
 
 
 
 %%--------------------------------------------------------------------
-%% handle_cast
+%% dllearner:
 %%
-% @doc  Asynchronous messages for the auto-trader.
+% @doc  Synchronous messages for engineering knowledge.
 % @end  --
-handle_cast(Msg, State) ->
-    ?warning("Unknown cast: ~p", [Msg]),
-    {noreply, State}.
+dllearner(enter, _, _) ->
+    ?info("Interfacing with DL-Learner"),
+    keep_state_and_data;
+
+
+dllearner(Type, Evt, Data) ->
+    handle_event(Type, Evt, Data).
+
 
 
 
 %%--------------------------------------------------------------------
-%% handle_info:
+%% report:
 %%
-% @doc  Process out-of-band messages
+% @doc  Synchronous messages for engineering knowledge.
 % @end  --
-handle_info({Port, {data, Data}}, State = #state{port = Port}) ->
-    ?debug(fnode:format(Port, Data)),
-    {noreply, State};
+report(enter, _, _) ->
+    ?info("Reporting results"),
+    keep_state_and_data;
 
 
-handle_info({'EXIT', Port, Why}, State = #state{port = Port}) ->
-
-    ?warning("DL-Learner at ~p terminated: ~p", [Port, Why]),
-    {stop, Why, State#state{port = undefined}};
-
-
-handle_info(Msg, State) ->
-    ?warning("Unknown info: ~p", [Msg]),
-    {noreply, State}.
+report(Type, Evt, Data) ->
+    handle_event(Type, Evt, Data).
 
 
 

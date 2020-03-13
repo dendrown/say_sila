@@ -10,7 +10,7 @@
 %%      high level look at the emotions surrounding Climate Change
 %%      using Twitter.
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(raven).
@@ -26,8 +26,8 @@
          get_big_percent/1,
          get_big_players/2,
          get_big_players/3,
-         get_jvm_node/1,
-         is_jvm_ready/1,
+         get_jvm_node/0,    get_jvm_node/1,
+         is_jvm_ready/0,    is_jvm_ready/1,
          report/2,
          reset/1,
          run_tweet_csv/1]).     %% DEBUG!
@@ -48,6 +48,7 @@
 -define(reg(Key), maps:get(reg, ?mod(Key), undefined)).
 -define(lot(Key), maps:get(lot, ?mod(Key), undefined)).
 
+-define(MAIN_TRACK,     gw).
 -define(DEV_CACHE,      ?WORK_DIR "/dets/raven_devel").
 -define(REPORT_TIMEOUT, (1 * 60 * 1000)).
 
@@ -279,21 +280,36 @@ get_big_players(Players, BigP100, _) ->
 
 
 %%--------------------------------------------------------------------
--spec get_jvm_node(Tracker :: atom()) -> atom().
+-spec get_jvm_node() -> node().
+
+-spec get_jvm_node(Tracker :: atom()) -> node().
 %%
 % @doc  Returns the official JVM node as specified in the application
-%       configuration.
+%       configuration.  If the caller does not specify a Tracker, the
+%       function returns the JVM node handling the main Tracker.
 %%--------------------------------------------------------------------
+get_jvm_node() ->
+    get_jvm_node(?MAIN_TRACK).
+
+
 get_jvm_node(Tracker) ->
     gen_server:call(?reg(Tracker), get_jvm_node).
 
 
 
 %%--------------------------------------------------------------------
+-spec is_jvm_ready() -> boolean().
+
 -spec is_jvm_ready(Tracker :: atom()) -> boolean().
 %%
-% @doc  Determines if raven's JVM is available and ready.
+% @doc  Determines if raven's JVM is available and ready.  If the
+%       caller does not specify a Tracker, the function returns the
+%       JVM node handling the main Tracker.
 %%--------------------------------------------------------------------
+is_jvm_ready() ->
+    is_jvm_ready(?MAIN_TRACK).
+
+
 is_jvm_ready(Tracker) ->
     case get_jvm_node(Tracker) of
         undefined -> false;

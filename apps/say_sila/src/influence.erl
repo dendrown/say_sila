@@ -32,7 +32,7 @@
 %%                 |    done    |
 %%                 +------------+
 %%
-%% @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(influence).
@@ -666,7 +666,7 @@ code_change(OldVsn, _State, Data, _Extra) ->
 %%--------------------------------------------------------------------
 %% handle_event:
 %%
-% @doc  Synchronous messages for Coinigy services
+% @doc  Handle state-independent events
 % @end  --
 handle_event({call, _From}, get_outcome, Data = #data{name = Name}) ->
     ?debug("Waiting for outcome: ~s", [Name]),
@@ -720,7 +720,6 @@ handle_event(Type, Evt, #data{name = Name}) ->
 % @doc  FSM state waiting for something to do
 % @end  --
 idle(enter, _OldState, #data{name = Name}) ->
-    %
     ?info("Model ~s is ready and waiting", [Name]),
     keep_state_and_data;
 
