@@ -27,8 +27,6 @@
 -include_lib("llog/include/llog.hrl").
 
 
--define(RECV_TIMEOUT,   10000).                         % A bit bigger than fnode:?RECV_TIMEOUT
-
 
 %%--------------------------------------------------------------------
 -record(data, {jvm_node :: node(),
@@ -158,9 +156,11 @@ ontology(Type, Evt, Data) ->
 %%
 % @doc  Synchronous messages for engineering knowledge.
 % @end  --
-dllearner(enter, _, _) ->
+dllearner(enter, _, Data = #data{dll_pid = undefined}) ->
     ?info("Interfacing with DL-Learner"),
-    keep_state_and_data;
+    {ok, DLL} = fnode:start_link(say, dllearner,
+                                 [<<"resources/dllearner/say-senti-Sentiment140.conf">>]),
+    {keep_state, Data#data{dll_pid = DLL}};
 
 
 dllearner(Type, Evt, Data) ->
