@@ -53,7 +53,7 @@ start_link() ->
 % @doc  Shutdown function for a DL-Learner handler.
 % @end  --
 stop(Pid)  ->
-    gen_statem:call(Pid, stop).
+    gen_statem:stop(Pid).
 
 
 
@@ -161,6 +161,11 @@ dllearner(enter, _, Data = #data{dll_pid = undefined}) ->
     {ok, DLL} = fnode:start_link(say, dllearner,
                                  [<<"resources/dllearner/say-senti-Sentiment140.conf">>]),
     {keep_state, Data#data{dll_pid = DLL}};
+
+
+dllearner(info, {'EXIT', DLL, normal}, Data = #data{dll_pid = DLL}) ->
+    ?notice("Completed DL-Learner processing: ~p", [DLL]),
+    {next_state, report, Data#data{dll_pid = undefined}};
 
 
 dllearner(Type, Evt, Data) ->
