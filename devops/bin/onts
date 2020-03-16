@@ -1,0 +1,28 @@
+#!/usr/bin/picolisp /usr/lib/picolisp/lib.l
+#; ---------------------------------------------------------------------------
+#; Handle ontology switching
+#;
+(load "@lib/misc.l")
+(argv *Tag)
+
+(def 'WEB-DIR "/srv/www/html/uqam")
+
+#; ---------------------------------------------------------------------------
+(de relink (ont)
+  (let (fname (pack ont "." *Tag ".owl")
+        slink (pack ont ".owl"))
+    (when (info fname)
+      (println 'Using *Tag 'configuration 'for ont)
+      (call 'rm slink)
+      (call 'ln "-s" fname slink))))
+  
+
+#; ---------------------------------------------------------------------------
+(chdir WEB-DIR
+  (when *Tag
+    (mapc relink '(cmu-pos say-senti)))
+  (prinl)
+  (call 'ls "-lh" "--color=always"))
+
+(bye)
+#; vim: syntax=lisp:
