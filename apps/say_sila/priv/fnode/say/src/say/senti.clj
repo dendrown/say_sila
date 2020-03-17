@@ -62,8 +62,8 @@
 (def ^:const COL-TEXT   1)
 
 (def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
-(def ^:const PREFIXES   {"senti:"   ONT-IRI
-                         "pos:"     pos/ONT-IRI})
+(def ^:const PREFIXES   {"senti"    ONT-IRI
+                         "pos"      pos/ONT-IRI})
 
 (def ^:const INIT-NUM-EXAMPLES  100)
 
@@ -387,7 +387,7 @@
         [goal
          chks]  (if bal?
                     [(int (/ xcnt 2)) [:positive :negative]]    ; Count pos/neg instances separately
-                    [xcnt dset])                                ; Count all instances together
+                    [xcnt [dset]])                              ; Count all instances together
         done?   (fn [cnts]                                      ; Termination checker using example counts
                   (every? #(>= (cnts %) goal) chks))
         full?   (fn [cnts pole]                                 ; Check if we have enough pos|neg Texts
@@ -572,7 +572,8 @@
                       (.declarePrefix ps tag iri)
                       ps)
                     (Prefixes.)
-                    (merge PREFIXES Prefixes/s_semanticWebPrefixes))]
+                    (merge (update-keys PREFIXES #(str % ":")) ; The OWL API wants the colon
+                           Prefixes/s_semanticWebPrefixes))]
 
     ;; The local logger uses println, so sync first with the main logger
     (await log/Logger)
