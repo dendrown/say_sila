@@ -381,21 +381,28 @@
 
 
   ([dset]
-  (let [bal?    (cfg/?? :senti :balance?)
-        xcnt    (cfg/?? :senti :num_examples INIT-NUM-EXAMPLES) ; Base eXample count
+  (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
+        bal?    (cfg/?? :senti :balance?)
+        xcnt    (cfg/?? :senti :num_examples INIT-NUM-EXAMPLES) ; Base e[x]ample count
         [goal
          chks]  (if bal?
                     [(int (/ xcnt 2)) [:positive :negative]]    ; Count pos/neg instances separately
                     [xcnt dset])                                ; Count all instances together
+        done?   (fn [cnts]                                      ; Termination checker using example counts
+                  (every? #(>= (cnts %) goal) chks))
+        full?   (fn [cnts pole]                                 ; Check if we have enough pos|neg Texts
+                  (and bal? (>= (cnts pole) goal)))
+
+        ;;-- We bring in examples using Weka's Affective Tweets plugin and a Snowball stemmer
         arff    (ARFFs dset)
         insts   (weka/load-arff arff "sentiment")
         sball   (tw/make-stemmer)
         stem    #(.stem sball %)
-        exprs   (update-values EXPRESSIONS
+        exprs   (update-values EXPRESSIONS                      ; Pre-stem Liu's SCR expressions
                                #(into #{} (map stem %)))
+
+        ;;-- Functions to identify pos/neg tokens and Sentiment composition rules
         lex     (tw/make-pn-lexicon :bing-liu)
-        done?   (fn [cnts]                                      ; Check example counts
-                  (every? #(>= (cnts %) goal) chks))
         ->pn  #(case (.retrieveValue lex %)                     ; Lexicon lookup for P/N rules
                  "positive"  "P"
                  "negative"  "N"
@@ -410,8 +417,9 @@
         unite #(if %2 (conj %1 %2) %1)]                         ; Accepts a P|N (%2) into a set of SCRs (%1)
 
     ;; The number of examples we're creating depends on how things were configured
-    (log/info (if bal? (str "Creating "  dset xcnt)
-                       (str "Balancing " dset xcnt ":" xcnt))
+    (log/info (if bal? (str "Balancing " goal "/" goal)
+                       (str "Creating "  goal))
+              (name dset)
               "SCR examples")
 
     ;; Create the new set of Text examples
@@ -420,6 +428,7 @@
               (reduce (fn [[cnts xmap :as info]
                            ^Instance inst]
                         ;; Do we have enough examples to stop?
+                        (log/debug "CNTS:" cnts)
                         (if (done? cnts)
                           (reduced info)
                           (let [id    (long (.value inst COL-ID))
@@ -430,11 +439,11 @@
                                 pns   (map ->pn  terms)             ; Single P|N rule or nil per term
                                 rules (map ->scr terms)]            ; Set of match-term rules per term
 
-                            ;; NOTE: we're dropping Texts that don't match an SCR
-                            (when-not (empty? rules)
-                              ;; Add this example for the full set and for all rules that it covers.
-                              [(update-values cnts [pole dset] inc)
-                               (update-values xmap
+                            ;; Are we still collecting for this polarity
+                            (if (full? cnts pole)
+                              info
+                              [(update-values cnts [pole dset] inc)             ; Update pos/neg/all counts
+                               (update-values xmap                              ; Add Text for full set & all SCRs
                                               (apply set/union #{dset} rules)
                                               #(conj % {:id       id
                                                         :polarity pole
