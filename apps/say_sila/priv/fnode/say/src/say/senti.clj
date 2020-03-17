@@ -61,10 +61,11 @@
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 
-(def ^:const TWEET-TAG      "t")        ; Tweet individual have this tag plus the ID, e.g., "t42"
+(def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
 (def ^:const PREFIXES   {"senti:"   ONT-IRI
                          "pos:"     pos/ONT-IRI})
 
+(def ^:const INIT-NUM-EXAMPLES  100)
 
 
 ;;; --------------------------------------------------------------------------
@@ -380,47 +381,70 @@
 
 
   ([dset]
-  (let [arff  (ARFFs dset)
-        insts (weka/load-arff arff "sentiment")
-        sball (tw/make-stemmer)
-        stem  #(.stem sball %)
-        exprs (update-values EXPRESSIONS
-                             #(into #{} (map stem %)))
-        lex   (tw/make-pn-lexicon :bing-liu)
-        ->pn  #(case (.retrieveValue lex %)             ; Lexicon lookup for P/N rules
+  (let [bal?    (cfg/?? :senti :balance?)
+        xcnt    (cfg/?? :senti :num_examples INIT-NUM-EXAMPLES) ; Base eXample count
+        [goal
+         chks]  (if bal?
+                    [(int (/ xcnt 2)) [:positive :negative]]    ; Count pos/neg instances separately
+                    [xcnt dset])                                ; Count all instances together
+        arff    (ARFFs dset)
+        insts   (weka/load-arff arff "sentiment")
+        sball   (tw/make-stemmer)
+        stem    #(.stem sball %)
+        exprs   (update-values EXPRESSIONS
+                               #(into #{} (map stem %)))
+        lex     (tw/make-pn-lexicon :bing-liu)
+        done?   (fn [cnts]                                      ; Check example counts
+                  (every? #(>= (cnts %) goal) chks))
+        ->pn  #(case (.retrieveValue lex %)                     ; Lexicon lookup for P/N rules
                  "positive"  "P"
                  "negative"  "N"
                  "not_found" nil)
-        ->scr #(let [term (stem %)]                     ; Match terms for other Sentiment Composite Rules
+        ->scr #(let [term (stem %)]                             ; Match terms for Sentiment Composite Rules
                  (reduce (fn [acc [scr terms]]
                            (if (contains? terms term)
                                (conj acc scr)
                                acc))
                          #{}
                          exprs))
-        unite #(if %2 (conj %1 %2) %1)]                 ; Accepts a P|N (%2) into a set of SCRs (%1)
+        unite #(if %2 (conj %1 %2) %1)]                         ; Accepts a P|N (%2) into a set of SCRs (%1)
 
+    ;; The number of examples we're creating depends on how things were configured
+    (log/info (if bal? (str "Creating "  dset xcnt)
+                       (str "Balancing " dset xcnt ":" xcnt))
+              "SCR examples")
+
+    ;; Create the new set of Text examples
     (reset! SCR-Examples
-            (reduce (fn [acc ^Instance inst]
-                      (let [id    (long (.value inst COL-ID))
-                            pairs (map #(str/split % #"_" 2)    ; Pairs are "pos_term"
-                                        (str/split (.stringValue inst COL-TEXT) #" "))
-                            terms (map second pairs)
-                            pns   (map ->pn  terms)             ; Single P|N rule or nil per term
-                            rules (map ->scr terms)]            ; Set of match-term rules per term
+            (second
+              (reduce (fn [[cnts xmap :as info]
+                           ^Instance inst]
+                        ;; Do we have enough examples to stop?
+                        (if (done? cnts)
+                          (reduced info)
+                          (let [id    (long (.value inst COL-ID))
+                                pole  (polarize inst)
+                                pairs (map #(str/split % #"_" 2)    ; Pairs are "pos_term"
+                                            (str/split (.stringValue inst COL-TEXT) #" "))
+                                terms (map second pairs)
+                                pns   (map ->pn  terms)             ; Single P|N rule or nil per term
+                                rules (map ->scr terms)]            ; Set of match-term rules per term
 
-                        ;; NOTE: we're dropping Texts that don't match an SCR
-                        (when-not (empty? rules)
-                          ;; Add this example for the full set and for all rules that it covers.
-                          (update-values acc
-                                         (apply set/union #{dset} rules)
-                                         #(conj % {:id       id
-                                                   :polarity (polarize inst)
-                                                   :pos-tags (map first pairs)
-                                                   :rules    (map unite rules pns)})))))
+                            ;; NOTE: we're dropping Texts that don't match an SCR
+                            (when-not (empty? rules)
+                              ;; Add this example for the full set and for all rules that it covers.
+                              [(update-values cnts [pole dset] inc)
+                               (update-values xmap
+                                              (apply set/union #{dset} rules)
+                                              #(conj % {:id       id
+                                                        :polarity pole
+                                                        :pos-tags (map first pairs)
+                                                        :rules    (map unite rules pns)}))]))))
 
-                    (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))   ; Start w/ empty rule sets
-                    (enumeration-seq (.enumerateInstances insts))))     ; Run through Weka instances
+                    [(reduce #(assoc %1 %2 0)   {} [dset :positive :negative])  ; Acc: total/pos/neg counts
+                     (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))]         ;      Examples keyed by rule
+
+                    (enumeration-seq (.enumerateInstances insts)))))    ; Seq: Weka instances
 
     ;; Just tell them how many we have for each rule
     (update-values @SCR-Examples count))))
@@ -437,7 +461,7 @@
         base    (weka/load-arff (:base ARFFs))
         rname   (.relationName base)
         acnt    (.numAttributes base)
-        icnt    (cfg/?? :senti :num-examples 100)
+        icnt    (cfg/?? :senti :num-instances INIT-NUM-EXAMPLES)
 
         tamer   (doto (TweetToSentiStrengthFeatureVector.)
                       (.setToLowerCase true)

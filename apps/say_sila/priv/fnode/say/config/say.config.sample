@@ -12,14 +12,16 @@
      :text-index-index  6}
 
   :dolce
-    {:access            :minimal}      ; Options: import|hierarchy|minimal
+    {:access            :minimal}       ; Options: import|hierarchy|minimal
 
   :cmu-pos
     {:ignore            #{"," "~"}}
 
   :senti
-    {:full-links?       false          ; Create links explicitly rather than depending on reasoner
-     :pos-neg?          false          ; Assign Texts to Positive|Negative subclass
-     :use-scr?          false          ; Model Bing Liu's Sentiment Composition Rules
-     :num-examples      1000}          ; Use a subset until we get everything squared away
+    {:full-links?       false           ; Create links explicitly rather than depending on reasoner
+     :pos-neg?          false           ; Assign Texts to Positive|Negative subclass
+     :use-scr?          false           ; Model Bing Liu's Sentiment Composition Rules
+     :balance?          false           ; Equal representation for pos/neg classes
+     :num-examples      1000            ; Use a subset until we get everything squared away
+     :num-instances     1000}           ; We may need extra Weka instances to balance classes
 }
