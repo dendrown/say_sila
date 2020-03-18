@@ -17,8 +17,10 @@
             [weka.core       :as weka]
             [clojure.java.io :as io]
             [clojure.string  :as str])
-  (:import  [affective.core ArffLexiconEvaluator
-                            PolarityLexiconEvaluator]
+  (:import  [affective.core LexiconEvaluator
+                            ArffLexiconEvaluator
+                            PolarityLexiconEvaluator
+                            SWN3LexiconEvaluator]
             [java.util  Random]
             [weka.core  DenseInstance
                         Instance
@@ -106,17 +108,73 @@
                                            "-R" (str "1-" (count ATTRS-OUT)
                                                      ","  (inc (count ATTRS-IN)) "-last")]}})
 
-(def ^:const LEXICONS   {:bing-liu TweetToLexiconFeatureVector/BING_LIU_FILE_NAME
-                         :mpqa     TweetToLexiconFeatureVector/MPQA_FILE_NAME})
+(def ^:const LEXICONS   {:liu   {:typ PolarityLexiconEvaluator :fp TweetToLexiconFeatureVector/BING_LIU_FILE_NAME}
+                         :mpqa  {:typ PolarityLexiconEvaluator :fp TweetToLexiconFeatureVector/MPQA_FILE_NAME}
+                         :swn   {:typ SWN3LexiconEvaluator     :fp TweetToLexiconFeatureVector/SENTIWORDNET_FILE_NAME}})
 
 
 ;;; --------------------------------------------------------------------------
-(defn ^PolarityLexiconEvaluator make-pn-lexicon
-  "Returns a positive/negative polarity lexicon evaluator as implemented in
-  the AffectiveTweets Weka plugin.  Choices are :bing-liu and :mpqa"
+(defprotocol Lexify
+
+  "Functionality for the Affective Tweets lexicons."
+  (eval-token [lex tok]
+              [lex tok pos neg]
+   "Determines the polartiy score of token (word, emoticon, etc.).
+    The caller may specify the desired return values, rather than the
+    default :positive, :negative.  The function may also returns nil
+    for neutral/not-found)."))
+
+
+(extend-protocol Lexify
+
+  affective.core.PolarityLexiconEvaluator
+  (eval-token
+    ([lex tok]
+    (eval-token lex tok :positive :negative))
+
+    ([lex tok pos neg]
+    (case (.retrieveValue lex tok)
+      "positive"  pos
+      "negative"  neg
+      "not_found" nil)))
+
+
+  affective.core.SWN3LexiconEvaluator
+  (eval-token
+    ([lex tok]
+    (eval-token lex tok :positive :negative))
+
+    ([lex tok pos neg]
+    ;; The basic evaluator behaviour is to evaluate a list of tokens
+    (let [{pval "swn-posScore"
+           nval "swn-negScore"} (.evaluateTweet lex [tok])
+           score                (+ pval nval)]
+
+      ;; TODO: We need to handle dual-polarity
+      (when-not (or (zero? pval)
+                    (zero? nval))
+        (log/fmt-warn "Token '~a' has dual-polarity: p[~a] n[a] score[~a]"
+                      tok pval nval score))
+      (cond
+        (pos? score) pos
+        (neg? score) neg)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defmacro make-lexicon
+  "Returns a sentiment polarity lexicon evaluator as implemented in the
+  AffectiveTweets Weka plugin.  Choices are :liu, :mpqa, and :swn"
   [tag]
-  (doto (PolarityLexiconEvaluator. (LEXICONS tag) (name tag))
-        (.processDict)))
+  (let [ltag        (eval tag)          ; Lexicon tag (often via config lookup)
+        lname       (name ltag)
+        {ltype :typ
+         fpath :fp} (LEXICONS ltag)]
+    ;; Common constructor/initialization for the various LexiconEvaluators
+    `(do (log/info "Using lexicon:" ~ltype)
+         (doto (new ~ltype ~fpath ~lname)
+               (.processDict)))))
+
 
 
 ;;; --------------------------------------------------------------------------

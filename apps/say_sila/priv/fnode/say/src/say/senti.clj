@@ -398,19 +398,16 @@
                                #(into #{} (map stem %)))
 
         ;;-- Functions to identify pos/neg tokens and Sentiment composition rules
-        lex     (tw/make-pn-lexicon :bing-liu)
-        ->pn  #(case (.retrieveValue lex %)                     ; Lexicon lookup for P/N rules
-                 "positive"  "P"
-                 "negative"  "N"
-                 "not_found" nil)
-        ->scr #(let [term (stem %)]                             ; Match terms for Sentiment Composite Rules
-                 (reduce (fn [acc [scr terms]]
-                           (if (contains? terms term)
-                               (conj acc scr)
-                               acc))
-                         #{}
-                         exprs))
-        unite #(if %2 (conj %1 %2) %1)]                         ; Accepts a P|N (%2) into a set of SCRs (%1)
+        lex     (tw/make-lexicon (cfg/?? :senti :lexicon :liu)) ; TODO: Capture lex change on config update
+        ->pn    #(tw/eval-token lex % "P" "N")                  ; Lexicon lookup for P/N rules
+        ->scr   #(let [term (stem %)]                           ; Match terms for Sentiment Composite Rules
+                   (reduce (fn [acc [scr terms]]
+                             (if (contains? terms term)
+                                 (conj acc scr)
+                                 acc))
+                           #{}
+                           exprs))
+        unite   #(if %2 (conj %1 %2) %1)]                         ; Accepts a P|N (%2) into a set of SCRs (%1)
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (if bal? (str "Balancing " goal "/" goal)

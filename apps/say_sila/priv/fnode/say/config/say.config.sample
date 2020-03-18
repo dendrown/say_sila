@@ -6,10 +6,11 @@
 
   :emote
     {:nlp               :english        ; Options: affective|english
-     :screen-name-index 3               ; ARFF indices are 1-based
+     :id-index          1               ; ARFF indices are 1-based
+     :screen-name-index 3
      :full-name-index   4
      :description-index 5
-     :text-index-index  6}
+     :text-index        6}
 
   :dolce
     {:access            :minimal}       ; Options: import|hierarchy|minimal
@@ -24,6 +25,7 @@
      :use-scr?          false           ; Model Bing Liu's Sentiment Composition Rules
      :balance?          false           ; Equal representation for pos/neg classes
      :rand-seed         12345           ; Seed an RNG to take shuffle input instances
+     :lexicon           :liu            ; Options: liu|mpqa|swn
      :num-examples      1000            ; Use a subset until we get everything squared away
      :num-instances     1000}           ; We may need extra Weka instances to balance classes
 }
