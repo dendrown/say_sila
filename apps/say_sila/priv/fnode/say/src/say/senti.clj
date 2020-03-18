@@ -382,6 +382,7 @@
 
   ([dset]
   (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
+        all-pn? (cfg/?? :senti :skip-neutrals?)
         bal?    (cfg/?? :senti :balance?)
         xcnt    (cfg/?? :senti :num_examples INIT-NUM-EXAMPLES) ; Base e[x]ample count
         [goal
@@ -392,6 +393,8 @@
                   (every? #(>= (cnts %) goal) chks))
         full?   (fn [cnts pole]                                 ; Check if we have enough pos|neg Texts
                   (and bal? (>= (cnts pole) goal)))
+        no-pn?  (fn [rules]                                     ; Check that we're not including neutral Texts
+                  (and all-pn? (every? empty? rules)))          ; ..and that no sentiment (rule) is expressed
 
         ;;-- We bring in examples using Weka's Affective Tweets plugin and a Snowball stemmer
         arff    (ARFFs dset)
@@ -420,7 +423,8 @@
     (log/info (if bal? (str "Balancing " goal "/" goal)
                        (str "Creating "  goal))
               (name dset)
-              "SCR examples")
+              "SCR examples"
+              (str "[pos/neg" (when-not all-pn? "/neu") "]"))
 
     ;; Create the new set of Text examples
     (reset! SCR-Examples
@@ -428,9 +432,9 @@
               (reduce (fn [[cnts xmap :as info]
                            ^Instance inst]
                         ;; Do we have enough examples to stop?
-                        (log/debug "CNTS:" cnts)
                         (if (done? cnts)
-                          (reduced info)
+                          (do (log/info "Examples:" cnts)
+                              (reduced info))
                           (let [id    (long (.value inst COL-ID))
                                 pole  (polarize inst)
                                 pairs (map #(str/split % #"_" 2)    ; Pairs are "pos_term"
@@ -439,8 +443,9 @@
                                 pns   (map ->pn  terms)             ; Single P|N rule or nil per term
                                 rules (map ->scr terms)]            ; Set of match-term rules per term
 
-                            ;; Are we still collecting for this polarity
-                            (if (full? cnts pole)
+                            ;; Do we skip|process this Text??
+                            (if (or (no-pn? pns)                    ; Is it void of pos/neg sentiment?
+                                    (full? cnts pole))              ; Are we still collecting for this polarity?
                               info
                               [(update-values cnts [pole dset] inc)             ; Update pos/neg/all counts
                                (update-values xmap                              ; Add Text for full set & all SCRs
