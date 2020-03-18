@@ -262,19 +262,12 @@
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (str TWEET-TAG id)
-          text    (individual ont tid
+          text    (individual ont tid       ; Entity representing the text
                     :type (if pos-neg?
                               (case polarity :negative NegativeText
                                              :positive PositiveText)
                               Text))
           express #(refine ont %1 :fact (is dul/expresses (individual ont %2)))]
-
-      ;; Note that we're receiving the Texts in reverse order
-      (when (zero? (rem id 100))
-        (log/debug "Processing" id "texts..."))
-
-      ;; Add an entity representing the text itself.  Note that we'll be creating
-      ;; the referenced token "tN-1" in the reduce expression below.
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
@@ -425,6 +418,11 @@
               (name dset)
               "SCR examples"
               (str "[pos/neg" (when-not all-pn? "/neu") "]"))
+
+    ;; Shall we (pseudo)randomize the instances?
+    (when-let [seed (cfg/?? :senti :rand-seed)]
+      (log/fmt-info "Shuffling ~a input instances: seed[~a]" (.numInstances insts) seed)
+      (.randomize insts (java.util.Random. @cfg/RNG-Seed)))
 
     ;; Create the new set of Text examples
     (reset! SCR-Examples
