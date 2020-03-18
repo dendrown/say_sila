@@ -93,15 +93,16 @@
            ent->ent #(apply dom->rng % Entity Entity %&)]
 
         ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
-        (refine InformationEntity   :super Entity)
-        (refine InformationObject   :super InformationEntity)
-
         (refine Objekt              :super Entity)
         (refine SocialObject        :super Objekt)
         (refine Concept             :super SocialObject)
 
-        (ent->ent hasComponent)                                   ; Do we want isComponentOf?
-        (dom->rng expresses InformationObject SocialObject)       ; Likewise with isExpressedBy?
+        (refine InformationEntity   :super Entity)
+        (refine InformationObject   :super InformationEntity)       ; -\ two
+        (refine InformationObject   :super SocialObject)            ; -/ parents
+
+        (ent->ent hasComponent)                                     ; Do we want isComponentOf?
+        (dom->rng expresses InformationObject SocialObject)         ; Likewise with isExpressedBy?
 
         ;; Recreate what we need for Qualities
         (refine Quality :super Entity)
