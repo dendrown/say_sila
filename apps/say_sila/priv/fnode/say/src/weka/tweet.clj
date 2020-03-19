@@ -136,6 +136,7 @@
     (case (.retrieveValue lex tok)
       "positive"  pos
       "negative"  neg
+      "neutral"   nil
       "not_found" nil)))
 
 
