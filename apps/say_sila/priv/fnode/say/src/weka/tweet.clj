@@ -170,10 +170,12 @@
         lname       (name ltag)
         {ltype :typ
          fpath :fp} (LEXICONS ltag)]
-    ;; Common constructor/initialization for the various LexiconEvaluators
-    `(do (log/info "Using lexicon:" ~ltype)
-         (doto (new ~ltype ~fpath ~lname)
-               (.processDict)))))
+    (if ltype
+      ;; Common constructor/initialization for the various LexiconEvaluators
+      `(do (log/info "Using lexicon:" ~ltype)
+           (doto (new ~ltype ~fpath ~lname)
+                 (.processDict)))
+      (throw (ClassNotFoundException. (str "Unsupported lexicon: " lname))))))
 
 
 
