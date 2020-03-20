@@ -387,7 +387,7 @@
   (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
         all-pn? (cfg/?? :senti :skip-neutrals?)
         bal?    (cfg/?? :senti :balance?)
-        xcnt    (cfg/?? :senti :num_examples INIT-NUM-EXAMPLES) ; Base e[x]ample count
+        xcnt    (cfg/?? :senti :num-examples INIT-NUM-EXAMPLES) ; Base e[x]ample count
         [goal
          chks]  (if bal?
                     [(int (/ xcnt 2)) [:positive :negative]]    ; Count pos/neg instances separately
