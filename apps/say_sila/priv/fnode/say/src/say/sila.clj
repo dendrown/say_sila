@@ -54,10 +54,10 @@
 ;;; --------------------------------------------------------------------------
 ;;; Top level:
 ;;;
-;;; Imports foundational & reference ontologies
-(doseq [imp (filter some? [dul/dul
-                           (when FOAF? foaf/foaf)])]
-  (owl-import imp))
+;;; Bring in the DOLCE+DnS Ultralite foundational ontology as configured
+(dul/access)
+(when FOAF?
+  (owl-import foaf/foaf))
 
 ;;; Top-level ontology: Dolce+D&S Ultralite
 (defcopy dul/Agent)

@@ -106,12 +106,13 @@
   :prefix  ONT-PREFIX
   :comment "Ontology for training sentiment models.")
 
-;; Bring in the DOLCE+DnS Ultralite foundational ontology as configured
-(dul/access)
-
-
-;;; --------------------------------------------------------------------------
+;;; Bring in the CMU Part-of-Speech definitions ontology.
+;;;
+;;; NOTE: We're accessing DUL via the cmu-pos import, which will in turn import
+;;;       either the full DOLCE+DnS Ultralite foundational ontology or our own
+;;;       scaled-down say-dolce ontology as specified in the Say-Sila configuration.
 (owl-import pos/cmu-pos)
+
 (if false
     ;; FIXME: Decide how we're handling the InfoObj subclass(es)
     (do
