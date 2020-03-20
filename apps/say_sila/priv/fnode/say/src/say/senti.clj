@@ -112,25 +112,34 @@
 
 ;;; --------------------------------------------------------------------------
 (owl-import pos/cmu-pos)
-(as-subclasses dul/InformationObject
-  :disjoint
+(if false
+    ;; FIXME: Decide how we're handling the InfoObj subclass(es)
+    (do
+      (as-subclasses dul/InformationObject
+      :disjoint
+      (defclass Text
+        :label   "Text"
+        :comment "An Information Object consisting of text.")
+
+      ; TODO: Differentiate between Punctuation as an Information Object and a "Part of Speech" Quality
+      ;(defclass Punctuation
+      ;  :label   "Punctuation"
+      ;  :comment (str "An Information Object representing a grammatical symbol to organize and"
+      ;                "aid the understanding of written text."))
+
+      (defclass Term
+      ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
+        :label   "Term"
+        :comment "An Information Object representing a syntactic unit of meaning, such as a word."))
+
+      (refine Term :equivalent pos/Token))      ; cmp: (refine pos/Token :equivalent (dl/or Term Punctuation))
+
+  ;; FIXME: Of the three potential InfoObj classes, Text is the only one we actually use
   (defclass Text
+    :super   dul/InformationObject
     :label   "Text"
-    :comment "An Information Object consisting of text.")
+    :comment "An Information Object consisting of text."))
 
-  ; TODO: Differentiate between Punctuation as an Information Object and a "Part of Speech" Quality
-  ;(defclass Punctuation
-  ;  :label   "Punctuation"
-  ;  :comment (str "An Information Object representing a grammatical symbol to organize and"
-  ;                "aid the understanding of written text."))
-
-  (defclass Term
-    ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
-    :label   "Term"
-    :comment "An Information Object representing a syntactic unit of meaning, such as a word."))
-
-(defcopy pos/Token)
-(refine Token :equivalent Term) ;(dl/or Term Punctuation))
 
 ;; DL-Learner isn't handling Pos/Neg Text subclasses well
 (when (cfg/?? :senti :pos-neg?)
@@ -279,7 +288,7 @@
             ;; Set up an individual for this Token
             (let [ttid (str tid "-" cnt)
                   curr (individual ont ttid
-                                   :type  Token
+                                   :type  pos/Token
                                    :label (str ttid " (" tag ")"))]
 
               ;; Link Token to the original Text and set POS Quality
@@ -301,6 +310,7 @@
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
+              ;; Report the real SCR rules (not P|N because there are too many)
               (when-not (contains? #{"P" "N"} rule)
                 (log/debug "Tweet token" ttid "expresses" rule))
               (express curr rule))
