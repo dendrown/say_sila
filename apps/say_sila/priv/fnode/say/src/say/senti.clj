@@ -218,13 +218,15 @@
   [sys]
   (let [esys  (eval sys)
         emote (fn [e] `(defemotion ~e ~esys))]
-    (conj (case esys
-            :plutchik (map emote '[Anger    Sadness
-                                   Fear     Surprise
-                                   Joy      Trust
-                                   Disgust  Anticipation]))
-          `(log/fmt-notice "Creating base emotion set: [~a]" ~esys)
-          'do)))
+    (when esys
+      ;; Create Affect concepts according to the system
+      (conj (case esys
+              :plutchik (map emote '[Anger Fear ,, Sadness Joy        ,, Surprise Anticipation ,, Disgust Trust])
+              :ekman    (map emote '[Anger Fear    Sadness Happiness     Surprise                 Disgust])
+              `((log/fmt-error "Unsupported emotion system: [~a]" ~esys)))
+
+            `(log/fmt-info "Creating base emotion set: [~a]" ~esys)       ; Building the cmd in reverse!
+            'do))))
 
 ;;; Create Emotions in the ontology per the configured emo-system
 (defemotions (cfg/?? :senti :emotions))
