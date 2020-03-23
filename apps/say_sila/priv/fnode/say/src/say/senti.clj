@@ -163,7 +163,6 @@
 ;;; include the individuals (Texts) from the training corpus which express
 ;;; a given rule.  However, it is in this, the main say-senti ontology, that
 ;;; all the SCRs are defined.
-;;; --------------------------------------------------------------------------
 (defclass SentimentCompositionRule
   :super   dul/Concept
   :label   "Sentiment Composition Rule"
@@ -179,10 +178,12 @@
          :comment ~descr)
        (defpun ~tag)))
 
-;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
+;; FIXME Reclassify P/N and emotions if we're not going to use other Liu's SCRs
 (defscr P "An atomic, nonterminal sentiment composition expressing positive sentiment.")
 (defscr N "An atomic, nonterminal sentiment composition expressing negative sentiment.")
+
 (when (cfg/?? :senti :use-scr?)
+  ;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
   (log/notice "Creating Sentiment Composition Rules")
   (defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
   (defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
@@ -190,6 +191,47 @@
   (defscr INCREASE-P  "Expressions which increase PPI and PO terms."))
 
 
+;;; --------------------------------------------------------------------------
+(defclass Affect
+  :super    dul/Concept
+  :label    "Affect"
+  :comment  "A concept describing human sentiment or emotion.")
+
+
+(defmacro defemotion
+  "Adds a Concept reprenting an emotion to the say-senti ontology"
+  [emo sys]
+  `(do
+     (defclass ~emo
+       :super   Affect
+       :label   (name '~emo)
+       :comment (str "A concept which expresses the class of human affect generally known as "
+                     (str/lower-case (name '~emo))
+                     (when ~sys
+                       (str " according to the system of base emotions by " (str/capitalize (name ~sys))))
+                     "."))
+       (defpun ~emo)))
+
+
+(defmacro defemotions
+  "Adds all the emotions handled by a lexicon into the say-senti ontology."
+  [sys]
+  (let [esys  (eval sys)
+        emote (fn [e] `(defemotion ~e ~esys))]
+    (conj (case esys
+            :plutchik (map emote '[Anger    Sadness
+                                   Fear     Surprise
+                                   Joy      Trust
+                                   Disgust  Anticipation]))
+          `(log/fmt-notice "Creating base emotion set: [~a]" ~esys)
+          'do)))
+
+;;; Create Emotions in the ontology per the configured emo-system
+(defemotions (cfg/?? :senti :emotions))
+
+
+
+;;; --------------------------------------------------------------------------
 ;; TODO: Put SentimentPolarity back in after we handle timing considerations
 ;(defclass SentimentPolarity
 ;  :super   dul/Quality

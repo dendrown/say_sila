@@ -19,6 +19,7 @@
             [clojure.string  :as str])
   (:import  [affective.core LexiconEvaluator
                             ArffLexiconEvaluator
+                            NRCEmotionLexiconEvaluator
                             PolarityLexiconEvaluator
                             SWN3LexiconEvaluator]
             [java.util  Random]
@@ -108,22 +109,21 @@
                                            "-R" (str "1-" (count ATTRS-OUT)
                                                      ","  (inc (count ATTRS-IN)) "-last")]}})
 
-(def ^:const LEXICONS   {:liu   {:typ PolarityLexiconEvaluator :fp TweetToLexiconFeatureVector/BING_LIU_FILE_NAME}
-                         :mpqa  {:typ PolarityLexiconEvaluator :fp TweetToLexiconFeatureVector/MPQA_FILE_NAME}
-                         :swn   {:typ SWN3LexiconEvaluator     :fp TweetToLexiconFeatureVector/SENTIWORDNET_FILE_NAME}})
+(def ^:const LEXICONS   {:liu   {:typ PolarityLexiconEvaluator   :fp TweetToLexiconFeatureVector/BING_LIU_FILE_NAME}
+                         :mpqa  {:typ PolarityLexiconEvaluator   :fp TweetToLexiconFeatureVector/MPQA_FILE_NAME}
+                         :nrc   {:typ NRCEmotionLexiconEvaluator :fp TweetToLexiconFeatureVector/NRC10_FILE_NAME}
+                         :swn   {:typ SWN3LexiconEvaluator       :fp TweetToLexiconFeatureVector/SENTIWORDNET_FILE_NAME}})
 
 
 ;;; --------------------------------------------------------------------------
 (defprotocol Lexify
-
   "Functionality for the Affective Tweets lexicons."
   (eval-token [lex tok]
               [lex tok pos neg]
-   "Determines the polartiy score of token (word, emoticon, etc.).
+    "Determines the polartiy score of token (word, emoticon, etc.).
     The caller may specify the desired return values, rather than the
     default :positive, :negative.  The function may also returns nil
     for neutral/not-found)."))
-
 
 (extend-protocol Lexify
 
@@ -177,6 +177,17 @@
            (doto (new ~ltype ~fpath ~lname)
                  (.processDict)))
       (throw (ClassNotFoundException. (str "Unsupported lexicon: " lname))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defmacro get-lexicon-features
+  "Returns a sequence of the sentiment/emotion concepts considered with
+  respect to the lexicon associated with the specified tag."
+  [tag]
+  `(let [lex# (make-lexicon ~tag)]
+     (map #(keyword (last (str/split % #"-")))
+           (.getFeatureNames lex#))))
 
 
 

@@ -22,10 +22,12 @@
     {:full-links?       false           ; Create links explicitly rather than depending on reasoner
      :pos-neg?          false           ; Assign Texts to Positive|Negative subclass
      :skip-neutrals?    false           ; Do not include Texts that are not classified as pos|neg
+     :use-plutchik?     false           ; Include emotion concepts corresponding to Plutchik's 8 base emotions
      :use-scr?          false           ; Model Bing Liu's Sentiment Composition Rules
      :balance?          false           ; Equal representation for pos/neg classes
      :rand-seed         12345           ; Seed an RNG to take shuffle input instances
-     :lexicon           :liu            ; Options: liu|mpqa|swn
+     :lexicon           :liu            ; Options: liu|mpqa|nrc|swn
+     :emotions          :plutchik       ; Base emotion system: plutchik|Ekman|nil
      :num-examples      1000            ; Use a subset until we get everything squared away
      :num-instances     1000}           ; We may need extra Weka instances to balance classes
 }
