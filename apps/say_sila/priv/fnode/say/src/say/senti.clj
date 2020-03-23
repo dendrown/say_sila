@@ -225,7 +225,7 @@
               :ekman    (map emote '[Anger Fear    Sadness Happiness     Surprise                 Disgust])
               `((log/fmt-error "Unsupported emotion system: [~a]" ~esys)))
 
-            `(log/fmt-info "Creating base emotion set: [~a]" ~esys)       ; Building the cmd in reverse!
+            `(log/fmt-info "Creating base emotion set: [~a]" ~esys)       ; Building a do-expr in reverse!
             'do))))
 
 ;;; Create Emotions in the ontology per the configured emo-system
@@ -454,7 +454,7 @@
 
         ;;-- Functions to identify pos/neg tokens and Sentiment composition rules
         lex     (tw/make-lexicon (cfg/?? :senti :lexicon :liu)) ; TODO: Capture lex change on config update
-        ->pn    #(tw/eval-token lex % "P" "N")                  ; Lexicon lookup for P/N rules
+        ->pn    #(tw/polarize-token+- lex % "P" "N")             ; Lexicon lookup for P/N rules
         ->scr   #(let [term (stem %)]                           ; Match terms for Sentiment Composite Rules
                    (reduce (fn [acc [scr terms]]
                              (if (contains? terms term)

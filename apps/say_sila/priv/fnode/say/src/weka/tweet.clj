@@ -118,34 +118,51 @@
 ;;; --------------------------------------------------------------------------
 (defprotocol Lexify
   "Functionality for the Affective Tweets lexicons."
-  (eval-token [lex tok]
-              [lex tok pos neg]
+
+  (analyze-token [lex tok]
+    "Returns a map respresenting the specified lexicon's analysis of a word.")
+
+  (polarize-token+- [lex tok pos neg]
     "Determines the polartiy score of token (word, emoticon, etc.).
-    The caller may specify the desired return values, rather than the
-    default :positive, :negative.  The function may also returns nil
-    for neutral/not-found)."))
+    The caller must specify the desired return values, rather than the
+    default :positive, :negative.  The value nil represents a result
+    of neutral/not-found for the given token.  Note that the caller may
+    prefer to use the function polarize token instead which uses default
+    return values."))
+
 
 (extend-protocol Lexify
-
-  affective.core.PolarityLexiconEvaluator
-  (eval-token
-    ([lex tok]
-    (eval-token lex tok :positive :negative))
-
-    ([lex tok pos neg]
+  PolarityLexiconEvaluator
+  (polarize-token+-
+    [lex tok pos neg]
     (case (.retrieveValue lex tok)
       "positive"  pos
       "negative"  neg
       "neutral"   nil
-      "not_found" nil)))
+      "not_found" nil))
 
 
-  affective.core.SWN3LexiconEvaluator
-  (eval-token
-    ([lex tok]
-    (eval-token lex tok :positive :negative))
+  NRCEmotionLexiconEvaluator
+  (analyze-token
+    [lex tok]
+    ;; NRC-10 gives us a map of the emo/polarity hits for the token
+    (update-keys (.getWord lex tok) keyword))
 
-    ([lex tok pos neg]
+  (polarize-token+-
+    [lex tok pos neg]
+    ;; NRC-10 gives us a map of the emo/polarity hits for the token
+    (let [affect (analyze-token lex tok)]
+      (case [(:positive affect)
+             (:negative affect)]
+        [1 0] pos
+        [0 1] neg
+        [1 1] (log/fmt-warn "Token analysis shows '~a' is positive AND negative" tok)
+              nil)))
+
+
+  SWN3LexiconEvaluator
+  (polarize-token+-
+    [lex tok pos neg]
     ;; The basic evaluator behaviour is to evaluate a list of tokens
     (let [{pval "swn-posScore"
            nval "swn-negScore"} (.evaluateTweet lex [tok])
@@ -158,7 +175,14 @@
                       tok pval nval score))
       (cond
         (pos? score) pos
-        (neg? score) neg)))))
+        (neg? score) neg))))
+
+
+(defn polarize-token
+  "Returns :positive, :negative, or nil according to  the polartiy score
+  of the specified token (word, emoticon, etc.)."
+  [lex tok]
+  (polarize-token+- lex tok :positive :negative))
 
 
 
