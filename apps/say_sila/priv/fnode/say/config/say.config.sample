@@ -25,6 +25,7 @@
      :use-plutchik?     false           ; Include emotion concepts corresponding to Plutchik's 8 base emotions
      :use-scr?          false           ; Model Bing Liu's Sentiment Composition Rules
      :balance?          false           ; Equal representation for pos/neg classes
+     :testing?          false           ; Include testing concepts used to evaluate the system
      :rand-seed         12345           ; Seed an RNG to take shuffle input instances
      :lexicon           :liu            ; Options: liu|mpqa|nrc|swn
      :emotions          :plutchik       ; Base emotion system: plutchik|Ekman|nil

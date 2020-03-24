@@ -199,6 +199,21 @@
   :label    "Affect"
   :comment  "A concept describing human sentiment or emotion.")
 
+(defoproperty denotesAffect
+  :super    dul/expresses
+  :label    "denotes affect"
+  :domain   pos/Token
+  :range    Affect
+  :comment  "A relationship between a Text and the affect it expresses.")
+
+;;; Add Test elements if we're evaluating the system
+(when (cfg/?? :senti :testing?)
+  (defclass PositiveTest
+    :super   Affect
+    :label   "Positive Test"
+    :comment "This class is for system evaluation only.")
+  (defpun PositiveTest))
+
 ;;; TODO: Resolve the discrepancy between pos/neg sentiment Affect and the P/N SCRs
 ;;;       Also, these affect concepts should use noun forms (Positivity and Negativity),
 ;;;       but we're using terms from the lexicon for the initial evaluation.
@@ -332,7 +347,7 @@
   "Adds a Text individual to the specified Sentiment Component Rule ontology."
   [ont
    {:keys [content id polarity pos-tags rules]}     ; Text (tweet) breakdown
-   {:keys [full-links? pos-neg?]}]                  ; Configuration
+   {:keys [full-links? pos-neg? testing?]}]         ; Configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (str TWEET-TAG id)
@@ -343,7 +358,7 @@
                               Text)
                     :annotation (annotation TextualContent
                                             (apply str (interpose " " content))))
-          express #(refine ont %1 :fact (is dul/expresses (individual ont %2)))]
+          express #(refine ont %1 :fact (is denotesAffect (individual ont %2)))]
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
@@ -361,6 +376,12 @@
               ;; Link Token to the original Text and set POS Quality
               (refine ont text :fact (is dul/hasComponent curr))
               (refine ont curr :fact (is pos/isPartOfSpeech pos))
+
+              ;; Add test affect to the first token if we're evaluating the system
+              (when (and testing?
+                         (= cnt 1)
+                         (= polarity :positive))
+                (express curr "PositiveTest"))
 
             ;; Link tokens to each other
             (when-let [prev (first tokens)]
