@@ -141,6 +141,8 @@
     :label   "Text"
     :comment "An Information Object consisting of text."))
 
+(defaproperty TextualContent)
+
 
 ;; DL-Learner isn't handling Pos/Neg Text subclasses well
 (when (cfg/?? :senti :pos-neg?)
@@ -244,9 +246,10 @@
 
 ;;; Create Emotions in the ontology per the configured emo-system
 (defemotions (cfg/?? :senti :emotions))
-(defonce Affect-Fragments (into {} (map #(let [a (iri-fragment %)]
-                                           [(lower-keyword a) a])
-                                         (rsn/instances Affect))))
+(defonce Affect-Fragments   (into {} (map #(let [a (iri-fragment %)]
+                                             [(lower-keyword a) a])
+                                           (rsn/instances Affect))))
+(defonce Affect-Names       (into #{} (vals Affect-Fragments)))
 
 
 
@@ -328,8 +331,8 @@
 (defn- add-text
   "Adds a Text individual to the specified Sentiment Component Rule ontology."
   [ont
-   {:keys [id polarity pos-tags rules]}     ; Text (tweet) breakdown
-   {:keys [full-links? pos-neg?]}]          ; Configuration
+   {:keys [content id polarity pos-tags rules]}     ; Text (tweet) breakdown
+   {:keys [full-links? pos-neg?]}]                  ; Configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (str TWEET-TAG id)
@@ -337,7 +340,9 @@
                     :type (if pos-neg?
                               (case polarity :negative NegativeText
                                              :positive PositiveText)
-                              Text))
+                              Text)
+                    :annotation (annotation TextualContent
+                                            (apply str (interpose " " content))))
           express #(refine ont %1 :fact (is dul/expresses (individual ont %2)))]
 
       ;; And entities for each of the terms, linking them together and to the text
@@ -373,7 +378,7 @@
             ;; Express sentiment composition rules
             (doseq [rule rules]
               ;; Report the real SCR rules (not P|N because there are too many)
-              (when-not (contains? #{"P" "N"} rule)
+              (when-not (contains? Affect-Names rule)
                 (log/debug "Tweet token" ttid "expresses" rule))
               (express curr rule))
 
@@ -518,6 +523,7 @@
                                               (apply set/union #{dset} rules)
                                               #(conj % {:id       id
                                                         :polarity pole
+                                                        :content  terms
                                                         :pos-tags (map first pairs)
                                                         :rules    (map set/union rules affect)}))]))))
 
