@@ -197,6 +197,20 @@
   :label    "Affect"
   :comment  "A concept describing human sentiment or emotion.")
 
+;;; TODO: Resolve the discrepancy between pos/neg sentiment Affect and the P/N SCRs
+;;;       Also, these affect concepts should use noun forms (Positivity and Negativity),
+;;;       but we're using terms from the lexicon for the initial evaluation.
+(as-subclasses Affect
+  (defclass Positive
+    :label   "Positive"
+    :comment "An affective concept representing positive sentiment polarity.")
+
+  (defclass Negative
+    :label   "Negative"
+    :comment "An affective concept representing negative sentiment polarity."))
+
+(domap #(defpun %) [Positive Negative])
+
 
 (defmacro defemotion
   "Adds a Concept reprenting an emotion to the say-senti ontology"
