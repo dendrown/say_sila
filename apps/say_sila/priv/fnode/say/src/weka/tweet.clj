@@ -155,7 +155,7 @@
       (if returns
         ;; Create a set of the requested returns for any hits
         (reduce (fn [acc [aff ret]]
-                  (if (pos? (get affect aff))
+                  (if (pos? (get affect aff 0))
                       (conj acc ret)
                       acc))
                 #{}

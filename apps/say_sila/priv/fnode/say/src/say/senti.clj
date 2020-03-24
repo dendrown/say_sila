@@ -444,7 +444,7 @@
                   (every? #(>= (cnts %) goal) chks))
         full?   (fn [cnts pole]                                 ; Check if we have enough pos|neg Texts
                   (and bal? (>= (cnts pole) goal)))
-        no-pn?  (fn [rules]                                     ; Check that we're not including neutral Texts
+        stoic?  (fn [rules]                                     ; Check that we're not including neutral Texts
                   (and all-pn? (every? empty? rules)))          ; ..and that no sentiment (rule) is expressed
 
         ;;-- We bring in examples using Weka's Affective Tweets plugin and a Snowball stemmer
@@ -457,15 +457,14 @@
 
         ;;-- Functions to identify pos/neg tokens and Sentiment composition rules
         lex     (tw/make-lexicon (cfg/?? :senti :lexicon :liu)) ; TODO: Capture lex change on config update
-        ->pn    #(tw/polarize-token+- lex % "P" "N")             ; Lexicon lookup for P/N rules
+        ->sense #(tw/analyze-token+- lex % Affect-Fragments)    ; Lexicon lookup for P/N rules
         ->scr   #(let [term (stem %)]                           ; Match terms for Sentiment Composite Rules
                    (reduce (fn [acc [scr terms]]
                              (if (contains? terms term)
                                  (conj acc scr)
                                  acc))
                            #{}
-                           exprs))
-        unite   #(if %2 (conj %1 %2) %1)]                         ; Accepts a P|N (%2) into a set of SCRs (%1)
+                           exprs))]
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (if bal? (str "Balancing " goal "/" goal)
@@ -488,16 +487,16 @@
                         (if (done? cnts)
                           (do (log/info "Examples:" cnts)
                               (reduced info))
-                          (let [id    (long (.value inst COL-ID))
-                                pole  (polarize inst)
-                                pairs (map #(str/split % #"_" 2)    ; Pairs are "pos_term"
-                                            (str/split (.stringValue inst COL-TEXT) #" "))
-                                terms (map second pairs)
-                                pns   (map ->pn  terms)             ; Single P|N rule or nil per term
-                                rules (map ->scr terms)]            ; Set of match-term rules per term
+                          (let [id     (long (.value inst COL-ID))
+                                pole   (polarize inst)
+                                pairs  (map #(str/split % #"_" 2)   ; Pairs are "pos_term"
+                                             (str/split (.stringValue inst COL-TEXT) #" "))
+                                terms  (map second pairs)
+                                affect (map ->sense terms)          ; Affect: pos|neg|emo or nil per term
+                                rules  (map ->scr   terms)]         ; Set of match-term rules per term
 
                             ;; Do we skip|process this Text??
-                            (if (or (no-pn? pns)                    ; Is it void of pos/neg sentiment?
+                            (if (or (stoic? affect)                 ; Is it void of pos/neg/emotion?
                                     (full? cnts pole))              ; Are we still collecting for this polarity?
                               info
                               [(update-values cnts [pole dset] inc)             ; Update pos/neg/all counts
@@ -506,7 +505,7 @@
                                               #(conj % {:id       id
                                                         :polarity pole
                                                         :pos-tags (map first pairs)
-                                                        :rules    (map unite rules pns)}))]))))
+                                                        :rules    (map set/union rules affect)}))]))))
 
                     [(reduce #(assoc %1 %2 0)   {} [dset :positive :negative])  ; Acc: total/pos/neg counts
                      (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))]         ;      Examples keyed by rule
