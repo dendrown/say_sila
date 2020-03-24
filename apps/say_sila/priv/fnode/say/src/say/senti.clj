@@ -230,6 +230,9 @@
 
 ;;; Create Emotions in the ontology per the configured emo-system
 (defemotions (cfg/?? :senti :emotions))
+(defonce Affect-Fragments (into {} (map #(let [a (iri-fragment %)]
+                                           [(lower-keyword a) a])
+                                         (rsn/instances Affect))))
 
 
 

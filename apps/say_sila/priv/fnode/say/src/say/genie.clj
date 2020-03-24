@@ -135,6 +135,14 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn lower-keyword
+  "Creates a lower-case keyword from stringable data."
+  [s]
+  (keyword (str/lower-case (str s))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn get-keys
   "Returns a sequence with any keys used in the hashmap hmap that are included
   in the sequence kseq."

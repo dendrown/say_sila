@@ -117,10 +117,14 @@
 
 ;;; --------------------------------------------------------------------------
 (defprotocol Lexify
-  "Functionality for the Affective Tweets lexicons."
+  "Functionality for the Affective Tweets lexicons.  This protocol  allows
+  for customized return specifications."
 
-  (analyze-token [lex tok]
-    "Returns a map respresenting the specified lexicon's analysis of a word.")
+  (analyze-token+- [lex tok returns]
+    "If returns is nil, the function returns a hashmap representing the
+    specified lexicon's analysis of the token  If returns is a hashmap,
+    then the function returns a set of the values in the returns map
+    that correspond to the affective elements found in the analysis.")
 
   (polarize-token+- [lex tok pos neg]
     "Determines the polartiy score of token (word, emoticon, etc.).
@@ -132,6 +136,7 @@
 
 
 (extend-protocol Lexify
+
   PolarityLexiconEvaluator
   (polarize-token+-
     [lex tok pos neg]
@@ -143,15 +148,25 @@
 
 
   NRCEmotionLexiconEvaluator
-  (analyze-token
-    [lex tok]
+  (analyze-token+-
+    [lex tok returns]
     ;; NRC-10 gives us a map of the emo/polarity hits for the token
-    (update-keys (.getWord lex tok) keyword))
+    (let [affect (update-keys (.getWord lex tok) keyword)]
+      (if returns
+        ;; Create a set of the requested returns for any hits
+        (reduce (fn [acc [aff ret]]
+                  (if (pos? (get affect aff))
+                      (conj acc ret)
+                      acc))
+                #{}
+                returns)
+        ;; No specific returns requested, so return the results map
+        affect)))
 
   (polarize-token+-
     [lex tok pos neg]
     ;; NRC-10 gives us a map of the emo/polarity hits for the token
-    (let [affect (analyze-token lex tok)]
+    (let [affect (analyze-token+- lex tok nil)]
       (case [(:positive affect)
              (:negative affect)]
         [1 0] pos
@@ -178,6 +193,16 @@
         (neg? score) neg))))
 
 
+
+;;; --------------------------------------------------------------------------
+(defn analyze-token
+  "Returns a map respresenting the specified lexicon's analysis of a word."
+  [lex tok]
+  (analyze-token+- lex tok nil))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn polarize-token
   "Returns :positive, :negative, or nil according to  the polartiy score
   of the specified token (word, emoticon, etc.)."
