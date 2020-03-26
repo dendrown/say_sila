@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.genie
   (:require [clojure.pprint :as prt]
@@ -47,7 +47,6 @@
     (if (number? y)
         (> EPSILON (Math/abs (- (double x) (double y))))
         (equiv? (str x) y))))
-
 
 
 
@@ -152,11 +151,26 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn optionize
+  "Returns a vector pair where the first element is a the first item of the
+  opts sequence iff it passes the check function.  In this case the second
+  item in the pair will be the rest of the opts sequence.  Otherwise, if the
+  check on the first item fails (is falsey), then the first element of the
+  return pair is the specified default, and the second item is the full opts
+  sequence."
+  [check default opts]
+  (let [o1 (first opts)]
+    (if (check o1)
+        [o1 (rest opts)]
+        [default opts])))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn ^String strfmt
   "Wrapper for clojure.pprint/cl-format to create strings."
   [text & args]
   (apply prt/cl-format nil text args))
-
 
 
 ;;; --------------------------------------------------------------------------

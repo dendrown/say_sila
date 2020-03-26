@@ -561,10 +561,10 @@
 ;;; --------------------------------------------------------------------------
 (defn create-arffs
   "Initial function to create the senti ontology.  Expect changes."
-  ([] (create-arffs DATASET))
-
-  ([fpath]
-  (let [dsets   (atom {})
+  [& args]
+  (let [[fpath
+         opts]  (optionize string? DATASET args)                ; Optional CSV must be first arg
+        dsets   (atom {})
         base    (weka/load-arff (:base ARFFs))
         rname   (.relationName base)
         acnt    (.numAttributes base)
@@ -577,6 +577,10 @@
                       (.setReduceRepeatedLetters true))         ; loooove => loove
         tagger  (doto (TweetNLPPOSTagger.)
                       (.setTextIndex "2"))                      ; 1-based index
+
+        dtag    #(if (some #{:test} opts)
+                     (str % ".test")
+                      %)
 
         label   #(match % "0" "neg"
                           "1" "pos")
@@ -591,7 +595,7 @@
                   ; Make new dataset
                   (let [insts (doto (Instances. base 0)
                                     (.setRelationName (str rname src)))]
-                    (log/info "Adding dataset" src)
+                    (log/info "Adding dataset" (dtag src))
                     (swap! dsets assoc src insts)
                     insts))
 
@@ -604,7 +608,7 @@
                                     (.setValue 0 (Float/parseFloat id))
                                     (.setValue 1 ^String text)
                                     (.setValue 2 (Float/parseFloat pn)))]     ; 0.0=neg, 1.0=pos
-                      (log/fmt-debug "~a<~a> [~a] ~a" src id (label pn) text)
+                      ;(log/fmt-debug "~a<~a> [~a] ~a" src id (label pn) text)
                       (.add ^Instances insts inst)))]
 
     ;; Process the CSV, separating the sentiment sources
@@ -617,9 +621,9 @@
     ;; Save the ARFFs to disk and return the result info in a map
     (reduce (fn [acc [dset iinsts]]
               (assoc acc (keyword dset)
-                         (weka/save-file fpath dset (xform iinsts) :arff)))
+                         (weka/save-file fpath (dtag dset) (xform iinsts) :arff)))
             {}
-            @dsets))))
+            @dsets)))
 
 
 
@@ -646,7 +650,7 @@
         xmps    (update-values ids #(map tagger %))]        ; Prefix % tag pos/neg IDs
 
     ;; Save P/N Text to pull in for DL-Learner runs
-    (spit (str "resources/emo-sa/pn-examples-" rule ".edn")
+    (spit (str "resources/emo-sa/pn-examples-" (name rule) ".edn")
           (pr-str xmps))
 
     xmps)))
@@ -828,7 +832,7 @@
   [& opts]
   ;; Recreate the ARFF if num-examples has been updated in the Config
   (when (some #{:arff} opts)
-    (create-arffs))
+    (apply create-arffs opts))
 
   ;; Use ARFF to generate the examples and ontologies
   (create-scr-examples!)
