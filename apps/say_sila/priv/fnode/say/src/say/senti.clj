@@ -55,6 +55,8 @@
 (def ^:const ONT-FPATH  "resources/KB/say-senti.owl")
 (def ^:const ONT-PREFIX "senti")
 (def ^:const DATASET    "resources/emo-sa/sentiment-analysis.csv")
+(def ^:const COUNTS     {:Sentiment140  1577278
+                         :Kaggle        1349})
 (def ^:const ARFFs      {:base          "resources/emo-sa/sentiment-analysis.arff"
                          :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
                          :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"})
@@ -568,8 +570,6 @@
         base    (weka/load-arff (:base ARFFs))
         rname   (.relationName base)
         acnt    (.numAttributes base)
-        icnt    (cfg/?? :senti :num-instances INIT-NUM-EXAMPLES)
-
         tamer   (doto (TweetToSentiStrengthFeatureVector.)
                       (.setToLowerCase true)
                       (.setTextIndex "2")                       ; 1-based index
@@ -590,6 +590,13 @@
                     #(weka/filter-instances %1 %2)
                     iinsts
                    [tamer tagger]))
+
+        line-up (fn [rdr]
+                  (let [[_ & dlines] (csv/read-csv rdr)]        ; Skip CSV header
+                    ;; The configuration may want to use a subset of the CSV data
+                    (if-let [icnt (cfg/?? :senti :num-instances)]
+                      (take icnt dlines)
+                      dlines)))
 
         dset+   (fn [src]
                   ; Make new dataset
@@ -612,18 +619,26 @@
                       (.add ^Instances insts inst)))]
 
     ;; Process the CSV, separating the sentiment sources
-    (with-open [rdr (io/reader fpath)]
-      (let [[_ & dlines] (csv/read-csv rdr)]
-         ;; TODO use a subset until we get everything squared away
-         (doseq [line (take icnt dlines)]
-           (data+ line))))
+    (try
+      (with-open [rdr (io/reader fpath)]
+        (loop [dlines (line-up rdr)]
+          (when-let [line (first dlines)]
+            (data+ line)
+             (recur (rest dlines)))))
 
-    ;; Save the ARFFs to disk and return the result info in a map
-    (reduce (fn [acc [dset iinsts]]
-              (assoc acc (keyword dset)
-                         (weka/save-file fpath (dtag dset) (xform iinsts) :arff)))
-            {}
-            @dsets)))
+      ;; Save the ARFFs to disk and return the result info in a map
+      (reduce (fn [acc [dset iinsts]]
+                (assoc acc (keyword dset)
+                           {:count (.numInstances ^Instances iinsts)
+                            :fpath (weka/save-file fpath (dtag dset) (xform iinsts) :arff)}))
+              {}
+              @dsets)
+
+      (catch Exception ex
+        ;; Oh no!  It's probably a bad character in a tweet in the CSV
+        (log/fail ex (str "Problem near tweet #"
+                         (reduce (fn [acc [_ dset]] (+ acc (.numInstances ^Instances dset))) 1 @dsets)))))))
+
 
 
 

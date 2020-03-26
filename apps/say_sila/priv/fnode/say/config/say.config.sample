@@ -29,6 +29,6 @@
      :rand-seed         12345           ; Seed an RNG to take shuffle input instances
      :lexicon           :liu            ; Options: liu|mpqa|nrc|swn
      :emotions          :plutchik       ; Base emotion system: plutchik|Ekman|nil
-     :num-examples      1000            ; Use a subset until we get everything squared away
-     :num-instances     1000}           ; We may need extra Weka instances to balance classes
+     :num-instances     1000            ; We may need extra Weka instances to balance classes
+     :num-examples      1000}           ; Use a subset until we get everything squared away
 }
