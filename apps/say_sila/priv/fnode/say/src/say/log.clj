@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Logging utilities
 ;;;;
-;;;; @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.log
   (:require [clj-time.local     :as dts]
@@ -43,9 +43,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro progress
-  "
-  TODO: proxy a Print Stream for agent-based logging.
-  "
+  "TODO: proxy a Print Stream for agent-based logging."
   []
   `(into-array [System/out]))       ; FIXME: !stdout
 
@@ -53,9 +51,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn- send-log
-  "
-  Define agent alice's logging behaviour.
-  "
+  "Define agent alice's logging behaviour."
   [alice msg]
   (let [cnt (:count alice)]
     (apply println msg)
@@ -64,10 +60,8 @@
 
 ;;; --------------------------------------------------------------------------
 (defn wait
-  "
-  Flushes the logger agent's output stream so that normal #'println has a
-  chance of working.
-  "
+  "Flushes the logger agent's output stream so that normal #'println has a
+  chance of working."
   []
   (await-for 1000 Logger))
 
@@ -75,9 +69,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn log
-  "
-  General logger function; prepends date-time stamp and informational level.
-  "
+  "General logger function; prepends date-time stamp and informational level."
   [level & args]
   (let [stamp (dts/local-now)
         msg   (conj args            ; Add elements in reverse order
@@ -99,30 +91,24 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro fmt
-  "
-  Wrapper for clojure.pprint/cl-format for logging ease.  Output is always
-  in string form.
-  "
+  "Wrapper for clojure.pprint/cl-format for logging ease.  Output is always
+  in string form."
   [text & args]
   `(prt/cl-format nil ~text ~@args))
 
 
 ;;; --------------------------------------------------------------------------
 (defn fmt
-  "
-  Wrapper for clojure.pprint/cl-format for logging ease.  Output is always
-  in string form.
-  "
+  "Wrapper for clojure.pprint/cl-format for logging ease.  Output is always
+  in string form."
   [text & args]
   (apply prt/cl-format nil text args))
 
 
 ;;; --------------------------------------------------------------------------
 (defn fmt!
-  "
-  Wrapper for clojure.pprint/cl-format for logging ease.  The results always
-  go to standard output.
-  "
+  "Wrapper for clojure.pprint/cl-format for logging ease.  The results always
+  go to standard output."
   [text & args]
   (apply prt/cl-format true text args))
 
@@ -138,18 +124,14 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro <>
-  "
-  Creates a string of the form «boss<sub>:»
-  "
+  "Creates a string of the form «boss<sub>:»"
   [boss sub]
   `(str ~boss "<" ~sub ">:"))
 
 
 ;;; --------------------------------------------------------------------------
 (defn fail
-  "
-  Catch-all error logger for exceptions that excepted
-  "
+  "Catch-all error logger for exceptions that excepted."
   [^Exception ex
    ^String    msg
    &          opts]

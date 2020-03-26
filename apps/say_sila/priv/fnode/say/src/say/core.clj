@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.core
   (:refer-clojure :exclude [==])
@@ -96,7 +96,7 @@
           ;; Singleton and simple-series datatypes can just call the converter
           (==>otp arg))
 
-         (catch Exception ex (log/fail ex "Cannot create Erlang structure" :stack))))))
+        (catch Exception ex (log/fail ex "Cannot create Erlang structure" :stack))))))
 
 
 
