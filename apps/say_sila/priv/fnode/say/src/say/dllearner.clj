@@ -47,12 +47,12 @@
 
 
   ([xmps n]
-  (let [liner #(apply print "\n    " %1 (interpose \, (domap pr-str %2)))]
+  (let [liner #(apply print "\n    " %1 (interpose \, (run! pr-str %2)))]
 
     ;; Report our P/N examples
     (doseq [[klass xs] xmps]
       (print (str "lp." (name klass) "Examples = {"))
-      (domap liner DELIMS (partition-all n xs))
+      (run! liner DELIMS (partition-all n xs))
       (println "\n}")))))
 
 
@@ -66,7 +66,7 @@
 
     ;; Write the prefixes out in DL-Learner config style
     (println "prefixes = [")
-    (domap prt-prefix DELIMS (merge PREFIXES prefixes))
+    (run! prt-prefix DELIMS (merge PREFIXES prefixes))
     (println "]")))
 
 

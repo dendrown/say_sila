@@ -228,7 +228,7 @@
     :label   "Negative"
     :comment "An affective concept representing negative sentiment polarity."))
 
-(domap #(defpun %) [Positive Negative])
+(run! #(defpun %) [Positive Negative])
 
 
 (defmacro defemotion
@@ -393,10 +393,10 @@
               (when full-links?
                 ;; The current Token comes after all the tokens we've seen so far
                 (refine ont prev :fact (is dul/directlyPrecedes curr))
-                (domap (fn [tok]
-                         (refine ont curr :fact (is dul/follows tok))
-                         (refine ont tok  :fact (is dul/precedes curr)))
-                       tokens)))
+                (run! (fn [tok]
+                        (refine ont curr :fact (is dul/follows tok))
+                        (refine ont tok  :fact (is dul/precedes curr)))
+                      tokens)))
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
@@ -453,7 +453,7 @@
             (update-kv-values @SCR-Examples
                               (fn [rule xmps]
                                 (let [ont (make-scr-ontology rule)]
-                                  (domap #(add-text ont % conf) xmps)
+                                  (run! #(add-text ont % conf) xmps)
                                   ont))))
     (keys @SCR-Ontologies)))
 
