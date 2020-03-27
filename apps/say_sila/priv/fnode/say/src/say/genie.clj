@@ -62,7 +62,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro domap
-  "Shortcut for (doall (map ...))"
+  "Shortcut for (doall (map ...)).  Note that although this macro is somewhat
+  more flexible, you should prefer clojure.core/run! when you want to produce
+  side-effects and are not interested in the return value."
   [& args]
   `(doall (map ~@args)))
 
