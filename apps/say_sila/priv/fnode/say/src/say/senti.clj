@@ -360,7 +360,7 @@
                               Text)
                     :annotation (annotation TextualContent
                                             (apply str (interpose " " content))))
-          express #(refine ont %1 :fact (is denotesAffect (individual ont %2)))]
+          express #(refine ont %1 :fact (is denotesAffect (individual say-senti %2)))]
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
