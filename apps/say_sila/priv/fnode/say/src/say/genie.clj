@@ -61,14 +61,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defmacro domap
-  "Shortcut for (doall (map ...))"
-  [& args]
-  `(doall (map ~@args)))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn fizzbuzz
   "There is no good reason to have this here..."
   ([]
