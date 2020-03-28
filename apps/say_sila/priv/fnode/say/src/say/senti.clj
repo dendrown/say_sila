@@ -30,7 +30,8 @@
             [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                           ; <= DEBUG
             [tawny.owl          :refer :all])
-  (:import  [net.dendrown.uqam.hermit ConfigTools]                  ; TODO: Move HermiT to say.ontology
+  (:import  [java.util Random]
+            [net.dendrown.uqam.hermit ConfigTools]                  ; TODO: Move HermiT to say.ontology
             [org.semanticweb.HermiT Configuration
                                     Configuration$TableauMonitorType
                                     Prefixes
@@ -68,15 +69,18 @@
                          "pos"      pos/ONT-IRI})
 
 (def ^:const INIT-NUM-EXAMPLES  100)
+(def ^:const INIT-DATA-TAG      :Sentiment140)
+(def ^:const INIT-DATA-SPLIT    {:num-train 500, :num-test 500, :num-subs 10})
+(def ^:const INIT-TARGET        "sentiment")
 
 
 ;;; --------------------------------------------------------------------------
-;; TODO: Debugging, remove this soon!
+;;; Collection of inference types to test timings on Reasoner
 (defonce Inferences (into-array [InferenceType/CLASS_HIERARCHY
                                  InferenceType/CLASS_ASSERTIONS
                                  InferenceType/OBJECT_PROPERTY_HIERARCHY
                                  InferenceType/DATA_PROPERTY_HIERARCHY
-                                 InferenceType/OBJECT_PROPERTY_ASSERTIONS
+                                 InferenceType/OBJECT_PROPERTY_ASSERTIONS   ; <- say-senti's gotcha!
                                  InferenceType/DATA_PROPERTY_ASSERTIONS
                                  InferenceType/SAME_INDIVIDUAL]))
 
@@ -100,6 +104,7 @@
                                              }}
                             ;; Disable all Rules
                             {:no-rule        #{}}))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -293,6 +298,29 @@
 ;  :label    "has Polarity"
 ;  :domain   dul/InformationObject
 ;  :range    SentimentPolarity)
+
+
+;;; --------------------------------------------------------------------------
+(defn which-data
+  "Returns a data tag indicating which dataset has been requested in the
+  specified options list."
+  ([]
+    INIT-DATA-TAG)
+
+  ([opts]
+  (let [datasets (into #{} (keys ARFFs))]
+    (if-let [dtag (some datasets opts)]
+      dtag
+      (which-data)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn which-datasets
+  "Returns a sequence of tag indicating which datasets we use for evaluation."
+  []
+  (remove #{:base} (keys ARFFs)))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -518,7 +546,7 @@
     ;; Shall we (pseudo)randomize the instances?
     (when-let [seed (cfg/?? :senti :rand-seed)]
       (log/fmt-info "Shuffling ~a input instances: seed[~a]" (.numInstances insts) seed)
-      (.randomize insts (java.util.Random. @cfg/RNG-Seed)))
+      (.randomize insts (Random. seed)))
 
     ;; Create the new set of Text examples
     (reset! SCR-Examples
@@ -561,15 +589,48 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defonce ^:private Base-Instances (weka/load-arff (:base ARFFs)))
+
+(defn- ^Instances base-data
+  "Returns the base say-senti data evaluation Instances"
+  []
+  Base-Instances)
+
+
+(defn- ^Instances rebase-data
+  "Creates a new set of Weka Instances with the say-senti base structure.
+  Specify a tag to append it to the Instances' relation name."
+  ([]
+  (Instances. ^Instances Base-Instances 0))
+
+  ([tag]
+  (let [insts (rebase-data)
+        rname (str (.relationName ^Instances Base-Instances)
+                   (name tag))]
+    (.setRelationName ^Instances insts rname)
+    insts)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- rebase-data->hashmap
+  "Creates a hashmap with the specified keys where every value is a Weka
+  Instances object the say-senti base structure."
+  [tags]
+  (into {} (map #(vector % (rebase-data %))
+                tags)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn create-arffs
-  "Initial function to create the senti ontology.  Expect changes."
+  "Converts a multi-source input CSV (usually, DATASET) to a separate
+  ARFF for each source."
   [& args]
   (let [[fpath
          opts]  (optionize string? DATASET args)                ; Optional CSV must be first arg
         dsets   (atom {})
-        base    (weka/load-arff (:base ARFFs))
-        rname   (.relationName base)
-        acnt    (.numAttributes base)
+        acnt    (.numAttributes (base-data))
         tamer   (doto (TweetToSentiStrengthFeatureVector.)
                       (.setToLowerCase true)
                       (.setTextIndex "2")                       ; 1-based index
@@ -600,8 +661,7 @@
 
         dset+   (fn [src]
                   ; Make new dataset
-                  (let [insts (doto (Instances. base 0)
-                                    (.setRelationName (str rname src)))]
+                  (let [insts (rebase-data src)]
                     (log/info "Adding dataset" (dtag src))
                     (swap! dsets assoc src insts)
                     insts))
@@ -639,6 +699,43 @@
         (log/fail ex (str "Problem near tweet #"
                          (reduce (fn [acc [_ dset]] (+ acc (.numInstances ^Instances dset))) 1 @dsets)))))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn split-data
+  "Splits up the input ARFFs into chunks we can use for DL-Learner and Weka."
+  [& opts]
+  (let [dtag    (which-data opts)
+        ipath   (if (some #{:full} opts)
+                    (weka/tag-filename (ARFFs dtag) "FULL" :arff)
+                    (ARFFs dtag))
+        iinsts  (weka/load-arff ipath (cfg/?? :emote :target INIT-TARGET))
+        icnt    (.numInstances iinsts)
+
+        splits  (cfg/?? :senti :data-split INIT-DATA-SPLIT)
+        prng    (Random. (get splits :rand-seed 1))
+        dsets   (rebase-data->hashmap [:train :test])
+        fill    (fn [used [^Instances oinsts togo
+                           :as data-pair]]
+                  (if (pos? togo)
+                    ;; Keep pulling from the input data
+                    (let [ndx (.nextInt prng icnt)]
+                      (if (contains? used ndx)
+                          (do ;(log/debug "Resampling on repeat index:" ndx)
+                              (recur used data-pair))
+                          (do (.add oinsts (.get iinsts ndx))
+                              (recur (conj used ndx)
+                                     [oinsts (dec togo)]))))
+                    ;; We've got what we need, the used-index set is the accumulator
+                    used))]
+
+    ;; Fill up the datasets with random instances from the input set
+    (reduce fill
+            #{}                                                     ; Set of used indices
+            (map (fn [[tt insts]] [insts (splits tt)]) dsets))      ; Instances & counts for train/test
+
+    ;; Save the output train/test datasets & return a map of the ARFF paths
+    (into {} (domap (fn [[tt insts]] (weka/save-file (ARFFs dtag) tt insts :arff)) dsets))))
 
 
 

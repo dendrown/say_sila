@@ -10,7 +10,8 @@
      :screen-name-index 3
      :full-name-index   4
      :description-index 5
-     :text-index        6}
+     :text-index        6
+     :target            "sentiment"}
 
   :dolce
     {:access            :minimal}       ; Options: import|hierarchy|minimal
@@ -29,6 +30,11 @@
      :rand-seed         12345           ; Seed an RNG to take shuffle input instances
      :lexicon           :liu            ; Options: liu|mpqa|nrc|swn
      :emotions          :plutchik       ; Base emotion system: plutchik|Ekman|nil
+     :data-split
+       {:train          1000
+        :test           1000
+        :subs           10
+        :rand-seed      24816}
      :num-instances     1000            ; We may need extra Weka instances to balance classes
      :num-examples      1000}           ; Use a subset until we get everything squared away
 }
