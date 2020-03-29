@@ -613,12 +613,40 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- rebase-data->hashmap
+(defn rebase-data->hashmap
   "Creates a hashmap with the specified keys where every value is a Weka
   Instances object the say-senti base structure."
   [tags]
   (into {} (map #(vector % (rebase-data %))
                 tags)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn add-instance
+  "Make a instance for a sentiment analysis ARFF dataset.
+
+  NOTE: The format is defined buy (ARFFs :base) and hardcoded here!"
+  ([^Instances  insts
+    ^Instance   i]
+  ;; Extract the values from the sample instance
+  (add-instance insts
+                (.value    i 0)
+                (.toString i 1)
+                (.value    i 2)))
+
+  ([^Instances  insts
+    ^Double     id
+    ^String     text
+    ^Double     sentiment]
+  ;; Create an instance from values, append it to the dataset & return it
+  (let [i (doto (DenseInstance. (.numAttributes (base-data)))
+                (.setDataset insts)
+                (.setValue 0 id)
+                (.setValue 1 text)
+                (.setValue 2 sentiment))]                       ; 0.0=neg, 1.0=pos
+    (.add insts i)
+    i)))
 
 
 
@@ -669,14 +697,12 @@
         data+   (fn [[id pn src raw]]
                   ;; Add data Instance; remember, the Weka objects are mutable
                   (let [text  (str/trim raw)
-                        insts (if-let [ds (get @dsets src)] ds (dset+ src))
-                        inst  (doto (DenseInstance. acnt)
-                                    (.setDataset insts)
-                                    (.setValue 0 (Float/parseFloat id))
-                                    (.setValue 1 ^String text)
-                                    (.setValue 2 (Float/parseFloat pn)))]     ; 0.0=neg, 1.0=pos
-                      ;(log/fmt-debug "~a<~a> [~a] ~a" src id (label pn) text)
-                      (.add ^Instances insts inst)))]
+                        insts (if-let [ds (get @dsets src)] ds (dset+ src))]
+                    ;(log/fmt-debug "~a<~a> [~a] ~a" src id (label pn) text)
+                    (add-instance insts
+                                  (Float/parseFloat id)
+                                  text
+                                  (Float/parseFloat pn))))]     ; 0.0=neg, 1.0=pos
 
     ;; Process the CSV, separating the sentiment sources
     (try
@@ -723,7 +749,8 @@
                       (if (contains? used ndx)
                           (do ;(log/debug "Resampling on repeat index:" ndx)
                               (recur used data-pair))
-                          (do (.add oinsts (.get iinsts ndx))
+                          (do ;(println "Adding to" (.relationName oinsts) "#" ndx)
+                              (add-instance oinsts (.get iinsts ndx))
                               (recur (conj used ndx)
                                      [oinsts (dec togo)]))))
                     ;; We've got what we need, the used-index set is the accumulator
@@ -735,7 +762,7 @@
             (map (fn [[tt insts]] [insts (splits tt)]) dsets))      ; Instances & counts for train/test
 
     ;; Save the output train/test datasets & return a map of the ARFF paths
-    (into {} (domap (fn [[tt insts]] (weka/save-file (ARFFs dtag) tt insts :arff)) dsets))))
+    (into {} (domap (fn [[tt insts]] [tt (weka/save-file (ARFFs dtag) tt insts :arff)]) dsets))))
 
 
 
