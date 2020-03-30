@@ -20,7 +20,6 @@
             [say.cmu-pos        :as pos]
             [weka.core          :as weka]
             [weka.tweet         :as tw]
-            [clojure.core.match :refer [match]]
             [clojure.data.csv   :as csv]
             [clojure.java.io    :as io]
             [clojure.set        :as set]
@@ -59,8 +58,9 @@
 (def ^:const COUNTS     {:Sentiment140  1577278
                          :Kaggle        1349})
 (def ^:const ARFFs      {:base          "resources/emo-sa/sentiment-analysis.arff"
+                         :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"
                          :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
-                         :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"})
+                         :weka          "resources/emo-sa/sentiment-analysis.Sentiment140.weka.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 
@@ -298,6 +298,16 @@
 ;  :label    "has Polarity"
 ;  :domain   dul/InformationObject
 ;  :range    SentimentPolarity)
+
+
+;;; --------------------------------------------------------------------------
+(defn label-polarity
+  "Returns the String «pos» or «neg» according to the polarity of pn."
+  [pn]
+  (case pn
+    "0" "neg"
+    "1" "pos"))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -657,6 +667,8 @@
   [& args]
   (let [[fpath
          opts]  (optionize string? DATASET args)                ; Optional CSV must be first arg
+        suffix  (apply str (map #(option-str % opts ".")        ; Information tag for output
+                                [:test :weka]))
         dsets   (atom {})
         acnt    (.numAttributes (base-data))
         tamer   (doto (TweetToSentiStrengthFeatureVector.)
@@ -666,13 +678,6 @@
                       (.setReduceRepeatedLetters true))         ; loooove => loove
         tagger  (doto (TweetNLPPOSTagger.)
                       (.setTextIndex "2"))                      ; 1-based index
-
-        dtag    #(if (some #{:test} opts)
-                     (str % ".test")
-                      %)
-
-        label   #(match % "0" "neg"
-                          "1" "pos")
 
         xform   (fn [iinsts]
                   (reduce
@@ -690,7 +695,7 @@
         dset+   (fn [src]
                   ; Make new dataset
                   (let [insts (rebase-data src)]
-                    (log/info "Adding dataset" (dtag src))
+                    (log/fmt-info "Adding dataset ~a~a" src suffix)
                     (swap! dsets assoc src insts)
                     insts))
 
@@ -698,7 +703,7 @@
                   ;; Add data Instance; remember, the Weka objects are mutable
                   (let [text  (str/trim raw)
                         insts (if-let [ds (get @dsets src)] ds (dset+ src))]
-                    ;(log/fmt-debug "~a<~a> [~a] ~a" src id (label pn) text)
+                    ;(log/fmt-debug "~a<~a> [~a] ~a" src id (label-polarity pn) text)
                     (add-instance insts
                                   (Float/parseFloat id)
                                   text
@@ -714,9 +719,13 @@
 
       ;; Save the ARFFs to disk and return the result info in a map
       (reduce (fn [acc [dset iinsts]]
+                (let [oinsts (if (option? :weka opts)           ; When creating for Weka:
+                                 iinsts                         ; - pass instances as they are
+                                 (xform iinsts))                ; - else do our transformations!
+                      otag   (str dset suffix)]
                 (assoc acc (keyword dset)
                            {:count (.numInstances ^Instances iinsts)
-                            :fpath (weka/save-file fpath (dtag dset) (xform iinsts) :arff)}))
+                            :fpath (weka/save-file fpath otag oinsts :arff)})))
               {}
               @dsets)
 

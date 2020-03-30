@@ -169,6 +169,27 @@
 
 
 ;;; --------------------------------------------------------------------------
+(definline option?
+  "Returns true if the specified option is in the collection of choices."
+  [opt choices]
+  `(boolean (some #{~opt} ~choices)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn option-str
+  "Returns an optionally prefixed string representing an option if the option
+  is indeed in the specified collection of choices."
+  ([opt choices]
+  (option-str opt choices nil))
+
+  ([opt choices prefix]
+  (when (option? opt choices)
+    (str prefix (name opt)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn ^String strfmt
   "Wrapper for clojure.pprint/cl-format to create strings."
   [text & args]
