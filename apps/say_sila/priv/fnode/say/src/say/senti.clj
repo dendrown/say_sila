@@ -66,6 +66,9 @@
 (def ^:const PREFIXES   {"senti"    ONT-IRI
                          "pos"      pos/ONT-IRI})
 
+;;; --------------------------------------------------------------------------
+;;; Default values for configuration elements
+(def ^:const INIT-BALANCE       false)
 (def ^:const INIT-NUM-EXAMPLES  100)
 (def ^:const INIT-DATA-TAG      :Sentiment140)
 (def ^:const INIT-DATA-SPLIT    {:num-train 500, :num-test 500, :num-subs 10})
@@ -500,6 +503,58 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn create-goal
+  "Checks the :senti configuation and returns a map with the elements needed
+  to construct datasets and populate ontologies.  The function allows the
+  caller to override the configuration by adding :key value pairs as arguments."
+ [dset & overrides]
+ (let [{:as   conf
+        :keys [balance?
+               num-examples]
+        :or   {balance?     INIT-BALANCE
+               num-examples INIT-NUM-EXAMPLES}} (merge (cfg/? :senti {})
+                                                       (apply hash-map overrides))
+        [goal
+         checks] (if balance?
+                     [(int (/ num-examples 2)) [:positive :negative]]   ; pos/neg instances separately
+                     [num-examples [dset]])]                            ; all instances together
+
+   ;; Add what we need for our goals
+   (assoc conf :goal   goal
+               :checks checks)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn describe-creation
+  "Returns a string describing the creation goals."
+  [{:keys [balance?
+           goal]}]
+   (if balance? (str "Balancing " goal "/" goal)
+                (str "Creating "  goal)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn creation-done?
+  "Returns true if the callers creation activites have completed."
+  [cnts
+   {:keys [goal checks]}]
+  (every? #(>= (cnts %) goal) checks))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn creation-full?
+  "Returns true if a (pos|neg balanced) category has filled up during  the
+  creation of a dataset or an example set."
+  [cnts pole
+   {:keys [balance? goal checks]}]
+  (and balance? (>= (cnts pole) goal)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn create-scr-examples!
   "Create examples based on part-of-speech tokens.
 
@@ -515,17 +570,8 @@
 
   ([dset]
   (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
+        goal    (create-goal dset)
         all-pn? (cfg/?? :senti :skip-neutrals?)
-        bal?    (cfg/?? :senti :balance?)
-        xcnt    (cfg/?? :senti :num-examples INIT-NUM-EXAMPLES) ; Base e[x]ample count
-        [goal
-         chks]  (if bal?
-                    [(int (/ xcnt 2)) [:positive :negative]]    ; Count pos/neg instances separately
-                    [xcnt [dset]])                              ; Count all instances together
-        done?   (fn [cnts]                                      ; Termination checker using example counts
-                  (every? #(>= (cnts %) goal) chks))
-        full?   (fn [cnts pole]                                 ; Check if we have enough pos|neg Texts
-                  (and bal? (>= (cnts pole) goal)))
         stoic?  (fn [rules]                                     ; Check that we're not including neutral Texts
                   (and all-pn? (every? empty? rules)))          ; ..and that no sentiment (rule) is expressed
 
@@ -549,8 +595,7 @@
                            exprs))]
 
     ;; The number of examples we're creating depends on how things were configured
-    (log/info (if bal? (str "Balancing " goal "/" goal)
-                       (str "Creating "  goal))
+    (log/info (describe-creation goal)
               (name dset)
               "SCR examples"
               (str "[pos/neg" (when-not all-pn? "/neu") "]"))
@@ -566,7 +611,7 @@
               (reduce (fn [[cnts xmap :as info]
                            ^Instance inst]
                         ;; Do we have enough examples to stop?
-                        (if (done? cnts)
+                        (if (creation-done? cnts goal)
                           (do (log/info "Examples:" cnts)
                               (reduced info))
                           (let [id     (long (.value inst COL-ID))
@@ -578,8 +623,8 @@
                                 rules  (map ->scr   terms)]         ; Set of match-term rules per term
 
                             ;; Do we skip|process this Text??
-                            (if (or (stoic? affect)                 ; Is it void of pos/neg/emotion?
-                                    (full? cnts pole))              ; Are we still collecting for this polarity?
+                            (if (or (stoic? affect)                     ; Is it void of pos/neg/emotion?
+                                    (creation-full? cnts pole goal))    ; Still collecting for this polarity?
                               info
                               [(update-values cnts [pole dset] inc)             ; Update pos/neg/all counts
                                (update-values xmap                              ; Add Text for full set & all SCRs
