@@ -43,7 +43,7 @@
                        Instance
                        Instances]
             [weka.filters.unsupervised.attribute TweetNLPPOSTagger
-                                                 TweetToSentiStrengthFeatureVector]))
+                                                 TweetToLexiconFeatureVector]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -71,7 +71,11 @@
 (def ^:const INIT-NUM-EXAMPLES  100)
 (def ^:const INIT-DATA-TAG      :Sentiment140)
 (def ^:const INIT-DATA-SPLIT    {:num-train 500, :num-test 500, :num-subs 10})
+(def ^:const INIT-LEX-TAG       :nrc)
 (def ^:const INIT-TARGET        "sentiment")
+
+; FIXME: The text index in our ARFF doesn't jive with the :emote config (used w/ gender & hierarchy)
+(def ^:const INIT-TEXT-INDEX    2)                  ; 1-based index in ARFF
 
 
 ;;; --------------------------------------------------------------------------
@@ -667,28 +671,32 @@
   [& args]
   (let [[fpath
          opts]  (optionize string? DATASET args)                ; Optional CSV must be first arg
-        suffix  (apply str (map #(option-str % opts ".")        ; Information tag for output
-                                [:test :weka]))
+        suffix  (option-str [:test :weka] opts ".")             ; Information tag for output
+        conf    (cfg/? :senti)
+        tndx    (get conf :text-index INIT-TEXT-INDEX)          ; 1-based index
         dsets   (atom {})
         acnt    (.numAttributes (base-data))
-        tamer   (doto (TweetToSentiStrengthFeatureVector.)
-                      (.setToLowerCase true)
-                      (.setTextIndex "2")                       ; 1-based index
-                      (.setStandarizeUrlsUsers true)            ; anonymize
-                      (.setReduceRepeatedLetters true))         ; loooove => loove
+        tamer   (tw/make-lexicon-filter (get conf :lexicon INIT-LEX-TAG) tndx)
+;       tamer   (doto (weka.filters.unsupervised.attribute.TweetToSentiStrengthFeatureVector.)
+;                     (.setToLowerCase true)
+;                     (.setTextIndex "2")                       ; 1-based index
+;                     (.setStandarizeUrlsUsers true)            ; anonymize
+;                     (.setReduceRepeatedLetters true))         ; loooove => loove
         tagger  (doto (TweetNLPPOSTagger.)
-                      (.setTextIndex "2"))                      ; 1-based index
-
-        xform   (fn [iinsts]
-                  (reduce
-                    #(weka/filter-instances %1 %2)
-                    iinsts
-                   [tamer tagger]))
+                      (.setTextIndex (str tndx)))
+        xform   (fn [iinsts & filters]
+                  (log/info "xform" (.relationName iinsts) (.numAttributes iinsts))
+                  (weka/filter-instances iinsts tamer))
+                 ;(reduce
+                 ;  #(weka/filter-instances %1 %2)
+                 ;  iinsts
+                 ;  [tamer tagger]))
+                   ;(conj filters tamer)))
 
         line-up (fn [rdr]
                   (let [[_ & dlines] (csv/read-csv rdr)]        ; Skip CSV header
                     ;; The configuration may want to use a subset of the CSV data
-                    (if-let [icnt (cfg/?? :senti :num-instances)]
+                    (if-let [icnt (get conf :num-instances)]
                       (take icnt dlines)
                       dlines)))
 
@@ -717,14 +725,20 @@
             (data+ line)
              (recur (rest dlines)))))
 
+      (log/warn "HERE!" (update-values @dsets #(.numInstances %)))
+
       ;; Save the ARFFs to disk and return the result info in a map
       (reduce (fn [acc [dset iinsts]]
                 (let [oinsts (if (option? :weka opts)           ; When creating for Weka:
-                                 iinsts                         ; - pass instances as they are
-                                 (xform iinsts))                ; - else do our transformations!
+                                        iinsts                  ; - just do basic data cleanup
+                                ;(xform iinsts)                 ; - just do basic data cleanup
+                                 (xform iinsts tagger))         ; - for OWL, do POS transformation!
                       otag   (str dset suffix)]
+                (log/warn "HERE/attr!" (update-values @dsets #(.numAttributes %)))
+                (log/warn "HERE/inst!" (update-values @dsets #(.numInstances %)))
+                (log/warn "HERE!!" dset (.numInstances oinsts))
                 (assoc acc (keyword dset)
-                           {:count (.numInstances ^Instances iinsts)
+                           {:count (.numInstances ^Instances oinsts)
                             :fpath (weka/save-file fpath otag oinsts :arff)})))
               {}
               @dsets)

@@ -16,6 +16,7 @@
             [say.log         :as log]
             [weka.core       :as weka]
             [clojure.java.io :as io]
+            [clojure.pprint  :as prt :refer [pp]]
             [clojure.string  :as str])
   (:import  [affective.core LexiconEvaluator
                             ArffLexiconEvaluator
@@ -109,10 +110,19 @@
                                            "-R" (str "1-" (count ATTRS-OUT)
                                                      ","  (inc (count ATTRS-IN)) "-last")]}})
 
-(def ^:const LEXICONS   {:liu   {:typ PolarityLexiconEvaluator   :fp TweetToLexiconFeatureVector/BING_LIU_FILE_NAME}
-                         :mpqa  {:typ PolarityLexiconEvaluator   :fp TweetToLexiconFeatureVector/MPQA_FILE_NAME}
-                         :nrc   {:typ NRCEmotionLexiconEvaluator :fp TweetToLexiconFeatureVector/NRC10_FILE_NAME}
-                         :swn   {:typ SWN3LexiconEvaluator       :fp TweetToLexiconFeatureVector/SENTIWORDNET_FILE_NAME}})
+
+;;; --------------------------------------------------------------------------
+(defmacro L#
+  "Creates a lexicon definition for the LEXICONS hashmap."
+  [tag opt typ fp]
+  `[~tag {:filter ~opt
+          :type   ~typ
+          :fpath  (. TweetToLexiconFeatureVector ~fp)}])
+
+(defonce LEXICONS   (into {} [(L# :liu  "-D" PolarityLexiconEvaluator   BING_LIU_FILE_NAME)
+                              (L# :mpqa "-A" PolarityLexiconEvaluator   MPQA_FILE_NAME)
+                              (L# :nrc  "-L" NRCEmotionLexiconEvaluator NRC10_FILE_NAME)
+                              (L# :swn  "-Q" SWN3LexiconEvaluator       SENTIWORDNET_FILE_NAME)]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -212,14 +222,41 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn make-lexicon-filter
+  "Returns a sentiment polarity lexicon evaluator as implemented in the
+  AffectiveTweets Weka plugin.  Choices are :liu, :mpqa, :nrc, and :swn"
+  [ltag tndx]
+  (when-let [lex (LEXICONS ltag)]
+   ;(doto (TweetToSentiStrengthFeatureVector.)
+    (doto (TweetToLexiconFeatureVector.)
+          (.setTextIndex (str tndx))                    ; 1-based index
+          (.setUseAfinn false)
+          (.setUseBingLiu false)
+          (.setUseEmoticons false)
+          (.setUseMpqa false)
+          (.setUseNegation false)
+          (.setUseNrc10 false)
+          (.setUseNrc10Expanded false)
+          (.setUseNrcHashEmo false)
+          (.setUseNrcHashSent false)
+          (.setUseS140 false)
+          (.setUseSentiWordnet false)
+         ;(.setOptions (into-array [(:filter lex)]))    ; Requested lexicon
+          (.setToLowerCase true)
+          (.setStandarizeUrlsUsers true)                ; anonymize
+          (.setReduceRepeatedLetters true))))           ; loooove => loove
+
+
+
+;;; --------------------------------------------------------------------------
 (defmacro make-lexicon
   "Returns a sentiment polarity lexicon evaluator as implemented in the
-  AffectiveTweets Weka plugin.  Choices are :liu, :mpqa, and :swn"
+  AffectiveTweets Weka plugin.  Choices are :liu, :mpqa, :nrc, and :swn"
   [tag]
-  (let [ltag        (eval tag)          ; Lexicon tag (often via config lookup)
-        lname       (name ltag)
-        {ltype :typ
-         fpath :fp} (LEXICONS ltag)]
+  (let [ltag    (eval tag)              ; Lexicon tag (often via config lookup)
+        lname   (name ltag)
+        {ltype :type
+         fpath :fpath}  (LEXICONS ltag)]
     (if ltype
       ;; Common constructor/initialization for the various LexiconEvaluators
       `(do (log/info "Using lexicon:" ~ltype)

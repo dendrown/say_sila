@@ -8,7 +8,7 @@
 ;;;;
 ;;;; CMU Part-of-speech Ontology
 ;;;;
-;;;; @copyright 2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.cmu-pos
   (:require [say.genie          :refer :all]
@@ -20,12 +20,7 @@
             [clojure.string     :as str]
             [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                       ; <= DEBUG
-            [tawny.owl          :refer :all])
-  (:import  [weka.core DenseInstance
-                       Instance
-                       Instances]
-            [weka.filters.unsupervised.attribute TweetNLPPOSTagger
-                                                 TweetToSentiStrengthFeatureVector]))
+            [tawny.owl          :refer :all]))
 
 
 ;;; --------------------------------------------------------------------------

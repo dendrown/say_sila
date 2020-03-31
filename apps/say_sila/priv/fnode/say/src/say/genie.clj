@@ -183,9 +183,14 @@
   ([opt choices]
   (option-str opt choices nil))
 
+
   ([opt choices prefix]
-  (when (option? opt choices)
-    (str prefix (name opt)))))
+  (if-not (seqable? opt)
+    ;; Single option, stringify it!
+    (when (option? opt choices)
+      (str prefix (name opt)))
+    ;; Multiple options, string them together
+    (apply str (map #(option-str % choices prefix) opt)))))
 
 
 
