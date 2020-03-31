@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion and Tweet functionality for Weka
 ;;;;
-;;;; @copyright 2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns weka.tweet
   (:require [say.genie       :refer :all]
@@ -40,6 +40,7 @@
                                                  TweetToEmbeddingsFeatureVector
                                                  TweetToInputLexiconFeatureVector
                                                  TweetToLexiconFeatureVector
+                                                 TweetNLPPOSTagger
                                                  TweetToSentiStrengthFeatureVector
                                                  ;; Say-Sila extensions
                                                  TweetToGenderFeatures]
@@ -223,28 +224,27 @@
 
 ;;; --------------------------------------------------------------------------
 (defn make-lexicon-filter
-  "Returns a sentiment polarity lexicon evaluator as implemented in the
-  AffectiveTweets Weka plugin.  Choices are :liu, :mpqa, :nrc, and :swn"
+  "Returns a sentiment/emotion lexicon filter as implemented in the
+  AffectiveTweets Weka plugin.  Choices are :liu, :mpqa, :nrc, and :swn.
+  Note that the TweetToLexiconFeatureVector we return is *not* reusable."
   [ltag tndx]
   (when-let [lex (LEXICONS ltag)]
-   ;(doto (TweetToSentiStrengthFeatureVector.)
     (doto (TweetToLexiconFeatureVector.)
           (.setTextIndex (str tndx))                    ; 1-based index
-          (.setUseAfinn false)
-          (.setUseBingLiu false)
-          (.setUseEmoticons false)
-          (.setUseMpqa false)
-          (.setUseNegation false)
-          (.setUseNrc10 false)
-          (.setUseNrc10Expanded false)
-          (.setUseNrcHashEmo false)
-          (.setUseNrcHashSent false)
-          (.setUseS140 false)
-          (.setUseSentiWordnet false)
-         ;(.setOptions (into-array [(:filter lex)]))    ; Requested lexicon
+          (.setOptions (into-array [(:filter lex)]))    ; Requested lexicon
           (.setToLowerCase true)
           (.setStandarizeUrlsUsers true)                ; anonymize
           (.setReduceRepeatedLetters true))))           ; loooove => loove
+
+
+
+;;; --------------------------------------------------------------------------
+(defn make-tagging-filter
+  "Returns a CMU part-of-speech tagging filter for tweets.  The specified
+  text index is 1-based."
+  [tndx]
+  (doto (TweetNLPPOSTagger.)
+        (.setTextIndex (str tndx))))
 
 
 

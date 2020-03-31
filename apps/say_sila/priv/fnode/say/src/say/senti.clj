@@ -41,9 +41,7 @@
             [org.semanticweb.owlapi.reasoner InferenceType]
             [weka.core DenseInstance
                        Instance
-                       Instances]
-            [weka.filters.unsupervised.attribute TweetNLPPOSTagger
-                                                 TweetToLexiconFeatureVector]))
+                       Instances]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -673,25 +671,20 @@
          opts]  (optionize string? DATASET args)                ; Optional CSV must be first arg
         suffix  (option-str [:test :weka] opts ".")             ; Information tag for output
         conf    (cfg/? :senti)
-        tndx    (get conf :text-index INIT-TEXT-INDEX)          ; 1-based index
-        dsets   (atom {})
+        txt-ndx (get conf :text-index INIT-TEXT-INDEX)          ; 1-based index
+        lex-tag (get conf :lexicon INIT-LEX-TAG)
         acnt    (.numAttributes (base-data))
-        tamer   (tw/make-lexicon-filter (get conf :lexicon INIT-LEX-TAG) tndx)
-;       tamer   (doto (weka.filters.unsupervised.attribute.TweetToSentiStrengthFeatureVector.)
-;                     (.setToLowerCase true)
-;                     (.setTextIndex "2")                       ; 1-based index
-;                     (.setStandarizeUrlsUsers true)            ; anonymize
-;                     (.setReduceRepeatedLetters true))         ; loooove => loove
-        tagger  (doto (TweetNLPPOSTagger.)
-                      (.setTextIndex (str tndx)))
+        dsets   (atom {})                                       ; Collects datasets from CSV
+
+        emoter  #(tw/make-lexicon-filter lex-tag txt-ndx)
+        tagger  #(tw/make-tagging-filter txt-ndx)
+
         xform   (fn [iinsts & filters]
-                  (log/info "xform" (.relationName iinsts) (.numAttributes iinsts))
-                  (weka/filter-instances iinsts tamer))
-                 ;(reduce
-                 ;  #(weka/filter-instances %1 %2)
-                 ;  iinsts
-                 ;  [tamer tagger]))
-                   ;(conj filters tamer)))
+                  ;; Call to make a new Filter each time
+                  (reduce
+                    #(weka/filter-instances %1 (%2))
+                    iinsts
+                    (conj filters emoter)))
 
         line-up (fn [rdr]
                   (let [[_ & dlines] (csv/read-csv rdr)]        ; Skip CSV header
@@ -725,21 +718,16 @@
             (data+ line)
              (recur (rest dlines)))))
 
-      (log/warn "HERE!" (update-values @dsets #(.numInstances %)))
-
       ;; Save the ARFFs to disk and return the result info in a map
       (reduce (fn [acc [dset iinsts]]
                 (let [oinsts (if (option? :weka opts)           ; When creating for Weka:
-                                        iinsts                  ; - just do basic data cleanup
-                                ;(xform iinsts)                 ; - just do basic data cleanup
-                                 (xform iinsts tagger))         ; - for OWL, do POS transformation!
+                                 (xform iinsts)                 ; - process lexicon
+                                 (xform iinsts tagger))         ; - for OWL, also do POS tags
                       otag   (str dset suffix)]
-                (log/warn "HERE/attr!" (update-values @dsets #(.numAttributes %)))
-                (log/warn "HERE/inst!" (update-values @dsets #(.numInstances %)))
-                (log/warn "HERE!!" dset (.numInstances oinsts))
-                (assoc acc (keyword dset)
-                           {:count (.numInstances ^Instances oinsts)
-                            :fpath (weka/save-file fpath otag oinsts :arff)})))
+                  ;; Finally, save the processed datasets from the CSV as ARFF
+                  (assoc acc (keyword dset)
+                             {:count (.numInstances ^Instances oinsts)
+                              :fpath (weka/save-file fpath otag oinsts :arff)})))
               {}
               @dsets)
 
