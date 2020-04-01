@@ -33,7 +33,7 @@
      :data-split
        {:train          1000
         :test           1000
-        :subs           10
+        :parts          10
         :rand-seed      24816}
      :num-instances     1000            ; We may need extra Weka instances to balance classes
      :num-examples      1000}           ; Use a subset until we get everything squared away

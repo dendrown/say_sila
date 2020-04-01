@@ -62,16 +62,17 @@
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 
-(def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
 (def ^:const PREFIXES   {"senti"    ONT-IRI
                          "pos"      pos/ONT-IRI})
 
+(def ^:const SPLIT-TAGS [:train :test])
+(def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
+
 ;;; --------------------------------------------------------------------------
 ;;; Default values for configuration elements
-(def ^:const INIT-BALANCE       false)
 (def ^:const INIT-NUM-EXAMPLES  100)
 (def ^:const INIT-DATA-TAG      :Sentiment140)
-(def ^:const INIT-DATA-SPLIT    {:num-train 500, :num-test 500, :num-subs 10})
+(def ^:const INIT-DATA-SPLIT    {:train 500, :test 500, :parts 10})
 (def ^:const INIT-LEX-TAG       :nrc)
 (def ^:const INIT-TARGET        "sentiment")
 
@@ -306,16 +307,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn label-polarity
-  "Returns the String «pos» or «neg» according to the polarity of pn."
-  [pn]
-  (case pn
-    "0" "neg"
-    "1" "pos"))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn which-data
   "Returns a data tag indicating which dataset has been requested in the
   specified options list."
@@ -373,7 +364,8 @@
 ;;; --------------------------------------------------------------------------
 (defprotocol Polarizer
   "Determines negative|positive polarity for various datatypes."
-  (polarize [x] "Return the sentiment polarity as :positive or :negative."))
+  (polarize [x] "Return the sentiment polarity as :positive or :negative.")
+  (label-polarity [pn] "Returns the String «pos» or «neg» according to the polarity of pn."))
 
 (extend-protocol Polarizer
   Object
@@ -384,7 +376,18 @@
 
   Instance
   (polarize [inst]
-    (polarize (.classValue inst))))
+    (polarize (.classValue inst)))
+
+  Number
+  (label-polarity [pn]
+    (case (.intValue pn)
+      0 "neg"
+      1 "pos"))
+
+  String
+  (label-polarity [pn]
+    (label-polarity (Integer/parseInt pn))))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -503,25 +506,45 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn create-goal
+(defn create-pn-goal
   "Checks the :senti configuation and returns a map with the elements needed
   to construct datasets and populate ontologies.  The function allows the
   caller to override the configuration by adding :key value pairs as arguments."
- [dset & overrides]
+ ([dset]
  (let [{:as   conf
-        :keys [balance?
-               num-examples]
-        :or   {balance?     INIT-BALANCE
-               num-examples INIT-NUM-EXAMPLES}} (merge (cfg/? :senti {})
-                                                       (apply hash-map overrides))
-        [goal
-         checks] (if balance?
-                     [(int (/ num-examples 2)) [:positive :negative]]   ; pos/neg instances separately
-                     [num-examples [dset]])]                            ; all instances together
+        :keys [num-examples]
+        :or   {num-examples INIT-NUM-EXAMPLES}} (cfg/? :senti)]
+    ;; The default is the number of examples for creating ontology individuals
+    (create-pn-goal dset num-examples conf)))
+
+
+ ([dset cnt]
+ (create-pn-goal dset cnt (cfg/? :senti)))
+
+
+ ([dset cnt {:as   conf
+             :keys [balance?]}]
+ (let [[goal
+        checks] (if balance?
+                    [(int (/ cnt 2)) [:positive :negative]]     ; pos/neg instances separately
+                    [cnt [dset]])]                              ; all instances together
 
    ;; Add what we need for our goals
    (assoc conf :goal   goal
-               :checks checks)))
+               :checks checks))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn split-goals
+  "Returns a map of pos/neg creation goals for creating :train and :test
+  datasets."
+  [dset]
+  (let [{:as   conf
+         :keys [split]} (cfg/? :data-split)]
+
+    (into {} (map #(vector % (create-pn-goal dset (% split) conf))
+                  SPLIT-TAGS))))
 
 
 
@@ -555,6 +578,14 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn zero-pn-counter
+  "Returns a map used to initialize counting SCR examples or data instances."
+  [dset]
+  (reduce #(assoc %1 %2 0) {} [dset :positive :negative]))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn create-scr-examples!
   "Create examples based on part-of-speech tokens.
 
@@ -570,7 +601,7 @@
 
   ([dset]
   (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
-        goal    (create-goal dset)
+        goal    (create-pn-goal dset)
         all-pn? (cfg/?? :senti :skip-neutrals?)
         stoic?  (fn [rules]                                     ; Check that we're not including neutral Texts
                   (and all-pn? (every? empty? rules)))          ; ..and that no sentiment (rule) is expressed
@@ -635,10 +666,10 @@
                                                         :pos-tags (map first pairs)
                                                         :rules    (map set/union rules affect)}))]))))
 
-                    [(reduce #(assoc %1 %2 0)   {} [dset :positive :negative])  ; Acc: total/pos/neg counts
-                     (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))]         ;      Examples keyed by rule
+                    [(zero-pn-counter dset)                                 ; Acc: total/pos/neg counts
+                     (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))]     ;      Examples keyed by rule
 
-                    (enumeration-seq (.enumerateInstances insts)))))    ; Seq: Weka instances
+                    (enumeration-seq (.enumerateInstances insts)))))        ; Seq: Weka instances
 
     ;; Just tell them how many we have for each rule
     (update-values @SCR-Examples count))))
@@ -788,34 +819,43 @@
   "Splits up the input ARFFs into chunks we can use for DL-Learner and Weka."
   [& opts]
   (let [dtag    (which-data opts)
+        goals   (split-goals dtag)
         ipath   (if (some #{:full} opts)
                     (weka/tag-filename (ARFFs dtag) "FULL" :arff)
                     (ARFFs dtag))
         iinsts  (weka/load-arff ipath (cfg/?? :emote :target INIT-TARGET))
         icnt    (.numInstances iinsts)
 
-        splits  (cfg/?? :senti :data-split INIT-DATA-SPLIT)
-        prng    (Random. (get splits :rand-seed 1))
-        dsets   (rebase-data->hashmap [:train :test])
-        fill    (fn [used [^Instances oinsts togo
-                           :as data-pair]]
-                  (if (pos? togo)
+        prng    (Random. (get (cfg/?? :senti :data-split INIT-DATA-SPLIT)
+                             :rand-seed 1))
+        dsets   (rebase-data->hashmap SPLIT-TAGS)
+        cntr    (conj dtag)
+        fill    (fn [used [^Instances oinsts cnts goal
+                           :as data-info]]
+                  (if (creation-done? cnts goal)
+                    ;; We've got what we need, the used-index set is the accumulator
+                    used
                     ;; Keep pulling from the input data
                     (let [ndx (.nextInt prng icnt)]
                       (if (contains? used ndx)
                           (do ;(log/debug "Resampling on repeat index:" ndx)
-                              (recur used data-pair))
-                          (do ;(println "Adding to" (.relationName oinsts) "#" ndx)
-                              (add-instance oinsts (.get iinsts ndx))
-                              (recur (conj used ndx)
-                                     [oinsts (dec togo)]))))
-                    ;; We've got what we need, the used-index set is the accumulator
-                    used))]
+                              (recur used data-info))
+                          (let [i     (.get iinsts ndx)
+                                pn    (polarize i)
+                                used! (conj used ndx)]
+                            (if (creation-full? cnts pn goal)
+                              (recur used! data-info)
+                              (do ;(println "Adding to" (.relationName oinsts) "#" ndx)
+                                  (add-instance oinsts i)
+                                  (recur used!
+                                     [oinsts (update-values cnts [pn dtag] inc)]))))))))]
 
     ;; Fill up the datasets with random instances from the input set
     (reduce fill
-            #{}                                                     ; Set of used indices
-            (map (fn [[tt insts]] [insts (splits tt)]) dsets))      ; Instances & counts for train/test
+            #{}                                                 ; Set of used indices
+            (map (fn [[tt insts]]                               ; Instances & counts for train/test
+                    [insts (zero-pn-counter dtag) (goals tt)])
+                 dsets))
 
     ;; Save the output train/test datasets & return a map of the ARFF paths
     (into {} (domap (fn [[tt insts]] [tt (weka/save-file (ARFFs dtag) tt insts :arff)]) dsets))))
