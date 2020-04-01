@@ -25,4 +25,4 @@
   (call 'ls "-lh" "--color=always"))
 
 (bye)
-#; vim: syntax=lisp:
+#; vim: syntax=picolisp:
