@@ -365,26 +365,36 @@
 (defprotocol Polarizer
   "Determines negative|positive polarity for various datatypes."
   (polarize [x] "Return the sentiment polarity as :positive or :negative.")
-  (label-polarity [pn] "Returns the String «pos» or «neg» according to the polarity of pn."))
+  (label-polarity [x] "Returns the String «pos» or «neg» according to the polarity of x."))
 
 (extend-protocol Polarizer
-  Object
+  Number
   (polarize [x]
     (if (<= x 0.0)
         :negative
         :positive))
 
+
+  (label-polarity [x]
+    (case (.intValue x)
+      0 "neg"
+      1 "pos"))
+
+
+  ;; -------------------------------------------------------------------------
   Instance
   (polarize [inst]
     (polarize (.classValue inst)))
 
-  Number
-  (label-polarity [pn]
-    (case (.intValue pn)
-      0 "neg"
-      1 "pos"))
+  (label-polarity [inst]
+    (label-polarity (.classValue inst)))
 
+
+  ;; -------------------------------------------------------------------------
   String
+  (polarize [pn]
+    (label-polarity (Integer/parseInt pn)))
+
   (label-polarity [pn]
     (label-polarity (Integer/parseInt pn))))
 
