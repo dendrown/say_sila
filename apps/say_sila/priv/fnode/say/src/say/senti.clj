@@ -511,7 +511,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn create-pn-goal
+(defn- create-pn-goal
   "Checks the :senti configuation and returns a map with the elements needed
   to construct datasets and populate ontologies.  The function allows the
   caller to override the configuration by adding :key value pairs as arguments."
@@ -535,36 +535,47 @@
                     [cnt [dset]])]                              ; all instances together
 
    ;; Add what we need for our goals
-   (assoc conf :goal   goal
-               :checks checks))))
+   (assoc conf :goal    goal
+               :checks  checks
+               :dataset dset))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn split-goals
+(defn- split-pn-goals
   "Returns a map of pos/neg creation goals for creating :train and :test
   datasets."
   [dset]
   (let [{:as   conf
-         :keys [split]} (cfg/? :data-split)]
+         :keys [data-split]} (cfg/? :senti)]
 
-    (into {} (map #(vector % (create-pn-goal dset (% split) conf))
+    (into {} (map #(vector % (create-pn-goal dset (% data-split) conf))
                   SPLIT-TAGS))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn describe-creation
+(defn- describe-creation
   "Returns a string describing the creation goals."
-  [{:keys [balance?
-           goal]}]
-   (if balance? (str "Balancing " goal "/" goal)
-                (str "Creating "  goal)))
+  ([{:keys [balance?
+            dataset
+            extra-info
+            goal]}]
+   (str (if balance? (str "Balancing " goal "/" goal)
+                     (str "Creating "  goal))
+        " " (name dataset)
+        (when extra-info
+          (str " " extra-info))))
+
+
+  ([goals tt]
+  (describe-creation (assoc (goals tt)
+                            :extra-info (name tt)))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn creation-done?
+(defn- creation-done?
   "Returns true if the callers creation activites have completed."
   [cnts
    {:keys [goal checks]}]
@@ -573,7 +584,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn creation-full?
+(defn- creation-full?
   "Returns true if a (pos|neg balanced) category has filled up during  the
   creation of a dataset or an example set."
   [cnts pole
@@ -583,10 +594,19 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn zero-pn-counter
+(defn- zero-pn-counter
   "Returns a map used to initialize counting SCR examples or data instances."
   [dset]
   (reduce #(assoc %1 %2 0) {} [dset :positive :negative]))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- inc-pn-counter
+  "Returns an updated map after incrementing the couter values for the dataset
+  and the specified polarity."
+  [cnts dset pn]
+  (update-values cnts [dset pn] inc))
 
 
 
@@ -632,7 +652,6 @@
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (describe-creation goal)
-              (name dset)
               "SCR examples"
               (str "[pos/neg" (when-not all-pn? "/neu") "]"))
 
@@ -662,7 +681,7 @@
                             (if (or (stoic? affect)                     ; Is it void of pos/neg/emotion?
                                     (creation-full? cnts pole goal))    ; Still collecting for this polarity?
                               info
-                              [(update-values cnts [pole dset] inc)             ; Update pos/neg/all counts
+                              [(inc-pn-counter cnts dset pole)                  ; Update pos/neg/all counts
                                (update-values xmap                              ; Add Text for full set & all SCRs
                                               (apply set/union #{dset} rules)
                                               #(conj % {:id       id
@@ -824,7 +843,7 @@
   "Splits up the input ARFFs into chunks we can use for DL-Learner and Weka."
   [& opts]
   (let [dtag    (which-data opts)
-        goals   (split-goals dtag)
+        goals   (split-pn-goals dtag)
         ipath   (if (some #{:full} opts)
                     (weka/tag-filename (ARFFs dtag) "FULL" :arff)
                     (ARFFs dtag))
@@ -845,20 +864,24 @@
                       (if (contains? used ndx)
                           (do ;(log/debug "Resampling on repeat index:" ndx)
                               (recur used data-info))
-                          (let [i     (.get iinsts ndx)
-                                pn    (polarize i)
+                          (let [inst  (.get iinsts ndx)
+                                pn    (polarize inst)
                                 used! (conj used ndx)]
                             (if (creation-full? cnts pn goal)
+                              ;; Add this index to the "used" set, but don't add instance
                               (recur used! data-info)
                               (do ;(println "Adding to" (.relationName oinsts) "#" ndx)
-                                  (add-instance oinsts i)
-                                  (recur used!
-                                     [oinsts (update-values cnts [pn dtag] inc)]))))))))]
+                                  (add-instance oinsts inst)
+                                  (recur used! [oinsts
+                                                (inc-pn-counter cnts dtag pn)
+                                                goal]))))))))]
 
     ;; Fill up the datasets with random instances from the input set
     (reduce fill
             #{}                                                 ; Set of used indices
             (map (fn [[tt insts]]                               ; Instances & counts for train/test
+                    (log/info (describe-creation goals tt)
+                              "instances")
                     [insts (zero-pn-counter dtag) (goals tt)])
                  dsets))
 
