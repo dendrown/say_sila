@@ -137,10 +137,10 @@
   "Functionality for the Affective Tweets lexicons.  This protocol  allows
   for customized return specifications."
 
-  (analyze-token+- [lex tok returns]
-    "If returns is nil, the function returns a hashmap representing the
-    specified lexicon's analysis of the token  If returns is a hashmap,
-    then the function returns a set of the values in the returns map
+  (analyze-token+- [lex tok retvals]
+    "If retvals is nil, the function returns a hashmap representing the
+    specified lexicon's analysis of the token  If retvals is a hashmap,
+    then the function returns a set of the values in the retvals map
     that correspond to the affective elements found in the analysis.")
 
   (polarize-token+- [lex tok pos neg]
@@ -152,22 +152,36 @@
     return values."))
 
 
+(defn- affect-set+-
+  "Creates a set of sentiment polarity and emotion hits using the
+  return values requested by the caller."
+  [affect retvals]
+  (if retvals
+    ;; Create a set of the requested returns for any hits
+    (reduce (fn [acc [aff ret]]
+              (if (pos? (get affect aff 0))
+                  (conj acc ret)
+                  acc))
+            #{}
+            retvals)
+    ;; No specific returns requested, so return the results map
+    affect))
+
 
 (defn- analyze-polarity+-
   "Helper function to handle the common case of creating a full affect
   analysis for a LexiconEvaluator that only deals with sentiment polarity."
-  [lex tok _]
-  ;; TODO: Handle the returns map
-  (let [pole (polarize-token+- lex tok :positive :negative)]
-    (merge Stoic {pole 1})))
-
+  [lex tok retvals]
+  (let [pole   (polarize-token+- lex tok :positive :negative)
+        affect (merge Stoic {pole 1})]
+    (affect-set+- affect retvals)))
 
 
 (extend-protocol Lexify
 
   PolarityLexiconEvaluator
-  (analyze-token+- [lex tok returns]
-    (analyze-polarity+- lex tok returns))
+  (analyze-token+- [lex tok retvals]
+    (analyze-polarity+- lex tok retvals))
 
   (polarize-token+- [lex tok pos neg]
     (case (.retrieveValue lex tok)
@@ -178,19 +192,10 @@
 
 
   NRCEmotionLexiconEvaluator
-  (analyze-token+- [lex tok returns]
+  (analyze-token+- [lex tok retvals]
     ;; NRC-10 gives us a map of the emo/polarity hits for the token
     (let [affect (update-keys (.getWord lex tok) keyword)]
-      (if returns
-        ;; Create a set of the requested returns for any hits
-        (reduce (fn [acc [aff ret]]
-                  (if (pos? (get affect aff 0))
-                      (conj acc ret)
-                      acc))
-                #{}
-                returns)
-        ;; No specific returns requested, so return the results map
-        affect)))
+      (affect-set+- affect retvals)))
 
   (polarize-token+- [lex tok pos neg]
     ;; NRC-10 gives us a map of the emo/polarity hits for the token
@@ -204,8 +209,8 @@
 
 
   SWN3LexiconEvaluator
-  (analyze-token+- [lex tok returns]
-    (analyze-polarity+- lex tok returns))
+  (analyze-token+- [lex tok retvals]
+    (analyze-polarity+- lex tok retvals))
 
   (polarize-token+- [lex tok pos neg]
     ;; The basic evaluator behaviour is to evaluate a list of tokens
