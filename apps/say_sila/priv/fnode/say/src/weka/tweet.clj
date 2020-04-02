@@ -114,16 +114,22 @@
 
 ;;; --------------------------------------------------------------------------
 (defmacro L#
-  "Creates a lexicon definition for the LEXICONS hashmap."
+  "Creates a lexicon definition for the Lexicons hashmap."
   [tag opt typ fp]
   `[~tag {:filter ~opt
           :type   ~typ
           :fpath  (. TweetToLexiconFeatureVector ~fp)}])
 
-(defonce LEXICONS   (into {} [(L# :liu  "-D" PolarityLexiconEvaluator   BING_LIU_FILE_NAME)
+(defonce Lexicons   (into {} [(L# :liu  "-D" PolarityLexiconEvaluator   BING_LIU_FILE_NAME)
                               (L# :mpqa "-A" PolarityLexiconEvaluator   MPQA_FILE_NAME)
                               (L# :nrc  "-L" NRCEmotionLexiconEvaluator NRC10_FILE_NAME)
                               (L# :swn  "-Q" SWN3LexiconEvaluator       SENTIWORDNET_FILE_NAME)]))
+
+(defonce Stoic      (into {} (map #(vector % 0) [:positive :negative
+                                                 :anger    :fear
+                                                 :sadness  :joy
+                                                 :surprise :anticipation
+                                                 :disgust  :trust])))
 
 
 ;;; --------------------------------------------------------------------------
@@ -146,11 +152,24 @@
     return values."))
 
 
+
+(defn- analyze-polarity+-
+  "Helper function to handle the common case of creating a full affect
+  analysis for a LexiconEvaluator that only deals with sentiment polarity."
+  [lex tok _]
+  ;; TODO: Handle the returns map
+  (let [pole (polarize-token+- lex tok :positive :negative)]
+    (merge Stoic {pole 1})))
+
+
+
 (extend-protocol Lexify
 
   PolarityLexiconEvaluator
-  (polarize-token+-
-    [lex tok pos neg]
+  (analyze-token+- [lex tok returns]
+    (analyze-polarity+- lex tok returns))
+
+  (polarize-token+- [lex tok pos neg]
     (case (.retrieveValue lex tok)
       "positive"  pos
       "negative"  neg
@@ -159,8 +178,7 @@
 
 
   NRCEmotionLexiconEvaluator
-  (analyze-token+-
-    [lex tok returns]
+  (analyze-token+- [lex tok returns]
     ;; NRC-10 gives us a map of the emo/polarity hits for the token
     (let [affect (update-keys (.getWord lex tok) keyword)]
       (if returns
@@ -174,8 +192,7 @@
         ;; No specific returns requested, so return the results map
         affect)))
 
-  (polarize-token+-
-    [lex tok pos neg]
+  (polarize-token+- [lex tok pos neg]
     ;; NRC-10 gives us a map of the emo/polarity hits for the token
     (let [affect (analyze-token+- lex tok nil)]
       (case [(:positive affect)
@@ -187,8 +204,10 @@
 
 
   SWN3LexiconEvaluator
-  (polarize-token+-
-    [lex tok pos neg]
+  (analyze-token+- [lex tok returns]
+    (analyze-polarity+- lex tok returns))
+
+  (polarize-token+- [lex tok pos neg]
     ;; The basic evaluator behaviour is to evaluate a list of tokens
     (let [{pval "swn-posScore"
            nval "swn-negScore"} (.evaluateTweet lex [tok])
@@ -228,7 +247,7 @@
   AffectiveTweets Weka plugin.  Choices are :liu, :mpqa, :nrc, and :swn.
   Note that the TweetToLexiconFeatureVector we return is *not* reusable."
   [ltag tndx]
-  (when-let [lex (LEXICONS ltag)]
+  (when-let [lex (Lexicons ltag)]
     (doto (TweetToLexiconFeatureVector.)
           (.setTextIndex (str tndx))                    ; 1-based index
           (.setOptions (into-array [(:filter lex)]))    ; Requested lexicon
@@ -256,7 +275,7 @@
   (let [ltag    (eval tag)              ; Lexicon tag (often via config lookup)
         lname   (name ltag)
         {ltype :type
-         fpath :fpath}  (LEXICONS ltag)]
+         fpath :fpath}  (Lexicons ltag)]
     (if ltype
       ;; Common constructor/initialization for the various LexiconEvaluators
       `(do (log/info "Using lexicon:" ~ltype)
