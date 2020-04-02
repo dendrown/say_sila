@@ -633,7 +633,7 @@
 
         ;;-- We bring in examples using Weka's Affective Tweets plugin and a Snowball stemmer
         arff    (ARFFs dset)
-        insts   (weka/load-arff arff "sentiment")
+        insts   (weka/load-arff arff (cfg/?? :emote :target INIT-TARGET))
         sball   (tw/make-stemmer)
         stem    #(.stem sball %)
         exprs   (update-values EXPRESSIONS                      ; Pre-stem Liu's SCR expressions
@@ -841,26 +841,43 @@
 ;;; --------------------------------------------------------------------------
 (defn split-data
   "Splits up the input ARFFs into chunks we can use for DL-Learner and Weka."
-  [& opts]
-  (let [dtag    (which-data opts)
+  ([]
+    (split-data INIT-DATA-TAG))
+
+
+  ([dtag]
+    (split-data dtag 10))
+
+
+  ([dtag cnt]
+  (let [{:keys [all-data?
+                data-split]} (cfg/? :senti)
+        seed                 (get data-split :rand-seed 1)]
+
+    ;; Sample (semi)full ARFF to create cnt train/test dataset pairs
+    (doseq [c (range cnt)]
+      (split-data dtag (+ seed c) all-data?))))
+
+
+  ([dtag seed all?]
+  (let [rtag    (str "r" seed)
         goals   (split-pn-goals dtag)
-        ipath   (if (some #{:full} opts)
-                    (weka/tag-filename (ARFFs dtag) "FULL" :arff)
+        ipath   (if all?
+                    (weka/tag-filename (ARFFs dtag) "COMPLETE" :arff)
                     (ARFFs dtag))
         iinsts  (weka/load-arff ipath (cfg/?? :emote :target INIT-TARGET))
         icnt    (.numInstances iinsts)
 
-        prng    (Random. (get (cfg/?? :senti :data-split INIT-DATA-SPLIT)
-                             :rand-seed 1))
         dsets   (rebase-data->hashmap SPLIT-TAGS)
         cntr    (conj dtag)
+        rng     (Random. seed)
         fill    (fn [used [^Instances oinsts cnts goal
                            :as data-info]]
                   (if (creation-done? cnts goal)
                     ;; We've got what we need, the used-index set is the accumulator
                     used
                     ;; Keep pulling from the input data
-                    (let [ndx (.nextInt prng icnt)]
+                    (let [ndx (.nextInt rng icnt)]
                       (if (contains? used ndx)
                           (do ;(log/debug "Resampling on repeat index:" ndx)
                               (recur used data-info))
@@ -881,12 +898,17 @@
             #{}                                                 ; Set of used indices
             (map (fn [[tt insts]]                               ; Instances & counts for train/test
                     (log/info (describe-creation goals tt)
-                              "instances")
+                              "instances:" rtag)
                     [insts (zero-pn-counter dtag) (goals tt)])
                  dsets))
 
     ;; Save the output train/test datasets & return a map of the ARFF paths
-    (into {} (domap (fn [[tt insts]] [tt (weka/save-file (ARFFs dtag) tt insts :arff)]) dsets))))
+    (into {} (domap (fn [[tt insts]]
+                      [tt (weka/save-file (ARFFs dtag)              ; Main filename stub
+                                          (str rtag "." (name tt))  ; pRNG seed & train|test tag
+                                          insts                     ; Sampled train|test data
+                                          :arff)])
+                    dsets)))))
 
 
 
