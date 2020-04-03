@@ -2,26 +2,30 @@
 #; ---------------------------------------------------------------------------
 #; Combine train+test datasets for Weka Experimenter
 #;
-(argv *Dataset)
+(argv *Dataset *Seed)
 
+(def 'λ quote)
 (def 'DATA-SRC "sentiment-analysis")
+(def 'DSET-CNT 10)
 
 #; ---------------------------------------------------------------------------
-(de ->arff (tag)
-  (pack DATA-SRC "." *Dataset "." 'weka "." tag ".arff"))
-  
+(de ->arff (tag rseed)
+  (pack DATA-SRC "." *Dataset ".weka.r" rseed "." tag ".arff"))
+
 
 #; ---------------------------------------------------------------------------
-(if *Dataset
-  #; Combine train & test datasets
+(de combine (rseed)
+  #; Combine train & test datasets for this count's PRNG seed
   (let ((dtrain
          dtest
-         data-TT) (mapcar ->arff '(train test TT)))
+         data-TT) (mapcar (λ (tag)
+                            (->arff tag rseed))
+                          '(train test TT)))
 
     #; Have we got them both
     (if2 (info dtrain) (info dtest)
       (prog
-        (println 'Processing: DATA-SRC)
+        (println 'Processing: data-TT)
         (prinl)
 
         #; The training dataset can be copied as is
@@ -44,12 +48,23 @@
         (call 'ls "-lh" dtrain dtest data-TT)
         (prinl))
 
-      (prinl dtest  '?)
-      (prinl dtrain '?)
-      (println 'Test/train 'datasets?)))
+      (msg dtest  '?)
+      (msg dtrain '?)
+      (msg 'Test/train " data for r" rseed '?))))
 
-  #; Right now we require something
-  (println 'dataset?))
 
+#; ---------------------------------------------------------------------------
+(if2 *Dataset *Seed
+
+  #; Combine a range of test & train datasets
+  (let (rseed  (format *Seed))
+    (mapc (λ (c)
+            (combine (+ rseed c)))
+          (range 0 (dec DSET-CNT))))
+
+  #; We need somthing more...
+  (msg 'seed?)
+  (msg 'dataset?)
+  (msg 'dataset/seed?))
 (bye)
 #; vim: syntax=picolisp:
