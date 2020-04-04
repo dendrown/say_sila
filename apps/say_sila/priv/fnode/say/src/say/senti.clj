@@ -41,7 +41,8 @@
             [org.semanticweb.owlapi.reasoner InferenceType]
             [weka.core DenseInstance
                        Instance
-                       Instances]))
+                       Instances]
+            [weka.filters.unsupervised.attribute Reorder]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -701,7 +702,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defonce ^:private Base-Instances (weka/load-arff (:base ARFFs)))
+(defonce ^:private Base-Instances (weka/load-arff (:base ARFFs) INIT-TARGET))
 
 (defn- ^Instances base-data
   "Returns the base say-senti data evaluation Instances"
@@ -840,7 +841,11 @@
 
 ;;; --------------------------------------------------------------------------
 (defn split-data
-  "Splits up the input ARFFs into chunks we can use for DL-Learner and Weka."
+  "Splits up the input ARFFs into chunks we can use for DL-Learner and Weka.
+  The arity 0 and 1 clauses respectively build for the default dataset and
+  the default number of subsets.  The arity 2 clause does the setup and then
+  makes multiple calls the worker (arity 6) clause (which you normally won't
+  want to call directly)."
   ([]
     (split-data INIT-DATA-TAG))
 
@@ -850,16 +855,20 @@
 
 
   ([dtag cnt]
-  (let [{:keys [all-data?
-                data-split]} (cfg/? :senti)
-        seed                 (get data-split :rand-seed 1)]
+  ;; Pull what we need from the config before creating the cnt datasets
+  (let [{:keys  [all-data?  data-split lexicon text-index]
+         :or    {lexicon    INIT-LEX-TAG
+                  text-index INIT-TEXT-INDEX}} (cfg/? :senti)
+        seed    (get data-split :rand-seed 1)                   ; Start PRNG seed of series
+        target  (inc (.classIndex (base-data)))                 ; 1-based dependent attribute index
+        reattr  ["-R" (str (inc target) "-last," target)]]      ; Reorder filter opts: "4-last,3"
 
     ;; Sample (semi)full ARFF to create cnt train/test dataset pairs
     (doseq [c (range cnt)]
-      (split-data dtag (+ seed c) all-data?))))
+      (split-data dtag (+ seed c) all-data? lexicon text-index reattr))))
 
 
-  ([dtag seed all?]
+  ([dtag seed all? lex tndx reattr]
   (let [rtag    (str "r" seed)
         goals   (split-pn-goals dtag)
         ipath   (if all?
@@ -868,7 +877,7 @@
         iinsts  (weka/load-arff ipath (cfg/?? :emote :target INIT-TARGET))
         icnt    (.numInstances iinsts)
 
-        dsets   (rebase-data->hashmap SPLIT-TAGS)
+        dsets   (atom (rebase-data->hashmap SPLIT-TAGS))
         cntr    (conj dtag)
         rng     (Random. seed)
         fill    (fn [used [^Instances oinsts cnts goal
@@ -891,7 +900,15 @@
                                   (add-instance oinsts inst)
                                   (recur used! [oinsts
                                                 (inc-pn-counter cnts dtag pn)
-                                                goal]))))))))]
+                                                goal]))))))))
+
+        wfilter (fn [data tt]
+                  (let [emote   (tw/make-lexicon-filter lex tndx)
+                        reorder (Reorder.)
+                        insts*  (-> (data tt)
+                                    (weka/filter-instances emote)
+                                    (weka/filter-instances reorder reattr))]
+                    (assoc data tt insts*)))]
 
     ;; Fill up the datasets with random instances from the input set
     (reduce fill
@@ -900,7 +917,13 @@
                     (log/info (describe-creation goals tt)
                               "instances:" rtag)
                     [insts (zero-pn-counter dtag) (goals tt)])
-                 dsets))
+                 @dsets))
+
+    ;; If these are Weka datasets, prepare them for the Experimenter.
+    ;; Note, this updates the dsets agent (concurrently) with new Instances.
+    (when (= dtag :weka)
+      (log/debug "Filtering datasets for Weka")
+      (run! #(swap! dsets wfilter %) SPLIT-TAGS))
 
     ;; Save the output train/test datasets & return a map of the ARFF paths
     (into {} (domap (fn [[tt insts]]
@@ -908,7 +931,7 @@
                                           (str rtag "." (name tt))  ; pRNG seed & train|test tag
                                           insts                     ; Sampled train|test data
                                           :arff)])
-                    dsets)))))
+                    @dsets)))))
 
 
 
