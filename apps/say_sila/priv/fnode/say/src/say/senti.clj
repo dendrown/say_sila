@@ -73,7 +73,7 @@
 ;;; Default values for configuration elements
 (def ^:const INIT-NUM-EXAMPLES  100)
 (def ^:const INIT-DATA-TAG      :Sentiment140)
-(def ^:const INIT-DATA-SPLIT    {:train 500, :test 500, :parts 10})
+(def ^:const INIT-DATA-SPLIT    {:train 500, :test 500, :parts 10 :rand-seed 1})
 (def ^:const INIT-LEX-TAG       :nrc)
 (def ^:const INIT-TARGET        "sentiment")
 
@@ -841,7 +841,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn split-data
-  "Splits up the input ARFFs into chunks we can use for DL-Learner and Weka.
+  "Splits up an input ARFF into chunks we can use for DL-Learner and Weka.
   The arity 0 and 1 clauses respectively build for the default dataset and
   the default number of subsets.  The arity 2 clause does the setup and then
   makes multiple calls the worker (arity 6) clause (which you normally won't
@@ -856,19 +856,38 @@
 
   ([dtag cnt]
   ;; Pull what we need from the config before creating the cnt datasets
-  (let [{:keys  [all-data?  data-split lexicon text-index]
-         :or    {lexicon    INIT-LEX-TAG
-                  text-index INIT-TEXT-INDEX}} (cfg/? :senti)
-        seed    (get data-split :rand-seed 1)                   ; Start PRNG seed of series
+  (let [{:keys  [all-data? data-split lexicon text-index]
+         :or    {data-split INIT-DATA-SPLIT
+                 lexicon    INIT-LEX-TAG
+                 text-index INIT-TEXT-INDEX}}   (cfg/? :senti)
+        {:keys  [parts train rand-seed]}        data-split
         target  (inc (.classIndex (base-data)))                 ; 1-based dependent attribute index
         reattr  ["-R" (str (inc target) "-last," target)]]      ; Reorder filter opts: "4-last,3"
 
     ;; Sample (semi)full ARFF to create cnt train/test dataset pairs
     (doseq [c (range cnt)]
-      (split-data dtag (+ seed c) all-data? lexicon text-index reattr))))
+      (let [rseed         (+ rand-seed c)
+            {arff :train} (split-data dtag rseed all-data? lexicon text-index reattr)]
+        ;; That's all Weka needs, but for DL-Learner we chop the datasets into parts
+        (when-not (= dtag :weka)
+          (let [subcnt (int (quot train parts))                 ; Number of instances in a part
+                extras (int (rem  train parts))                 ; Leftovers from an uneven split
+                iinsts (weka/load-arff arff)]                   ; Reload the training instances
+
+            ;; Split the [i]nput instances into several parts
+            (dotimes [p parts]
+              (weka/save-file arff
+                              (strfmt "~3,'0d" p)                       ; Part number ARFF suffix
+                              (Instances. iinsts (* p subcnt) subcnt)   ; Subset of instances
+                              :arff))
+
+            (log/info "Created" parts "subsets of" subcnt "instances")
+            (when-not (zero? extras)
+              (log/warn "Extra instances:" extras))))))))
 
 
   ([dtag seed all? lex tndx reattr]
+  ;; This is the workhorse clause.  It is not meant to be called directly
   (let [rtag    (str "r" seed)
         goals   (split-pn-goals dtag)
         ipath   (if all?
