@@ -158,6 +158,18 @@
 (defaproperty TextualContent)
 
 
+;; TODO: Move this into the SCR ontologies after Tawny gets functionality for OWLObjectMinCardinality.
+;;       Also, we'll be automating the creation of this classed, based on output from DL-Learner.
+(comment defclass PositiveTextCandidate
+  :super    Text
+  :label    "Positive Text Candidate"
+  :comment  "A Text representing a candidate formula for determining if a given Text expresses popositive sentiment."
+  :equivalent (dl/and Text
+                      (at-least 2 (owl-oproperty)))) ;; TODO: "hasComponent ..."
+  ;; DL-Learner: (dul/hasComponent min 2 (follows only (denotesAffect some Affect)))
+
+
+
 ;; DL-Learner isn't handling Pos/Neg Text subclasses well
 (when (cfg/?? :senti :pos-neg?)
   (as-subclasses Text
