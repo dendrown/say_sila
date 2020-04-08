@@ -24,7 +24,7 @@
      :balance?          false           ; Equal representation for pos/neg classes
      :full-links?       false           ; Create links explicitly rather than depending on reasoner
      :pos-neg?          false           ; Assign Texts to Positive|Negative subclass
-     :skip-neutrals?    false           ; Do not include Texts that are not classified as pos|neg
+     :skip-neutrals?    false           ; Do not include Texts that have no terms expressing sentiment/emotion
      :use-plutchik?     false           ; Include emotion concepts corresponding to Plutchik's 8 base emotions
      :testing?          false           ; Include testing concepts used to evaluate the system
      :use-scr?          false           ; Model Bing Liu's Sentiment Composition Rules

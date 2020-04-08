@@ -760,9 +760,9 @@
     ^Instance   i]
   ;; Extract the values from the sample instance
   (add-instance insts
-                (.value    i 0)
-                (.toString i 1)
-                (.value    i 2)))
+                (.value       i 0)
+                (.stringValue i 1)
+                (.value       i 2)))
 
   ([^Instances  insts
     ^Double     id
