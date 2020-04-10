@@ -58,7 +58,8 @@
                          :Kaggle        1349})
 (def ^:const ARFFs      {:base          "resources/emo-sa/sentiment-analysis.arff"
                          :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"
-                         :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
+                        ;:Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
+                         :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.r24816.test.arff" ; FIXME !
                          :weka          "resources/emo-sa/sentiment-analysis.Sentiment140.weka.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)

@@ -1,12 +1,12 @@
-;; -*- mode: clojure -*-
 {
   :erlang
     {:cookie        "say_cookie"
      :sname         "say"}
 
+  ;; -------------------------------------------------------------------------
   :emote
-    {:nlp               :english        ; Options: affective|english
-     :id-index          1               ; ARFF indices are 1-based
+    {:nlp               :english                ; Options: affective|english
+     :id-index          1                       ; ARFF indices are 1-based
      :screen-name-index 3
      :full-name-index   4
      :description-index 5
@@ -14,28 +14,55 @@
      :target            "sentiment"}
 
   :dolce
-    {:access            :minimal}       ; Options: import|hierarchy|minimal
+    {:access            :minimal}               ; Options: import|hierarchy|minimal
 
   :cmu-pos
     {:ignore            #{"," "~"}}
 
   :senti
-    {:all-data?         true            ; Use complete dataset (vs. a manageable subset)
-     :balance?          false           ; Equal representation for pos/neg classes
-     :full-links?       false           ; Create links explicitly rather than depending on reasoner
-     :pos-neg?          false           ; Assign Texts to Positive|Negative subclass
-     :skip-neutrals?    false           ; Do not include Texts that have no terms expressing sentiment/emotion
-     :use-plutchik?     false           ; Include emotion concepts corresponding to Plutchik's 8 base emotions
-     :testing?          false           ; Include testing concepts used to evaluate the system
-     :use-scr?          false           ; Model Bing Liu's Sentiment Composition Rules
-     :rand-seed         12345           ; Seed an RNG to take shuffle input instances
-     :lexicon           :liu            ; Options: liu|mpqa|nrc|swn
-     :emotions          :plutchik       ; Base emotion system: plutchik|Ekman|nil
+    {:all-data?         true                    ; Use complete dataset (vs. a manageable subset)
+     :balance?          false                   ; Equal representation for pos/neg classes
+     :full-links?       false                   ; Create links explicitly rather than depending on reasoner
+     :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
+     :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
+     :use-plutchik?     false                   ; Include emotion concepts corresponding to Plutchik's 8 base emotions
+     :testing?          false                   ; Include testing concepts used to evaluate the system
+     :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
+     :rand-seed         12345                   ; Seed an RNG to take shuffle input instances
+     :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
+     :emotions          :plutchik               ; Base emotion system: plutchik|Ekman|nil
      :data-split
        {:train          1000
         :test           1000
         :parts          10
         :rand-seed      24816}
-     :num-instances     1000            ; We may need extra Weka instances to balance classes
-     :num-examples      1000}           ; Use a subset until we get everything squared away
+     :num-instances     1000                    ; We may need extra Weka instances to balance classes
+     :num-examples      1000}                   ; Use a subset until we get everything squared away
+
+
+  ;; -------------------------------------------------------------------------
+  :dllearner                                    ; EXTERNAL TOOL: DL-Learner
+    {:reasoner          :cwa                    ; Use open/closed world assumption (owa|cwa)
+
+     ;; DL-Learner base configuration
+     :alg               {:type                      :ocel                   ; Invokes config submap (below)
+                         :maxExecutionTimeInSeconds 300
+                         :noisePercentage           33
+                         :startClass                "senti:PositiveTextCandidate"
+                         :ignoredConcepts           ["senti:SentimentPolarity"]
+                         :ignoredObjectProperties   ["dul:associatedWith"
+                                                     "dul:hasPart"
+                                                     "dul:hasQuality"]}
+     :lp                {:type                      "posNegStandard"}
+
+     ;; Reasoner submaps handle Open-World vs. Closed-World assumptions
+     :cwa               {:type                      "Closed World Reasoner"}
+     :owa               {:type                      "OWL API Reasoner"
+                         :reasonerImplementation    "hermit"}               ; Options: hermit|pellet
+
+     ;; Algorithm submaps contain 'alg' configuration elelements which depend on :alg -> :type
+     :ocel              {}
+     :celoe             {:maxNrOfResults            10}}
+
 }
+;;; vim: ft=clojure:
