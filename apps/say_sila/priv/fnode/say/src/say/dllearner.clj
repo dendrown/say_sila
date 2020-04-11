@@ -15,6 +15,7 @@
             [say.config         :as cfg]
             [say.log            :as log]
             [clojure.java.io    :as io]
+            [clojure.java.shell :as sh]
             [clojure.pprint     :as prt :refer [pp pprint]]
             [clojure.string     :as str]))
 
@@ -212,6 +213,12 @@
         (prn)
         (print-config-submap :lp conf)
         (print-pn-examples examples)))
-  fpath))
+    fpath))
 
 
+
+;;; --------------------------------------------------------------------------
+(defn run
+  "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
+  []
+  (sh/sh "pwd"))

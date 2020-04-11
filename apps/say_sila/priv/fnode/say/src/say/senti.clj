@@ -58,8 +58,7 @@
                          :Kaggle        1349})
 (def ^:const ARFFs      {:base          "resources/emo-sa/sentiment-analysis.arff"
                          :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"
-                        ;:Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
-                         :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.r24816.test.arff" ; FIXME !
+                         :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
                          :weka          "resources/emo-sa/sentiment-analysis.Sentiment140.weka.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
@@ -282,25 +281,8 @@
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
 
 
-
 ;;; --------------------------------------------------------------------------
-;;; TODO: Move this into the SCR ontologies after Tawny gets functionality for OWLObjectMinCardinality.
-;;;       Also, we'll be automating the creation of this classed, based on output from DL-Learner.
-(defclass PositiveTextCandidate
-  :super    Text
-  :label    "Positive Text Candidate"
-  :comment  "A Text representing a candidate formula for determining if a given Text expresses popositive sentiment."
-  :equivalent (dl/and Text
-                      (dl/some dul/hasComponent (dl/some denotesAffect (dl/or Positive
-                                                                              dul/InformationObject)))))
-  ;; DL-Learner: Text and (dul/hasComponent min 2 (follows only (denotesAffect some Affect)))
-  ;;             -------->(at-least 2 (owl-oproperty hasComponent ...))) ;; TODO: need OWLObjectMinCardinality
-  ;;         OR: Text and (hasComponent some (denotesAffect some (Positive or InformationObject)))
-
-
-
-;;; --------------------------------------------------------------------------
-;; TODO: Put SentimentPolarity back in after we handle timing considerations
+;;; TODO: Put SentimentPolarity back in after we handle timing considerations
 ;(defclass SentimentPolarity
 ;  :super   dul/Quality
 ;  :label   "Sentiment Polarity"
@@ -369,13 +351,32 @@
   individuals expressing the specified Sentiment Composition Rule (SCR)"
   [rule]
   (let [scr    (name rule)
-        prefix #(apply str % "-" scr %&)]
-    (ontology
-      :tawny.owl/name (prefix "say-senti")
-      :iri     (make-scr-iri scr)
-      :prefix  (prefix "scr")
-      :import  say-senti
-      :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))))
+        prefix #(apply str % "-" scr %&)
+        ont    (ontology
+                 :tawny.owl/name (prefix "say-senti")
+                 :iri     (make-scr-iri scr)
+                 :prefix  (prefix "scr")
+                 :import  say-senti
+                 :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))]
+
+    ;; Create a parent class for output representations as described by DL-Learner
+    (owl-class ont "PositiveTextCandidate"
+               :super    Text
+               :label    "Positive Text Candidate"
+               :comment  (str "A Text representing a candidate formula for determining if a given Text"
+                              "expresses popositive sentiment."))
+
+    ;; TODO: Tawny needs functionality for OWLObjectMinCardinality.
+    ;;       Also, we'll be automating the creation of this classed, based on output from DL-Learner.
+    (owl-class ont "TestPositiveTextCandidate"
+               :super    (owl-class ont "PositiveTextCandidate")
+               :equivalent (dl/and Text
+                                   (dl/some dul/hasComponent (dl/some denotesAffect (dl/or Positive
+                                                                                           dul/InformationObject)))))
+    ;; DL-Learner: Text and (dul/hasComponent min 2 (follows only (denotesAffect some Affect)))
+    ;;             -------->(at-least 2 (owl-oproperty hasComponent ...))) ;; TODO: need OWLObjectMinCardinality
+    ;;         OR: Text and (hasComponent some (denotesAffect some (Positive or InformationObject)))
+    ont))
 
 
 
