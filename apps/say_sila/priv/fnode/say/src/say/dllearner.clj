@@ -23,6 +23,7 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
+(def ^:const DLL-EXEC   "/usr/local/bin/dll")
 (def ^:const DLL-DIR    "resources/dllearner/")
 (def ^:const FRAME-DIR  "resources/dllearner/frame/")
 (def ^:const KB-DIR     "resources/KB/")
@@ -220,5 +221,9 @@
 ;;; --------------------------------------------------------------------------
 (defn run
   "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
-  []
-  (sh/sh "pwd"))
+  [& tags]
+  (let [exec  (cfg/?? :dllearner :exec DLL-EXEC)
+        dconf (apply str DLL-DIR (map name (interpose "." (conj tags :conf))))]
+    (sh/sh exec "-c" dconf)
+    (log/error "No configured DL-Learner executable")))
+

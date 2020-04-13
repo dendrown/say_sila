@@ -73,7 +73,7 @@
 ;;; Default values for configuration elements
 (def ^:const INIT-NUM-EXAMPLES  100)
 (def ^:const INIT-DATA-TAG      :Sentiment140)
-(def ^:const INIT-DATA-SPLIT    {:train 500, :test 500, :parts 10 :rand-seed 1})
+(def ^:const INIT-DATA-SPLIT    {:datasets 10, :train 500, :test 500, :parts 10 :rand-seed 1})
 (def ^:const INIT-LEX-TAG       :nrc)
 (def ^:const INIT-TARGET        "sentiment")
 
@@ -307,17 +307,10 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn which-data
-  "Returns a data tag indicating which dataset has been requested in the
-  specified options list."
-  ([]
-    INIT-DATA-TAG)
-
-  ([opts]
-  (let [datasets (into #{} (keys ARFFs))]
-    (if-let [dtag (some datasets opts)]
-      dtag
-      (which-data)))))
+(defn enumerate-dataset
+  "Returns a sequence of tag indicating which datasets we use for evaluation."
+  [ds n]
+  (weka/tag-filename ds (strfmt "~3,'0d" n)))
 
 
 
@@ -325,7 +318,18 @@
 (defn which-datasets
   "Returns a sequence of tag indicating which datasets we use for evaluation."
   []
-  (remove #{:base} (keys ARFFs)))
+  (into #{} (remove #{:base} (keys ARFFs))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn which-data
+  "Returns a data tag indicating which dataset has been requested from among
+  the specified options"
+  [& opts]
+  (if-let [dtag (some (which-datasets) opts)]
+    dtag
+    INIT-DATA-TAG))
 
 
 
@@ -869,39 +873,47 @@
 
 
   ([dtag]
-    (split-data dtag 10))
-
-
-  ([dtag cnt]
   ;; Pull what we need from the config before creating the cnt datasets
   (let [{:keys  [all-data? data-split lexicon text-index]
          :or    {data-split INIT-DATA-SPLIT
                  lexicon    INIT-LEX-TAG
-                 text-index INIT-TEXT-INDEX}}   (cfg/? :senti)
-        {:keys  [parts train rand-seed]}        data-split
+                 text-index INIT-TEXT-INDEX}}     (cfg/? :senti)
+        {:keys  [datasets parts train rand-seed]} data-split
         target  (inc (.classIndex (base-data)))                 ; 1-based dependent attribute index
         reattr  ["-R" (str (inc target) "-last," target)]]      ; Reorder filter opts: "4-last,3"
 
     ;; Sample (semi)full ARFF to create cnt train/test dataset pairs
-    (doseq [c (range cnt)]
-      (let [rseed         (+ rand-seed c)
-            {arff :train} (split-data dtag rseed all-data? lexicon text-index reattr)]
-        ;; That's all Weka needs, but for DL-Learner we chop the datasets into parts
-        (when-not (= dtag :weka)
-          (let [subcnt (int (quot train parts))                 ; Number of instances in a part
-                extras (int (rem  train parts))                 ; Leftovers from an uneven split
-                iinsts (weka/load-arff arff)]                   ; Reload the training instances
+    (into {}
+      (domap
+        (fn [n]
+          (let [rseed    (+ rand-seed n)
+                trn-tst  (split-data dtag rseed all-data? lexicon text-index reattr)
+                arffs    (if (= dtag :weka)
+                             ;; That's all Weka needs
+                             trn-tst
+                             ;; Chop trainers into parts for DL-Learner
+                             (let [ftrain (:train trn-tst)
+                                   subcnt (quot train parts)        ; Number of instances in a part
+                                   extras (rem  train parts)        ; Leftovers from an uneven split
+                                   iinsts (weka/load-arff ftrain)]  ; Reload the training instances
 
-            ;; Split the [i]nput instances into several parts
-            (dotimes [p parts]
-              (weka/save-file arff
-                              (strfmt "~3,'0d" p)                       ; Part number ARFF suffix
-                              (Instances. iinsts (* p subcnt) subcnt)   ; Subset of instances
-                              :arff))
+                               (log/info "Creating" parts "subsets of" subcnt "instances")
+                               (when-not (zero? extras)
+                                 (log/warn "Extra instances:" extras))
 
-            (log/info "Created" parts "subsets of" subcnt "instances")
-            (when-not (zero? extras)
-              (log/warn "Extra instances:" extras))))))))
+                               (assoc trn-tst
+                                      :parts
+                                      (domap
+                                        #(weka/save-file (enumerate-dataset ftrain %)    ; Suffix: part num
+                                                         (Instances. iinsts              ; Instances subset
+                                                                     (int (* % subcnt))
+                                                                     (int subcnt)))
+                                        (range parts)))))]
+
+            ;; We are building a hashmap
+            [(keyize :r rseed) arffs]))
+
+        (range datasets)))))
 
 
   ([dtag seed all? lex tndx reattr]
@@ -1162,8 +1174,8 @@
 
     ;; Right now, we're just testing with HermiT.
     (let [rsnr (make-reasoner :hermit ont)]
-      (map #(do (print (str %) ":")
-                (time (.precomputeInferences rsnr (into-array [%]))))
+      (run! #(do (print (str %) ":")
+                 (time (.precomputeInferences rsnr (into-array [%]))))
            Inferences))
 
     ;; Oops, someone skipped a step!
@@ -1175,9 +1187,28 @@
 (defn run
   "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
   [& opts]
-  ;; Recreate the ARFF if num-examples has been updated in the Config
+  ;; Recreate our source ARFF if num-examples has been updated in the Config
   (when (some #{:arff} opts)
     (apply create-arffs opts))
+
+  ;; Will this be Sentiment140 or another dataset?
+  (let [dtag (apply which-data opts)]
+
+    ;; Do we need to (re)create the data splits?
+    (when (some #{:data} opts)
+      (split-data dtag))
+
+  ;; Run DL-Learner batches
+  (let [{:keys [parts
+                rand-seed]} (cfg/?? :senti :data-split)]
+    (doseq [p (range 1)]    ; parts
+
+      ;; Do reasoner tests if requested
+      (when (some #{:timings} opts)
+        (run-timings)
+
+      ;; Process the ontology
+      (dll/run))))
 
   ;; Use ARFF to generate the examples and ontologies
   (create-scr-examples!)
@@ -1188,9 +1219,6 @@
       (dll/write-pn-config :base     "say-senti"
                            :rule     rule
                            :prefixes (merge PREFIXES {"scr" (make-scr-iri rule)})
-                           :examples (pn-examples rule "scr" xmps))))
+                           :examples (pn-examples rule "scr" xmps))))))
 
-  ;; Do tests if requested
-  (when (some #{:timings} opts)
-    (run-timings)))
 

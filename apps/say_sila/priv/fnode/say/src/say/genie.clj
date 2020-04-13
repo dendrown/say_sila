@@ -120,9 +120,27 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^String keystr
-  "Returns a string representing a keyword without its initial colon ( : )."
-  [kw]
-  (subs (str kw) 1))
+  "Returns a string representing a keyword without its initial colon ( : ).
+  This function is more generalized and forgiving than #'name in that it
+  will convert things to strings that #'name rejects (e.g., numbers, nil)."
+  [k]
+  (if (keyword? k)
+      (name k)
+      (str k)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn keyize
+  "Returns a keyword formed from (optionally) multiple component elements.
+  If the first element is a hyphen, then all the elements will be separated
+  by hyphens."
+  [kw & elms]
+  (let [named (map keystr elms)
+        posts (if (= "-" (first named))                     ; ? - a b c
+                  (conj (interpose "-" (rest named)) "-")   ; a - b - c
+                  named)]                                   ; a   b   c
+    (keyword (apply str (name kw) posts))))
 
 
 
@@ -232,10 +250,10 @@
   returns as nil, and passing a String will return («Hello»), rather than
   a sequence of Character values."
   [arg]
-  (seq (cond
-         (string? arg)  [arg]
-         (seqable? arg) arg
-         :else          [arg])))
+  (if (coll? arg)
+      (seq arg)
+      (list arg)))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -249,6 +267,7 @@
     :else       nil))
 
 
+
 ;;; --------------------------------------------------------------------------
 (defn longify
   "Coerce the input to a long.  Anything not coercible to a long (including nil)
@@ -258,6 +277,7 @@
     (number? x) (long  x)
     (string? x) (long (doublify x))     ; Handle strings with decimals
     :else       nil))
+
 
 
 ;;; --------------------------------------------------------------------------

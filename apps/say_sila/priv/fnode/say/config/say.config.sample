@@ -31,18 +31,19 @@
      :rand-seed         12345                   ; Seed an RNG to take shuffle input instances
      :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
      :emotions          :plutchik               ; Base emotion system: plutchik|Ekman|nil
-     :data-split
-       {:train          1000
-        :test           1000
-        :parts          10
-        :rand-seed      24816}
+     :data-split        {:datasets      10
+                         :train         1000
+                         :test          1000
+                         :parts         10
+                         :rand-seed     24816}
      :num-instances     1000                    ; We may need extra Weka instances to balance classes
      :num-examples      1000}                   ; Use a subset until we get everything squared away
 
 
   ;; -------------------------------------------------------------------------
   :dllearner                                    ; EXTERNAL TOOL: DL-Learner
-    {:reasoner          :cwa                    ; Use open/closed world assumption (owa|cwa)
+    {:exec              "/usr/local/bin/dll"
+     :reasoner          :cwa                    ; Use open/closed world assumption (owa|cwa)
 
      ;; DL-Learner base configuration
      :alg               {:type                      :ocel                   ; Invokes config submap (below)

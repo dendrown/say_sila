@@ -52,31 +52,37 @@
 
 ;;; --------------------------------------------------------------------------
 (defn tag-filename
-  "Turns «/path/to/filename.extn» into a map with tagged versions of the file,
-  as «/path/to/filename.tag.EXTN», where EXTN is the original extension (:tagged),
-  «.arff» and «.csv» to represent different output formats.
-
-  If the caller passes a file type specification (:arff or :csv), the function
-  returns a string representing the tagged filepath."
+  "Turns «/path/to/filename.extn» into «/path/to/filename.tag.EXTN», where EXTN
+  is the specified file type (ftype, which defaults to the origin extension).
+  If ftype is a collection of extensions, e.g. [:arff :csv], then the function
+  returns a map, keyed by these extensions, whose data elements are the tagged
+  versions of fpath."
   ([fpath tag]
-  (let [parts (str/split fpath #"\.")
-        stub  (str/join "." (flatten [(butlast parts) (name tag)]))]
-    {:tagged (str stub "." (last parts))
-     :arff   (str stub ".arff")
-     :csv    (str stub ".csv")}))
+  (tag-filename fpath tag nil))
 
 
   ([fpath tag ftype]
-  (get (tag-filename fpath tag) ftype)))
+  (let [parts (str/split fpath #"\.")
+        stub  (str/join "." (flatten [(butlast parts) (name tag)]))
+        ->tag #(str stub "." (name  %))]
+    (cond
+      (coll? ftype) (into {} (map #(vector % (->tag %)) ftype))
+      ftype         (->tag ftype)
+      :else         (->tag (last parts))))))
+
 
 
 ;;; --------------------------------------------------------------------------
 (defn save-file
   "Writes out the given Instances to the specified ARFF or CSV file. The
   caller may specify a filetag, which will be inserted into the filename
-  as «/path/to/filename.tag.extn».
+  as «/path/to/filename.tag.extn».  The default file type is :arff.
 
   Returns the filename again as a convenience."
+  ([fpath data]
+  (save-file fpath data :arff))
+
+
   ([^String    fpath
     ^Instances data
                ftype]
@@ -101,7 +107,7 @@
   "Writes out the given Instances as tagged ARFF and CSV files and returns a
   filetype-keyed map with the corresponding filename values."
   [fpath tag data]
-  (let [tag-fpaths (tag-filename fpath tag)]
+  (let [tag-fpaths (tag-filename fpath tag [:arff :csv])]
     {:arff (save-file (:arff tag-fpaths) data :arff)
      :csv  (save-file (:csv  tag-fpaths) data :csv)}))
 
