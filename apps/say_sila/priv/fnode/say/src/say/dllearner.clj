@@ -16,7 +16,8 @@
             [say.log            :as log]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
-            [clojure.pprint     :as prt :refer [pp pprint]]
+            [clojure.core.match :refer [match]]
+            [clojure.pprint     :refer [pp pprint]]
             [clojure.string     :as str]))
 
 
@@ -42,12 +43,16 @@
 ;;; --------------------------------------------------------------------------
 (defn make-config-fpath
   "Creates a DL-Learner configuration filepath from a filename stub."
-  [fstub]
+  ([fstub]
   (str (when-not (str/starts-with? fstub DLL-DIR) DLL-DIR)
-       fstub
+       (name fstub)
        (when-not (some #(str/ends-with? fstub %) [".conf" ".cnf" ".ini"])
          ".conf")))
 
+
+  ([fstub & fstubs]
+  ;; We forced a parameter, but now we need to reconstruct the full list of stubs
+  (make-config-fpath (apply str (interpose "-" (map name (conj fstubs fstub)))))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -222,8 +227,7 @@
 (defn run
   "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
   [& tags]
-  (let [exec  (cfg/?? :dllearner :exec DLL-EXEC)
-        dconf (apply str DLL-DIR (map name (interpose "-" (conj tags :conf))))]
-    (sh/sh exec "-c" dconf)
-    (log/error "No configured DL-Learner executable")))
+  (let [dconf (apply make-config-fpath tags)
+        exec  (cfg/?? :dllearner :exec DLL-EXEC)]
+    (sh/sh exec "-c" dconf)))
 

@@ -110,7 +110,7 @@
                                              ; 2-grams: "be up" "build up" "come back"
                                              }}
                             ;; Disable all Rules
-                            {:no-rule        #{}}))
+                            {}))
 
 
 
@@ -666,6 +666,7 @@
 
 
   ([dset arff]
+  (log/debug "Loading" dset "dataset" arff)
   (let [insts (weka/load-arff arff (cfg/?? :emote :target INIT-TARGET))]
     (create-scr-examples! dset insts (.numInstances insts))))
 
@@ -696,8 +697,10 @@
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (describe-creation goal)
-              "SCR examples"
-              (str "[pos/neg" (when-not all-pn? "/neu") "]"))
+              "SCR examples [pos/neg]"
+              (if all-pn?
+                  "(emotive)"
+                  "(include non-emotive)"))
 
     ;; Shall we (pseudo)randomize the instances?
     (when-let [seed (cfg/?? :senti :rand-seed)]
@@ -1218,6 +1221,7 @@
         dpaths  (split-data dtag)
 
         check!  (fn [arff]
+                  (log/debug "ARFF:" arff)
                   ;; (Re)generate the examples and ontologies from the ARFF
                   (create-scr-examples! dtag arff)
                   (populate-scr-ontologies!)
@@ -1239,5 +1243,5 @@
     ;; For DL-Learner (non-weka), run the first of the data (sub)splits
     (if (some #{:weka} opts)
         (log/notice "Created" (count dpaths) "train/test ARFF pairs")   ; No run for Weka
-        (run! check! ((key-prng) dpaths)))))                            ; TODO: Run all splits
+        (run! check! (:parts ((key-prng) dpaths))))))                   ; TODO: Run all splits
 
