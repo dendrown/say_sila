@@ -315,6 +315,19 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn key-prng
+  "Returns a keyword representing the specified PRNG seed, or if no seed is
+  specified, the configured rand-seed for the senti data-split."
+  ([]
+  (let [{:keys [rand-seed]} (cfg/?? :senti :data-split INIT-DATA-SPLIT)]
+    (key-prng rand-seed)))
+
+  ([seed]
+  (keyize :r seed)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn which-datasets
   "Returns a sequence of tag indicating which datasets we use for evaluation."
   []
@@ -644,19 +657,27 @@
              :polarity :positive
              :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
              :rules    (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
-  ([] (create-scr-examples! :Sentiment140))
+  ([]
+  (create-scr-examples! INIT-DATA-TAG))
 
 
   ([dset]
+  (create-scr-examples! dset (ARFFs dset)))
+
+
+  ([dset arff]
+  (let [insts (weka/load-arff arff (cfg/?? :emote :target INIT-TARGET))]
+    (create-scr-examples! dset insts (.numInstances insts))))
+
+
+  ([dset ^Instances insts cnt]
   (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
-        goal    (create-pn-goal dset)
+        goal    (create-pn-goal dset cnt)
         all-pn? (cfg/?? :senti :skip-neutrals?)
         stoic?  (fn [rules]                                     ; Check that we're not including neutral Texts
                   (and all-pn? (every? empty? rules)))          ; ..and that no sentiment (rule) is expressed
 
         ;;-- We bring in examples using Weka's Affective Tweets plugin and a Snowball stemmer
-        arff    (ARFFs dset)
-        insts   (weka/load-arff arff (cfg/?? :emote :target INIT-TARGET))
         sball   (tw/make-stemmer)
         stem    #(.stem sball %)
         exprs   (update-values EXPRESSIONS                      ; Pre-stem Liu's SCR expressions
@@ -911,7 +932,7 @@
                                         (range parts)))))]
 
             ;; We are building a hashmap
-            [(keyize :r rseed) arffs]))
+            [(key-prng rseed) arffs]))
 
         (range datasets)))))
 
@@ -1167,7 +1188,7 @@
 (defn run-timings
   "Performs timing checks for an ontology (defaults to :Sentiment140)."
   ([]
-  (run-timings :Sentiment140))
+  (run-timings INIT-DATA-TAG))
 
   ([tag]
   (if-let[ont (get @SCR-Ontologies tag)]
@@ -1192,33 +1213,31 @@
     (apply create-arffs opts))
 
   ;; Will this be Sentiment140 or another dataset?
-  (let [dtag (apply which-data opts)]
+  (let [base    "say-senti"
+        dtag    (apply which-data opts)
+        dpaths  (split-data dtag)
 
-    ;; Do we need to (re)create the data splits?
-    (when (some #{:data} opts)
-      (split-data dtag))
+        check!  (fn [arff]
+                  ;; (Re)generate the examples and ontologies from the ARFF
+                  (create-scr-examples! dtag arff)
+                  (populate-scr-ontologies!)
+                  (save-ontologies)
 
-  ;; Run DL-Learner batches
-  (let [{:keys [parts
-                rand-seed]} (cfg/?? :senti :data-split)]
-    (doseq [p (range 1)]    ; parts
+                  ;; Do reasoner tests if requested
+                  (when (some #{:timings} opts)
+                    (run-timings))
 
-      ;; Do reasoner tests if requested
-      (when (some #{:timings} opts)
-        (run-timings)
+                  ;; Run DL-Learner batch
+                  (update-kv-values @SCR-Examples
+                    (fn [rule xmps]
+                      (dll/write-pn-config :base     base
+                                           :rule     rule
+                                           :prefixes (merge PREFIXES {"scr" (make-scr-iri rule)})
+                                           :examples (pn-examples rule "scr" xmps))))
+                  (dll/run base dtag))]
 
-      ;; Process the ontology
-      (dll/run))))
-
-  ;; Use ARFF to generate the examples and ontologies
-  (create-scr-examples!)
-  (populate-scr-ontologies!)
-  (save-ontologies)
-  (update-kv-values @SCR-Examples
-    (fn [rule xmps]
-      (dll/write-pn-config :base     "say-senti"
-                           :rule     rule
-                           :prefixes (merge PREFIXES {"scr" (make-scr-iri rule)})
-                           :examples (pn-examples rule "scr" xmps))))))
-
+    ;; For DL-Learner (non-weka), run the first of the data (sub)splits
+    (if (some #{:weka} opts)
+        (log/notice "Created" (count dpaths) "train/test ARFF pairs")   ; No run for Weka
+        (run! check! ((key-prng) dpaths)))))                            ; TODO: Run all splits
 

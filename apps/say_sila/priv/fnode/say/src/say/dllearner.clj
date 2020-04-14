@@ -223,7 +223,7 @@
   "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
   [& tags]
   (let [exec  (cfg/?? :dllearner :exec DLL-EXEC)
-        dconf (apply str DLL-DIR (map name (interpose "." (conj tags :conf))))]
+        dconf (apply str DLL-DIR (map name (interpose "-" (conj tags :conf))))]
     (sh/sh exec "-c" dconf)
     (log/error "No configured DL-Learner executable")))
 
