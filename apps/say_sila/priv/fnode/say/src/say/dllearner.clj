@@ -41,6 +41,11 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defrecord Solution
+  [soln acc f1])
+
+
+;;; --------------------------------------------------------------------------
 (defn make-config-fpath
   "Creates a DL-Learner configuration filepath from a filename stub."
   ([fstub]
@@ -224,10 +229,36 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn find-solutions
+  "Processes DL-Learner output and returns a sequence of Solutions."
+  [{:keys [err out]}]
+  (if err
+    (log/error err)
+    (loop [lines (str/split-lines out)
+           solns false]
+      ;; Run through the lines until we get to the solution block
+      (when-let [line (first lines)]
+        (log/debug line)
+        (if solns
+            ;; Pulling solutions of the form "N: (...)"
+            (if-let [soln (second (str/split line #": " 2))]
+              (recur (rest lines) (conj solns soln))                ; Collect more
+              solns)                                                ; All done
+            ;; No solutions yet...
+            (recur (rest lines)
+                   (if (and (str/starts-with? line "solutions (")   ; Next line starts them?
+                            (str/ends-with? line "):"))
+                       []
+                       false)))))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn run
   "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
   [& tags]
   (let [dconf (apply make-config-fpath tags)
         exec  (cfg/?? :dllearner :exec DLL-EXEC)]
-    (sh/sh exec "-c" dconf)))
+    (log/fmt-notice "Running DL-Learner: cfg[~a]" dconf)
+    (find-solutions (sh/sh exec "-c" dconf))))
 
