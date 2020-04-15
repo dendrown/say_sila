@@ -700,7 +700,7 @@
               "SCR examples [pos/neg]"
               (if all-pn?
                   "(emotive)"
-                  "(include non-emotive)"))
+                  "(includes stoic)"))
 
     ;; Shall we (pseudo)randomize the instances?
     (when-let [seed (cfg/?? :senti :rand-seed)]
@@ -1243,5 +1243,5 @@
     ;; For DL-Learner (non-weka), run the first of the data (sub)splits
     (if (some #{:weka} opts)
         (log/notice "Created" (count dpaths) "train/test ARFF pairs")   ; No run for Weka
-        (run! check! (:parts ((key-prng) dpaths))))))                   ; TODO: Run all splits
+        (domap check! (:parts ((key-prng) dpaths))))))                  ; TODO: Run all splits
 

@@ -231,25 +231,28 @@
 ;;; --------------------------------------------------------------------------
 (defn find-solutions
   "Processes DL-Learner output and returns a sequence of Solutions."
-  [{:keys [err out]}]
-  (if err
-    (log/error err)
-    (loop [lines (str/split-lines out)
-           solns false]
-      ;; Run through the lines until we get to the solution block
-      (when-let [line (first lines)]
-        (log/debug line)
-        (if solns
-            ;; Pulling solutions of the form "N: (...)"
-            (if-let [soln (second (str/split line #": " 2))]
-              (recur (rest lines) (conj solns soln))                ; Collect more
-              solns)                                                ; All done
-            ;; No solutions yet...
-            (recur (rest lines)
-                   (if (and (str/starts-with? line "solutions (")   ; Next line starts them?
-                            (str/ends-with? line "):"))
-                       []
-                       false)))))))
+  [{:keys [err exit out]}]
+  (letfn [(collect [solns line]
+            ;; We're reducing a block of lines of the form "N: (...)"
+            (if-let [soln (-> line
+                              (str/split #": " 2)
+                              second)]
+              (conj solns soln)
+              (reduced solns)))]
+
+    ;; Was the run successful?
+    (if (empty? err)
+      ;; Process the DL-Learner output
+      (loop [lines (str/split-lines out)]
+        ;; Run through the lines until we get to the solution block
+        (when-let [line (first lines)]
+          (log/debug line)
+          (if (and (str/starts-with? line "solutions")          ; Next line starts them?
+                   (str/ends-with? line ":"))
+              (reduce collect [] (rest lines))                  ; - Return solutions
+              (recur (rest lines)))))                           ; - Keep chugging through output
+      ;; Report the badness
+      (log/fmt-error "~a: rc[~a]" err exit))))
 
 
 
