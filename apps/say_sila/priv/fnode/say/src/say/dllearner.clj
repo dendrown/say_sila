@@ -16,7 +16,7 @@
             [say.log            :as log]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
-            [clojure.core.match :refer [match]]
+           ;[clojure.core.match :refer [match]]
             [clojure.pprint     :refer [pp pprint]]
             [clojure.string     :as str]))
 

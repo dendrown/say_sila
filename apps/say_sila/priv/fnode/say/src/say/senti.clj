@@ -69,6 +69,14 @@
 (def ^:const SPLIT-TAGS [:train :test])
 (def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
 
+
+;;; --------------------------------------------------------------------------
+;;; TODO: Automate solution handling
+(def ^:const SOLN-LOG       "resources/emo-sa/say-senti.solutions.edn")
+(def ^:const SOLN-WITH      #"\bdenotesAffect\b")
+(def ^:const SOLN-WITHOUT   #"\bThing\b")
+
+
 ;;; --------------------------------------------------------------------------
 ;;; Default values for configuration elements
 (def ^:const INIT-NUM-EXAMPLES  100)
@@ -1208,9 +1216,32 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn process-solutions
+  "Handles candidate solutions.  This function is in FLUX...big time!!"
+  [solns]
+  (let [re-soln #(partial re-find %)
+        [with
+         without] (map re-soln [SOLN-WITH SOLN-WITHOUT])]
+
+    ;; We're currently storing these in a file for processing by hand
+    (with-open [ss (io/writer SOLN-LOG :append true)]
+      (.write ss (str ";;; -" (java.util.Date.)
+                      "-------------------------------------------\n"))
+      (doseq [soln (filter with
+                           (remove without solns))]
+        (.write ss (str soln "\n"))))
+    (log/info "Solutions saved to" SOLN-LOG)))
+
+
+;;; --------------------------------------------------------------------------
 (defn run
   "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
   [& opts]
+  ;; Shall we do some precleaning
+  (when (some #{:reset} opts)
+    (log/info "Recreating solutions file:" SOLN-LOG)
+    (io/delete-file SOLN-LOG true))
+
   ;; Recreate our source ARFF if num-examples has been updated in the Config
   (when (some #{:arff} opts)
     (apply create-arffs opts))
@@ -1243,5 +1274,6 @@
     ;; For DL-Learner (non-weka), run the first of the data (sub)splits
     (if (some #{:weka} opts)
         (log/notice "Created" (count dpaths) "train/test ARFF pairs")   ; No run for Weka
-        (domap check! (:parts ((key-prng) dpaths))))))                  ; TODO: Run all splits
+        (->> (domap check! (:parts ((key-prng) dpaths)))                ; TODO: Run all splits
+             (run! process-solutions)))))
 
