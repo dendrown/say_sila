@@ -146,4 +146,4 @@
 
 
 ;;; --------------------------------------------------------------------------
-(set-config! :base)
+(set-config! :base)                     ; WARNING: Causes gen-class AOT to hang

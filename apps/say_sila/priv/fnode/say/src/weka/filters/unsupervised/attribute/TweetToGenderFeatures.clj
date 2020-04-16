@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion Mining and Machine Learning for Climate Change communication
 ;;;;
-;;;; @copyright 2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns weka.filters.unsupervised.attribute.TweetToGenderFeatures
   (:require [say.genie       :refer :all]
@@ -17,17 +17,15 @@
             [weka.core       :as weka]
             [clojure.set     :as set]
             [clojure.string  :as str])
-  (:import  [affective.core ArffLexiconEvaluator]
-            [weka.core Attribute
-                       Capabilities
-                       Capabilities$Capability
+  (:import  (affective.core ArffLexiconEvaluator)
+            (weka.core Attribute
                        DenseInstance
                        Instance
                        Instances
                        Option
                        SingleIndex
                        Utils
-                       WekaEnumeration]
+                       WekaEnumeration)
             [weka.filters.unsupervised.attribute TweetToGenderFeatures  ; (this)
                                                  TweetToFeatureVector])
   (:gen-class
@@ -45,13 +43,13 @@
                  [setUsesEMNLP2014      [boolean] void]
                  [setUpperIndices       [int]     void]]
     :exposes    {m_textIndex {:get superGetTextIndex
-                              :set superGetTextIndex}}
+                              :set superSetTextIndex}}      ; FIXME: name dup
     :exposes-methods {;- weka.filters.Filter ---------------------------------
                       getOptions    superGetOptions
                       setOptions    superSetOptions
                       listOptions   superListOptions
                       ;- TweetToFeatureVector --------------------------------
-                      setTextIndex  superSetTextIndex}))
+                      setTextIndex  superSetTextIndex}))    ; FIXME: name dup
 
 (set! *warn-on-reflection* true)
 

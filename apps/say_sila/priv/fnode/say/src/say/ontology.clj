@@ -12,7 +12,8 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.ontology
   (:refer-clojure :exclude [==])
-  (:require [say.log            :as log]
+  (:require [say.genie          :refer :all]
+            [say.log            :as log]
             [clojure.java.io    :as io]
             [tawny.english      :as dl]
             [tawny.query        :as qry]
