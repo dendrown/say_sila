@@ -30,7 +30,6 @@
             [tawny.repl         :as repl]                           ; <= DEBUG
             [tawny.owl          :refer :all])
   (:import  [java.util Random]
-            [net.dendrown.uqam.hermit ConfigTools]                  ; TODO: Move HermiT to say.ontology
             [org.semanticweb.HermiT Configuration
                                     Configuration$TableauMonitorType
                                     Prefixes
@@ -1242,6 +1241,7 @@
                            (remove without solns))]
         (.write ss (str soln "\n"))))
     (log/info "Solutions saved to" SOLN-LOG)))
+
 
 
 ;;; --------------------------------------------------------------------------

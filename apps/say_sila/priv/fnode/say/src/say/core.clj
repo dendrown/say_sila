@@ -21,6 +21,7 @@
             [say.sila           :as sila]
             [say.senti          :as senti]
             [weka.core          :as weka]
+            [weka.senti         :as ws]
            ;[clojure.core.logic :as l :refer [run* ==]]     ; <= debug
             [tawny.repl         :as repl]
             [clojure.data.json  :as json]

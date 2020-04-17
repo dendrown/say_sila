@@ -65,7 +65,7 @@
    ^Instances insts]
    (let [rows  (.numInstances insts)
          dists (make-array Double/TYPE rows 2)              ; Assume binary class!
-        ;xmps  (senti/instances-examples :dlrules insts)
+        ;xmps  (senti/instances->examples :dlrules insts)
         ;ont   (senti/ )
 ]
      dists))
