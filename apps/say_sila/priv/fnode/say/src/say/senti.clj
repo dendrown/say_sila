@@ -655,29 +655,12 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn create-scr-examples!
-  "Create examples based on part-of-speech tokens.
-
-  Example:  #3955 '- toothache subsiding, thank god for extra strength painkillers'
-
-  Results in this entry being added to the @SCR-Examples value set under the key «DECREASE-N»:
-            {:id 3955
-             :polarity :positive
-             :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
-             :rules    (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
-  ([]
-  (create-scr-examples! INIT-DATA-TAG))
-
-
-  ([dset]
-  (create-scr-examples! dset (ARFFs dset)))
-
-
-  ([dset arff]
-  (log/debug "Loading" dset "dataset" arff)
-  (let [insts (weka/load-arff arff (cfg/?? :emote :target INIT-TARGET))]
-    (create-scr-examples! dset insts (.numInstances insts))))
-
+(defn instances->examples
+  "Returns a sequence of hashmaps representing the specified Weka instances in
+  the 'example' form, which is an intermediate structure in a Text's conversion
+  from Weka instance to ontology individual."
+  ([dset ^Instances insts]
+  (instances->examples dset insts (.numInstances insts)))
 
   ([dset ^Instances insts cnt]
   (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
@@ -715,40 +698,68 @@
       (log/fmt-info "Shuffling ~a input instances: seed[~a]" (.numInstances insts) seed)
       (.randomize insts (Random. seed)))
 
+    ;; Throw away the counter & return the folded example sequence
+    (second
+      (reduce (fn [[cnts xmap :as info]
+                   ^Instance inst]
+                ;; Do we have enough examples to stop?
+                (if (creation-done? cnts goal)
+                  (do (log/info "Examples:" cnts)
+                      (reduced info))
+                  (let [id     (long (.value inst COL-ID))
+                        pole   (polarize inst)
+                        pairs  (map #(str/split % #"_" 2)   ; Pairs are "pos_term"
+                                     (str/split (.stringValue inst COL-TEXT) #" "))
+                        terms  (map second pairs)
+                        affect (map ->sense terms)          ; Affect: pos|neg|emo or nil per term
+                        rules  (map ->scr   terms)]         ; Set of match-term rules per term
+
+                    ;; Do we skip|process this Text??
+                    (if (or (stoic? affect)                     ; Is it void of pos/neg/emotion?
+                            (creation-full? cnts pole goal))    ; Still collecting for this polarity?
+                      info
+                      [(inc-pn-counter cnts dset pole)                  ; Update pos/neg/all counts
+                       (update-values xmap                              ; Add Text for full set & all SCRs
+                                      (apply set/union #{dset} rules)
+                                      #(conj % {:id       id
+                                                :polarity pole
+                                                :content  terms
+                                                :pos-tags (map first pairs)
+                                                :rules    (map set/union rules affect)}))]))))
+
+            [(zero-pn-counter dset)                                 ; Acc: total/pos/neg counts
+             (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))]     ;      Examples keyed by rule
+
+            (enumeration-seq (.enumerateInstances insts)))))))      ; Seq: Weka instances
+
+
+
+;;; --------------------------------------------------------------------------
+(defn create-scr-examples!
+  "Create examples based on part-of-speech tokens.
+
+  Example:  #3955 '- toothache subsiding, thank god for extra strength painkillers'
+
+  Results in this entry being added to the @SCR-Examples value set under the key «DECREASE-N»:
+            {:id 3955
+             :polarity :positive
+             :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
+             :rules    (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
+  ([]
+  (create-scr-examples! INIT-DATA-TAG))
+
+
+  ([dset]
+  (create-scr-examples! dset (ARFFs dset)))
+
+
+  ([dset arff]
+  (log/debug "Loading" dset "dataset" arff)
+  (let [insts (weka/load-arff arff
+                              (cfg/?? :emote :target INIT-TARGET))]
     ;; Create the new set of Text examples
     (reset! SCR-Examples
-            (second
-              (reduce (fn [[cnts xmap :as info]
-                           ^Instance inst]
-                        ;; Do we have enough examples to stop?
-                        (if (creation-done? cnts goal)
-                          (do (log/info "Examples:" cnts)
-                              (reduced info))
-                          (let [id     (long (.value inst COL-ID))
-                                pole   (polarize inst)
-                                pairs  (map #(str/split % #"_" 2)   ; Pairs are "pos_term"
-                                             (str/split (.stringValue inst COL-TEXT) #" "))
-                                terms  (map second pairs)
-                                affect (map ->sense terms)          ; Affect: pos|neg|emo or nil per term
-                                rules  (map ->scr   terms)]         ; Set of match-term rules per term
-
-                            ;; Do we skip|process this Text??
-                            (if (or (stoic? affect)                     ; Is it void of pos/neg/emotion?
-                                    (creation-full? cnts pole goal))    ; Still collecting for this polarity?
-                              info
-                              [(inc-pn-counter cnts dset pole)                  ; Update pos/neg/all counts
-                               (update-values xmap                              ; Add Text for full set & all SCRs
-                                              (apply set/union #{dset} rules)
-                                              #(conj % {:id       id
-                                                        :polarity pole
-                                                        :content  terms
-                                                        :pos-tags (map first pairs)
-                                                        :rules    (map set/union rules affect)}))]))))
-
-                    [(zero-pn-counter dset)                                 ; Acc: total/pos/neg counts
-                     (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))]     ;      Examples keyed by rule
-
-                    (enumeration-seq (.enumerateInstances insts)))))        ; Seq: Weka instances
+            (instances->examples dset insts))
 
     ;; Just tell them how many we have for each rule
     (update-values @SCR-Examples count))))

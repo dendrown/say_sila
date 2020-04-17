@@ -13,13 +13,15 @@
 (ns weka.classifiers.rules.DLRules
   (:require;[say.genie       :refer :all]
            ;[say.log         :as log]
+           ;[say.senti       :as senti]                     ; Not suitable for AOT!
             [weka.core       :as weka]
             [clojure.string  :as str])
   (:import  (weka.classifiers AbstractClassifier)
-            (weka.classifiers.rules DLRules)                    ; (this)
+            (weka.classifiers.rules DLRules)                ; (this)
             (weka.core Capabilities
                        Capabilities$Capability
-                       Instance))
+                       Instance
+                       Instances))
   (:gen-class
     :name       weka.classifiers.rules.DLRules
     :extends    weka.classifiers.AbstractClassifier
@@ -27,8 +29,7 @@
     :init       init
     :implements [weka.core.CapabilitiesHandler]
 
-    :exposes-methods {getCapabilities   superGetCapabilities}
-))
+    :exposes-methods {getCapabilities   superGetCapabilities}))
 
 (set! *warn-on-reflection* true)
 
@@ -57,8 +58,25 @@
 
 
 ;; ---------------------------------------------------------------------------
-(defn -classifyInstance
+(comment defn -distributionsForInstances
+  "Batch prediction method."
+  ; FIXME: say.senti is not suitable for AOT
+  [^DLRules   this
+   ^Instances insts]
+   (let [rows  (.numInstances insts)
+         dists (make-array Double/TYPE rows 2)              ; Assume binary class!
+        ;xmps  (senti/instances-examples :dlrules insts)
+        ;ont   (senti/ )
+]
+     dists))
+
+
+;; ---------------------------------------------------------------------------
+(defn -distributionForInstance
   "Classifies the given test instance. The instance has to belong to a dataset
   when it's being classified."
-  [^Instance ins]
-  0.0)
+  [^DLRules  this
+   ^Instance inst]
+  ;; FIXME: Call -distributionsForInstances
+  (double-array [1. 0.]))
+
