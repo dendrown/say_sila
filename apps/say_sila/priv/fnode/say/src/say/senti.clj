@@ -383,7 +383,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn make-scr-iri
+(defn make-iri
   "Creates a (String) IRI for the specified Sentiment Composition Rule (SCR)."
   [rule]
   (str ONT-ISTUB "-" (name rule) ".owl#"))
@@ -391,30 +391,31 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn make-scr-ontology
+(defn make-ontology
   "Creates a version (copy) of the say-senti ontology, intended to include
   individuals expressing the specified Sentiment Composition Rule (SCR)"
   [rule]
   (let [scr    (name rule)
         prefix #(apply str % "-" scr %&)
+        ;; We use a (sub)ontology to hold the texts and DL-Learner solutions
         ont    (ontology
                  :tawny.owl/name (prefix "say-senti")
-                 :iri     (make-scr-iri scr)
+                 :iri     (make-iri scr)
                  :prefix  (prefix "scr")
                  :import  say-senti
-                 :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))]
+                 :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))
 
-    ;; Create a parent class for output representations as described by DL-Learner
-    (owl-class ont "PositiveTextCandidate"
-               :super    Text
-               :label    "Positive Text Candidate"
-               :comment  (str "A Text representing a candidate formula for determining if a given Text"
-                              "expresses popositive sentiment."))
+        ;; Create a parent class for output representations as described by DL-Learner
+        dltext (owl-class ont "LearnedPositiveText"
+                 :super    Text
+                 :label    "Learned Positive Text"
+                 :comment  (str "A Text representing a candidate formula for determining if a given Text"
+                                "expresses popositive sentiment."))]
 
     ;; TODO: Tawny needs functionality for OWLObjectMinCardinality.
     ;;       Also, we'll be automating the creation of this classed, based on output from DL-Learner.
-    (owl-class ont "TestPositiveTextCandidate"
-               :super    (owl-class ont "PositiveTextCandidate")
+    (owl-class ont "LearnedPositiveTextCheck"
+               :super dltext
                :equivalent (dl/and Text
                                    (dl/some dul/hasComponent (dl/some denotesAffect (dl/or Positive
                                                                                            dul/InformationObject)))))
@@ -559,17 +560,29 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn populate-ontology
+  "Populates the senti ontology using examples from the ARFFs"
+  ([rule xmps]
+  (populate-ontology rule xmps (cfg/? :senti)))
+
+
+  ([rule xmps sconf]
+  (let [ont (make-ontology rule)]
+    (run! #(add-text ont % sconf) xmps)
+    ont)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn populate-scr-ontologies!
   "Populates the senti ontology using examples from the ARFFs"
   []
-  (let [conf (cfg/? :senti)]                ; Freeze the configuration while we work
+  (let [sconf (cfg/? :senti)]               ; Freeze the configuration while we work
     ;; Create ontologies for each SCR, each populated with individuals expressing the rule
     (reset! SCR-Ontologies
-            (update-kv-values @SCR-Examples
-                              (fn [rule xmps]
-                                (let [ont (make-scr-ontology rule)]
-                                  (run! #(add-text ont % conf) xmps)
-                                  ont))))
+            (update-kv-values @SCR-Examples #(populate-ontology %1 %2 sconf)))
+
+    ;; Return the collection of rule tags
     (keys @SCR-Ontologies)))
 
 
@@ -676,11 +689,21 @@
 
 ;;; --------------------------------------------------------------------------
 (defn instances->examples
-  "Returns a sequence of hashmaps representing the specified Weka instances in
-  the 'example' form, which is an intermediate structure in a Text's conversion
-  from Weka instance to ontology individual."
+  "When a dataset tag is specified (dset), this function returns a hashmap
+  keyed by that tag plus any SCR tags which apply to one or more instances.
+  The values of this hashmap are sets of hashmaps, where each (sub)hashmap
+  represents an instance in 'example' form, which is an intermediate structure
+  in a Text's conversion from Weka instance to ontology individual.
+
+  When the dataset is not specified, the function only returns the set
+  of example hashmaps corresponding to the specified instances."
+  ([insts]
+  (:data (instances->examples :data insts)))
+
+
   ([dset ^Instances insts]
   (instances->examples dset insts (.numInstances insts)))
+
 
   ([dset ^Instances insts cnt]
   (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
@@ -1299,7 +1322,7 @@
                     (fn [rule xmps]
                       (dll/write-pn-config :base     base
                                            :rule     rule
-                                           :prefixes (merge PREFIXES {"scr" (make-scr-iri rule)})
+                                           :prefixes (merge PREFIXES {"scr" (make-iri rule)})
                                            :examples (pn-examples rule "scr" xmps))))
                   (dll/run base dtag))]
 

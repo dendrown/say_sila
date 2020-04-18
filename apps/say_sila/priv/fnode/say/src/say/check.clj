@@ -35,5 +35,6 @@
                                                  testers
                                                  (.numInstances insts))
     ;; TODO: Make it work...
-    (.distributionForInstance classer (.firstInstance insts))))
+    (.distributionForInstance classer (.firstInstance insts))
+    classer))
 

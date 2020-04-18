@@ -140,7 +140,7 @@
         posts (if (= "-" (first named))                     ; ? - a b c
                   (conj (interpose "-" (rest named)) "-")   ; a - b - c
                   named)]                                   ; a   b   c
-    (keyword (apply str (name kw) posts))))
+    (keyword (apply str (keystr kw) posts))))
 
 
 
