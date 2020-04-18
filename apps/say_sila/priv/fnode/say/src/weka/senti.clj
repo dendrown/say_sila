@@ -28,7 +28,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn make-classifier
+(defn ^AbstractClassifier make-classifier
   "Proxies a Weka classifier to handle evaluate tweets using the say-senti
   ontology."
   [& opts]

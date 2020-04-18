@@ -14,10 +14,10 @@
   (:refer-clojure :exclude [==])
   (:require [say.genie          :refer :all]
             [say.config         :as cfg]
+            [say.check          :as chk]
             [say.data           :as data]
             [say.log            :as log]
             [say.hierarchy      :as inua]
-           ;[say.influence]                                 ; <= article
             [say.sila           :as sila]
             [say.senti          :as senti]
             [weka.core          :as weka]

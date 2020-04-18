@@ -354,6 +354,27 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn which-arff
+  "Returns the filepath of the ARFF intended for testing.
+
+  TODO: We build multiple test ARFFs; we need to use them test."
+  [tt & opts]
+  (let [dtag (apply which-data opts)
+        rtag (key-prng)]
+    (weka/tag-filename (ARFFs dtag)
+                       (apply str (map name [rtag "." tt])))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn which-target
+  "Returns the name of the target attribute in training/testing datasets."
+  []
+  (cfg/?? :emote :target INIT-TARGET))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn set-num-examples!
   "Defines the number of examples we should use from the source tweet data."
   [n]
@@ -755,7 +776,7 @@
   ([dset arff]
   (log/debug "Loading" dset "dataset" arff)
   (let [insts (weka/load-arff arff
-                              (cfg/?? :emote :target INIT-TARGET))]
+                             (which-target))]
     ;; Create the new set of Text examples
     (reset! SCR-Examples
             (instances->examples dset insts))
@@ -766,7 +787,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defonce ^:private Base-Instances (weka/load-arff (:base ARFFs) INIT-TARGET))
+(defonce ^:private Base-Instances (weka/load-arff (:base ARFFs) (which-target)))
 
 (defn- ^Instances base-data
   "Returns the base say-senti data evaluation Instances"
@@ -965,7 +986,7 @@
         ipath   (if all?
                     (weka/tag-filename (ARFFs dtag) "COMPLETE" :arff)
                     (ARFFs dtag))
-        iinsts  (weka/load-arff ipath (cfg/?? :emote :target INIT-TARGET))
+        iinsts  (weka/load-arff ipath (which-target))
         icnt    (.numInstances iinsts)
 
         dsets   (atom (rebase-data->hashmap SPLIT-TAGS))
