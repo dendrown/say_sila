@@ -16,7 +16,8 @@
             [say.senti          :as senti]
             [weka.core          :as weka]
             [clojure.pprint     :refer [pp pprint]]
-            [tawny.owl          :refer [save-ontology]])
+            [tawny.owl          :refer :all]
+            [tawny.reasoner     :as rsn])
   (:import  (weka.classifiers AbstractClassifier)
             (weka.core Capabilities
                        Capabilities$Capability
@@ -26,6 +27,8 @@
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
+
+(def ^:const POS "LearnedPositiveText")
 
 (defonce NS (keyize *ns*))
 
@@ -58,14 +61,22 @@
 
     ;; -----------------------------------------------------------------------
     (distributionsForInstances [^Instances insts]
-      (let [rows  (.numInstances insts)
-            dists (make-array Double/TYPE rows 2)           ; Assume binary class!
-            xmps  (senti/instances->examples insts)
-            ont   (senti/populate-ontology NS xmps)]
-
+      (let [rows    (.numInstances insts)
+            dists   (make-array Double/TYPE rows 2)             ; Assume binary class!
+            xmps    (senti/instances->examples insts)
+            ont     (senti/populate-ontology NS xmps)
+            rsnr    (senti/reason :hermit ont)                  ; This will run checks!
+            ptexts  (rsn/instances ont (owl-class ont POS))     ; Predicted positive texts
+            np->01  #(if (contains? ptexts %) 1 0)]             ; Index: neg=0, pos=1
         ;; Provide some debugging feedback
-        (log/debug "Example:" (first xmps))
+        (log/fmt-debug "Data<~a/~a>: xmp[~a]" (count ptexts) rows (first xmps))
         (save-ontology ont (str "/tmp/" (name NS) ".owl") :owl)
+
+        ;; Check instance IDs against the ontology's positive Texts
+        (run! #(let [inst (.get insts %)
+                     tid  (senti/label-text inst)]
+                 (aset-double dists % (np->01 tid)))
+              (range 1 (inc rows)))                             ; Instances 0..N-1
 
         ;; Return our predictions
         dists)))))

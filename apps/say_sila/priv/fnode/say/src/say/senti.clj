@@ -409,8 +409,8 @@
         dltext (owl-class ont "LearnedPositiveText"
                  :super    Text
                  :label    "Learned Positive Text"
-                 :comment  (str "A Text representing a candidate formula for determining if a given Text"
-                                "expresses popositive sentiment."))]
+                 :comment  (str "A Text representing a candidate formula for determining if a given Text "
+                                "expresses positive sentiment."))]
 
     ;; TODO: Tawny needs functionality for OWLObjectMinCardinality.
     ;;       Also, we'll be automating the creation of this classed, based on output from DL-Learner.
@@ -461,6 +461,24 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defprotocol Labeller
+  "Creates labels for say-senti purposes."
+  ;; TODO: label-polarity [from above]
+  (label-text [x] "Returns a String identifier for a Text (tweet)."))
+
+(extend-protocol Labeller
+
+  Instance
+  (label-text [inst]
+    (label-text (.value inst COL-ID)))
+
+  Object
+  (label-text [x]
+    (str TWEET-TAG (longify x))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- add-text
   "Adds a Text individual to the specified Sentiment Component Rule ontology."
   [ont
@@ -468,7 +486,7 @@
    {:keys [full-links? pos-neg? testing?]}]         ; Configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
-    (let [tid     (str TWEET-TAG id)
+    (let [tid     (label-text id)
           text    (individual ont tid       ; Entity representing the text
                     :type (if pos-neg?
                               (case polarity :negative NegativeText
