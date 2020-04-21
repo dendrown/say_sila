@@ -38,9 +38,7 @@
   "Proxies a Weka classifier to handle evaluate tweets using the say-senti
   ontology."
   [& opts]
-  (let []
-    (proxy [AbstractClassifier]
-    []
+  (proxy [AbstractClassifier] []
 
     ;; -----------------------------------------------------------------------
     (getCapabilities []
@@ -56,28 +54,39 @@
 
     ;; -----------------------------------------------------------------------
     (distributionForInstance [^Instance inst]
-      ;; FIXME: Call -distributionsForInstances
-      (double-array [1. 0.]))
+      ;; We just run a batch of one
+      (let [this  ^AbstractClassifier this
+            insts (doto (senti/rebase-data)
+                        (senti/add-instance inst))
+            dists (.distributionsForInstances this insts)]
+        (aget dists 0)))
 
     ;; -----------------------------------------------------------------------
     (distributionsForInstances [^Instances insts]
-      (let [rows    (.numInstances insts)
-            dists   (make-array Double/TYPE rows 2)             ; Assume binary class!
-            xmps    (senti/instances->examples insts)
-            ont     (senti/populate-ontology NS xmps)
-            rsnr    (senti/reason :hermit ont)                  ; This will run checks!
-            ptexts  (rsn/instances ont (owl-class ont POS))     ; Predicted positive texts
-            np->01  #(if (contains? ptexts %) 1 0)]             ; Index: neg=0, pos=1
-        ;; Provide some debugging feedback
-        (log/fmt-debug "Data<~a/~a>: xmp[~a]" (count ptexts) rows (first xmps))
-        (save-ontology ont (str "/tmp/" (name NS) ".owl") :owl)
+      (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-silent)]
+        (let [rows    (.numInstances insts)
+              dists   (make-array Double/TYPE rows 2)           ; Assume binary class!
+              xmps    (senti/instances->examples insts)
+              ont     (senti/populate-ontology NS xmps)
+              rsnr    (senti/reason :hermit ont)                ; This will run checks!
+              ptexts  (rsn/instances ont (owl-class ont POS))   ; Predicted positive texts
+              np->01  #(if (contains? ptexts(individual ont %)) ; Index: neg=0, pos=1
+                            1
+                            0)]
+          ;; Provide some debugging feedback
+          (log/fmt-debug "Data<~a/~a>: xmp[~a ...]" (count ptexts) rows (first ptexts))
+          (save-ontology ont (str "/tmp/" (name NS) ".owl") :owl)
 
-        ;; Check instance IDs against the ontology's positive Texts
-        (run! #(let [inst (.get insts %)
-                     tid  (senti/label-text inst)]
-                 (aset-double dists % (np->01 tid)))
-              (range 1 (inc rows)))                             ; Instances 0..N-1
+          ;; Check instance IDs against the ontology's positive Texts
+          (run! #(let [inst (.get insts (int %))
+                       tid  (senti/label-text inst)]
+                   (aset-double dists % (np->01 tid) 1.))         ; Class slot is 100%
+                (range rows))                                     ; Instances 0..N-1
 
-        ;; Return our predictions
-        dists)))))
+          ;; Return our predictions
+          dists)))
+
+    ;; -----------------------------------------------------------------------
+    (implementsMoreEfficientBatchPrediction []
+       true)))
 

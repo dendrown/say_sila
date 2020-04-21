@@ -579,15 +579,21 @@
 
 ;;; --------------------------------------------------------------------------
 (defn populate-ontology
-  "Populates the senti ontology using examples from the ARFFs"
-  ([rule xmps]
-  (populate-ontology rule xmps (cfg/? :senti)))
+  "Populates the senti ontology using examples from the ARFFs.  The caller
+  may specify an SCR identifier (keyword or string), rather than an ontology.
+  If this is the case, the function will create the ontology for that rule.
+  In either case function returns the ontology, populated with the new examples."
+  ([ont xmps]
+  (populate-ontology ont xmps (cfg/? :senti)))
 
 
-  ([rule xmps sconf]
-  (let [ont (make-ontology rule)]
-    (run! #(add-text ont % sconf) xmps)
-    ont)))
+  ([ont xmps sconf]
+  (let [ont* (if (or (keyword? ont)
+                     (string?  ont))
+                 (make-ontology ont)
+                 ont)]
+    (run! #(add-text ont* % sconf) xmps)
+    ont*)))
 
 
 
@@ -836,7 +842,7 @@
   Base-Instances)
 
 
-(defn- ^Instances rebase-data
+(defn ^Instances rebase-data
   "Creates a new set of Weka Instances with the say-senti base structure.
   Specify a tag to append it to the Instances' relation name."
   ([]
@@ -1145,64 +1151,64 @@
     ;;       then remove the proxy-super calls to clean up the reflection warnings.
     (proxy [TableauMonitorAdapter] []
 
-          (setTableau [tbl]
-            ;; Our parent class keeps a protected copy.  Use that if we convert to gen-class
-            (log "Tableau:" (str tbl))
-            (reset! tableau tbl))
+      (setTableau [tbl]
+        ;; Our parent class keeps a protected copy.  Use that if we convert to gen-class
+        (log "Tableau:" (str tbl))
+        (reset! tableau tbl))
 
-          (isSatisfiableStarted [task]
-            (let [descr (str task)]
-              (log "Checking" descr)
-              ;; We need to check the timing for ABox satisfiability (consistency)
-              (when (str/starts-with? descr "ABox")
-                (reset! start-ms (System/currentTimeMillis)))))
+      (isSatisfiableStarted [task]
+        (let [descr (str task)]
+          (log "Checking" descr)
+          ;; We need to check the timing for ABox satisfiability (consistency)
+          (when (str/starts-with? descr "ABox")
+            (reset! start-ms (System/currentTimeMillis)))))
 
-          (isSatisfiableFinished [task result]
-            (log (if result "YES" "NO"))
-            ;; Turn off logger after ABox!
-            (when (str/starts-with? (str task) "ABox")
-              (send log-limit (fn [_] 0))
-              (await forms)
-              (let [fcnts @forms]
-                (println "ABox satisfiability checked in" (- (System/currentTimeMillis) @start-ms) "ms")
-                (println "Checks on individuals:")
-                (pprint fcnts)
-                (println "TOTAL:" (reduce + 0 (vals fcnts))))))
+      (isSatisfiableFinished [task result]
+        (log (if result "YES" "NO"))
+        ;; Turn off logger after ABox!
+        (when (str/starts-with? (str task) "ABox")
+          (send log-limit (fn [_] 0))
+          (await forms)
+          (let [fcnts @forms]
+            (println "ABox satisfiability checked in" (- (System/currentTimeMillis) @start-ms) "ms")
+            (println "Checks on individuals:")
+            (pprint fcnts)
+            (println "TOTAL:" (reduce + 0 (vals fcnts))))))
 
-          (saturateStarted []
-            (comment (log "Saturate started")))
+      (saturateStarted []
+        (comment (log "Saturate started")))
 
-          (nodeCreated [node]
-            (comment (log "Node:" (str node "/" (.getTreeDepth node)))))
+      (nodeCreated [node]
+        (comment (log "Node:" (str node "/" (.getTreeDepth node)))))
 
-          (addFactStarted [tuple core?]
-            (comment
-              (log "Fact:" (when core? "[core]") (count tuple))
-              (doseq [elm (seq tuple)]
-                (log "-" (str elm)))))
+      (addFactStarted [tuple core?]
+        (comment
+          (log "Fact:" (when core? "[core]") (count tuple))
+          (doseq [elm (seq tuple)]
+            (log "-" (str elm)))))
 
-          (dlClauseMatchedStarted [clause ndx]
-            (comment (log (str "DL clause<"  ndx ">\n" clause))))
+      (dlClauseMatchedStarted [clause ndx]
+        (comment (log (str "DL clause<"  ndx ">\n" clause))))
 
-          (startNextBranchingPointStarted [^BranchingPoint branch]
-            ; NOTE: This method is called for our POS punned individuals, but not the Text & Tokens
-            (comment (log "Branch point<" (.getLevel branch) ">")))
+      (startNextBranchingPointStarted [^BranchingPoint branch]
+        ; NOTE: This method is called for our POS punned individuals, but not the Text & Tokens
+        (comment (log "Branch point<" (.getLevel branch) ">")))
 
-          (pushBranchingPointStarted [^BranchingPoint branch]
-            (when-let [^Tableau tbl (and branch @tableau)]
-              (when-let [dsj (.getFirstUnprocessedGroundDisjunction tbl)]
-                (let [form      (.toString dsj prefixes)
-                      [lvar _]  (str/split form #"\(" 2)]           ; Strip the node ID from the logical var
-                  ;; First time? log the var as a sample!
-                  (when-not (get @forms lvar)
-                    (log (log/<> "bp" (.getLevel branch)) form))
-                  ;; Keep counts for logical vars
-                  (send forms
-                        #(let [cnt (get % lvar 0)]                 ; How many times have we seen this variable?
-                           (assoc % lvar (inc cnt))))))))
+      (pushBranchingPointStarted [^BranchingPoint branch]
+        (when-let [^Tableau tbl (and branch @tableau)]
+          (when-let [dsj (.getFirstUnprocessedGroundDisjunction tbl)]
+            (let [form      (.toString dsj prefixes)
+                  [lvar _]  (str/split form #"\(" 2)]           ; Strip the node ID from the logical var
+              ;; First time? log the var as a sample!
+              (when-not (get @forms lvar)
+                (log (log/<> "bp" (.getLevel branch)) form))
+              ;; Keep counts for logical vars
+              (send forms
+                    #(let [cnt (get % lvar 0)]                  ; How many times have we seen this variable?
+                       (assoc % lvar (inc cnt))))))))
 
-          (backtrackToFinished [branch]
-            (comment (log "Backtracking<" (.getLevel branch) ">"))))))
+      (backtrackToFinished [branch]
+        (comment (log "Backtracking<" (.getLevel branch) ">"))))))
 
 
 

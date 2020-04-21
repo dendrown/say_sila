@@ -11,13 +11,14 @@
 ;;;; @copyright 2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.check
-  (:require;[say.genie          :refer :all]
+  (:require [say.genie          :refer :all]
             [say.log            :as log]
            ;[say.influence]                                 ; <= article: Big Players
             [say.senti          :as senti]
             [weka.core          :as weka]
             [weka.senti         :as wsenti])
-  (:import))
+  (:import  (weka.classifiers Evaluation)
+            (weka.core Instances)))
 
 (set! *warn-on-reflection* true)
 
@@ -29,12 +30,13 @@
   (let [testers (senti/which-arff :test)
         target  (senti/which-target)
         insts   (weka/load-arff testers target)
-        classer (wsenti/make-classifier)]
+        classer (wsenti/make-classifier)
+        audit   (Evaluation. (Instances. insts 0))]
 
     (log/fmt-info "Testing ~a: arff[~a] cnt[~a]" target
                                                  testers
                                                  (.numInstances insts))
-    ;; TODO: Make it work...
-    (.distributionForInstance classer (.firstInstance insts))
+    (.evaluateModel audit classer insts NO-OBJS)
+    (log/info "Summary:\n" (.toSummaryString audit))
     classer))
 
