@@ -30,8 +30,6 @@
 
 (def ^:const POS "LearnedPositiveText")
 
-(defonce NS (keyize *ns*))
-
 
 ;;; --------------------------------------------------------------------------
 (defn ^AbstractClassifier make-classifier
@@ -67,15 +65,16 @@
         (let [rows    (.numInstances insts)
               dists   (make-array Double/TYPE rows 2)           ; Assume binary class!
               xmps    (senti/instances->examples insts)
-              ont     (senti/populate-ontology NS xmps)
+              ont     (senti/populate-ontology :eval xmps)
               rsnr    (senti/reason :hermit ont)                ; This will run checks!
-              ptexts  (rsn/instances ont (owl-class ont POS))   ; Predicted positive texts
+              learned (owl-class ont senti/LEARNED-POS)         ; DL-Learner equivalent soln
+              ptexts  (rsn/instances ont learned)               ; Predicted positive texts
               np->01  #(if (contains? ptexts(individual ont %)) ; Index: neg=0, pos=1
                             1
                             0)]
           ;; Provide some debugging feedback
           (log/fmt-debug "Data<~a/~a>: xmp[~a ...]" (count ptexts) rows (first ptexts))
-          (save-ontology ont (str "/tmp/" (name NS) ".owl") :owl)
+          (save-ontology ont (str "/tmp/" (.relationName insts) ".owl") :owl)
 
           ;; Check instance IDs against the ontology's positive Texts
           (run! #(let [inst (.get insts (int %))

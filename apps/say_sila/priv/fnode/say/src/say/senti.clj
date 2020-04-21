@@ -74,6 +74,7 @@
 (def ^:const SOLN-LOG       "resources/emo-sa/say-senti.solutions.edn")
 (def ^:const SOLN-WITH      #"\bdenotesAffect\b")
 (def ^:const SOLN-WITHOUT   #"\bThing\b")
+(def ^:const LEARNED-POS    "LearnedPositiveText")  ; Equivalency class from DL-Learner results
 
 
 ;;; --------------------------------------------------------------------------
@@ -412,13 +413,16 @@
                  :comment  (str "A Text representing a candidate formula for determining if a given Text "
                                 "expresses positive sentiment."))]
 
+    ;; In evaluation mode, create classes to describe what we've found denotes a Postive Text
+    ;;
     ;; TODO: Tawny needs functionality for OWLObjectMinCardinality.
     ;;       Also, we'll be automating the creation of this classed, based on output from DL-Learner.
-    (owl-class ont "LearnedPositiveTextCheck"
-               :super dltext
-               :equivalent (dl/and Text
-                                   (dl/some dul/hasComponent (dl/some denotesAffect (dl/or Positive
-                                                                                           dul/InformationObject)))))
+    (when (= rule :eval)
+      (owl-class ont "LearnedPositiveTextCheck"
+                 :super dltext
+                 :equivalent (dl/and Text
+                                     (dl/some dul/hasComponent (dl/some denotesAffect (dl/or Positive
+                                                                                             dul/InformationObject))))))
     ;; DL-Learner: Text and (dul/hasComponent min 2 (follows only (denotesAffect some Affect)))
     ;;             -------->(at-least 2 (owl-oproperty hasComponent ...))) ;; TODO: need OWLObjectMinCardinality
     ;;         OR: Text and (hasComponent some (denotesAffect some (Positive or InformationObject)))
