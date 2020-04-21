@@ -999,7 +999,7 @@
           (let [rseed    (+ rand-seed n)
                 trn-tst  (split-data dtag rseed all-data? lexicon text-index reattr)
                 arffs    (if (= dtag :weka)
-                             ;; That's all Weka needs
+                             ;; That's all the Weka Experimenter needs
                              trn-tst
                              ;; Chop trainers into parts for DL-Learner
                              (let [ftrain (:train trn-tst)
@@ -1085,7 +1085,8 @@
       (run! #(swap! dsets wfilter %) SPLIT-TAGS))
 
     ;; Save the output train/test datasets & return a map of the ARFF paths
-    (into {} (domap (fn [[tt insts]]
+    (into {} (domap (fn [[tt ^Instances insts]]
+                      (.randomize insts rng)                        ; Distribute pos/neg more-or-less evenly
                       [tt (weka/save-file (ARFFs dtag)              ; Main filename stub
                                           (str rtag "." (name tt))  ; pRNG seed & train|test tag
                                           insts                     ; Sampled train|test data
