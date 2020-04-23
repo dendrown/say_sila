@@ -73,6 +73,8 @@
                             1
                             0)]
           ;; Provide some debugging feedback
+          (log/debug "Examples:" (count xmps))
+          (log/debug "Learned:" (rsn/isubclasses ont learned))
           (log/fmt-debug "Data<~a/~a>: xmp[~a ...]" (count ptexts) rows (first ptexts))
           (save-ontology ont (str "/tmp/" (.relationName insts) ".owl") :owl)
 

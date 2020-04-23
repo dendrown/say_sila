@@ -288,6 +288,9 @@
                                            (rsn/instances Affect))))
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
 
+;;; We must declare the different types of Aspect to be disjoint for the reasoner
+;;; to handle equivalency classes based on the complement of a given Aspect.
+(apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: Put SentimentPolarity back in after we handle timing considerations
@@ -407,25 +410,30 @@
                  :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))
 
         ;; Create a parent class for output representations as described by DL-Learner
-        dltext (owl-class ont "LearnedPositiveText"
+        dltext (owl-class ont LEARNED-POS
                  :super    Text
                  :label    "Learned Positive Text"
                  :comment  (str "A Text representing a candidate formula for determining if a given Text "
-                                "expresses positive sentiment."))]
+                                "expresses positive sentiment."))
+
+        ->equiv (fn [n expr]
+                  (owl-class ont (str LEARNED-POS "-" n)
+                    :super dltext
+                    :equivalent (dl/and Text expr))
+                  (inc n))]
 
     ;; In evaluation mode, create classes to describe what we've found denotes a Postive Text
     ;;
-    ;; TODO: Tawny needs functionality for OWLObjectMinCardinality.
-    ;;       Also, we'll be automating the creation of this classed, based on output from DL-Learner.
+    ;; TODO: Automate the creation of these classes based on output from DL-Learner.
     (when (= rule :eval)
-      (owl-class ont "LearnedPositiveTextCheck"
-                 :super dltext
-                 :equivalent (dl/and Text
-                                     (dl/some dul/hasComponent (dl/some denotesAffect (dl/or Positive
-                                                                                             dul/InformationObject))))))
-    ;; DL-Learner: Text and (dul/hasComponent min 2 (follows only (denotesAffect some Affect)))
-    ;;             -------->(at-least 2 (owl-oproperty hasComponent ...))) ;; TODO: need OWLObjectMinCardinality
-    ;;         OR: Text and (hasComponent some (denotesAffect some (Positive or InformationObject)))
+      (reduce ->equiv
+              1
+              [(dl/some dul/hasComponent (dl/some denotesAffect (dl/and (dl/not Disgust))
+                                                                        (dl/not Negative)))
+               (dl/some dul/hasComponent (dl/some denotesAffect (dl/not Negative)))
+               (dl/some dul/hasComponent (dl/some denotesAffect (dl/not Surprise)))
+               (dl/some dul/hasComponent (dl/some dul/follows (dl/some denotesAffect (dl/not Anticipation))))
+               (at-least 5 dul/hasComponent (only dul/follows (only denotesAffect Anticipation)))]))
     ont))
 
 
@@ -438,13 +446,18 @@
 (extend-protocol Polarizer
   Number
   (polarize [x]
-    (if (<= x 0.0)
-        :negative
-        :positive))
+    ;(log/debug "polarize:" x)
+    (if (Double/isNaN x)
+      :?
+      (if (<= x 0.0)
+          :negative
+          :positive)))
 
   Instance
   (polarize [inst]
-    (polarize (.classValue inst)))
+    (try
+      (polarize (.classValue inst))
+      (catch weka.core.UnassignedClassException _ :?)))
 
 
   String
@@ -694,7 +707,9 @@
   creation of a dataset or an example set."
   [cnts pole
    {:keys [balance? goal checks]}]
-  (and balance? (>= (cnts pole) goal)))
+  (and (not= pole :?)                       ; Not under evaluation
+       balance?
+       (>= (cnts pole) goal)))
 
 
 
@@ -702,7 +717,7 @@
 (defn- zero-pn-counter
   "Returns a map used to initialize counting SCR examples or data instances."
   [dset]
-  (reduce #(assoc %1 %2 0) {} [dset :positive :negative]))
+  (reduce #(assoc %1 %2 0) {} [dset :positive :negative :?]))
 
 
 
@@ -773,6 +788,7 @@
     (second
       (reduce (fn [[cnts xmap :as info]
                    ^Instance inst]
+                ;(log/debug "Counts:" cnts)
                 ;; Do we have enough examples to stop?
                 (if (creation-done? cnts goal)
                   (do (log/info "Examples:" cnts)
