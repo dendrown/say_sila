@@ -24,9 +24,9 @@
      :balance?          false                   ; Equal representation for pos/neg classes
      :full-links?       false                   ; Create links explicitly rather than depending on reasoner
      :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
+     :pos-clue?         false                   ; Include positive Text indicator to guide (or evaluate) the system
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
      :use-plutchik?     false                   ; Include emotion concepts corresponding to Plutchik's 8 base emotions
-     :testing?          false                   ; Include testing concepts used to evaluate the system
      :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
      :rand-seed         12345                   ; Seed an RNG to take shuffle input instances
      :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn

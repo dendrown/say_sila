@@ -228,14 +228,6 @@
   :range    Affect
   :comment  "A relationship between a Text and the affect it expresses.")
 
-;;; Add Test elements if we're evaluating the system
-(when (cfg/?? :senti :testing?)
-  (defclass PositiveTest
-    :super   Affect
-    :label   "Positive Test"
-    :comment "This class is for system evaluation only.")
-  (defpun PositiveTest))
-
 ;;; TODO: Resolve the discrepancy between pos/neg sentiment Affect and the P/N SCRs
 ;;;       Also, these affect concepts should use noun forms (Positivity and Negativity),
 ;;;       but we're using terms from the lexicon for the initial evaluation.
@@ -433,7 +425,8 @@
                (dl/some dul/hasComponent (dl/some denotesAffect (dl/not Negative)))
                (dl/some dul/hasComponent (dl/some denotesAffect (dl/not Surprise)))
                (dl/some dul/hasComponent (dl/some dul/follows (dl/some denotesAffect (dl/not Anticipation))))
-               (at-least 5 dul/hasComponent (only dul/follows (only denotesAffect Anticipation)))]))
+              ;(at-least 5 dul/hasComponent (only dul/follows (only denotesAffect Anticipation)))
+               ]))
     ont))
 
 
@@ -497,10 +490,20 @@
 
 ;;; --------------------------------------------------------------------------
 (defn- add-text
-  "Adds a Text individual to the specified Sentiment Component Rule ontology."
-  [ont
-   {:keys [content id polarity pos-tags rules]}     ; Text (tweet) breakdown
-   {:keys [full-links? pos-neg? testing?]}]         ; Configuration
+  "Adds a Text individual to the specified Sentiment Component Rule ontology.
+   A positivity clue (an OWL individual) may be specified to add an explicit
+   relation:
+
+        <Text denotesAffect PositiveToken>
+
+   for the purpose of guiding learning or evaluating the system."
+  ([ont tinfo sconf]
+  (add-text ont nil tinfo sconf))
+
+
+  ([ont clue
+    {:keys [content id polarity pos-tags rules]}    ; Text (tweet) breakdown
+    {:keys [full-links? pos-neg?]}]                 ; Senti-configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (label-text id)
@@ -530,11 +533,11 @@
               (refine ont text :fact (is dul/hasComponent curr))
               (refine ont curr :fact (is pos/isPartOfSpeech pos))
 
-              ;; Add test affect to the first token if we're evaluating the system
-              (when (and testing?
-                         (= cnt 1)
+              ;; Add positivity clue if we're going to guide learning
+              (when (and clue                                   ; Optional (caller decides on clues)
+                         (= cnt 1)                              ; Add the relation on the first word
                          (= polarity :positive))
-                (express curr "PositiveTest"))
+                (refine ont text :fact (is denotesAffect clue)))
 
             ;; Link tokens to each other
             (when-let [prev (first tokens)]
@@ -565,7 +568,7 @@
                 info)))
 
         [1 nil]                             ; Acc: Token counter, reverse seq of tokens
-        (zip pos-tags rules)))))
+        (zip pos-tags rules))))))
 
 
 
@@ -608,8 +611,17 @@
   (let [ont* (if (or (keyword? ont)
                      (string?  ont))
                  (make-ontology ont)
-                 ont)]
-    (run! #(add-text ont* % sconf) xmps)
+                 ont)
+        ;; Add positivity tokens if we're guiding learning (or testing the system)
+        clue (when (:pos-clue? sconf)
+               (let [tag   "PositivityClue"
+                     clazz (owl-class ont* tag
+                             :super   Affect
+                             :label   "Positivity Clue"
+                             :comment "A Positive Text indicator for guiding learners or for system evaluation.")]
+                 (individual ont* tag :type clazz)))]
+
+    (run! #(add-text ont* clue % sconf) xmps)
     ont*)))
 
 
