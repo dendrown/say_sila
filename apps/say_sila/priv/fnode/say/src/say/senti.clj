@@ -537,7 +537,8 @@
               (when (and clue                                   ; Optional (caller decides on clues)
                          (= cnt 1)                              ; Add the relation on the first word
                          (= polarity :positive))
-                (refine ont text :fact (is denotesAffect clue)))
+                ;; Coax DL-Learner into looking at what denotes affect
+                (refine ont curr :fact (is denotesAffect clue)))
 
             ;; Link tokens to each other
             (when-let [prev (first tokens)]

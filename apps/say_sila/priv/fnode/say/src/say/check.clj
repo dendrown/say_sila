@@ -27,8 +27,8 @@
 (defn run-senti
   "Handles test & verification for say-senti ontology-based learning."
   []
-  (let [testers ;(senti/which-arff :test)
-                "resources/emo-sa/sentiment-analysis.Sentiment140.r24816.train.000.arff"
+  (let [testers (senti/which-arff :test)
+                ;"resources/emo-sa/sentiment-analysis.Sentiment140.r24816.train.000.arff"
         target  (senti/which-target)
         insts   (weka/load-arff testers target)
         classer (wsenti/make-classifier)
