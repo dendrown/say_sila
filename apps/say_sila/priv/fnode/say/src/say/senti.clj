@@ -660,8 +660,10 @@
 
  ([dset cnt {:as   conf
              :keys [balance?]}]
+ ;; Unless it's a singleton, odd counts that are balanced will have an extra instance
  (let [[goal
-        checks] (if balance?
+        checks] (if (and balance?
+                         (> cnt 1))
                     [(int (/ cnt 2)) [:positive :negative]]     ; pos/neg instances separately
                     [cnt [dset]])]                              ; all instances together
 
