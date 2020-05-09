@@ -24,6 +24,20 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- time-evaluation
+  "Runs a (preinitialized) Weka Evaluation object (audit) and reports the time
+  it took in milliseconds.  As a convenience, the function returns the audit
+  object."
+  [^Evaluation audit
+               classer
+               insts]
+  (let [t0 (System/currentTimeMillis)]
+    (.evaluateModel audit classer insts NO-OBJS)
+    (log/fmt-info "Elapsed: ~3$ secs" (/ (- (System/currentTimeMillis) t0) 1000))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn run-senti
   "Handles test & verification for say-senti ontology-based learning."
   []
@@ -37,7 +51,7 @@
     (log/fmt-info "Testing ~a: arff[~a] cnt[~a]" target
                                                  testers
                                                  (.numInstances insts))
-    (.evaluateModel audit classer insts NO-OBJS)
+    (time-evaluation audit classer insts)
     (log/info "Summary:\n" (.toSummaryString audit))
     (log/info "Class Details\n" (.toClassDetailsString audit))
     (log/info "Confusion Matrix\n" (.toMatrixString audit))

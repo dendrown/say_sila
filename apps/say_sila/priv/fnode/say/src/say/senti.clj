@@ -104,7 +104,7 @@
 (defonce SCR-Examples   (atom {}))
 (defonce SCR-Ontologies (atom {}))
 
-(defonce EXPRESSIONS    (if (cfg/?? :senti :use-scr?)
+(defonce Expressions    (if (cfg/?? :senti :use-scr?)
                             ;; Word sets which invoke Sentiment Composition Rules
                             {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
                                               "resolve" "soothe" "subside" "waive"}
@@ -773,7 +773,7 @@
         ;;-- We bring in examples using Weka's Affective Tweets plugin and a Snowball stemmer
         sball   (tw/make-stemmer)
         stem    #(.stem sball %)
-        exprs   (update-values EXPRESSIONS                      ; Pre-stem Liu's SCR expressions
+        exprs   (update-values Expressions                      ; Pre-stem Liu's SCR expressions
                                #(into #{} (map stem %)))
 
         ;;-- Functions to identify pos/neg tokens and Sentiment composition rules
@@ -830,7 +830,7 @@
                                                 :rules    (map set/union rules affect)}))]))))
 
             [(zero-pn-counter dset)                                 ; Acc: total/pos/neg counts
-             (reduce #(assoc %1 %2 #{}) {} (keys EXPRESSIONS))]     ;      Examples keyed by rule
+             (reduce #(assoc %1 %2 #{}) {} (keys Expressions))]     ;      Examples keyed by rule
 
             (enumeration-seq (.enumerateInstances insts)))))))      ; Seq: Weka instances
 
@@ -1161,6 +1161,20 @@
 
 
 ;;; --------------------------------------------------------------------------
+(def ^:dynamic *reason-log-limit* 2000)         ; Rebind for more|less logging
+
+(defn reason-log-limit
+  "Returns the number of log lines that reasoning operations should generate,
+  based on the specified options.  Currently :no-log is the only supported
+  option."
+  [& opts]
+  (if (some #{:no-log} opts)
+      0
+      *reason-log-limit*))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn make-monitor
   "Creates a custom monitor for a HemiT reasoner."
   [& opts]
@@ -1168,10 +1182,11 @@
   (let [tableau   (atom nil)
         start-ms  (atom 0)
         forms     (agent {})
-        log-limit (agent 2000)
-        log       #(when (pos? @log-limit)
-                     (apply println %&)
-                     (send log-limit dec))
+        log-limit (agent *reason-log-limit*)
+        log!?     #(and (send log-limit dec)
+                        (pos? @log-limit))
+        log       #(when (log!?) (apply println %&))
+        log-val   #(when (log!?) (pprint %))
         prefixes  (reduce
                     (fn [^Prefixes ps [tag iri]]
                       (.declarePrefix ps tag iri)
@@ -1206,10 +1221,10 @@
           (send log-limit (fn [_] 0))
           (await forms)
           (let [fcnts @forms]
-            (println "ABox satisfiability checked in" (- (System/currentTimeMillis) @start-ms) "ms")
-            (println "Checks on individuals:")
-            (pprint fcnts)
-            (println "TOTAL:" (reduce + 0 (vals fcnts))))))
+            (log "ABox satisfiability checked in" (- (System/currentTimeMillis) @start-ms) "ms")
+            (log "Checks on individuals:")
+            (log-val fcnts)
+            (log "TOTAL:" (reduce + 0 (vals fcnts))))))
 
       (saturateStarted []
         (comment (log "Saturate started")))
@@ -1304,8 +1319,9 @@
   ([rkey]
   (reason rkey say-senti))
 
-  ([rkey ont]
-  (show-reasoning rkey ont)))
+  ([rkey ont & opts]
+  (binding [*reason-log-limit*  (apply reason-log-limit opts)]
+    (show-reasoning rkey ont))))
 
 
 

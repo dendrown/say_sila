@@ -28,8 +28,36 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const POS "LearnedPositiveText")
+(def ^:const SLICE-CNT  5)                  ; Small batches are generally faster
 
+
+;;; --------------------------------------------------------------------------
+(defn- distribution-for-slice
+  "Evaluates a subset of instances with respect to the say-senti ontology."
+  [^Instances insts
+              dists
+   ^Long      i0
+   ^Long      cnt]
+  (let [xmps    (senti/instances->examples (Instances. insts i0 cnt))
+        ont     (senti/populate-ontology :eval xmps)
+        rsnr    (senti/reason :hermit ont :no-log)              ; This will run checks!
+        learned (owl-class ont senti/LEARNED-POS)               ; DL-Learner equivalent soln
+        ptexts  (rsn/instances ont learned)                     ; Predicted positive texts
+        np->01  #(if (contains? ptexts(individual ont %)) 1 0)] ; Index: neg=0, pos=1
+
+    (comment ;; Debugging feedback:
+      (log/debug "Examples:" (count xmps))
+      (log/debug "Learned:" (rsn/isubclasses ont learned))
+      (log/fmt-debug "Data<~a/~a>: xmp[~a ...]" (count ptexts) cnt (first ptexts)))
+
+    ;; Check instance IDs against the ontology's positive Texts
+    (run! #(let [ndx  (long (+ i0 %))
+                 inst (.get insts ndx)
+                 tid  (senti/label-text inst)]
+             (aset-double dists ndx (np->01 tid) 1.))           ; Class slot is 100%
+          (range cnt))                                          ; Slice offset 0..N-1
+
+    (save-ontology ont (str "/tmp/" (.relationName insts) "." i0 "+" cnt ".owl") :owl)))
 
 ;;; --------------------------------------------------------------------------
 (defn ^AbstractClassifier make-classifier
@@ -62,27 +90,19 @@
     ;; -----------------------------------------------------------------------
     (distributionsForInstances [^Instances insts]
       (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-silent)]
-        (let [rows    (.numInstances insts)
-              dists   (make-array Double/TYPE rows 2)           ; Assume binary class!
-              xmps    (senti/instances->examples insts)
-              ont     (senti/populate-ontology :eval xmps)
-              rsnr    (senti/reason :hermit ont)                ; This will run checks!
-              learned (owl-class ont senti/LEARNED-POS)         ; DL-Learner equivalent soln
-              ptexts  (rsn/instances ont learned)               ; Predicted positive texts
-              np->01  #(if (contains? ptexts(individual ont %)) ; Index: neg=0, pos=1
-                            1
-                            0)]
-          ;; Provide some debugging feedback
-          (log/debug "Examples:" (count xmps))
-          (log/debug "Learned:" (rsn/isubclasses ont learned))
-          (log/fmt-debug "Data<~a/~a>: xmp[~a ...]" (count ptexts) rows (first ptexts))
-          (save-ontology ont (str "/tmp/" (.relationName insts) ".owl") :owl)
+        (let [rows  (.numInstances insts)
+              dists (make-array Double/TYPE rows 2)         ; Assume binary class!
+              cut   #(let [togo (- rows %)]                 ; Cut into slices:
+                       ;; Is there something to cut?
+                       (when (< % rows)
+                         ;; The last slice may be smaller.
+                         (if (> togo SLICE-CNT) SLICE-CNT togo)))]
 
-          ;; Check instance IDs against the ontology's positive Texts
-          (run! #(let [inst (.get insts (int %))
-                       tid  (senti/label-text inst)]
-                   (aset-double dists % (np->01 tid) 1.))         ; Class slot is 100%
-                (range rows))                                     ; Instances 0..N-1
+        ;; Evaluate in slice by slice
+        (loop [i 0]
+          (when-let [cnt (cut i)]
+            (distribution-for-slice insts dists i cnt)
+            (recur (+ i SLICE-CNT))))
 
           ;; Return our predictions
           dists)))
