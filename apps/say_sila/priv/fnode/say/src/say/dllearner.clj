@@ -46,6 +46,28 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn read-solution
+  "Converts a string representing a DLL-Learner solution into a Solution
+  object with a rule (:soln) that can be handled by Tawny-OWL."
+  [text]
+  ;; Tame and lispify the DL-Learner output string
+  (let [soln (read-string (str \(
+                               (reduce (fn [txt [re k]]
+                                         (str/replace txt re k))
+                                        text
+                                        [[#"pred. acc.:" ":acc"]
+                                         [#"F-measure:"  ":f1"]
+                                         [#"%"           ""]])
+                               \) ))
+        [rule
+         stats] (butlast-last soln)]
+
+    ;; Convert the DLL rule into a record
+    (map->Solution (apply hash-map :soln rule stats))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn make-config-fpath
   "Creates a DL-Learner configuration filepath from a filename stub."
   ([fstub]

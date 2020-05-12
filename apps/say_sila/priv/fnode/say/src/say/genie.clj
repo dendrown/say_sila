@@ -61,6 +61,21 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn butlast-last
+  "Accepts a sequence and returns a vector pair, in which the first element
+  is the sequence minus the final item (as with butlast) and the second
+  element is the final item (as with last)."
+  [s]
+  (loop [acc []     ; Acc: but-last
+         it  nil    ; Previous item
+         s   s]
+    (if-let [nxt (next s)]
+      (recur (conj acc (first s)) (first nxt) nxt)
+      [(seq acc) it])))
+
+
+
+;;; --------------------------------------------------------------------------
 (defmacro domap
   "Shortcut for (doall (map ...)).  Note that although this macro is somewhat
   more flexible, you should prefer clojure.core/run! when you want to produce
