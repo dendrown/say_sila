@@ -46,6 +46,25 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defprotocol Converter
+  (->tawny [s] "Reorders a solution sequence such that it may be used with Tawny-OWL."))
+
+(extend-protocol Converter
+
+  clojure.lang.ASeq
+  (->tawny [s]
+    (case (count s)
+       1 (first s)                                          ; promote (Class)
+       2 (map ->tawny s)                                    ; (not (...))
+       3 (apply list (map #(->tawny (nth s %)) [1 0 2]))))  ; infix -> prefix
+
+  Object
+  (->tawny [o]
+    o))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn read-solution
   "Converts a string representing a DLL-Learner solution into a Solution
   object with a rule (:soln) that can be handled by Tawny-OWL."
@@ -63,7 +82,7 @@
          stats] (butlast-last soln)]
 
     ;; Convert the DLL rule into a record
-    (map->Solution (apply hash-map :soln rule stats))))
+    (map->Solution (apply hash-map :soln (->tawny rule) stats))))
 
 
 
