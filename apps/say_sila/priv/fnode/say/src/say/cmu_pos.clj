@@ -14,6 +14,7 @@
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
             [say.config         :as cfg]
+            [say.dllearner      :as dll]
             [say.dolce          :as dul]
             [say.log            :as log]
             [say.social         :as soc]
@@ -116,6 +117,9 @@
 (defpos Other                    "G" (str "abbreviations, foreign words, possessive endings, "
                                           "symbols, or garbage (FW,POS,SYM,LS)"))
 
+
+;;; Tell DL-Learner about our ontology elements
+(dll/register-ns)
 
 
 ;;; --------------------------------------------------------------------------

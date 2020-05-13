@@ -14,6 +14,7 @@
   (:require [say.genie      :refer :all]
             [say.ontology   :refer :all]
             [say.config     :as cfg]
+            [say.dllearner      :as dll]
             [say.log        :as log]
             [tawny.repl     :as repl]               ; <= DEBUG
             [tawny.owl      :refer :all]))
@@ -73,6 +74,9 @@
 
 (redefoproperty hasPart)
 (redefoproperty hasComponent)
+
+;;; Tell DL-Learner about our ontology elements
+(dll/register-ns)
 
 
 ;;; --------------------------------------------------------------------------

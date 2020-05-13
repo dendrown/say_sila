@@ -14,6 +14,7 @@
   (:require [say.genie          :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
+            [tawny.owl]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
            ;[clojure.core.match :refer [match]]
@@ -37,12 +38,25 @@
 (def ^:const INIT-REASONER  :cwa)
 
 
-(defonce Delimiters     (conj (repeat \,) \space))      ; For printing comma-separated series
+(defonce Delimiters     (conj (repeat \,) \space))          ; For printing comma-separated series
+(defonce Symbols        (atom (ns-publics 'tawny.english))) ; Function and class variable lookup
 
 
 ;;; --------------------------------------------------------------------------
 (defrecord Solution
   [soln acc f1])
+
+
+;;; --------------------------------------------------------------------------
+(defn register-ns
+  "Add the symbols from the caller's namespace to the DLL-OWL Symbols map."
+  ([]
+  (register-ns *ns*))                                   ; Caller's namespace
+
+
+  ([nspace]
+  (swap! Symbols merge (ns-publics nspace))))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -54,13 +68,16 @@
   clojure.lang.ASeq
   (->tawny [s]
     (case (count s)
-       1 (first s)                                          ; promote (Class)
+       1 (->tawny (first s))                                ; promote (Class)
        2 (map ->tawny s)                                    ; (not (...))
        3 (apply list (map #(->tawny (nth s %)) [1 0 2]))))  ; infix -> prefix
 
   Object
   (->tawny [o]
-    o))
+    ;; Lookup the namespace-qualified symbol
+    (if-let [sym (get @Symbols o)]
+      sym
+      o)))
 
 
 

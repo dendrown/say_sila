@@ -308,6 +308,8 @@
 ;  :domain   dul/InformationObject
 ;  :range    SentimentPolarity)
 
+;;; Tell DL-Learner about our ontology elements
+(dll/register-ns)
 
 ;;; --------------------------------------------------------------------------
 (defn enumerate-dataset
