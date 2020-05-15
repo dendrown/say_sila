@@ -13,6 +13,7 @@
 (ns weka.senti
   (:require [say.genie          :refer :all]
             [say.log            :as log]
+            [say.jvm            :as jvm]
             [say.senti          :as senti]
             [weka.core          :as weka]
             [clojure.pprint     :refer [pp pprint]]
@@ -38,6 +39,7 @@
               dists
    ^Long      i0
    ^Long      cnt]
+  (log/debug "Memory:" (jvm/memory-used :MB) "MB")
   (let [xmps    (senti/instances->examples (Instances. insts i0 cnt))
         ont     (senti/populate-ontology :eval xmps)
         rsnr    (senti/reason :hermit ont :no-log)              ; This will run checks!
