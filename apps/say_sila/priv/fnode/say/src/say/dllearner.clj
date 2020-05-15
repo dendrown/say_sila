@@ -45,7 +45,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defrecord Solution
-  [soln acc f1])
+  [rule acc f1])
 
 
 ;;; --------------------------------------------------------------------------
@@ -85,7 +85,7 @@
 ;;; --------------------------------------------------------------------------
 (defn read-solution
   "Converts a string representing a DLL-Learner solution into a Solution
-  object with a rule (:soln) that can be handled by Tawny-OWL."
+  object with a rule that can be handled by Tawny-OWL."
   [text]
   ;; Tame and lispify the DL-Learner output string
   (let [soln (read-string (str \(
@@ -100,7 +100,7 @@
          stats] (butlast-last soln)]
 
     ;; Convert the DLL rule into a record
-    (map->Solution (apply hash-map :soln (->tawny rule) stats))))
+    (map->Solution (apply hash-map :rule (->tawny rule) stats))))
 
 
 
