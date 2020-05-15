@@ -15,6 +15,7 @@
             [say.config         :as cfg]
             [say.log            :as log]
             [tawny.owl]
+            [tawny.english]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
            ;[clojure.core.match :refer [match]]
