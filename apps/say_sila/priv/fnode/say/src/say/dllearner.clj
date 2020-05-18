@@ -47,6 +47,8 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; FIXME: We're going to have a more natural "solution" if we pass around the
+;;;        basic s-expression and attach the other fields as metadata.
 (defrecord Solution
   [rule acc f1 length depth])
 
@@ -92,23 +94,26 @@
 ;;; --------------------------------------------------------------------------
 (defn read-solution
   "Converts a string representing a DLL-Learner solution into a Solution
-  object with a rule that can be handled by Tawny-OWL."
+  object with a rule that can be handled by Tawny-OWL.  If the input text
+  is a comment (starts with a semicolon), the function returns nil."
   [text]
-  ;; Tame and lispify the DL-Learner output string
-  (let [soln (read-string (str \(
-                               (reduce (fn [txt [re k]]
-                                         (str/replace txt re k))
-                                        text
-                                        [[#"accuracy"    ":acc"]    ; OCEL  stats
-                                         [#"pred. acc.:" ":acc"]    ; CELOE stats
-                                         [#"F-measure:"  ":f1"]
-                                         [#"%"           ""]])
-                               \) ))
-        [rule
-         stats] (butlast-last soln)]
+  ;; Check for comments explicitly as we'll be adding parens before calling Lisp
+  (when (not= \; (first (str/triml text)))
+    ;; Tame and lispify the DL-Learner output string
+    (let [soln (read-string (str \(
+                                 (reduce (fn [txt [re k]]
+                                           (str/replace txt re k))
+                                          text
+                                          [[#"accuracy"    ":acc"]    ; OCEL  stats
+                                           [#"pred. acc.:" ":acc"]    ; CELOE stats
+                                           [#"F-measure:"  ":f1"]
+                                           [#"%"           ""]])
+                                 \) ))
+          [rule
+           stats] (butlast-last soln)]
 
-    ;; Convert the DLL rule into a record
-    (map->Solution (apply hash-map :rule (->tawny rule) stats))))
+      ;; Convert the DLL rule into a record
+      (map->Solution (apply hash-map :rule (->tawny rule) stats)))))
 
 
 

@@ -17,6 +17,7 @@
                  [org.clojure/data.json "0.2.6"]
 		 [org.clojure/core.match "1.0.0"]
                  [clj-time "0.14.2"]
+                 [defun "0.3.1"]
                  [enlive "1.1.6"]
                  [incanter/incanter-core "1.9.3"]
                  [incanter/incanter-charts "1.9.3"]

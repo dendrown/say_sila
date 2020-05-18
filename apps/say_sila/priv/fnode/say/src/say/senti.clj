@@ -24,7 +24,8 @@
             [clojure.java.io    :as io]
             [clojure.set        :as set]
             [clojure.string     :as str]
-            [clojure.pprint     :as prt :refer [pp pprint]]
+            [clojure.pprint     :refer [pp pprint]]
+            [defun.core         :refer [defun]]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                           ; <= DEBUG
@@ -392,7 +393,11 @@
 (defn make-ontology
   "Creates a version (copy) of the say-senti ontology, intended to include
   individuals expressing the specified Sentiment Composition Rule (SCR)"
-  [rule]
+  ([rule]
+  (make-ontology rule nil))
+
+
+  ([rule learned]
   (let [scr    (name rule)
         prefix #(apply str % "-" scr %&)
         ;; We use a (sub)ontology to hold the texts and DL-Learner solutions
@@ -410,26 +415,17 @@
                  :comment  (str "A Text representing a candidate formula for determining if a given Text "
                                 "expresses positive sentiment."))
 
-        ->equiv (fn [n expr]
-                  (owl-class ont (str LEARNED-POS "-" n)
-                    :super dltext
-                    :equivalent (dl/and Text expr))
-                  (inc n))]
+        add-dl (fn [n expr]
+                 (owl-class ont (str LEARNED-POS "-" n)
+                   :super dltext
+                   :equivalent expr)
+                 (inc n))]
 
-    ;; In evaluation mode, create classes to describe what we've found denotes a Postive Text
-    ;;
-    ;; TODO: Automate the creation of these classes based on output from DL-Learner.
-    (when (= rule :eval)
-      (reduce ->equiv
-              1
-              [(dl/some dul/hasComponent (dl/some denotesAffect (dl/and (dl/not Disgust))
-                                                                        (dl/not Negative)))
-               (dl/some dul/hasComponent (dl/some denotesAffect (dl/not Negative)))
-               (dl/some dul/hasComponent (dl/some denotesAffect (dl/not Surprise)))
-               (dl/some dul/hasComponent (dl/some dul/follows (dl/some denotesAffect (dl/not Anticipation))))
-              ;(at-least 5 dul/hasComponent (only dul/follows (only denotesAffect Anticipation)))
-               ]))
-    ont))
+    ;; If we've got learned expressions, create corresponding classes to describe Postive Texts
+    (when learned
+      (reduce add-dl 1 learned))
+
+    ont)))
 
 
 
@@ -601,31 +597,43 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn populate-ontology
+(defun populate-ontology
   "Populates the senti ontology using examples from the ARFFs.  The caller
   may specify an SCR identifier (keyword or string), rather than an ontology.
   If this is the case, the function will create the ontology for that rule.
-  In either case function returns the ontology, populated with the new examples."
+  In either case function returns the ontology, populated with the new examples.
+  The called may also specify a sequence of learned expressions that will be
+  included in the ontology as subclasses to LearnedPositiveText."
   ([ont xmps]
-  (populate-ontology ont xmps (cfg/? :senti)))
+  (populate-ontology ont xmps nil))
 
 
-  ([ont xmps sconf]
-  (let [ont* (if (or (keyword? ont)
-                     (string?  ont))
-                 (make-ontology ont)
-                 ont)
-        ;; Add positivity tokens if we're guiding learning (or testing the system)
-        clue (when (:pos-clue? sconf)
+  ([ont xmps sconf :guard map?]
+  (populate-ontology ont xmps nil sconf))
+
+  ([ont xmps learned]
+  (populate-ontology ont xmps learned (cfg/? :senti)))
+
+
+  ([ont :guard #(or (keyword? %) (string?  %))
+    xmps
+    learned
+    sconf]
+  (populate-ontology (make-ontology ont learned) xmps learned sconf))
+
+
+  ([ont xmps _ sconf]
+  ;; Add positivity tokens if we're guiding learning (or testing the system)
+  (let [clue (when (:pos-clue? sconf)
                (let [tag   "PositivityClue"
-                     clazz (owl-class ont* tag
+                     clazz (owl-class ont tag
                              :super   Affect
                              :label   "Positivity Clue"
                              :comment "A Positive Text indicator for guiding learners or for system evaluation.")]
-                 (individual ont* tag :type clazz)))]
+                 (individual ont tag :type clazz)))]
 
-    (run! #(add-text ont* clue % sconf) xmps)
-    ont*)))
+    (run! #(add-text ont clue % sconf) xmps)
+    ont)))
 
 
 
@@ -1345,6 +1353,24 @@
     ;; Oops, someone skipped a step!
     (println "Please execute 'run' to create the ontologies"))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn read-solutions
+  "Handles candidate solutions.  This function is in FLUX...big time!!"
+  ([]
+  (read-solutions SOLN-LOG))
+
+
+  ([fpath]
+  (log/info "Loading DL-Learner solutions:" fpath)
+    (with-open [rdr (io/reader fpath)]
+      (reduce (fn [solns txt]
+                 (if-let [s (dll/read-solution txt)]
+                   (conj solns s)
+                   (solns)))
+              []
+              (line-seq rdr)))))
 
 
 ;;; --------------------------------------------------------------------------
