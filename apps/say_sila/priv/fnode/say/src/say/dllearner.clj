@@ -39,8 +39,13 @@
 (def ^:const INIT-REASONER  :cwa)
 
 
-(defonce Delimiters     (conj (repeat \,) \space))          ; For printing comma-separated series
-(defonce Symbols        (atom (ns-publics 'tawny.english))) ; Function and class variable lookup
+(defonce Delimiters     (conj (repeat \,) \space))              ; For printing comma-separated series
+(defonce Symbols        (atom (apply merge                      ; Function and class variable lookup
+                                    (map ns-publics '[tawny.owl
+                                                      tawny.english
+                                                     ;{'min #'tawny.owl/at-least
+                                                     ; 'max #'tawny.owl/at-most}
+                                                       ]))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -68,17 +73,21 @@
 
   clojure.lang.ASeq
   (->tawny [s]
+    (log/debug (log/<> "TAWNY" (count s)) s)
+    (let [reorder (fn [ord]
+                    (apply list (map #(->tawny (nth s %)) ord)))]
     (case (count s)
-       1 (->tawny (first s))                                ; promote (Class)
-       2 (map ->tawny s)                                    ; (not (...))
-       3 (apply list (map #(->tawny (nth s %)) [1 0 2]))))  ; infix -> prefix
+       1 (->tawny (first s))                        ; promote (Class)
+       2 (map ->tawny s)                            ; (not (...))
+       3 (reorder [1 0 2])                          ; infix -> prefix
+       4 (reorder [1 2 0 3]))))
 
   Object
-  (->tawny [o]
+  (->tawny [obj]
     ;; Lookup the namespace-qualified symbol
-    (if-let [sym (get @Symbols o)]
+    (if-let [sym (get @Symbols obj)]
       sym
-      o)))
+      obj)))
 
 
 
