@@ -12,6 +12,7 @@
   [rule owl]
   (cond
     (var? rule)             (= rule (eval owl))                         ; Same symbols?
+    (number? rule)          true                                        ; Cardinality constant
     (and (empty? rule)
          (empty? owl))      true                                        ; All done!
     (and (seqable? rule)
@@ -21,14 +22,27 @@
                               (log/error rule "\n:\n" owl))))
 
 
-
-;; ---------------------------------------------------------------------------
-(deftest read-solutions
+(defn match?
+  "Determines if an OWL solution matches the specified DL-Learner output text."
+  [txt owl]
   ;; say.dllearner/read-solution returns a Solution record.
   ;; Here we're just checking the OWL rule
-  (are [txt owl] (equiv? (:rule (read-solution txt))
-                         owl)
+  (equiv? (:rule (read-solution txt)) owl))
 
+
+;; ---------------------------------------------------------------------------
+(deftest ocel-solutions
+  (are [txt owl] (match? txt owl)
+    "hasComponent min 3 (precedes max 1 (follows some (denotesAffect some Negative))) (accuracy 66.667%, length 11, depth 4)"
+    '(#'tawny.owl/at-least 3 #'say.dolce/hasComponent
+       (#'tawny.owl/at-most 1 #'say.dolce/precedes
+         (#'tawny.english/some #'say.dolce/follows
+           (#'tawny.english/some #'say.senti/denotesAffect #'say.senti/Negative))))))
+
+
+;; ---------------------------------------------------------------------------
+(deftest celoe-solutions
+  (are [txt owl] (match? txt owl)
     "Text and (hasComponent some (denotesAffect some ((not (Disgust)) and (not (Negative))))) (pred. acc.: 64.29%, F-measure: 66.67%)"
    '(#'tawny.english/and
       #'say.senti/Text

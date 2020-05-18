@@ -41,16 +41,14 @@
 
 (defonce Delimiters     (conj (repeat \,) \space))              ; For printing comma-separated series
 (defonce Symbols        (atom (apply merge                      ; Function and class variable lookup
-                                    (map ns-publics '[tawny.owl
-                                                      tawny.english
-                                                     ;{'min #'tawny.owl/at-least
-                                                     ; 'max #'tawny.owl/at-most}
-                                                       ]))))
+                                     {'min #'tawny.owl/at-least
+                                      'max #'tawny.owl/at-most}
+                                     (map ns-publics '[tawny.owl tawny.english]))))
 
 
 ;;; --------------------------------------------------------------------------
 (defrecord Solution
-  [rule acc f1])
+  [rule acc f1 length depth])
 
 
 ;;; --------------------------------------------------------------------------
@@ -73,14 +71,14 @@
 
   clojure.lang.ASeq
   (->tawny [s]
-    (log/debug (log/<> "TAWNY" (count s)) s)
+    ;(log/debug (log/<> "TAWNY" (count s)) s)
     (let [reorder (fn [ord]
                     (apply list (map #(->tawny (nth s %)) ord)))]
     (case (count s)
        1 (->tawny (first s))                        ; promote (Class)
        2 (map ->tawny s)                            ; (not (...))
        3 (reorder [1 0 2])                          ; infix -> prefix
-       4 (reorder [1 2 0 3]))))
+       4 (reorder [1 2 0 3]))))                     ; (oprop min 5 (..))
 
   Object
   (->tawny [obj]
@@ -101,7 +99,8 @@
                                (reduce (fn [txt [re k]]
                                          (str/replace txt re k))
                                         text
-                                        [[#"pred. acc.:" ":acc"]
+                                        [[#"accuracy"    ":acc"]    ; OCEL  stats
+                                         [#"pred. acc.:" ":acc"]    ; CELOE stats
                                          [#"F-measure:"  ":f1"]
                                          [#"%"           ""]])
                                \) ))
