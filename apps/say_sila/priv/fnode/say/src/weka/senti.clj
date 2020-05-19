@@ -37,11 +37,12 @@
   "Evaluates a subset of instances with respect to the say-senti ontology."
   [^Instances insts
               dists
+              solns
    ^Long      i0
    ^Long      cnt]
   (log/debug "Memory:" (jvm/memory-used :MB) "MB")
   (let [xmps    (senti/instances->examples (Instances. insts i0 cnt))
-        ont     (senti/populate-ontology :eval xmps)
+        ont     (senti/populate-ontology :eval xmps solns)
         rsnr    (senti/reason :hermit ont :no-log)              ; This will run checks!
         learned (owl-class ont senti/LEARNED-POS)               ; DL-Learner equivalent soln
         ptexts  (rsn/instances ont learned)                     ; Predicted positive texts
@@ -96,6 +97,7 @@
       (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-silent)]
         (let [rows  (.numInstances insts)
               dists (make-array Double/TYPE rows 2)         ; Assume binary class!
+              solns (senti/read-solutions)                  ; Using default [TODO]
               cut   #(let [togo (- rows %)]                 ; Cut into slices:
                        ;; Is there something to cut?
                        (when (< % rows)
@@ -105,7 +107,7 @@
         ;; Evaluate in slice by slice
         (loop [i 0]
           (when-let [cnt (cut i)]
-            (distribution-for-slice insts dists i cnt)
+            (distribution-for-slice insts dists solns i cnt)
             (recur (+ i SLICE-CNT))))
 
           ;; Return our predictions

@@ -418,7 +418,7 @@
         add-dl (fn [n expr]
                  (owl-class ont (str LEARNED-POS "-" n)
                    :super dltext
-                   :equivalent expr)
+                   :equivalent (eval expr))
                  (inc n))]
 
     ;; If we've got learned expressions, create corresponding classes to describe Postive Texts

@@ -38,16 +38,24 @@
 (def ^:const INIT-ALGORITHM :ocel)
 (def ^:const INIT-REASONER  :cwa)
 
-
 (defonce Delimiters     (conj (repeat \,) \space))              ; For printing comma-separated series
-(defonce Symbols        (atom (apply merge                      ; Function and class variable lookup
-                                     {'min #'tawny.owl/at-least
-                                      'max #'tawny.owl/at-most}
-                                     (map ns-publics '[tawny.owl tawny.english]))))
-
 
 
 ;;; --------------------------------------------------------------------------
+(defn- symbolize-ns
+  "Returns a map of the symbols representing the public interns for the
+  specified namespace."
+  [nspace]
+  (update-values (ns-publics nspace) symbol))
+
+
+(defonce Symbols        (atom (apply merge                      ; Function and class variable lookup
+                                     '{min tawny.owl/at-least   ; DLL/Tawny mismatched names
+                                       max tawny.owl/at-most}
+                                     (map symbolize-ns '[tawny.owl
+                                                         tawny.english]))))
+
+
 (defn register-ns
   "Add the symbols from the caller's namespace to the DLL-OWL Symbols map."
   ([]
@@ -55,7 +63,7 @@
 
 
   ([nspace]
-  (swap! Symbols merge (ns-publics nspace))))
+  (swap! Symbols merge (symbolize-ns nspace))))
 
 
 
@@ -80,7 +88,7 @@
   (->tawny [obj]
     ;; Lookup the namespace-qualified symbol
     (if-let [sym (get @Symbols obj)]
-      sym
+      (symbol sym)
       obj)))
 
 
