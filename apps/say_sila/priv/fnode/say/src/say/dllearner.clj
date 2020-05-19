@@ -46,12 +46,6 @@
                                      (map ns-publics '[tawny.owl tawny.english]))))
 
 
-;;; --------------------------------------------------------------------------
-;;; FIXME: We're going to have a more natural "solution" if we pass around the
-;;;        basic s-expression and attach the other fields as metadata.
-(defrecord Solution
-  [rule acc f1 length depth])
-
 
 ;;; --------------------------------------------------------------------------
 (defn register-ns
@@ -93,9 +87,11 @@
 
 ;;; --------------------------------------------------------------------------
 (defn read-solution
-  "Converts a string representing a DLL-Learner solution into a Solution
-  object with a rule that can be handled by Tawny-OWL.  If the input text
-  is a comment (starts with a semicolon), the function returns nil."
+  "Converts a string representing a DLL-Learner solution into a Clojure
+  expression that can be handled by Tawny-OWL.  The statistics that DL-Learner
+  reports after the rule are incorporated in the metadata of the returned
+  expression.  If the input text is a comment (starts with a semicolon), the
+  function returns nil."
   [text]
   ;; Check for comments explicitly as we'll be adding parens before calling Lisp
   (when (not= \; (first (str/triml text)))
@@ -112,8 +108,9 @@
           [rule
            stats] (butlast-last soln)]
 
-      ;; Convert the DLL rule into a record
-      (map->Solution (apply hash-map :rule (->tawny rule) stats)))))
+      ;; Tawnyize the rule and attach its metadata
+      (with-meta (->tawny rule)
+                 (update-keys (partition 2 stats) keyword)))))
 
 
 

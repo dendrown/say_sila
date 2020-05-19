@@ -27,7 +27,7 @@
   [txt owl]
   ;; say.dllearner/read-solution returns a Solution record.
   ;; Here we're just checking the OWL rule
-  (equiv? (:rule (read-solution txt)) owl))
+  (equiv? (read-solution txt) owl))
 
 
 ;; ---------------------------------------------------------------------------

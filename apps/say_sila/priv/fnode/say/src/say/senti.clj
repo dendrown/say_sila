@@ -1357,20 +1357,22 @@
 
 ;;; --------------------------------------------------------------------------
 (defn read-solutions
-  "Handles candidate solutions.  This function is in FLUX...big time!!"
+  "Returns a candidate solutions that were probably previously stored using
+  process-solutions."
   ([]
   (read-solutions SOLN-LOG))
 
 
   ([fpath]
-  (log/info "Loading DL-Learner solutions:" fpath)
+  (log/info "Reading DL-Learner solutions:" fpath)
     (with-open [rdr (io/reader fpath)]
-      (reduce (fn [solns txt]
-                 (if-let [s (dll/read-solution txt)]
-                   (conj solns s)
-                   (solns)))
+       (seq (reduce (fn [solns txt]
+                      (if-let [s (dll/read-solution txt)]
+                        (conj solns s)
+                        solns))
               []
-              (line-seq rdr)))))
+              (line-seq rdr))))))
+
 
 
 ;;; --------------------------------------------------------------------------
