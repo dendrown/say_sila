@@ -60,7 +60,11 @@
              (aset-double dists ndx (np->01 tid) 1.))           ; Class slot is 100%
           (range cnt))                                          ; Slice offset 0..N-1
 
-    (save-ontology ont (str "/tmp/" (.relationName insts) "." i0 "+" cnt ".owl") :owl)))
+    ;(save-ontology ont (str "/tmp/" (.relationName insts) "." i0 "+" cnt ".owl") :owl)
+
+    ;; Make sure HermiT doesn't hoard memory
+    (.dispose rsnr)
+    dists))
 
 
 
