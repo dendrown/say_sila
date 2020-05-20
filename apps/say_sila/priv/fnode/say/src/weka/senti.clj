@@ -40,7 +40,7 @@
               solns
    ^Long      i0
    ^Long      cnt]
-  (log/debug "Memory:" (jvm/memory-used :MB) "MB")
+  (log/fmt-debug "Memory @ ~a-~a: ~a MB" i0 (+ i0 cnt) (jvm/memory-used :MB))
   (let [xmps    (senti/instances->examples (Instances. insts i0 cnt))
         ont     (senti/populate-ontology :eval xmps solns)
         rsnr    (senti/reason :hermit ont :no-log)              ; This will run checks!
@@ -63,7 +63,11 @@
     ;(save-ontology ont (str "/tmp/" (.relationName insts) "." i0 "+" cnt ".owl") :owl)
 
     ;; Make sure HermiT doesn't hoard memory
+    (when-let [tbl (.getTableau rsnr)]
+      (log/debug "Clearing reasoner tableau")
+      (.clear tbl))
     (.dispose rsnr)
+    (remove-ontology-maybe (.getOntologyID ont))
     dists))
 
 
