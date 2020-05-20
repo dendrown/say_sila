@@ -21,6 +21,7 @@
                  [enlive "1.1.6"]
                  [incanter/incanter-core "1.9.3"]
                  [incanter/incanter-charts "1.9.3"]
+                 [io.jenetics/jenetics "6.0.0"]
                  ; Weka + libs
                  [nz.ac.waikato.cms.weka/weka-stable "3.8.3"]
                  [edu.cmu.cs/ark-tweet-nlp "0.3.2"]

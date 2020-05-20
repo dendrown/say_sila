@@ -38,22 +38,30 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn run-senti
+(defn eval-senti
   "Handles test & verification for say-senti ontology-based learning."
-  []
-  (let [testers (senti/which-arff :test)
-                ;"resources/emo-sa/sentiment-analysis.Sentiment140.r24816.train.000.arff"
-        target  (senti/which-target)
-        insts   (weka/load-arff testers target)
-        classer (wsenti/make-classifier)
+  ([]
+  (eval-senti ;"resources/emo-sa/sentiment-analysis.Sentiment140.r24816.train.000.arff"
+             (senti/which-arff :test)))
+
+
+  ([arff]
+  (eval-senti arff (senti/read-solutions)))             ; Use official solutions
+
+
+  ([arff solns]
+  (let [target  (senti/which-target)
+        insts   (weka/load-arff arff target)
+        classer (wsenti/make-classifier solns)
         audit   (Evaluation. (Instances. insts 0))]
 
-    (log/fmt-info "Testing ~a: arff[~a] cnt[~a]" target
-                                                 testers
-                                                 (.numInstances insts))
+    (log/fmt-info "Testing ~a: arff[~a] insts[~a] solns[~a]" target
+                                                             arff
+                                                             (.numInstances insts)
+                                                             (count solns))
     (time-evaluation audit classer insts)
     (log/info "Summary:\n" (.toSummaryString audit))
     (log/info "Class Details\n" (.toClassDetailsString audit))
     (log/info "Confusion Matrix\n" (.toMatrixString audit))
-    classer))
+    audit)))
 

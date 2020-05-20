@@ -76,8 +76,16 @@
 (defn ^AbstractClassifier make-classifier
   "Proxies a Weka classifier to handle evaluate tweets using the say-senti
   ontology."
-  [& opts]
+  ([]
+  (make-classifier (senti/read-solutions)))         ; Use official solutions
+
+
+  ([solns]
   (proxy [AbstractClassifier] []
+
+    ;; -----------------------------------------------------------------------
+    (getBatchSize []
+      (str SLICE-CNT))
 
     ;; -----------------------------------------------------------------------
     (getCapabilities []
@@ -105,7 +113,6 @@
       (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-silent)]
         (let [rows  (.numInstances insts)
               dists (make-array Double/TYPE rows 2)         ; Assume binary class!
-              solns (senti/read-solutions)                  ; Using default [TODO]
               cut   #(let [togo (- rows %)]                 ; Cut into slices:
                        ;; Is there something to cut?
                        (when (< % rows)
@@ -123,5 +130,5 @@
 
     ;; -----------------------------------------------------------------------
     (implementsMoreEfficientBatchPrediction []
-       true)))
+       true))))
 

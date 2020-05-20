@@ -1357,8 +1357,8 @@
 
 ;;; --------------------------------------------------------------------------
 (defn read-solutions
-  "Returns a candidate solutions that were probably previously stored using
-  process-solutions."
+  "Returns a vector of candidate solutions that were probably previously
+  stored using process-solutions."
   ([]
   (read-solutions SOLN-LOG))
 

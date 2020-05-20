@@ -18,6 +18,7 @@
             [say.data           :as data]
             [say.log            :as log]
             [say.hierarchy      :as inua]
+            [say.optimize       :as ga]
             [say.sila           :as sila]
             [say.senti          :as senti]
             [weka.core          :as weka]
