@@ -18,7 +18,7 @@
             [say.data           :as data]
             [say.log            :as log]
             [say.hierarchy      :as inua]
-            [say.optimize       :as ga]
+           ;[say.optimize       :as ga]                     ; Use GraalVM for Jenetics
             [say.sila           :as sila]
             [say.senti          :as senti]
             [weka.core          :as weka]
