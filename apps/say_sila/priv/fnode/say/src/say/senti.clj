@@ -948,9 +948,9 @@
   (let [[fpath
          opts]  (optionize string? DATASET args)                ; Optional CSV must be first arg
         suffix  (option-str [:test :weka] opts ".")             ; Information tag for output
-        conf    (cfg/? :senti)
-        txt-ndx (get conf :text-index INIT-TEXT-INDEX)          ; 1-based index
-        lex-tag (get conf :lexicon INIT-LEX-TAG)
+        sconf   (cfg/? :senti)
+        txt-ndx (get sconf :text-index INIT-TEXT-INDEX)         ; 1-based index
+        lex-tag (get sconf :lexicon INIT-LEX-TAG)
         acnt    (.numAttributes (base-data))
         dsets   (atom {})                                       ; Collects datasets from CSV
 
@@ -967,7 +967,7 @@
         line-up (fn [rdr]
                   (let [[_ & dlines] (csv/read-csv rdr)]        ; Skip CSV header
                     ;; The configuration may want to use a subset of the CSV data
-                    (if-let [icnt (get conf :num-instances)]
+                    (if-let [icnt (get sconf :num-instances)]
                       (take icnt dlines)
                       dlines)))
 
@@ -1022,7 +1022,11 @@
   The arity 0 and 1 clauses respectively build for the default dataset and
   the default number of subsets.  The arity 2 clause does the setup and then
   makes multiple calls the worker (arity 6) clause (which you normally won't
-  want to call directly)."
+  want to call directly).
+
+  FIXME: This function uses the data tag (dtag) in an ambiguous manner.
+         It either identifies the dataset of it's a flag that this is a
+         weka dataset. Our ambiguity-bridge is (ARFFs :weka)."
   ([]
     (split-data INIT-DATA-TAG))
 
@@ -1082,7 +1086,6 @@
         icnt    (.numInstances iinsts)
 
         dsets   (atom (rebase-data->hashmap SPLIT-TAGS))
-        cntr    (conj dtag)
         rng     (Random. seed)
         fill    (fn [used [^Instances oinsts cnts goal
                            :as data-info]]
@@ -1096,13 +1099,13 @@
                               (recur used data-info))
                           (let [inst  (.get iinsts ndx)
                                 pn    (polarize inst)
-                                used! (conj used ndx)]
+                                used* (conj used ndx)]
                             (if (creation-full? cnts pn goal)
                               ;; Add this index to the "used" set, but don't add instance
-                              (recur used! data-info)
+                              (recur used* data-info)
                               (do ;(println "Adding to" (.relationName oinsts) "#" ndx)
                                   (add-instance oinsts inst)
-                                  (recur used! [oinsts
+                                  (recur used* [oinsts
                                                 (inc-pn-counter cnts dtag pn)
                                                 goal]))))))))
 
