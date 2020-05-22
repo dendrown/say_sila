@@ -30,19 +30,20 @@
             [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                           ; <= DEBUG
             [tawny.owl          :refer :all])
-  (:import  [java.util Random]
-            [org.semanticweb.HermiT Configuration
+  (:import  (java.util Random)
+            (org.semanticweb.HermiT Configuration
                                     Configuration$TableauMonitorType
                                     Prefixes
-                                    Reasoner]
-            [org.semanticweb.HermiT.monitor TableauMonitorAdapter]
-            [org.semanticweb.HermiT.tableau BranchingPoint
-                                            Tableau]
-            [org.semanticweb.owlapi.reasoner InferenceType]
-            [weka.core DenseInstance
+                                    Reasoner)
+            (org.semanticweb.HermiT.monitor TableauMonitorAdapter)
+            (org.semanticweb.HermiT.tableau BranchingPoint
+                                            Tableau)
+            (org.semanticweb.owlapi.reasoner InferenceType)
+            (weka.core Attribute
+                       DenseInstance
                        Instance
-                       Instances]
-            [weka.filters.unsupervised.attribute Reorder]))
+                       Instances)
+            (weka.filters.unsupervised.attribute Reorder)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -913,6 +914,41 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- extend-data
+  "Adds part-of-speech counts as additional attributes to a set of Instances
+  with POS-tagged text as the specified zero-based attribute (tndx)"
+  [^Instances insts
+   ^Integer   tndx]
+  (let [rpos  (set/map-invert pos/POS-Fragments)                ; Reversed POS {name -> code}
+        zeros (into {} (map #(vector % 0)
+                             (vals rpos)))
+        attrs (loop [acnt  (.numAttributes insts)               ; Attribute lookup {code -> index}
+                     names (sort (keys rpos))
+                     attrs {}]
+                ;; Create a mapping of POS code to counter Attribute
+                (if (empty? names)
+                    attrs
+                    (let [aname (first names)
+                          attr  (Attribute. aname)]
+                      (.insertAttributeAt insts attr acnt)
+                      (recur (inc acnt) (rest names) (assoc attrs (get rpos aname) acnt)))))]
+
+    (doseq [^Instance inst (weka/instance-seq insts)]
+      ;; Get counts for each POS in this Instance's text
+      (let [text   (.stringValue inst tndx)
+            codes  (map #(first (str/split % #"_" 2))           ; 2) Pull code: ("A"    "P"    "D"    "N"   "N")
+                                (str/split text #" "))          ; 1) Break up :  "A_sad  P_for  D_my   N_APL N_friend"
+            counts (reduce #(update %1 %2 inc) zeros codes)]    ; 3) POS count: {"A" 1, "P" 1, "D" 1, "N" 2, ... zeros}
+        ;; Update each Attribute for this instance with the associated count
+        (run!
+          (fn [[code cnt]]
+            (.setValue inst (int (get attrs code))
+                            (double cnt)))
+          counts)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn add-instance
   "Make a instance for a sentiment analysis ARFF dataset.
 
@@ -957,12 +993,12 @@
         emoter  #(tw/make-lexicon-filter lex-tag txt-ndx)
         tagger  #(tw/make-tagging-filter txt-ndx)
 
-        xform   (fn [iinsts & filters]
+        xform   (fn [iinsts]
                   ;; Call to make a new Filter each time
                   (reduce
                     #(weka/filter-instances %1 (%2))
                     iinsts
-                    (conj filters emoter)))
+                    [emoter tagger]))
 
         line-up (fn [rdr]
                   (let [[_ & dlines] (csv/read-csv rdr)]        ; Skip CSV header
@@ -998,10 +1034,8 @@
 
       ;; Save the ARFFs to disk and return the result info in a map
       (reduce (fn [acc [dset iinsts]]
-                (let [oinsts (if (option? :weka opts)           ; When creating for Weka:
-                                 (xform iinsts)                 ; - process lexicon
-                                 (xform iinsts tagger))         ; - for OWL, also do POS tags
-                      otag   (str dset suffix)]
+                (let [oinsts (xform iinsts)                 ; Process lexicon & tag tokens w/ POS
+                      otag   (str dset suffix)]             ; Output ARFF filename tag(s)
                   ;; Finally, save the processed datasets from the CSV as ARFF
                   (assoc acc (keyword dset)
                              {:count (.numInstances ^Instances oinsts)
@@ -1090,8 +1124,9 @@
         fill    (fn [used [^Instances oinsts cnts goal
                            :as data-info]]
                   (if (creation-done? cnts goal)
-                    ;; We've got what we need, the used-index set is the accumulator
-                    used
+                    ;; Finalize by inserting POS counts.  The used-index set is the accumulator
+                    (do (extend-data oinsts (weka/index1->0 tndx))
+                        used)
                     ;; Keep pulling from the input data
                     (let [ndx (.nextInt rng icnt)]
                       (if (contains? used ndx)
@@ -1110,10 +1145,10 @@
                                                 goal]))))))))
 
         wfilter (fn [data tt]
-                  (let [emote   (tw/make-lexicon-filter lex tndx)
-                        reorder (Reorder.)
+                  ;; Move the class index last
+                  ;; TODO: Check if we can do this for non-weka ARFFs as well...
+                  (let [reorder (Reorder.)
                         insts*  (-> (data tt)
-                                    (weka/filter-instances emote)
                                     (weka/filter-instances reorder reattr))]
                     (assoc data tt insts*)))]
 
@@ -1127,7 +1162,7 @@
                  @dsets))
 
     ;; If these are Weka datasets, prepare them for the Experimenter.
-    ;; Note, this updates the dsets agent (concurrently) with new Instances.
+    ;; Note, this updates the dsets atom with new Instances.
     (when (= dtag :weka)
       (log/debug "Filtering datasets for Weka")
       (run! #(swap! dsets wfilter %) SPLIT-TAGS))

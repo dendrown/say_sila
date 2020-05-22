@@ -49,6 +49,25 @@
   (dec (longify i)))
 
 
+;; ---------------------------------------------------------------------------
+(defn attribute-seq
+  "
+  Returns an sequence of the attriutes in the specified dataset.
+  "
+  [^Instances insts]
+  (enumeration-seq (.enumerateAttributes insts)))
+
+
+
+;; ---------------------------------------------------------------------------
+(defn instance-seq
+  "
+  Returns an sequence of the instances in the specified dataset.
+  "
+  [^Instances insts]
+  (enumeration-seq (.enumerateInstances insts)))
+
+
 ;;; --------------------------------------------------------------------------
 (defn tag-filename
   "Turns «/path/to/filename.extn» into «/path/to/filename.tag.EXTN», where EXTN
