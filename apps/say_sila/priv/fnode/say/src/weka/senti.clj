@@ -28,6 +28,7 @@
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
+(rsn/reasoner-factory :hermit)
 
 (def ^:const SLICE-CNT  5)                  ; Small batches are generally faster
 
@@ -43,7 +44,7 @@
   (log/fmt-debug "Memory @ ~a-~a: ~a MB" i0 (+ i0 cnt) (jvm/memory-used :MB))
   (let [xmps    (senti/instances->examples (Instances. insts i0 cnt))
         ont     (senti/populate-ontology :eval xmps solns)
-        rsnr    (senti/reason :hermit ont :no-log)              ; This will run checks!
+        rsnr    (rsn/reasoner ont)
         learned (owl-class ont senti/LEARNED-POS)               ; DL-Learner equivalent soln
         ptexts  (rsn/instances ont learned)                     ; Predicted positive texts
         np->01  #(if (contains? ptexts(individual ont %)) 1 0)] ; Index: neg=0, pos=1
@@ -62,11 +63,10 @@
 
     ;(save-ontology ont (str "/tmp/" (.relationName insts) "." i0 "+" cnt ".owl") :owl)
 
-    ;; Make sure HermiT doesn't hoard memory
-    (when-let [tbl (.getTableau rsnr)]
-      (log/debug "Clearing reasoner tableau")
-      (.clear tbl))
+    ;; Make sure HermiT doesn't hoard memory.  Tawny-OWL (as of version 2.0.3) is
+    ;; not calling dispose on the HermiT reasoner due to crashiness they've seen.
     (.dispose rsnr)
+    (rsn/discard-reasoner ont)
     (remove-ontology-maybe (.getOntologyID ont))
     dists))
 

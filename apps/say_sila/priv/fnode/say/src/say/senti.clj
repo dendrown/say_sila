@@ -38,6 +38,7 @@
             [org.semanticweb.HermiT.monitor TableauMonitorAdapter]
             [org.semanticweb.HermiT.tableau BranchingPoint
                                             Tableau]
+            [org.semanticweb.owlapi.model OWLOntology]
             [org.semanticweb.owlapi.reasoner InferenceType]
             [weka.core DenseInstance
                        Instance
@@ -276,6 +277,8 @@
 
 ;;; Create Emotions in the ontology per the configured emo-system
 (defemotions (cfg/?? :senti :emotions))
+
+(rsn/reasoner-factory :hermit)
 (defonce Affect-Fragments   (into {} (map #(let [a (iri-fragment %)]
                                              [(lower-keyword a) a])
                                            (rsn/instances Affect))))
@@ -287,6 +290,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: Put SentimentPolarity back in after we handle timing considerations
+;;;       Make sure it's moved above the HermiT Reasoner invocation.
 ;(defclass SentimentPolarity
 ;  :super   dul/Quality
 ;  :label   "Sentiment Polarity"
@@ -390,7 +394,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn make-ontology
+(defn ^OWLOntology make-ontology
   "Creates a version (copy) of the say-senti ontology, intended to include
   individuals expressing the specified Sentiment Composition Rule (SCR)"
   ([rule]
@@ -597,7 +601,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defun populate-ontology
+(defun ^OWLOntology populate-ontology
   "Populates the senti ontology using examples from the ARFFs.  The caller
   may specify an SCR identifier (keyword or string), rather than an ontology.
   If this is the case, the function will create the ontology for that rule.
