@@ -73,7 +73,7 @@
 ;;; --------------------------------------------------------------------------
 ;;; TODO: Automate solution handling
 (def ^:const SOLN-LOG       "resources/emo-sa/say-senti.solutions.edn")
-(def ^:const SOLN-WITH      #"\bdenotesAffect\b")
+(def ^:const SOLN-WITH      #"\bdenotesAffect\b|\bisPartOfSpeech\b")
 (def ^:const SOLN-WITHOUT   #"\bThing\b")
 (def ^:const LEARNED-POS    "LearnedPositiveText")  ; Equivalency class from DL-Learner results
 
