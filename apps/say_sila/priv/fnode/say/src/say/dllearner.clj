@@ -75,14 +75,24 @@
 
   clojure.lang.ASeq
   (->tawny [s]
-    ;(log/debug (log/<> "TAWNY" (count s)) s)
     (let [reorder (fn [ord]
                     (apply list (map #(->tawny (nth s %)) ord)))]
     (case (count s)
-       1 (->tawny (first s))                        ; promote (Class)
-       2 (map ->tawny s)                            ; (not (...))
-       3 (reorder [1 0 2])                          ; infix -> prefix
-       4 (reorder [1 2 0 3]))))                     ; (oprop min 5 (..))
+       1 (->tawny (first s))                            ; promote (Class)
+       2 (map ->tawny s)                                ; (not (...))
+       3 (reorder [1 0 2])                              ; infix -> prefix
+       4 (reorder [1 2 0 3])                            ; (oprop max 9 (..))
+       (let [[ops                                       ; (ind1 or ind2 or ...)
+              inds] (reduce (fn [[ops inds cnt] sym]
+                              [(if (even? cnt) (conj ops  sym) ops)     ; Collect operators
+                               (if (odd?  cnt) (conj inds sym) inds)    ; Collect individuals
+                               (inc cnt)])                              ; Enumerate symbols
+                            [[] [] 1]
+                            s)]
+         ;; All the same operator? Lispify the expression
+         (if (apply = ops)
+             (map ->tawny (conj (seq inds) (first ops)))
+             (throw (IndexOutOfBoundsException. (strfmt "TAWNY?<~a> ~a" (count s) s))))))))
 
   Object
   (->tawny [obj]
