@@ -31,7 +31,7 @@
                  [org.tartarus/snowball "1.0.0"]
                  ; Ontologies
                  [net.sourceforge.owlapi/org.semanticweb.hermit "1.4.5.456"]    ; Override Tawny's dep
-                 [uk.org.russet/tawny-owl "2.0.2"]
+                 [uk.org.russet/tawny-owl "2.0.3"]
                  [com.google.guava/guava "25.0-jre"]])                          ; OWL caching dep
 
 ;-------------------------------------------------------------------------------

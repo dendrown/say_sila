@@ -66,5 +66,15 @@
        (tawny.english/some say.dolce/hasComponent
          (tawny.english/some say.dolce/follows
            (tawny.english/some say.senti/denotesAffect
-             (tawny.english/not say.senti/Anticipation)))))))
+             (tawny.english/not say.senti/Anticipation)))))
+
+    "Text and (hasComponent some (denotesAffect some (Fear or Joy or Positive))) (pred. acc.: 64.89%, F-measure: 67.33%)"
+    '(tawny.english/and
+       say.senti/Text
+       (tawny.english/some say.dolce/hasComponent
+         (tawny.english/some say.senti/denotesAffect
+           (tawny.english/or
+             say.senti/Fear
+             say.senti/Joy
+             say.senti/Positive))))))
 
