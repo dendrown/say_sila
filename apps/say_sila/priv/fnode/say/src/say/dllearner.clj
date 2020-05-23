@@ -92,7 +92,7 @@
          ;; All the same operator? Lispify the expression
          (if (apply = ops)
              (map ->tawny (conj (seq inds) (first ops)))
-             (throw (IndexOutOfBoundsException. (strfmt "TAWNY?<~a> ~a" (count s) s))))))))
+             (throw (IllegalArgumentException. (strfmt "TAWNY?<~a> ~a" (count s) s))))))))
 
   Object
   (->tawny [obj]
