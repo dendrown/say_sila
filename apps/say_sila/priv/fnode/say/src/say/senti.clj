@@ -916,7 +916,8 @@
 ;;; --------------------------------------------------------------------------
 (defn- extend-data
   "Adds part-of-speech counts as additional attributes to a set of Instances
-  with POS-tagged text as the specified zero-based attribute (tndx)"
+  with POS-tagged text as the specified zero-based attribute (tndx).  The Weka
+  function returns the updated Instances as a convenience."
   [^Instances insts
    ^Integer   tndx]
   (let [rpos  (set/map-invert pos/POS-Fragments)                ; Reversed POS {name -> code}
@@ -936,15 +937,18 @@
     (doseq [^Instance inst (weka/instance-seq insts)]
       ;; Get counts for each POS in this Instance's text
       (let [text   (.stringValue inst tndx)
-            codes  (map #(first (str/split % #"_" 2))           ; 2) Pull code: ("A"    "P"    "D"    "N"   "N")
-                                (str/split text #" "))          ; 1) Break up :  "A_sad  P_for  D_my   N_APL N_friend"
-            counts (reduce #(update %1 %2 inc) zeros codes)]    ; 3) POS count: {"A" 1, "P" 1, "D" 1, "N" 2, ... zeros}
+            codes  (map #(first (str/split % #"_" 2))           ;[2] Pull code: ("A"    "P"    "D"    "N"   "N")
+                                (str/split text #" "))          ;[1] Break up :  "A_sad  P_for  D_my   N_APL N_friend"
+            counts (reduce #(update %1 %2 inc) zeros codes)]    ;[3] POS count: {"A" 1, "P" 1, "D" 1, "N" 2, ... zeros}
         ;; Update each Attribute for this instance with the associated count
         (run!
           (fn [[code cnt]]
             (.setValue inst (int (get attrs code))
                             (double cnt)))
-          counts)))))
+          counts)))
+
+    ;; Return the dataset as a convenience
+    insts))
 
 
 
@@ -1124,9 +1128,8 @@
         fill    (fn [used [^Instances oinsts cnts goal
                            :as data-info]]
                   (if (creation-done? cnts goal)
-                    ;; Finalize by inserting POS counts.  The used-index set is the accumulator
-                    (do (extend-data oinsts (weka/index1->0 tndx))
-                        used)
+                    ;; We're done filling the dataset.  The used-index set is the accumulator.
+                    used
                     ;; Keep pulling from the input data
                     (let [ndx (.nextInt rng icnt)]
                       (if (contains? used ndx)
@@ -1145,11 +1148,13 @@
                                                 goal]))))))))
 
         wfilter (fn [data tt]
-                  ;; Move the class index last
-                  ;; TODO: Check if we can do this for non-weka ARFFs as well...
-                  (let [reorder (Reorder.)
+                  ;; Finalize the dataset for Weka
+                  (let [emote   (tw/make-lexicon-filter lex tndx)
+                        reorder (Reorder.)
                         insts*  (-> (data tt)
-                                    (weka/filter-instances reorder reattr))]
+                                    (weka/filter-instances emote)               ; FIXME RE-running lexicon!
+                                    (extend-data (weka/index1->0 tndx))         ; Insert POS counts
+                                    (weka/filter-instances reorder reattr))]    ; Remove text & put class last
                     (assoc data tt insts*)))]
 
     ;; Fill up the datasets with random instances from the input set
