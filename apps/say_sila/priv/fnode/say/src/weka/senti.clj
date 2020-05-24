@@ -30,7 +30,7 @@
 (set! *warn-on-reflection* true)
 (rsn/reasoner-factory :hermit)
 
-(def ^:const SLICE-CNT  5)                  ; Small batches are generally faster
+(def ^:const SLICE-CNT  10)                 ; Small batches are generally faster
 
 
 ;;; --------------------------------------------------------------------------
