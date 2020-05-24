@@ -420,6 +420,7 @@
                                 "expresses positive sentiment."))
 
         add-dl (fn [n expr]
+                 (log/fmt-info "LEARNED<~a>: ~a" n expr)
                  (owl-class ont (str LEARNED-POS "-" n)
                    :super dltext
                    :equivalent (eval expr))

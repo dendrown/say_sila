@@ -110,25 +110,28 @@
   reports after the rule are incorporated in the metadata of the returned
   expression.  If the input text is a comment (starts with a semicolon), the
   function returns nil."
-  [text]
-  ;; Check for comments explicitly as we'll be adding parens before calling Lisp
-  (when (not= \; (first (str/triml text)))
-    ;; Tame and lispify the DL-Learner output string
-    (let [soln (read-string (str \(
-                                 (reduce (fn [txt [re k]]
-                                           (str/replace txt re k))
-                                          text
-                                          [[#"accuracy"    ":acc"]    ; OCEL  stats
-                                           [#"pred. acc.:" ":acc"]    ; CELOE stats
-                                           [#"F-measure:"  ":f1"]
-                                           [#"%"           ""]])
-                                 \) ))
-          [rule
-           stats] (butlast-last soln)]
+  [line]
+  (let [text (str/triml line)]
+    ;; Check for comments explicitly as we'll be adding parens before calling Lisp
+    (when (and (not-empty text)
+               (not= \; (first text)))
+      ;; Tame and lispify the DL-Learner output string
+      (let [soln (read-string (str \(
+                                   (reduce (fn [txt [re k]]
+                                             (str/replace txt re k))
+                                            text
+                                            [[#"accuracy"    ":acc"]    ; OCEL  stats
+                                             [#"pred. acc.:" ":acc"]    ; CELOE stats
+                                             [#"F-measure:"  ":f1"]
+                                             [#"%"           ""]])
+                                   \) ))
+            [rule
+             stats] (butlast-last soln)]
 
-      ;; Tawnyize the rule and attach its metadata
-      (with-meta (->tawny rule)
-                 (update-keys (partition 2 stats) keyword)))))
+        ;; Tawnyize the rule and attach its metadata
+        (log/info "RULE:" rule)
+        (with-meta (->tawny rule)
+                   (update-keys (partition 2 stats) keyword))))))
 
 
 
