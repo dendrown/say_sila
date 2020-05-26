@@ -64,6 +64,7 @@
                          :weka          "resources/emo-sa/sentiment-analysis.Sentiment140.weka.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
+(def ^:const COL-CLASS  2)
 
 (def ^:const PREFIXES   {"senti"    ONT-IRI
                          "pos"      pos/ONT-IRI})
@@ -898,9 +899,14 @@
   ([]
   (Instances. ^Instances Base-Instances 0))
 
+
   ([tag]
-  (let [insts (rebase-data)
-        rname (str (.relationName ^Instances Base-Instances)
+  (rebase-data tag Base-Instances))
+
+
+  ([tag base]
+  (let [insts (Instances. ^Instances base 0)
+        rname (str (.relationName ^Instances base)
                    (name tag))]
     (.setRelationName ^Instances insts rname)
     insts)))
@@ -911,9 +917,13 @@
 (defn rebase-data->hashmap
   "Creates a hashmap with the specified keys where every value is a Weka
   Instances object the say-senti base structure."
-  [tags]
-  (into {} (map #(vector % (rebase-data %))
-                tags)))
+  ([tags]
+  (rebase-data->hashmap tags Base-Instances))
+
+
+  ([tags data]
+  (into {} (map #(vector % (rebase-data % data))
+                tags))))
 
 
 
@@ -957,31 +967,56 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn add-instance
-  "Make a instance for a sentiment analysis ARFF dataset.
+(defn- ^Instance init-instance
+  "Creates an instance for a sentiment analysis ARFF dataset, setting the
+  first three attributes (id, text, sentiment).  The new Instance is set as
+  belonging to the specified dataset, but the function does *NOT* add it to
+  that dataset."
+  ([^Instances  oinsts
+    ^Instance   iinst]
+  ;; There may be more, but we're just handling the three always-present attributes
+  (init-instance oinsts (.value       iinst COL-ID)
+                        (.stringValue iinst COL-TEXT)
+                        (.value       iinst COL-CLASS)))
 
-  NOTE: The format is defined buy (ARFFs :base) and hardcoded here!"
-  ([^Instances  insts
-    ^Instance   i]
-  ;; Extract the values from the sample instance
-  (add-instance insts
-                (.value       i 0)
-                (.stringValue i 1)
-                (.value       i 2)))
 
-  ([^Instances  insts
+  ([^Instances  oinsts
     ^Double     id
     ^String     text
     ^Double     sentiment]
-  ;; Create an instance from values, append it to the dataset & return it
-  (let [i (doto (DenseInstance. (.numAttributes (base-data)))
-                (.setDataset insts)
-                (.setValue 0 id)
-                (.setValue 1 text)
-                (.setValue 2 sentiment))]                       ; 0.0=neg, 1.0=pos
-    (.add insts i)
-    i)))
+  ;; Create the new Instance and link (but don't add) it to the dataset
+  (doto (DenseInstance. (.numAttributes oinsts))
+        (.setDataset oinsts)
+        (.setValue COL-ID    id)
+        (.setValue COL-TEXT  text)
+        (.setValue COL-CLASS sentiment))))          ; 0.0=neg, 1.0=pos
 
+
+
+;;; --------------------------------------------------------------------------
+(defn add-instance
+  "Make a instance for a sentiment analysis ARFF dataset.  The first three
+  attributes must match those of the base dataset (id, text, sentiment)."
+  ([^Instances  oinsts
+    ^Instance   iinst]
+  ;; Start with the base three attributes...
+  (let [oinst (init-instance oinsts iinst)]
+    ;; Copy the remaining attributes
+    (doseq [^Long i (range (inc COL-CLASS)
+                           (.numAttributes oinsts))]
+      (.setValue oinst i (.value iinst i)))
+    (.add oinsts oinst)
+    oinst))
+
+
+  ([^Instances  oinsts
+    ^Double     id
+    ^String     text
+    ^Double     sentiment]
+  ;; We're just handling the three always-present attributes
+  (let [oinst (init-instance oinsts id text sentiment)]
+    (.add oinsts oinst)
+    oinst)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -1075,9 +1110,8 @@
 
   ([dtag]
   ;; Pull what we need from the config before creating the cnt datasets
-  (let [{:keys  [all-data? data-split lexicon text-index]
+  (let [{:keys  [all-data? data-split text-index]
          :or    {data-split INIT-DATA-SPLIT
-                 lexicon    INIT-LEX-TAG
                  text-index INIT-TEXT-INDEX}}     (cfg/? :senti)
         {:keys  [datasets parts train rand-seed]} data-split
         target  (inc (.classIndex (base-data)))                 ; 1-based dependent attribute index
@@ -1088,7 +1122,7 @@
       (domap
         (fn [n]
           (let [rseed    (+ rand-seed n)
-                trn-tst  (split-data dtag rseed all-data? lexicon text-index reattr)
+                trn-tst  (split-data dtag rseed all-data? text-index reattr)
                 arffs    (if (= dtag :weka)
                              ;; That's all the Weka Experimenter needs
                              trn-tst
@@ -1117,7 +1151,7 @@
         (range datasets)))))
 
 
-  ([dtag seed all? lex tndx reattr]
+  ([dtag seed all? tndx reattr]
   ;; This is the workhorse clause.  It is not meant to be called directly
   (let [rtag    (str "r" seed)
         goals   (split-pn-goals dtag)
@@ -1127,7 +1161,7 @@
         iinsts  (weka/load-arff ipath (which-target))
         icnt    (.numInstances iinsts)
 
-        dsets   (atom (rebase-data->hashmap SPLIT-TAGS))
+        dsets   (atom (rebase-data->hashmap SPLIT-TAGS iinsts))
         rng     (Random. seed)
         fill    (fn [used [^Instances oinsts cnts goal
                            :as data-info]]
@@ -1153,10 +1187,8 @@
 
         wfilter (fn [data tt]
                   ;; Finalize the dataset for Weka
-                  (let [emote   (tw/make-lexicon-filter lex tndx)
-                        reorder (Reorder.)
+                  (let [reorder (Reorder.)
                         insts*  (-> (data tt)
-                                    (weka/filter-instances emote)               ; FIXME RE-running lexicon!
                                     (extend-data (weka/index1->0 tndx))         ; Insert POS counts
                                     (weka/filter-instances reorder reattr))]    ; Remove text & put class last
                     (assoc data tt insts*)))]
