@@ -27,6 +27,7 @@
             [clojure.pprint     :refer [pp pprint]]
             [defun.core         :refer [defun]]
             [tawny.english      :as dl]
+            [tawny.read         :as rd]
             [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                           ; <= DEBUG
             [tawny.owl          :refer :all])
@@ -590,7 +591,14 @@
                 (run! (fn [tok]
                         (refine ont curr :fact (is dul/follows tok))
                         (refine ont tok  :fact (is dul/precedes curr)))
-                      tokens)))
+                      tokens))
+
+                ;; TODO: This is SCR prototypical code.  Integrate it into the module if it's successful.
+                (when (= 'NEGATION (check-fact prev indicatesRule))
+                  (doseq [aff (filter affect? rules)]
+                    (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
+                    (refine ont prev :fact (is negatesAffect (individual say-senti aff)))
+                    )))
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
@@ -657,6 +665,7 @@
     xmps
     learned
     sconf]
+  (log/info "Creating ontology:" ont)
   (populate-ontology (make-ontology ont learned) xmps learned sconf))
 
 

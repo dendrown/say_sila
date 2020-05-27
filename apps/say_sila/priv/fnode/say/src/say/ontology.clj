@@ -198,8 +198,8 @@
                            [(== prop piri)]         ; Imported ontology
                            [(== prop pname)]))))]   ; Another namespace
   (cond
-    (symbol? value)   value
-    (not-empty value) (apply hash-map value))))
+    (symbol? value)   value                         ; obj. property
+    (not-empty value) (apply hash-map value))))     ; data property
 
 
 
