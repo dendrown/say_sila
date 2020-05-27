@@ -594,11 +594,11 @@
                       tokens))
 
                 ;; TODO: This is SCR prototypical code.  Integrate it into the module if it's successful.
-                (when (= 'NEGATION (check-fact prev indicatesRule))
-                  (doseq [aff (filter affect? rules)]
-                    (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
-                    (refine ont prev :fact (is negatesAffect (individual say-senti aff)))
-                    )))
+                (binding [*ns* (find-ns 'say.senti)]
+                  (when (= 'NEGATION (check-fact prev indicatesRule))
+                    (doseq [aff (filter affect? rules)]
+                      (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
+                      (refine ont prev :fact (is negatesAffect (individual say-senti aff)))))))
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
