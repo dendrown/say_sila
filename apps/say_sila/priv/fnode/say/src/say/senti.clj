@@ -188,75 +188,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; Sentiment Composition Rules (SCR):
-;;; \ref{bing2015}
-;;;
-;;; Note that we will be creating individual say-senti-RULE ontologies which
-;;; include the individuals (Texts) from the training corpus which express
-;;; a given rule.  However, it is in this, the main say-senti ontology, that
-;;; all the SCRs are defined.
-(defclass SentimentCompositionRule
-  :super   dul/Concept
-  :label   "Sentiment Composition Rule"
-  :comment (str "An abstraction describing a Text or portion of a Text according to its
-                 positive or negative contribution to the polarity of that Text."))
-
-(defmacro defscr
-  "Adds a Sentiment Composition Rule (component) subclass to the say-senti ontology"
-  [tag descr]
-  `(do (defclass ~tag
-         :super   SentimentCompositionRule
-         :label   (str "Sentiment Composition Rule - " (name '~tag))
-         :comment ~descr)
-       (defpun ~tag)))
-
-;; FIXME Reclassify P/N and emotions if we're not going to use other Liu's SCRs
-(defscr P "An atomic, nonterminal sentiment composition expressing positive sentiment.")
-(defscr N "An atomic, nonterminal sentiment composition expressing negative sentiment.")
-
-(when (cfg/?? :senti :use-scr?)
-  ;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
-  (log/notice "Creating Sentiment Composition Rules")
-  ;(defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
-  ;(defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
-  ;(defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
-  ;(defscr INCREASE-P  "Expressions which increase PPI and PO terms.")
-  (defscr NEGATION    "Expressions which negate other terms."))
-
-(defoproperty indicatesRule
-  :super    dul/expresses
-  :label    "indicates rule"
-  :domain   pos/Token
-  :range    SentimentCompositionRule
-  :comment  "A relationship between a Token and the sentiment composition rule it expresses.")
-
-
-;;; --------------------------------------------------------------------------
-;;; TODO: Put SentimentPolarity back in after we handle timing considerations
-;(defclass SentimentPolarity
-;  :super   dul/Quality
-;  :label   "Sentiment Polarity"
-;  :comment "A Quality describing an Information Object's expression as positive, negative, or neutral.")
-;
-;(as-subclasses SentimentPolarity
-;  :disjoint
-;  (defclass PositiveSentimentPolarity
-;    :label   "Positive Sentiment Polarity"
-;    :comment "A Sentiment Polarity expressing positive sentiment")
-;  (defclass NegativeSentimentPolarity
-;    :label   "Negative Sentiment Polarity"
-;    :comment "A Sentiment Polarity expressing negative sentiment"))
-;(defpun PositiveSentimentPolarity)
-;(defpun NegativeSentimentPolarity)
-;
-;(defoproperty hasPolarity
-;  :super    dul/hasQuality
-;  :label    "has Polarity"
-;  :domain   dul/InformationObject
-;  :range    SentimentPolarity)
-
-
-;;; --------------------------------------------------------------------------
 (defclass Affect
   :super    dul/Concept
   :label    "Affect"
@@ -328,20 +259,90 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defclass AffectNegator
-  :super    pos/Token
-  :label    "Affect Negator"
-  :equivalent (dl/and pos/Token
-                      (dl/some indicatesRule NEGATION)
-                      (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
+;;; Sentiment Composition Rules (SCR):
+;;; \ref{bing2015}
+;;;
+;;; Note that we will be creating individual say-senti-RULE ontologies which
+;;; include the individuals (Texts) from the training corpus which express
+;;; a given rule.  However, it is in this, the main say-senti ontology, that
+;;; all the SCRs are defined.
+(defclass SentimentCompositionRule
+  :super   dul/Concept
+  :label   "Sentiment Composition Rule"
+  :comment (str "An abstraction describing a Text or portion of a Text according to its
+                 positive or negative contribution to the polarity of that Text."))
 
-(defoproperty negatesAffect
+
+(defoproperty indicatesRule
   :super    dul/expresses
-  :label    "negates affect"
-  :domain   AffectNegator
-  :range    Affect)
+  :label    "indicates rule"
+  :domain   pos/Token
+  :range    SentimentCompositionRule
+  :comment  "A relationship between a Token and the sentiment composition rule it expresses.")
 
 
+(defmacro defscr
+  "Adds a Sentiment Composition Rule (component) subclass to the say-senti ontology"
+  [tag descr]
+  `(do (defclass ~tag
+         :super   SentimentCompositionRule
+         :label   (str "Sentiment Composition Rule - " (name '~tag))
+         :comment ~descr)
+       (defpun ~tag)))
+
+;; FIXME Reclassify P/N and emotions if we're not going to use other Liu's SCRs
+(defscr P "An atomic, nonterminal sentiment composition expressing positive sentiment.")
+(defscr N "An atomic, nonterminal sentiment composition expressing negative sentiment.")
+
+(when (cfg/?? :senti :use-scr?)
+  ;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
+  (log/notice "Creating Sentiment Composition Rules")
+  ;(defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
+  ;(defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
+  ;(defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
+  ;(defscr INCREASE-P  "Expressions which increase PPI and PO terms.")
+  (defscr NEGATION    "Expressions which negate other terms.")
+
+  (defclass AffectNegator
+    :super    pos/Token
+    :label    "Affect Negator"
+    :equivalent (dl/and pos/Token
+                        (dl/some indicatesRule NEGATION)
+                        (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
+
+  (defoproperty negatesAffect
+    :super    dul/expresses
+    :label    "negates affect"
+    :domain   AffectNegator
+    :range    Affect))
+
+
+;;; --------------------------------------------------------------------------
+;;; TODO: Put SentimentPolarity back in after we handle timing considerations
+;(defclass SentimentPolarity
+;  :super   dul/Quality
+;  :label   "Sentiment Polarity"
+;  :comment "A Quality describing an Information Object's expression as positive, negative, or neutral.")
+;
+;(as-subclasses SentimentPolarity
+;  :disjoint
+;  (defclass PositiveSentimentPolarity
+;    :label   "Positive Sentiment Polarity"
+;    :comment "A Sentiment Polarity expressing positive sentiment")
+;  (defclass NegativeSentimentPolarity
+;    :label   "Negative Sentiment Polarity"
+;    :comment "A Sentiment Polarity expressing negative sentiment"))
+;(defpun PositiveSentimentPolarity)
+;(defpun NegativeSentimentPolarity)
+;
+;(defoproperty hasPolarity
+;  :super    dul/hasQuality
+;  :label    "has Polarity"
+;  :domain   dul/InformationObject
+;  :range    SentimentPolarity)
+
+
+;;; --------------------------------------------------------------------------
 ;;; Tell DL-Learner about our ontology elements
 (dll/register-ns)
 
@@ -534,7 +535,7 @@
 
   ([ont clue
     {:keys [content id polarity pos-tags rules]}    ; Text (tweet) breakdown
-    {:keys [full-links? pos-neg?]}]                 ; Senti-configuration
+    {:keys [full-links? pos-neg? use-scr?]}]        ; Senti-configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (label-text id)
@@ -594,11 +595,12 @@
                       tokens))
 
                 ;; TODO: This is SCR prototypical code.  Integrate it into the module if it's successful.
-                (binding [*ns* (find-ns 'say.senti)]
-                  (when (= 'NEGATION (check-fact prev indicatesRule))
-                    (doseq [aff (filter affect? rules)]
-                      (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
-                      (refine ont prev :fact (is negatesAffect (individual say-senti aff)))))))
+                (when use-scr?
+                  (binding [*ns* (find-ns 'say.senti)]
+                    (when (= 'NEGATION (check-fact prev indicatesRule))
+                      (doseq [aff (filter affect? rules)]
+                        (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
+                        (refine ont prev :fact (is negatesAffect (individual say-senti aff))))))))
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
