@@ -49,6 +49,7 @@
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
+(rsn/reasoner-factory :hermit)
 
 (def ^:const ONT-ISTUB  "http://www.dendrown.net/uqam/say-senti")
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-senti.owl#")
@@ -110,17 +111,19 @@
 
 (defonce Expressions    (if (cfg/?? :senti :use-scr?)
                             ;; Word sets which invoke Sentiment Composition Rules
-                            {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
-                                              "resolve" "soothe" "subside" "waive"}
+                            {"NEGATION"     #{"not"}
+                            ;"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
+                            ;                 "resolve" "soothe" "subside" "waive"}
 
-                             "DECREASE-P"   #{"lack" "lose" "omit" "miss"}
-                             "INCREASE-N"   #{"burst" "climb" "escalate" "intensify"
-                                             ; 2-grams: "go up" "grow" "mark up" "pile up"
-                                             }
-                             "INCREASE-P"   #{"elevate" "enlarge" "expand" "extend" "increase" "progress"
-                                              "raise" "return" "rise" "soar" "surge"
-                                             ; 2-grams: "be up" "build up" "come back"
-                                             }}
+                            ;"DECREASE-P"   #{"lack" "lose" "omit" "miss"}
+                            ;"INCREASE-N"   #{"burst" "climb" "escalate" "intensify"
+                            ;                ; 2-grams: "go up" "grow" "mark up" "pile up"
+                            ;                }
+                            ;"INCREASE-P"   #{"elevate" "enlarge" "expand" "extend" "increase" "progress"
+                            ;                 "raise" "return" "rise" "soar" "surge"
+                            ;                ; 2-grams: "be up" "build up" "come back"
+                            ;                }
+                            }
                             ;; Disable all Rules
                             {}))
 
@@ -213,10 +216,43 @@
 (when (cfg/?? :senti :use-scr?)
   ;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
   (log/notice "Creating Sentiment Composition Rules")
-  (defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
-  (defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
-  (defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
-  (defscr INCREASE-P  "Expressions which increase PPI and PO terms."))
+  ;(defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
+  ;(defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
+  ;(defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
+  ;(defscr INCREASE-P  "Expressions which increase PPI and PO terms.")
+  (defscr NEGATION    "Expressions which negate other terms."))
+
+(defoproperty indicatesRule
+  :super    dul/expresses
+  :label    "indicates rule"
+  :domain   pos/Token
+  :range    SentimentCompositionRule
+  :comment  "A relationship between a Token and the sentiment composition rule it expresses.")
+
+
+;;; --------------------------------------------------------------------------
+;;; TODO: Put SentimentPolarity back in after we handle timing considerations
+;(defclass SentimentPolarity
+;  :super   dul/Quality
+;  :label   "Sentiment Polarity"
+;  :comment "A Quality describing an Information Object's expression as positive, negative, or neutral.")
+;
+;(as-subclasses SentimentPolarity
+;  :disjoint
+;  (defclass PositiveSentimentPolarity
+;    :label   "Positive Sentiment Polarity"
+;    :comment "A Sentiment Polarity expressing positive sentiment")
+;  (defclass NegativeSentimentPolarity
+;    :label   "Negative Sentiment Polarity"
+;    :comment "A Sentiment Polarity expressing negative sentiment"))
+;(defpun PositiveSentimentPolarity)
+;(defpun NegativeSentimentPolarity)
+;
+;(defoproperty hasPolarity
+;  :super    dul/hasQuality
+;  :label    "has Polarity"
+;  :domain   dul/InformationObject
+;  :range    SentimentPolarity)
 
 
 ;;; --------------------------------------------------------------------------
@@ -230,7 +266,7 @@
   :label    "denotes affect"
   :domain   pos/Token
   :range    Affect
-  :comment  "A relationship between a Text and the affect it expresses.")
+  :comment  "A relationship between a Token and the affect it expresses.")
 
 ;;; TODO: Resolve the discrepancy between pos/neg sentiment Affect and the P/N SCRs
 ;;;       Also, these affect concepts should use noun forms (Positivity and Negativity),
@@ -280,7 +316,6 @@
 ;;; Create Emotions in the ontology per the configured emo-system
 (defemotions (cfg/?? :senti :emotions))
 
-(rsn/reasoner-factory :hermit)
 (defonce Affect-Fragments   (into {} (map #(let [a (iri-fragment %)]
                                              [(lower-keyword a) a])
                                            (rsn/instances Affect))))
@@ -290,30 +325,21 @@
 ;;; to handle equivalency classes based on the complement of a given Aspect.
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
+
 ;;; --------------------------------------------------------------------------
-;;; TODO: Put SentimentPolarity back in after we handle timing considerations
-;;;       Make sure it's moved above the HermiT Reasoner invocation.
-;(defclass SentimentPolarity
-;  :super   dul/Quality
-;  :label   "Sentiment Polarity"
-;  :comment "A Quality describing an Information Object's expression as positive, negative, or neutral.")
-;
-;(as-subclasses SentimentPolarity
-;  :disjoint
-;  (defclass PositiveSentimentPolarity
-;    :label   "Positive Sentiment Polarity"
-;    :comment "A Sentiment Polarity expressing positive sentiment")
-;  (defclass NegativeSentimentPolarity
-;    :label   "Negative Sentiment Polarity"
-;    :comment "A Sentiment Polarity expressing negative sentiment"))
-;(defpun PositiveSentimentPolarity)
-;(defpun NegativeSentimentPolarity)
-;
-;(defoproperty hasPolarity
-;  :super    dul/hasQuality
-;  :label    "has Polarity"
-;  :domain   dul/InformationObject
-;  :range    SentimentPolarity)
+(defclass AffectNegator
+  :super    pos/Token
+  :label    "Affect Negator"
+  :equivalent (dl/and pos/Token
+                      (dl/some indicatesRule NEGATION)
+                      (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
+
+(defoproperty negatesAffect
+  :super    dul/expresses
+  :label    "negates affect"
+  :domain   AffectNegator
+  :range    Affect)
+
 
 ;;; Tell DL-Learner about our ontology elements
 (dll/register-ns)
@@ -518,7 +544,16 @@
                               Text)
                     :annotation (annotation TextualContent
                                             (apply str (interpose " " content))))
-          express #(refine ont %1 :fact (is denotesAffect (individual say-senti %2)))]
+          affect? #(contains? Affect-Names %)
+          express (fn [ttid token concept]
+                    (let [prop (if (affect? concept)
+                                   denotesAffect
+                                   indicatesRule)]
+                      ;; Report the real SCR rules (not P|N because there are too many)
+                      (when (= prop indicatesRule)
+                        (log/debug "Tweet token" ttid "expresses" concept))
+
+                      (refine ont token :fact (is prop (individual say-senti concept)))))]
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
@@ -559,10 +594,7 @@
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
-              ;; Report the real SCR rules (not P|N because there are too many)
-              (when-not (contains? Affect-Names rule)
-                (log/debug "Tweet token" ttid "expresses" rule))
-              (express curr rule))
+              (express ttid curr rule))
 
             ;; Continue the reduction
             [(inc cnt)
