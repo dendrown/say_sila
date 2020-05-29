@@ -197,8 +197,10 @@
                            [(== prop psym)]         ; Current namespace
                            [(== prop piri)]         ; Imported ontology
                            [(== prop pname)]))))]   ; Another namespace
-  (when-not (empty? value)
-    (apply hash-map value))))
+  (cond
+    (symbol? value)   value                         ; obj. property
+    (not-empty value) (apply hash-map value))))     ; data property
+
 
 
 (defmacro check-fact

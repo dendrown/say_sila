@@ -19,6 +19,7 @@
             [say.log            :as log]
             [say.social         :as soc]
             [clojure.string     :as str]
+            [clojure.pprint     :refer [pp pprint]]
             [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                       ; <= DEBUG
             [tawny.owl          :refer :all]))
@@ -117,20 +118,25 @@
 (defpos Other                    "G" (str "abbreviations, foreign words, possessive endings, "
                                           "symbols, or garbage (FW,POS,SYM,LS)"))
 
-
 ;;; Tell DL-Learner about our ontology elements
 (dll/register-ns)
 
 
 ;;; --------------------------------------------------------------------------
 (rsn/reasoner-factory :hermit)
-(defonce POS (rsn/instances (get-domain cmu-pos hasPartOfSpeechTag)))  ; Collect for lookup
+(defonce POS            (rsn/instances PartOfSpeech))           ; Collect for lookup
+(defonce POS-Fragments  (into {} (map #(vector (:literal (check-fact % hasPartOfSpeechTag))
+                                               (iri-fragment %))
+                                      POS)))
 
 
 ;;; --------------------------------------------------------------------------
 (defn lookup
   "Returns the PartOfSpeech entity corresponding to the specified tag.
-  NOTE: You probably want to use the (equivalent) memoized lookup# function."
+
+  NOTES:
+    - You probably want to use the (equivalent) memoized lookup# function.
+    - The precomputed POS-Fragments map is an option if you need the POS name."
   [tag]
   (when-not (contains? (cfg/?? :cmu-pos :ignore) tag)
 

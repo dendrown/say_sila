@@ -27,27 +27,30 @@
             [clojure.pprint     :refer [pp pprint]]
             [defun.core         :refer [defun]]
             [tawny.english      :as dl]
+            [tawny.read         :as rd]
             [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                           ; <= DEBUG
             [tawny.owl          :refer :all])
-  (:import  [java.util Random]
-            [org.semanticweb.HermiT Configuration
+  (:import  (java.util Random)
+            (org.semanticweb.HermiT Configuration
                                     Configuration$TableauMonitorType
                                     Prefixes
-                                    Reasoner]
-            [org.semanticweb.HermiT.monitor TableauMonitorAdapter]
-            [org.semanticweb.HermiT.tableau BranchingPoint
-                                            Tableau]
-            [org.semanticweb.owlapi.model OWLOntology]
-            [org.semanticweb.owlapi.reasoner InferenceType]
-            [weka.core DenseInstance
+                                    Reasoner)
+            (org.semanticweb.HermiT.monitor TableauMonitorAdapter)
+            (org.semanticweb.HermiT.tableau BranchingPoint
+                                            Tableau)
+            (org.semanticweb.owlapi.model OWLOntology)
+            (org.semanticweb.owlapi.reasoner InferenceType)
+            (weka.core Attribute
+                       DenseInstance
                        Instance
-                       Instances]
-            [weka.filters.unsupervised.attribute Reorder]))
+                       Instances)
+            (weka.filters.unsupervised.attribute Reorder)))
 
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
+(rsn/reasoner-factory :hermit)
 
 (def ^:const ONT-ISTUB  "http://www.dendrown.net/uqam/say-senti")
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-senti.owl#")
@@ -63,6 +66,7 @@
                          :weka          "resources/emo-sa/sentiment-analysis.Sentiment140.weka.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
+(def ^:const COL-CLASS  2)
 
 (def ^:const PREFIXES   {"senti"    ONT-IRI
                          "pos"      pos/ONT-IRI})
@@ -108,17 +112,19 @@
 
 (defonce Expressions    (if (cfg/?? :senti :use-scr?)
                             ;; Word sets which invoke Sentiment Composition Rules
-                            {"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
-                                              "resolve" "soothe" "subside" "waive"}
+                            {"NEGATION"     #{"not"}
+                            ;"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
+                            ;                 "resolve" "soothe" "subside" "waive"}
 
-                             "DECREASE-P"   #{"lack" "lose" "omit" "miss"}
-                             "INCREASE-N"   #{"burst" "climb" "escalate" "intensify"
-                                             ; 2-grams: "go up" "grow" "mark up" "pile up"
-                                             }
-                             "INCREASE-P"   #{"elevate" "enlarge" "expand" "extend" "increase" "progress"
-                                              "raise" "return" "rise" "soar" "surge"
-                                             ; 2-grams: "be up" "build up" "come back"
-                                             }}
+                            ;"DECREASE-P"   #{"lack" "lose" "omit" "miss"}
+                            ;"INCREASE-N"   #{"burst" "climb" "escalate" "intensify"
+                            ;                ; 2-grams: "go up" "grow" "mark up" "pile up"
+                            ;                }
+                            ;"INCREASE-P"   #{"elevate" "enlarge" "expand" "extend" "increase" "progress"
+                            ;                 "raise" "return" "rise" "soar" "surge"
+                            ;                ; 2-grams: "be up" "build up" "come back"
+                            ;                }
+                            }
                             ;; Disable all Rules
                             {}))
 
@@ -182,42 +188,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; Sentiment Composition Rules (SCR):
-;;; \ref{bing2015}
-;;;
-;;; Note that we will be creating individual say-senti-RULE ontologies which
-;;; include the individuals (Texts) from the training corpus which express
-;;; a given rule.  However, it is in this, the main say-senti ontology, that
-;;; all the SCRs are defined.
-(defclass SentimentCompositionRule
-  :super   dul/Concept
-  :label   "Sentiment Composition Rule"
-  :comment (str "An abstraction describing a Text or portion of a Text according to its
-                 positive or negative contribution to the polarity of that Text."))
-
-(defmacro defscr
-  "Adds a Sentiment Composition Rule (component) subclass to the say-senti ontology"
-  [tag descr]
-  `(do (defclass ~tag
-         :super   SentimentCompositionRule
-         :label   (str "Sentiment Composition Rule - " (name '~tag))
-         :comment ~descr)
-       (defpun ~tag)))
-
-;; FIXME Reclassify P/N and emotions if we're not going to use other Liu's SCRs
-(defscr P "An atomic, nonterminal sentiment composition expressing positive sentiment.")
-(defscr N "An atomic, nonterminal sentiment composition expressing negative sentiment.")
-
-(when (cfg/?? :senti :use-scr?)
-  ;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
-  (log/notice "Creating Sentiment Composition Rules")
-  (defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
-  (defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
-  (defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
-  (defscr INCREASE-P  "Expressions which increase PPI and PO terms."))
-
-
-;;; --------------------------------------------------------------------------
 (defclass Affect
   :super    dul/Concept
   :label    "Affect"
@@ -228,7 +198,7 @@
   :label    "denotes affect"
   :domain   pos/Token
   :range    Affect
-  :comment  "A relationship between a Text and the affect it expresses.")
+  :comment  "A relationship between a Token and the affect it expresses.")
 
 ;;; TODO: Resolve the discrepancy between pos/neg sentiment Affect and the P/N SCRs
 ;;;       Also, these affect concepts should use noun forms (Positivity and Negativity),
@@ -278,7 +248,6 @@
 ;;; Create Emotions in the ontology per the configured emo-system
 (defemotions (cfg/?? :senti :emotions))
 
-(rsn/reasoner-factory :hermit)
 (defonce Affect-Fragments   (into {} (map #(let [a (iri-fragment %)]
                                              [(lower-keyword a) a])
                                            (rsn/instances Affect))))
@@ -288,9 +257,68 @@
 ;;; to handle equivalency classes based on the complement of a given Aspect.
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
+
+;;; --------------------------------------------------------------------------
+;;; Sentiment Composition Rules (SCR):
+;;; \ref{bing2015}
+;;;
+;;; Note that we will be creating individual say-senti-RULE ontologies which
+;;; include the individuals (Texts) from the training corpus which express
+;;; a given rule.  However, it is in this, the main say-senti ontology, that
+;;; all the SCRs are defined.
+(defclass SentimentCompositionRule
+  :super   dul/Concept
+  :label   "Sentiment Composition Rule"
+  :comment (str "An abstraction describing a Text or portion of a Text according to its
+                 positive or negative contribution to the polarity of that Text."))
+
+
+(defoproperty indicatesRule
+  :super    dul/expresses
+  :label    "indicates rule"
+  :domain   pos/Token
+  :range    SentimentCompositionRule
+  :comment  "A relationship between a Token and the sentiment composition rule it expresses.")
+
+
+(defmacro defscr
+  "Adds a Sentiment Composition Rule (component) subclass to the say-senti ontology"
+  [tag descr]
+  `(do (defclass ~tag
+         :super   SentimentCompositionRule
+         :label   (str "Sentiment Composition Rule - " (name '~tag))
+         :comment ~descr)
+       (defpun ~tag)))
+
+;; FIXME Reclassify P/N and emotions if we're not going to use other Liu's SCRs
+(defscr P "An atomic, nonterminal sentiment composition expressing positive sentiment.")
+(defscr N "An atomic, nonterminal sentiment composition expressing negative sentiment.")
+
+(when (cfg/?? :senti :use-scr?)
+  ;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
+  (log/notice "Creating Sentiment Composition Rules")
+  ;(defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
+  ;(defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
+  ;(defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
+  ;(defscr INCREASE-P  "Expressions which increase PPI and PO terms.")
+  (defscr NEGATION    "Expressions which negate other terms.")
+
+  (defclass AffectNegator
+    :super    pos/Token
+    :label    "Affect Negator"
+    :equivalent (dl/and pos/Token
+                        (dl/some indicatesRule NEGATION)
+                        (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
+
+  (defoproperty negatesAffect
+    :super    dul/expresses
+    :label    "negates affect"
+    :domain   AffectNegator
+    :range    Affect))
+
+
 ;;; --------------------------------------------------------------------------
 ;;; TODO: Put SentimentPolarity back in after we handle timing considerations
-;;;       Make sure it's moved above the HermiT Reasoner invocation.
 ;(defclass SentimentPolarity
 ;  :super   dul/Quality
 ;  :label   "Sentiment Polarity"
@@ -313,6 +341,8 @@
 ;  :domain   dul/InformationObject
 ;  :range    SentimentPolarity)
 
+
+;;; --------------------------------------------------------------------------
 ;;; Tell DL-Learner about our ontology elements
 (dll/register-ns)
 
@@ -506,7 +536,7 @@
 
   ([ont clue
     {:keys [content id polarity pos-tags rules]}    ; Text (tweet) breakdown
-    {:keys [full-links? pos-neg?]}]                 ; Senti-configuration
+    {:keys [full-links? pos-neg? use-scr?]}]        ; Senti-configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (label-text id)
@@ -517,7 +547,16 @@
                               Text)
                     :annotation (annotation TextualContent
                                             (apply str (interpose " " content))))
-          express #(refine ont %1 :fact (is denotesAffect (individual say-senti %2)))]
+          affect? #(contains? Affect-Names %)
+          express (fn [ttid token concept]
+                    (let [prop (if (affect? concept)
+                                   denotesAffect
+                                   indicatesRule)]
+                      ;; Report the real SCR rules (not P|N because there are too many)
+                      (when (= prop indicatesRule)
+                        (log/debug "Tweet token" ttid "expresses" concept))
+
+                      (refine ont token :fact (is prop (individual say-senti concept)))))]
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
@@ -554,14 +593,19 @@
                 (run! (fn [tok]
                         (refine ont curr :fact (is dul/follows tok))
                         (refine ont tok  :fact (is dul/precedes curr)))
-                      tokens)))
+                      tokens))
+
+                ;; TODO: This is SCR prototypical code.  Integrate it into the module if it's successful.
+                (when use-scr?
+                  (binding [*ns* (find-ns 'say.senti)]
+                    (when (= 'NEGATION (check-fact prev indicatesRule))
+                      (doseq [aff (filter affect? rules)]
+                        (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
+                        (refine ont prev :fact (is negatesAffect (individual say-senti aff))))))))
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
-              ;; Report the real SCR rules (not P|N because there are too many)
-              (when-not (contains? Affect-Names rule)
-                (log/debug "Tweet token" ttid "expresses" rule))
-              (express curr rule))
+              (express ttid curr rule))
 
             ;; Continue the reduction
             [(inc cnt)
@@ -624,6 +668,7 @@
     xmps
     learned
     sconf]
+  (log/info "Creating ontology:" ont)
   (populate-ontology (make-ontology ont learned) xmps learned sconf))
 
 
@@ -898,9 +943,14 @@
   ([]
   (Instances. ^Instances Base-Instances 0))
 
+
   ([tag]
-  (let [insts (rebase-data)
-        rname (str (.relationName ^Instances Base-Instances)
+  (rebase-data tag Base-Instances))
+
+
+  ([tag base]
+  (let [insts (Instances. ^Instances base 0)
+        rname (str (.relationName ^Instances base)
                    (name tag))]
     (.setRelationName ^Instances insts rname)
     insts)))
@@ -911,38 +961,106 @@
 (defn rebase-data->hashmap
   "Creates a hashmap with the specified keys where every value is a Weka
   Instances object the say-senti base structure."
-  [tags]
-  (into {} (map #(vector % (rebase-data %))
-                tags)))
+  ([tags]
+  (rebase-data->hashmap tags Base-Instances))
+
+
+  ([tags data]
+  (into {} (map #(vector % (rebase-data % data))
+                tags))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- extend-data
+  "Adds part-of-speech counts as additional attributes to a set of Instances
+  with POS-tagged text as the specified zero-based attribute (tndx).  The Weka
+  function returns the updated Instances as a convenience."
+  [^Instances insts
+   ^Integer   tndx]
+  (let [rpos  (set/map-invert pos/POS-Fragments)                ; Reversed POS {name -> code}
+        zeros (into {} (map #(vector % 0)
+                             (vals rpos)))
+        attrs (loop [acnt  (.numAttributes insts)               ; Attribute lookup {code -> index}
+                     names (sort (keys rpos))
+                     attrs {}]
+                ;; Create a mapping of POS code to counter Attribute
+                (if (empty? names)
+                    attrs
+                    (let [aname (first names)
+                          attr  (Attribute. aname)]
+                      (.insertAttributeAt insts attr acnt)
+                      (recur (inc acnt) (rest names) (assoc attrs (get rpos aname) acnt)))))]
+
+    (doseq [^Instance inst (weka/instance-seq insts)]
+      ;; Get counts for each POS in this Instance's text
+      (let [text   (.stringValue inst tndx)
+            codes  (map #(first (str/split % #"_" 2))           ;[2] Pull code: ("A"    "P"    "D"    "N"   "N")
+                                (str/split text #" "))          ;[1] Break up :  "A_sad  P_for  D_my   N_APL N_friend"
+            counts (reduce #(update %1 %2 inc) zeros codes)]    ;[3] POS count: {"A" 1, "P" 1, "D" 1, "N" 2, ... zeros}
+        ;; Update each Attribute for this instance with the associated count
+        (run!
+          (fn [[code cnt]]
+            (.setValue inst (int (get attrs code))
+                            (double cnt)))
+          counts)))
+
+    ;; Return the dataset as a convenience
+    insts))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^Instance init-instance
+  "Creates an instance for a sentiment analysis ARFF dataset, setting the
+  first three attributes (id, text, sentiment).  The new Instance is set as
+  belonging to the specified dataset, but the function does *NOT* add it to
+  that dataset."
+  ([^Instances  oinsts
+    ^Instance   iinst]
+  ;; There may be more, but we're just handling the three always-present attributes
+  (init-instance oinsts (.value       iinst COL-ID)
+                        (.stringValue iinst COL-TEXT)
+                        (.value       iinst COL-CLASS)))
+
+
+  ([^Instances  oinsts
+    ^Double     id
+    ^String     text
+    ^Double     sentiment]
+  ;; Create the new Instance and link (but don't add) it to the dataset
+  (doto (DenseInstance. (.numAttributes oinsts))
+        (.setDataset oinsts)
+        (.setValue COL-ID    id)
+        (.setValue COL-TEXT  text)
+        (.setValue COL-CLASS sentiment))))          ; 0.0=neg, 1.0=pos
 
 
 
 ;;; --------------------------------------------------------------------------
 (defn add-instance
-  "Make a instance for a sentiment analysis ARFF dataset.
+  "Make a instance for a sentiment analysis ARFF dataset.  The first three
+  attributes must match those of the base dataset (id, text, sentiment)."
+  ([^Instances  oinsts
+    ^Instance   iinst]
+  ;; Start with the base three attributes...
+  (let [oinst (init-instance oinsts iinst)]
+    ;; Copy the remaining attributes
+    (doseq [^Long i (range (inc COL-CLASS)
+                           (.numAttributes oinsts))]
+      (.setValue oinst i (.value iinst i)))
+    (.add oinsts oinst)
+    oinst))
 
-  NOTE: The format is defined buy (ARFFs :base) and hardcoded here!"
-  ([^Instances  insts
-    ^Instance   i]
-  ;; Extract the values from the sample instance
-  (add-instance insts
-                (.value       i 0)
-                (.stringValue i 1)
-                (.value       i 2)))
 
-  ([^Instances  insts
+  ([^Instances  oinsts
     ^Double     id
     ^String     text
     ^Double     sentiment]
-  ;; Create an instance from values, append it to the dataset & return it
-  (let [i (doto (DenseInstance. (.numAttributes (base-data)))
-                (.setDataset insts)
-                (.setValue 0 id)
-                (.setValue 1 text)
-                (.setValue 2 sentiment))]                       ; 0.0=neg, 1.0=pos
-    (.add insts i)
-    i)))
-
+  ;; We're just handling the three always-present attributes
+  (let [oinst (init-instance oinsts id text sentiment)]
+    (.add oinsts oinst)
+    oinst)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -962,12 +1080,12 @@
         emoter  #(tw/make-lexicon-filter lex-tag txt-ndx)
         tagger  #(tw/make-tagging-filter txt-ndx)
 
-        xform   (fn [iinsts & filters]
+        xform   (fn [iinsts]
                   ;; Call to make a new Filter each time
                   (reduce
                     #(weka/filter-instances %1 (%2))
                     iinsts
-                    (conj filters emoter)))
+                    [emoter tagger]))
 
         line-up (fn [rdr]
                   (let [[_ & dlines] (csv/read-csv rdr)]        ; Skip CSV header
@@ -1003,10 +1121,8 @@
 
       ;; Save the ARFFs to disk and return the result info in a map
       (reduce (fn [acc [dset iinsts]]
-                (let [oinsts (if (option? :weka opts)           ; When creating for Weka:
-                                 (xform iinsts)                 ; - process lexicon
-                                 (xform iinsts tagger))         ; - for OWL, also do POS tags
-                      otag   (str dset suffix)]
+                (let [oinsts (xform iinsts)                 ; Process lexicon & tag tokens w/ POS
+                      otag   (str dset suffix)]             ; Output ARFF filename tag(s)
                   ;; Finally, save the processed datasets from the CSV as ARFF
                   (assoc acc (keyword dset)
                              {:count (.numInstances ^Instances oinsts)
@@ -1038,9 +1154,8 @@
 
   ([dtag]
   ;; Pull what we need from the config before creating the cnt datasets
-  (let [{:keys  [all-data? data-split lexicon text-index]
+  (let [{:keys  [all-data? data-split text-index]
          :or    {data-split INIT-DATA-SPLIT
-                 lexicon    INIT-LEX-TAG
                  text-index INIT-TEXT-INDEX}}     (cfg/? :senti)
         {:keys  [datasets parts train rand-seed]} data-split
         target  (inc (.classIndex (base-data)))                 ; 1-based dependent attribute index
@@ -1051,7 +1166,7 @@
       (domap
         (fn [n]
           (let [rseed    (+ rand-seed n)
-                trn-tst  (split-data dtag rseed all-data? lexicon text-index reattr)
+                trn-tst  (split-data dtag rseed all-data? text-index reattr)
                 arffs    (if (= dtag :weka)
                              ;; That's all the Weka Experimenter needs
                              trn-tst
@@ -1080,7 +1195,7 @@
         (range datasets)))))
 
 
-  ([dtag seed all? lex tndx reattr]
+  ([dtag seed all? tndx reattr]
   ;; This is the workhorse clause.  It is not meant to be called directly
   (let [rtag    (str "r" seed)
         goals   (split-pn-goals dtag)
@@ -1090,12 +1205,12 @@
         iinsts  (weka/load-arff ipath (which-target))
         icnt    (.numInstances iinsts)
 
-        dsets   (atom (rebase-data->hashmap SPLIT-TAGS))
+        dsets   (atom (rebase-data->hashmap SPLIT-TAGS iinsts))
         rng     (Random. seed)
         fill    (fn [used [^Instances oinsts cnts goal
                            :as data-info]]
                   (if (creation-done? cnts goal)
-                    ;; We've got what we need, the used-index set is the accumulator
+                    ;; We're done filling the dataset.  The used-index set is the accumulator.
                     used
                     ;; Keep pulling from the input data
                     (let [ndx (.nextInt rng icnt)]
@@ -1115,11 +1230,11 @@
                                                 goal]))))))))
 
         wfilter (fn [data tt]
-                  (let [emote   (tw/make-lexicon-filter lex tndx)
-                        reorder (Reorder.)
+                  ;; Finalize the dataset for Weka
+                  (let [reorder (Reorder.)
                         insts*  (-> (data tt)
-                                    (weka/filter-instances emote)
-                                    (weka/filter-instances reorder reattr))]
+                                    (extend-data (weka/index1->0 tndx))         ; Insert POS counts
+                                    (weka/filter-instances reorder reattr))]    ; Remove text & put class last
                     (assoc data tt insts*)))]
 
     ;; Fill up the datasets with random instances from the input set
@@ -1132,7 +1247,7 @@
                  @dsets))
 
     ;; If these are Weka datasets, prepare them for the Experimenter.
-    ;; Note, this updates the dsets agent (concurrently) with new Instances.
+    ;; Note, this updates the dsets atom with new Instances.
     (when (= dtag :weka)
       (log/debug "Filtering datasets for Weka")
       (run! #(swap! dsets wfilter %) SPLIT-TAGS))
