@@ -218,21 +218,15 @@
 (defmacro defemotion
   "Adds a Concept reprenting an emotion to the say-senti ontology"
   [emo sys & combos]
-  (let [base-def    `[defclass ~emo
-                       :super   Affect
-                       :label   (name '~emo)
-                       :comment (str "A concept which expresses the class of human affect generally known as "
-                                     (str/lower-case (name '~emo))
-                                     (when ~sys
-                                       (str " according to the system of base emotions by "
-                                            (str/capitalize (name ~sys))))
-                                     ".")]
-        ;; FIXME: This equivalency definition is not right at all
-        definition  (if combos
-                        (conj base-def :equivalent (apply list `dl/and `Affect
-                                                                (map #(list `dl/some `denotesAffect %) combos)))
-                        base-def)]
-    `(do ~(seq definition)
+  (let [ename   `(name '~emo)
+        descr   `(str "A concept which expresses the class of human affect generally known as " (str/lower-case ~ename)
+                       " according to the system of base emotions by " (str/capitalize (name ~sys))
+                       "."
+                       (when-not (empty? '~combos)
+                         (apply str " This emotion is a combination of the following base emotions: "
+                                    (interpose ", " '~combos))))]
+
+    `(do (defclass ~emo :super Affect, :label ~ename, :comment ~descr)
          (defpun ~emo))))
 
 
@@ -268,7 +262,7 @@
 ;;; --------------------------------------------------------------------------
 ;;; Are we including secondary emotions?
 (defonce Secondaries
-    (when (cfg/? :senti :secondaries?)
+    (when (cfg/?? :senti :secondaries?)
       (log/info "Creating secondary emotions for" (name Emotion-System) "system")
       (case Emotion-System
         :plutchik
