@@ -109,7 +109,7 @@
 (defmacro defpun
   "Creates an individual with the same IRI as the specified class.  The class
   must already exist and the variable representing the individual is prepended
-  with an « the ». (MyThing refers to the class, and theMyThing to the individual.)"
+  with «the». (Widget refers to the class, and theWidget to the individual.)"
   [clazz]
   (let [mclazz (vary-meta clazz
                           assoc :tag 'uk.ac.manchester.cs.owl.owlapi.OWLClassImpl)]

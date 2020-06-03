@@ -217,17 +217,23 @@
 
 (defmacro defemotion
   "Adds a Concept reprenting an emotion to the say-senti ontology"
-  [emo sys]
-  `(do
-     (defclass ~emo
-       :super   Affect
-       :label   (name '~emo)
-       :comment (str "A concept which expresses the class of human affect generally known as "
-                     (str/lower-case (name '~emo))
-                     (when ~sys
-                       (str " according to the system of base emotions by " (str/capitalize (name ~sys))))
-                     "."))
-       (defpun ~emo)))
+  [emo sys & combos]
+  (let [base-def    `[defclass ~emo
+                       :super   Affect
+                       :label   (name '~emo)
+                       :comment (str "A concept which expresses the class of human affect generally known as "
+                                     (str/lower-case (name '~emo))
+                                     (when ~sys
+                                       (str " according to the system of base emotions by "
+                                            (str/capitalize (name ~sys))))
+                                     ".")]
+        ;; FIXME: This equivalency definition is not right at all
+        definition  (if combos
+                        (conj base-def :equivalent (apply list `dl/and `Affect
+                                                                (map #(list `dl/some `denotesAffect %) combos)))
+                        base-def)]
+    `(do ~(seq definition)
+         (defpun ~emo))))
 
 
 (defmacro defemotions
@@ -256,6 +262,26 @@
 ;;; We must declare the different types of Aspect to be disjoint for the reasoner
 ;;; to handle equivalency classes based on the complement of a given Aspect.
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
+
+
+;;; Shall we include secondary emotions?
+(let [{sys :emotions
+       e2? :emotions-2?} (cfg/? :senti)]
+  (when e2?
+    (log/info "Creating secondary emotions for" (name sys) "system")
+    (case sys
+      :plutchik
+        (do (defemotion Aggressiveness sys Anticipation Anger)
+            (defemotion Contempt       sys Anger        Disgust)
+            (defemotion Remorse        sys Disgust      Sadness)
+            (defemotion Disapproval    sys Sadness      Surprise)
+            (defemotion Awe            sys Surprise     Fear)
+            (defemotion Submission     sys Fear         Trust)
+            (defemotion Love           sys Trust        Joy)
+            (defemotion Optimism       sys Joy          Anticipation))
+
+      (log/warn "No secondary emotions defined for the" sys "system"))))
+
 
 
 ;;; --------------------------------------------------------------------------
