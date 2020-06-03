@@ -252,7 +252,8 @@
             'do))))
 
 ;;; Create Emotions in the ontology per the configured emo-system
-(defemotions (cfg/?? :senti :emotions))
+(defonce Emotion-System (cfg/?? :senti :system))
+(defemotions Emotion-System)
 
 (defonce Affect-Fragments   (into {} (map #(let [a (iri-fragment %)]
                                              [(lower-keyword a) a])
@@ -264,24 +265,51 @@
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
 
-;;; Shall we include secondary emotions?
-(let [{sys :emotions
-       e2? :emotions-2?} (cfg/? :senti)]
-  (when e2?
-    (log/info "Creating secondary emotions for" (name sys) "system")
-    (case sys
-      :plutchik
-        (do (defemotion Aggressiveness sys Anticipation Anger)
-            (defemotion Contempt       sys Anger        Disgust)
-            (defemotion Remorse        sys Disgust      Sadness)
-            (defemotion Disapproval    sys Sadness      Surprise)
-            (defemotion Awe            sys Surprise     Fear)
-            (defemotion Submission     sys Fear         Trust)
-            (defemotion Love           sys Trust        Joy)
-            (defemotion Optimism       sys Joy          Anticipation))
+;;; --------------------------------------------------------------------------
+;;; Are we including secondary emotions?
+(defonce Secondaries
+    (when (cfg/? :senti :secondaries?)
+      (log/info "Creating secondary emotions for" (name Emotion-System) "system")
+      (case Emotion-System
+        :plutchik
+          '{Aggressiveness [Anticipation Anger]
+            Contempt       [Anger        Disgust]
+            Remorse        [Disgust      Sadness]
+            Disapproval    [Sadness      Surprise]
+            Awe            [Surprise     Fear]
+            Submission     [Fear         Trust]
+            Love           [Trust        Joy]
+            Optimism       [Joy          Anticipation]}
+        (log/warn "No secondary emotions defined"))))
 
-      (log/warn "No secondary emotions defined for the" sys "system"))))
 
+(defmacro defsecondaries
+  "Defines secondary emotions (if we have any) in the say-senti ontology."
+  [sys]
+  (conj (map (fn [[sec [pr1 pr2]]]
+         `(defemotion ~sec ~sys ~pr1 ~pr2))
+        Secondaries)
+        `do))
+(defsecondaries Emotion-System)
+
+
+(defn- add-epath
+  "For a given pair of emotions (e1 e2), Adds a path to the accumulator
+  map (acc) to symbolize that encountering e1 and then e2 leads to the
+  specified secondary emotion (sec).  This function is used to create
+  a map of maps to store these paths {e1->{e2->sec}}.  This function
+  should be called twice with each base emotion as e1."
+  [acc sec [e1 e2]]
+  (conj acc [e1 (assoc (get acc e1) e2 sec)]))
+
+
+(defonce Dyad-Combos (reduce (fn [acc [sec pair]]
+                               ;; Chain calls for {e1->{e2->sec}} and {e2->{e1->sec}}
+                               (add-epath (add-epath acc sec pair)
+                                          sec
+                                          (reverse pair)))
+                             {}
+                             Secondaries))
 
 
 ;;; --------------------------------------------------------------------------

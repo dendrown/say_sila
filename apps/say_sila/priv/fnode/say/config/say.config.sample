@@ -29,8 +29,8 @@
      :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
      :rand-seed         12345                   ; Seed an RNG to take shuffle input instances
      :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
-     :emotions          :plutchik               ; Base emotion system: plutchik|Ekman|nil
-     :emotions-2?       false                   ; Construct secondary emotions from primary (for Plutchik's theory)
+     :system            :plutchik               ; Base emotion system: plutchik|Ekman|nil
+     :secondaries?      false                   ; Construct secondary emotions from primary (for Plutchik's theory)
      :data-split        {:datasets      10
                          :train         1000
                          :test          1000
