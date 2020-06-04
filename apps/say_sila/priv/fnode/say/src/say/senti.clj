@@ -297,6 +297,7 @@
   (conj acc [e1 (assoc (get acc e1) e2 sec)]))
 
 
+;;; Hierarchical hashmap to follow two primary emotion symbols to a secondary emotion symbol
 (defonce Dyad-Combos (reduce (fn [acc [sec pair]]
                                ;; Chain calls for {e1->{e2->sec}} and {e2->{e1->sec}}
                                (add-epath (add-epath acc sec pair)
@@ -304,6 +305,19 @@
                                           (reverse pair)))
                              {}
                              Secondaries))
+
+
+;;; We need a string-based version of Dyad-Combos to identify secondaries in Texts
+(defn- kvsym->kvstr
+  "Converts a hierarchical sym->sym hashmap to the equivalent lowercase str->str hashmap."
+  [[k v]]
+  ;; KEY is sym->str, VALUE may be an inner hashmap
+  [(str k) (if (map? v)
+               (into {} (map kvsym->kvstr v))   ; Recurse to follow path
+               (str v))])                       ; Final (leaf) value
+
+(defonce Dyad-Emotion-Paths (into  {} (map kvsym->kvstr Dyad-Combos)))
+(defonce Dyad-Names         (into #{} (map name (keys Secondaries))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -393,6 +407,27 @@
 ;;; --------------------------------------------------------------------------
 ;;; Tell DL-Learner about our ontology elements
 (dll/register-ns)
+
+
+;;; --------------------------------------------------------------------------
+(defn primaries->secondaries
+  "Returns a sequence of tag indicating which datasets we use for evaluation."
+  ([pris secs]
+  (if-let [p1 (first pris)]
+    (let [pris* (rest pris)
+          secs* (reduce (fn [secs* [p2 s]]
+                          (if (some #{p2} pris*)
+                              (conj secs* s)
+                              secs*))
+                        secs
+                        (get Dyad-Emotion-Paths p1))]
+      (recur pris* secs*))
+    secs))
+
+  ([pris]
+  (primaries->secondaries pris '())))
+
+
 
 ;;; --------------------------------------------------------------------------
 (defn enumerate-dataset
@@ -643,13 +678,15 @@
                         (refine ont tok  :fact (is dul/precedes curr)))
                       tokens))
 
-                ;; TODO: This is SCR prototypical code.  Integrate it into the module if it's successful.
-                (when use-scr?
-                  (binding [*ns* (find-ns 'say.senti)]
-                    (when (= 'NEGATION (check-fact prev indicatesRule))
-                      (doseq [aff (filter affect? rules)]
-                        (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
-                        (refine ont prev :fact (is negatesAffect (individual say-senti aff))))))))
+              ;; TODO: This is SCR prototypical code.  Integrate it into the module if it's successful.
+              (when use-scr?
+                (binding [*ns* (find-ns 'say.senti)]
+                  (when (= 'NEGATION (check-fact prev indicatesRule))
+                    (doseq [aff (filter affect? rules)]
+                      (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
+                      (refine ont prev :fact (is negatesAffect (individual say-senti aff))))))))
+
+                ;; TODO: This is prototypical code for secondary emotions
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
