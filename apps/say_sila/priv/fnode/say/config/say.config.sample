@@ -55,6 +55,8 @@
                                                      "dul:hasPart"
                                                      "dul:hasQuality"]}
      :lp                {:type                      "posNegStandard"}
+     :op                {:type                      "rho"
+                         :useCardinalityRestrictions false}
 
      ;; Reasoner submaps handle Open-World vs. Closed-World assumptions
      :cwa               {:type                      "Closed World Reasoner"}

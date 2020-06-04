@@ -202,7 +202,13 @@
 
   clojure.lang.Symbol
   (prn-config-value [v]
-    (println \{ v \}))
+    (println v))
+
+
+  clojure.lang.PersistentHashSet
+  (prn-config-value [v]
+    (apply print \{ v)
+    (println " }"))
 
 
   clojure.lang.PersistentVector
@@ -273,7 +279,19 @@
                        conf                             ; Say-Sila's :dllearner submap
                        (:reasoner conf INIT-REASONER)   ; Open/Closed world assumption
                        "Reasoner"
-                       :sources 'ks)))
+                       :sources #{'ks})))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn print-config-operator
+  "Handles the 'operator' section of the DL-Learner configuration."
+  ([]
+  (print-config-reasoner (cfg/? :dllearner)))
+
+
+  ([conf]
+  (print-config-submap :op conf :op "Operator" :reasoner 'reasoner)))
 
 
 
@@ -309,6 +327,7 @@
         (println (str "ks.fileName = \"KB/" fname ".owl\""))
         (print-prefixes prefixes)
         (doseq [f [print-config-reasoner
+                   print-config-operator
                    print-config-algorithm]]
           (f conf))
         (prn)
