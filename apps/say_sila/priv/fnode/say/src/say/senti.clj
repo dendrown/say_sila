@@ -259,6 +259,7 @@
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
 
+
 ;;; --------------------------------------------------------------------------
 ;;; Are we including secondary emotions?
 (defonce Secondaries
@@ -618,8 +619,8 @@
 
 
   ([ont clue
-    {:keys [content id polarity pos-tags rules]}    ; Text (tweet) breakdown
-    {:keys [full-links? pos-neg? use-scr?]}]        ; Senti-configuration
+    {:keys [content id polarity pos-tags rules]}            ; Text (tweet) breakdown
+    {:keys [full-links? pos-neg? secondaries? use-scr?]}]   ; Senti-configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (label-text id)
@@ -630,7 +631,8 @@
                               Text)
                     :annotation (annotation TextualContent
                                             (apply str (interpose " " content))))
-          affect? #(contains? Affect-Names %)
+          affect? #(or (contains? Affect-Names %)
+                       (contains? Dyad-Names %))
           express (fn [ttid token concept]
                     (let [prop (if (affect? concept)
                                    denotesAffect
@@ -686,11 +688,15 @@
                       (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
                       (refine ont prev :fact (is negatesAffect (individual say-senti aff))))))))
 
-                ;; TODO: This is prototypical code for secondary emotions
-
             ;; Express sentiment composition rules
             (doseq [rule rules]
               (express ttid curr rule))
+
+            ;; TODO: This is prototypical code for secondary emotions
+            (when secondaries?
+              (doseq [sec (primaries->secondaries rules)]
+                (log/debug "Token" ttid "expresses dyad:" sec)
+                (express ttid curr sec)))
 
             ;; Continue the reduction
             [(inc cnt)
