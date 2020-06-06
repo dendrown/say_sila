@@ -19,6 +19,7 @@ resources/emo-sa/*.*.arff
 resources/emo-sa/*.csv
 resources/emo-sa/*.edn
 resources/emo-sa/*.orig
+resources/emo-sa/*.txt
 resources/dllearner/*.owl
 resources/dllearner/say-senti-*.conf
 resources/gender/*.csv
