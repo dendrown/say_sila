@@ -1,0 +1,18 @@
+@relation sentiment-analysis-Sentiment140-weka.filters.unsupervised.attribute.TweetToLexiconFeatureVector-L-red-stan-stemmerweka.core.stemmers.NullStemmer-stopwords-handlerweka.core.stopwords.Null-I2-U-tokenizerweka.core.tokenizers.TweetNLPTokenizer-weka.filters.unsupervised.attribute.TweetNLPPOSTagger-separator_-taggerFile/home/dend/wekafiles/packages/AffectiveTweets/resources/model.20120919-I2-tokenizerweka.core.tokenizers.TweetNLPTokenizer
+
+@attribute id numeric
+@attribute text string
+@attribute sentiment {neg,pos}
+@attribute NRC-10-anger numeric
+@attribute NRC-10-anticipation numeric
+@attribute NRC-10-disgust numeric
+@attribute NRC-10-fear numeric
+@attribute NRC-10-joy numeric
+@attribute NRC-10-sadness numeric
+@attribute NRC-10-surprise numeric
+@attribute NRC-10-trust numeric
+@attribute NRC-10-negative numeric
+@attribute NRC-10-positive numeric
+
+@data
+{0 29923,1 '@_@adamlefever ^_Sen ^_Thai V_let O_me T_down R_when O_I V_took D_my N_parents R_there ,_. D_The N_food V_was R_not A_great ,_. D_My N_faves V_are R_still ^_Manee ^_Thai &_and ^_Thai ^_Kitchen ,_. ',2 pos,7 1,10 1,12 1}

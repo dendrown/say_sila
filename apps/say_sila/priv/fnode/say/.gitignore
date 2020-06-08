@@ -28,3 +28,4 @@ resources/gender/pan/
 resources/KB/*.owl
 resources/KB/catalog-*.xml
 resources/political/*.tsv
+resources/test/test.A??.Sentiment140.arff
