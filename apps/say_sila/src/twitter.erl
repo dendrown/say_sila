@@ -541,6 +541,7 @@ pull_tweets(Tracker, Start, Stop, Options) ->
         Rsp = gen_server:call(?MODULE,
                               {api_get, search, tweets, [{max_id, Max}|Body], [return_maps]},
                               10000),
+        ?debug("RSP: ~p", [Rsp]),
         NewCnt = lists:foldl(Inserter, Cnt, maps:get(<<"statuses">>, Rsp, [])),
         KeepOn = NewCnt > Cnt,
 
