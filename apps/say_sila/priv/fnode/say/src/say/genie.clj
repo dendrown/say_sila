@@ -146,16 +146,24 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn hyphenize
+  "Returns a string version of the input with all the elements separated
+  by hyphens.  Colons will be removed from any keyword elements."
+  [& elms]
+  (apply str (interpose "-" (map keystr elms))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn keyize
   "Returns a keyword formed from (optionally) multiple component elements.
-  If the first element is a hyphen, then all the elements will be separated
-  by hyphens."
-  [kw & elms]
-  (let [named (map keystr elms)
-        posts (if (= "-" (first named))                     ; ? - a b c
-                  (conj (interpose "-" (rest named)) "-")   ; a - b - c
-                  named)]                                   ; a   b   c
-    (keyword (apply str (keystr kw) posts))))
+  If the first element is a hyphen, then the rest of the elements will be
+  separated by hyphens."
+  [& elms]
+  (prn elms)
+  (keyword (if (= :- (first elms))
+               (apply hyphenize (rest elms))
+               (apply str (map keystr elms)))))
 
 
 
