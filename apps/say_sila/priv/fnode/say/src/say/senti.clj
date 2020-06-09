@@ -613,9 +613,17 @@
 
 
 (defn label-text-token
-  "Returns a String identifier for a Text (tweet) and the token number."
-  [txt tok]
+  "Returns a String identifier for a Text (tweet) and the token number.
+
+  Examples:
+    - for the tenth token on the 42nd tweet, the label will be: t42-10
+    - and for a MWE (multi-word expression) role on that token: t42-mwe10"
+  ([txt tok]
   (hyphenize (label-text txt) tok))
+
+
+  ([txt role tok]
+  (hyphenize (label-text txt) (str (str/lower-case (name role)) tok))))
 
 
 
@@ -731,20 +739,39 @@
   ontology."
   [{:keys [id content pos-tags]}
    tweebo]
-  (let [twid (label-text id)]
-    (loop [[tok1                              & content*]  content
-           [pos1                              & pos-tags*] pos-tags
-           [[sub tok2 _ pos2 pos3 _ obj role] & tweebo*]   tweebo]
+  (let [twid    (label-text id)
+        make    (memoize (fn [role n]
+                            (let [ent (label-text-token twid role n)]
+                              ;; TODO: Add to ontology
+                              (log/notice "Adding" ent)
+                              ent)))]
+    ;; Run through our example and the Tweebo parse, token by token
+    (loop [[tok1                              & content*]   content     ; Tweet tokens
+           [pos1                              & pos-tags*]  pos-tags    ; Parts of Speech
+           [[sub tok2 _ pos2 pos3 _ obj role] & tweebo*]    tweebo      ; Tweebo output
+           MWEs                                             #{}         ; Multi-word expressions
+           CONJs                                            #{}]        ; Conjunction subtrees
+      ;; All three arguments should be in alignment, except tweebo may have a final [""]
       (when pos1
+        ;; Make sure our tweet token matches the parse tree
         (if (and (= tok1 tok2)
                  (= pos1 pos2 pos3))
+            ;; We're looking from the leaf (subject) up to the parent node (object).
+            ;; -1 : subjet token is uninteresting per Tweebo
+            ;;  0 : subjet token is a root node
+            ;;  N : subjet token depends on the Nth token (object)
             (when (pos? (Long/parseLong obj))
-              (log/debug (label-text-token twid sub)
-                         "dependsOn"
-                         (label-text-token twid obj)))
+              (let [[subid
+                     objid] (map #(label-text-token twid %) [sub obj])]
+              ;; TODO: Add to an ontology
+              (log/debug subid "dependsOn" objid)
+              ;; MWE: Multi-word expression
+              (when-let [ent (and (not= role "_")
+                                  (make role obj))]
+                (log/info ent"hasComponent" sub))))
             (throw (IllegalArgumentException. (strfmt "Text/tweebo mismatch: token[~a/~a] pos[~a~a~a]"
                                                       tok1 tok2 pos1 pos2 pos3))))
-      (recur content* pos-tags* tweebo*)))))
+      (recur content* pos-tags* tweebo* MWEs CONJs)))))
 
 
 
