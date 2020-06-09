@@ -1,0 +1,1228 @@
+<?xml version="1.0"?>
+<Ontology xmlns="http://www.w3.org/2002/07/owl#"
+     xml:base="http://www.dendrown.net/uqam/say-senti-lein-test.owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     ontologyIRI="http://www.dendrown.net/uqam/say-senti-lein-test.owl#">
+    <Prefix name="dul" IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl##"/>
+    <Prefix name="owl" IRI="http://www.w3.org/2002/07/owl#"/>
+    <Prefix name="pos" IRI="http://www.dendrown.net/uqam/cmu-pos.owl##"/>
+    <Prefix name="rdf" IRI="http://www.w3.org/1999/02/22-rdf-syntax-ns#"/>
+    <Prefix name="xml" IRI="http://www.w3.org/XML/1998/namespace"/>
+    <Prefix name="xsd" IRI="http://www.w3.org/2001/XMLSchema#"/>
+    <Prefix name="rdfs" IRI="http://www.w3.org/2000/01/rdf-schema#"/>
+    <Prefix name="senti" IRI="http://www.dendrown.net/uqam/say-senti.owl##"/>
+    <Prefix name="scr-lein-test" IRI="http://www.dendrown.net/uqam/say-senti-lein-test.owl#"/>
+    <Import>http://www.dendrown.net/uqam/say-senti.owl#</Import>
+    <Import>http://www.purl.org/ontolink/tawny</Import>
+    <Annotation>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <Literal xml:lang="en">say-senti-lein-test</Literal>
+    </Annotation>
+    <Annotation>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <Literal xml:lang="en">Ontology for training sentiment models wrt. the Sentiment Composition Rule lein-test</Literal>
+    </Annotation>
+    <Declaration>
+        <Class IRI="LearnedPositiveText"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-1"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-10"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-11"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-12"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-13"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-14"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-15"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-16"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-17"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-18"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-19"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-2"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-20"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-21"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-22"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-23"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-24"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-25"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-26"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-27"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-28"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-29"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-3"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-4"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-5"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-6"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-7"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-8"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-9"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-conj26"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-mwe28"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-mwe3"/>
+    </Declaration>
+    <Declaration>
+        <NamedIndividual IRI="t29923-mwe4"/>
+    </Declaration>
+    <SubClassOf>
+        <Class IRI="LearnedPositiveText"/>
+        <Class IRI="http://www.dendrown.net/uqam/say-senti.owl#Text"/>
+    </SubClassOf>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/say-senti.owl#Text"/>
+        <NamedIndividual IRI="t29923"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-1"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-10"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-11"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-12"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-13"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-14"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-15"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-16"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-17"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-18"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-19"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-2"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-20"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-21"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-22"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-23"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-24"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-25"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-26"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-27"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-28"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-29"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-3"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-4"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-5"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-6"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-7"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-8"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Token"/>
+        <NamedIndividual IRI="t29923-9"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/say-senti.owl#Conjuncts"/>
+        <NamedIndividual IRI="t29923-conj26"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/say-senti.owl#MultiWordExpression"/>
+        <NamedIndividual IRI="t29923-mwe28"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/say-senti.owl#MultiWordExpression"/>
+        <NamedIndividual IRI="t29923-mwe3"/>
+    </ClassAssertion>
+    <ClassAssertion>
+        <Class IRI="http://www.dendrown.net/uqam/say-senti.owl#MultiWordExpression"/>
+        <NamedIndividual IRI="t29923-mwe4"/>
+    </ClassAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-1"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-10"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-11"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-12"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-13"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-14"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-15"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-16"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-17"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-18"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-19"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-2"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-20"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-21"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-22"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-23"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-24"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-25"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-26"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-27"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-28"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-29"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-3"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-4"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-5"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-6"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-7"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-8"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923"/>
+        <NamedIndividual IRI="t29923-9"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-1"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#AtMention"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-10"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Determiner"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-10"/>
+        <NamedIndividual IRI="t29923-11"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-10"/>
+        <NamedIndividual IRI="t29923-9"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-11"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#CommonNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-11"/>
+        <NamedIndividual IRI="t29923-9"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-11"/>
+        <NamedIndividual IRI="t29923-10"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-12"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Adverb"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-12"/>
+        <NamedIndividual IRI="t29923-9"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-12"/>
+        <NamedIndividual IRI="t29923-11"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-13"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Punctuation"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-13"/>
+        <NamedIndividual IRI="t29923-12"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-14"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Determiner"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-14"/>
+        <NamedIndividual IRI="t29923-15"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-14"/>
+        <NamedIndividual IRI="t29923-13"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-15"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#CommonNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#denotesAffect"/>
+        <NamedIndividual IRI="t29923-15"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/say-senti.owl#Joy"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#denotesAffect"/>
+        <NamedIndividual IRI="t29923-15"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/say-senti.owl#Love"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#denotesAffect"/>
+        <NamedIndividual IRI="t29923-15"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/say-senti.owl#Positive"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#denotesAffect"/>
+        <NamedIndividual IRI="t29923-15"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/say-senti.owl#Trust"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-15"/>
+        <NamedIndividual IRI="t29923-16"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-15"/>
+        <NamedIndividual IRI="t29923-14"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-16"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Verb"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-16"/>
+        <NamedIndividual IRI="t29923-15"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-17"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Adverb"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-17"/>
+        <NamedIndividual IRI="t29923-18"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#indicatesRule"/>
+        <NamedIndividual IRI="t29923-17"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/say-senti.owl#NEGATION"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-17"/>
+        <NamedIndividual IRI="t29923-16"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-18"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Adjective"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-18"/>
+        <NamedIndividual IRI="t29923-16"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-18"/>
+        <NamedIndividual IRI="t29923-17"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-19"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Punctuation"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-19"/>
+        <NamedIndividual IRI="t29923-18"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-2"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-2"/>
+        <NamedIndividual IRI="t29923-3"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-2"/>
+        <NamedIndividual IRI="t29923-1"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-20"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Determiner"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-20"/>
+        <NamedIndividual IRI="t29923-21"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-20"/>
+        <NamedIndividual IRI="t29923-19"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-21"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#CommonNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-21"/>
+        <NamedIndividual IRI="t29923-22"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-21"/>
+        <NamedIndividual IRI="t29923-20"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-22"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Verb"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-22"/>
+        <NamedIndividual IRI="t29923-21"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-23"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Adverb"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-23"/>
+        <NamedIndividual IRI="t29923-22"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-23"/>
+        <NamedIndividual IRI="t29923-22"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-24"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-24"/>
+        <NamedIndividual IRI="t29923-26"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-24"/>
+        <NamedIndividual IRI="t29923-23"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-25"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-25"/>
+        <NamedIndividual IRI="t29923-26"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-25"/>
+        <NamedIndividual IRI="t29923-24"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-26"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#CoordinatingConjunction"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-26"/>
+        <NamedIndividual IRI="t29923-23"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-26"/>
+        <NamedIndividual IRI="t29923-25"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#expresses"/>
+        <NamedIndividual IRI="t29923-26"/>
+        <NamedIndividual IRI="t29923-conj26"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-27"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-27"/>
+        <NamedIndividual IRI="t29923-28"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-27"/>
+        <NamedIndividual IRI="t29923-26"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-28"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-28"/>
+        <NamedIndividual IRI="t29923-26"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-28"/>
+        <NamedIndividual IRI="t29923-27"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#expresses"/>
+        <NamedIndividual IRI="t29923-28"/>
+        <NamedIndividual IRI="t29923-mwe28"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-29"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Punctuation"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-29"/>
+        <NamedIndividual IRI="t29923-28"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-3"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-3"/>
+        <NamedIndividual IRI="t29923-4"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-3"/>
+        <NamedIndividual IRI="t29923-2"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#expresses"/>
+        <NamedIndividual IRI="t29923-3"/>
+        <NamedIndividual IRI="t29923-mwe3"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-4"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Verb"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-4"/>
+        <NamedIndividual IRI="t29923-3"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#expresses"/>
+        <NamedIndividual IRI="t29923-4"/>
+        <NamedIndividual IRI="t29923-mwe4"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-5"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Pronoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-5"/>
+        <NamedIndividual IRI="t29923-4"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-5"/>
+        <NamedIndividual IRI="t29923-4"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-6"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#VerbParticle"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-6"/>
+        <NamedIndividual IRI="t29923-4"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-6"/>
+        <NamedIndividual IRI="t29923-5"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-7"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Adverb"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-7"/>
+        <NamedIndividual IRI="t29923-4"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-7"/>
+        <NamedIndividual IRI="t29923-6"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-8"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Pronoun"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-8"/>
+        <NamedIndividual IRI="t29923-9"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-8"/>
+        <NamedIndividual IRI="t29923-7"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
+        <NamedIndividual IRI="t29923-9"/>
+        <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Verb"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
+        <NamedIndividual IRI="t29923-9"/>
+        <NamedIndividual IRI="t29923-7"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
+        <NamedIndividual IRI="t29923-9"/>
+        <NamedIndividual IRI="t29923-8"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-conj26"/>
+        <NamedIndividual IRI="t29923-24"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-conj26"/>
+        <NamedIndividual IRI="t29923-25"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-conj26"/>
+        <NamedIndividual IRI="t29923-28"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-mwe28"/>
+        <NamedIndividual IRI="t29923-27"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-mwe3"/>
+        <NamedIndividual IRI="t29923-2"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-mwe4"/>
+        <NamedIndividual IRI="t29923-6"/>
+    </ObjectPropertyAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>LearnedPositiveText</IRI>
+        <Literal xml:lang="en">LearnedPositiveText</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:comment"/>
+        <IRI>LearnedPositiveText</IRI>
+        <Literal xml:lang="en">A Text representing a candidate formula for determining if a given Text expresses positive sentiment.</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>LearnedPositiveText</IRI>
+        <Literal xml:lang="en">Learned Positive Text</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#TextualContent"/>
+        <IRI>t29923</IRI>
+        <Literal xml:lang="en">@adamlefever Sen Thai let me down when I took my parents there . The food was not great . My faves are still Manee Thai and Thai Kitchen .</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923</IRI>
+        <Literal xml:lang="en">t29923</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-1</IRI>
+        <Literal xml:lang="en">t29923-1</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-1</IRI>
+        <Literal xml:lang="en">t29923-1 (@)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-10</IRI>
+        <Literal xml:lang="en">t29923-10</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-10</IRI>
+        <Literal xml:lang="en">t29923-10 (D)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-11</IRI>
+        <Literal xml:lang="en">t29923-11</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-11</IRI>
+        <Literal xml:lang="en">t29923-11 (N)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-12</IRI>
+        <Literal xml:lang="en">t29923-12</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-12</IRI>
+        <Literal xml:lang="en">t29923-12 (R)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-13</IRI>
+        <Literal xml:lang="en">t29923-13</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-13</IRI>
+        <Literal xml:lang="en">t29923-13 (,)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-14</IRI>
+        <Literal xml:lang="en">t29923-14</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-14</IRI>
+        <Literal xml:lang="en">t29923-14 (D)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-15</IRI>
+        <Literal xml:lang="en">t29923-15</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-15</IRI>
+        <Literal xml:lang="en">t29923-15 (N)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-16</IRI>
+        <Literal xml:lang="en">t29923-16</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-16</IRI>
+        <Literal xml:lang="en">t29923-16 (V)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-17</IRI>
+        <Literal xml:lang="en">t29923-17</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-17</IRI>
+        <Literal xml:lang="en">t29923-17 (R)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-18</IRI>
+        <Literal xml:lang="en">t29923-18</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-18</IRI>
+        <Literal xml:lang="en">t29923-18 (A)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-19</IRI>
+        <Literal xml:lang="en">t29923-19</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-19</IRI>
+        <Literal xml:lang="en">t29923-19 (,)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-2</IRI>
+        <Literal xml:lang="en">t29923-2</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-2</IRI>
+        <Literal xml:lang="en">t29923-2 (^)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-20</IRI>
+        <Literal xml:lang="en">t29923-20</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-20</IRI>
+        <Literal xml:lang="en">t29923-20 (D)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-21</IRI>
+        <Literal xml:lang="en">t29923-21</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-21</IRI>
+        <Literal xml:lang="en">t29923-21 (N)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-22</IRI>
+        <Literal xml:lang="en">t29923-22</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-22</IRI>
+        <Literal xml:lang="en">t29923-22 (V)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-23</IRI>
+        <Literal xml:lang="en">t29923-23</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-23</IRI>
+        <Literal xml:lang="en">t29923-23 (R)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-24</IRI>
+        <Literal xml:lang="en">t29923-24</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-24</IRI>
+        <Literal xml:lang="en">t29923-24 (^)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-25</IRI>
+        <Literal xml:lang="en">t29923-25</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-25</IRI>
+        <Literal xml:lang="en">t29923-25 (^)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-26</IRI>
+        <Literal xml:lang="en">t29923-26</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-26</IRI>
+        <Literal xml:lang="en">t29923-26 (&amp;)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-27</IRI>
+        <Literal xml:lang="en">t29923-27</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-27</IRI>
+        <Literal xml:lang="en">t29923-27 (^)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-28</IRI>
+        <Literal xml:lang="en">t29923-28</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-28</IRI>
+        <Literal xml:lang="en">t29923-28 (^)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-29</IRI>
+        <Literal xml:lang="en">t29923-29</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-29</IRI>
+        <Literal xml:lang="en">t29923-29 (,)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-3</IRI>
+        <Literal xml:lang="en">t29923-3</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-3</IRI>
+        <Literal xml:lang="en">t29923-3 (^)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-4</IRI>
+        <Literal xml:lang="en">t29923-4</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-4</IRI>
+        <Literal xml:lang="en">t29923-4 (V)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-5</IRI>
+        <Literal xml:lang="en">t29923-5</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-5</IRI>
+        <Literal xml:lang="en">t29923-5 (O)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-6</IRI>
+        <Literal xml:lang="en">t29923-6</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-6</IRI>
+        <Literal xml:lang="en">t29923-6 (T)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-7</IRI>
+        <Literal xml:lang="en">t29923-7</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-7</IRI>
+        <Literal xml:lang="en">t29923-7 (R)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-8</IRI>
+        <Literal xml:lang="en">t29923-8</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-8</IRI>
+        <Literal xml:lang="en">t29923-8 (O)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-9</IRI>
+        <Literal xml:lang="en">t29923-9</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty abbreviatedIRI="rdfs:label"/>
+        <IRI>t29923-9</IRI>
+        <Literal xml:lang="en">t29923-9 (V)</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-conj26</IRI>
+        <Literal xml:lang="en">t29923-conj26</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-mwe28</IRI>
+        <Literal xml:lang="en">t29923-mwe28</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-mwe3</IRI>
+        <Literal xml:lang="en">t29923-mwe3</Literal>
+    </AnnotationAssertion>
+    <AnnotationAssertion>
+        <AnnotationProperty IRI="http://www.purl.org/ontolink/tawny#name"/>
+        <IRI>t29923-mwe4</IRI>
+        <Literal xml:lang="en">t29923-mwe4</Literal>
+    </AnnotationAssertion>
+</Ontology>
+
+
+
+<!-- Generated by the OWL API (version 4.5.6) https://github.com/owlcs/owlapi -->
+

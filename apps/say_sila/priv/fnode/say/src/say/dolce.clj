@@ -56,6 +56,7 @@
 
 ;;; TBox: building on dul:Concept ⊑ dul:SocialObject
 (redefclass SocialObject)
+(redefclass Collection)
 (redefclass Concept)
 (redefclass Role)
 
@@ -99,6 +100,7 @@
         ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
         (refine Objekt              :super Entity)
         (refine SocialObject        :super Objekt)
+        (refine Collection          :super SocialObject)
         (refine Concept             :super SocialObject)
 
         (refine InformationEntity   :super Entity)

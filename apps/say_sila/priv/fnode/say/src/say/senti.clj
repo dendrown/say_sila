@@ -406,6 +406,29 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; Support for TweeboParser dependency trees?
+(when (cfg/?? :senti :use-tweebo?)
+
+  (defclass Conjuncts
+    :super   dul/Collection
+    :label   "Conjuncts"
+    :comment "A Collection that contains the set of conjuncts conjoined with a conjunction.")
+
+  (defclass MultiWordExpression
+    :super   dul/Collection
+    :label   "Multi-word concept"
+    :comment "A Collection of Tokens that together represent a single unit of meaning.")
+
+  ;; FIXME: dependsOn will need to be under associatedWith, depending on the hierarchy config setting
+  (defoproperty dependsOn
+    :domain  dul/Entity
+    :range   dul/Entity
+    :label   "depends on"
+    :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
+    :characteristic :transitive))
+
+
+;;; --------------------------------------------------------------------------
 ;;; Tell DL-Learner about our ontology elements
 (dll/register-ns)
 
@@ -622,7 +645,7 @@
   (hyphenize (label-text txt) tok))
 
 
-  ([txt role tok]
+  ([txt tok role]
   (hyphenize (label-text txt) (str (str/lower-case (name role)) tok))))
 
 
@@ -737,20 +760,26 @@
 (defn add-dependencies
   "Incorporates a tweet's output from the TweeboParser into the specified
   ontology."
-  [{:keys [id content pos-tags]}
+  [ont
+   {:keys [id content pos-tags]}
    tweebo]
   (let [twid    (label-text id)
         make    (memoize (fn [role n]
-                            (let [ent (label-text-token twid role n)]
-                              ;; TODO: Add to ontology
-                              (log/notice "Adding" ent)
-                              ent)))]
+                            ;; We will only touch the ontology once as we are memoized
+                            (let [tokid  (label-text-token twid n)
+                                  entid  (label-text-token twid n role)
+                                  entity (individual ont entid
+                                           :type (case role "CONJ" Conjuncts
+                                                             "MWE"  MultiWordExpression))]
+                              ;; Add the relation for token-->entity to the ontology.
+                              ;; The Tweebo map entry for Token N does not reference the entity.
+                              (log/notice "Adding" role entid)
+                              (refine ont (individual ont tokid) :fact (is dul/expresses entity))
+                              entity)))]
     ;; Run through our example and the Tweebo parse, token by token
     (loop [[tok1                              & content*]   content     ; Tweet tokens
            [pos1                              & pos-tags*]  pos-tags    ; Parts of Speech
-           [[sub tok2 _ pos2 pos3 _ obj role] & tweebo*]    tweebo      ; Tweebo output
-           MWEs                                             #{}         ; Multi-word expressions
-           CONJs                                            #{}]        ; Conjunction subtrees
+           [[sub tok2 _ pos2 pos3 _ obj role] & tweebo*]    tweebo]     ; Tweebo output
       ;; All three arguments should be in alignment, except tweebo may have a final [""]
       (when pos1
         ;; Make sure our tweet token matches the parse tree
@@ -761,17 +790,18 @@
             ;;  0 : subjet token is a root node
             ;;  N : subjet token depends on the Nth token (object)
             (when (pos? (Long/parseLong obj))
-              (let [[subid
-                     objid] (map #(label-text-token twid %) [sub obj])]
-              ;; TODO: Add to an ontology
-              (log/debug subid "dependsOn" objid)
-              ;; MWE: Multi-word expression
-              (when-let [ent (and (not= role "_")
-                                  (make role obj))]
-                (log/info ent"hasComponent" sub))))
+              (let [[subid   objid]  (map #(label-text-token twid %) [sub obj]) ; t99-9
+                    [subject object] (map #(individual ont %) [subid objid])]   ; Tokens
+              ;; Add dependency relation to ontology
+              (log/debug subid  "dependsOn" objid)
+              (refine ont subject :fact (is dependsOn object))
+              ;; Handle Conjunctions and Multi-word expressions
+              (when-let [entity (and (not= role "_")
+                                     (make role obj))]
+                (refine ont entity :fact (is dul/hasComponent subject)))))
             (throw (IllegalArgumentException. (strfmt "Text/tweebo mismatch: token[~a/~a] pos[~a~a~a]"
                                                       tok1 tok2 pos1 pos2 pos3))))
-      (recur content* pos-tags* tweebo* MWEs CONJs)))))
+      (recur content* pos-tags* tweebo*)))))
 
 
 

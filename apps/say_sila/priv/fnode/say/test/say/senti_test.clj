@@ -5,12 +5,16 @@
               [clojure.data.csv :as csv]
               [clojure.java.io  :as io]
               [weka.core        :as weka]
+              [tawny.owl        :as owl]
               [tawny.reasoner   :as rsn]
               [tawny.fixture    :as fxt]))
 
 (def ^:const TEST-DATASET   "resources/test/test.A00.csv")
 (def ^:const GOLD-ARFF      "resources/test/test.A00.Sentiment140.GOLD.arff")
+
 (def ^:const GOLD-TWEEBO    "resources/test/tweebo/test.A00.GOLD.twt.predict")
+(def ^:const GOLD-ONTOLOGY  "resources/test/tweebo/test.A00.GOLD.owl")
+(def ^:const TEST-ONTOLOGY  "resources/test/tweebo/test.A00.owl")
 
 ;; NOTE: The Sentiment140 daataset marks t29923 as positive.  Is it really?
 (def ^:const GOLD-EXAMPLE   {:id        29923
@@ -26,10 +30,10 @@
 
 
 
-(defn gold-example
+(defn gold-examples
   []
-  (first (-> (weka/load-arff GOLD-ARFF "sentiment")
-             (instances->examples))))
+  (-> (weka/load-arff GOLD-ARFF "sentiment")
+      (instances->examples)))
 
 
 ;; ---------------------------------------------------------------------------
@@ -50,13 +54,18 @@
 
 ;; ---------------------------------------------------------------------------
 (deftest example
-    (is (= (gold-example) GOLD-EXAMPLE)))
+    (is (= GOLD-EXAMPLE
+           (first (gold-examples)))))
 
 
 ;; ---------------------------------------------------------------------------
 (deftest tweebo
-  (let [xmp  (gold-example)
+  (let [xmps (gold-examples)
+        ont  (populate-ontology :lein-test xmps)
         deps (with-open [reader (io/reader GOLD-TWEEBO)]
                (doall (csv/read-csv reader :separator \tab)))]
-    (add-dependencies xmp deps)
-    (is :todo)))
+    (add-dependencies ont (first xmps) deps)
+    (owl/save-ontology ont TEST-ONTOLOGY :owl)
+    (is (apply = (map slurp [TEST-ONTOLOGY
+                             GOLD-ONTOLOGY])))))
+
