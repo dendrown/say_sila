@@ -1,14 +1,18 @@
 (ns say.senti-test
-    (:require [clojure.test   :refer :all]
-              [say.senti      :refer :all]
-              [say.log        :as log]
-              [weka.core      :as weka]
-              [tawny.reasoner :as rsn]
-              [tawny.fixture  :as fxt]))
+    (:require [clojure.test     :refer :all]
+              [say.senti        :refer :all]
+              [say.log          :as log]
+              [clojure.data.csv :as csv]
+              [clojure.java.io  :as io]
+              [weka.core        :as weka]
+              [tawny.reasoner   :as rsn]
+              [tawny.fixture    :as fxt]))
 
 (def ^:const TEST-DATASET   "resources/test/test.A00.csv")
 (def ^:const GOLD-ARFF      "resources/test/test.A00.Sentiment140.GOLD.arff")
+(def ^:const GOLD-TWEEBO    "resources/test/tweebo/test.A00.GOLD.twt.predict")
 
+;; NOTE: The Sentiment140 daataset marks t29923 as positive.  Is it really?
 (def ^:const GOLD-EXAMPLE   {:id        29923
                              :polarity  :positive
                              :content   '("@adamlefever" "Sen" "Thai" "let" "me" "down" "when" "I" "took"
@@ -19,6 +23,13 @@
                              :rules     '(#{} #{} #{} #{} #{} #{} #{} #{} #{} #{} #{} #{} #{} #{}
                                           #{"Joy" "Positive" "Trust"} #{} #{"NEGATION"} #{} #{} #{}
                                           #{} #{} #{} #{} #{} #{} #{} #{} #{})})
+
+
+
+(defn gold-example
+  []
+  (first (-> (weka/load-arff GOLD-ARFF "sentiment")
+             (instances->examples))))
 
 
 ;; ---------------------------------------------------------------------------
@@ -39,7 +50,13 @@
 
 ;; ---------------------------------------------------------------------------
 (deftest example
-  (let [insts (weka/load-arff GOLD-ARFF "sentiment")
-        xmps  (instances->examples insts)]
-    (is (= (first xmps)
-           GOLD-EXAMPLE))))
+    (is (= (gold-example) GOLD-EXAMPLE)))
+
+
+;; ---------------------------------------------------------------------------
+(deftest tweebo
+  (let [xmp  (gold-example)
+        deps (with-open [reader (io/reader GOLD-TWEEBO)]
+               (doall (csv/read-csv reader :separator \tab)))]
+    (add-dependencies xmp deps)
+    (is :todo)))

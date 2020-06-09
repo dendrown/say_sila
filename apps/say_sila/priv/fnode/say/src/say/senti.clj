@@ -599,9 +599,23 @@
   (label-text [inst]
     (label-text (.value inst COL-ID)))
 
+  String
+  (label-text [s]
+    ;; Allow multiple calls without retagging
+    (if (str/starts-with? s TWEET-TAG)
+        s
+        (str TWEET-TAG s)))
+
   Object
   (label-text [x]
     (str TWEET-TAG (longify x))))
+
+
+
+(defn label-text-token
+  "Returns a String identifier for a Text (tweet) and the token number."
+  [txt tok]
+  (hyphenize (label-text txt) tok))
 
 
 
@@ -708,6 +722,30 @@
 
         [1 nil]                             ; Acc: Token counter, reverse seq of tokens
         (zip pos-tags rules))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn add-dependencies
+  "Incorporates a tweet's output from the TweeboParser into the specified
+  ontology."
+  [{:keys [id content pos-tags]}
+   tweebo]
+  (let [twid (label-text id)]
+    (loop [[tok1                              & content*]  content
+           [pos1                              & pos-tags*] pos-tags
+           [[sub tok2 _ pos2 pos3 _ obj role] & tweebo*]   tweebo]
+      (when pos1
+        (if (and (= tok1 tok2)
+                 (= pos1 pos2 pos3))
+            (when (pos? (Long/parseLong obj))
+              (log/debug (label-text-token twid sub)
+                         "dependsOn"
+                         (label-text-token twid obj)))
+            (throw (IllegalArgumentException. (strfmt "Text/tweebo mismatch: token[~a/~a] pos[~a~a~a]"
+                                                      tok1 tok2 pos1 pos2 pos3))))
+      (recur content* pos-tags* tweebo*)))))
+
 
 
 
