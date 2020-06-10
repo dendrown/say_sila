@@ -27,7 +27,7 @@
      :pos-clue?         false                   ; Include positive Text indicator to guide (or evaluate) the system
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
      :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
-     :use-tweebo?       false                   ; Model Bing Liu's Sentiment Composition Rules
+     :use-tweebo?       false                   ; Tweebo Parser dependency trees for tweets
      :rand-seed         12345                   ; Seed an RNG to take shuffle input instances
      :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
      :system            :plutchik               ; Base emotion system: plutchik|Ekman|nil

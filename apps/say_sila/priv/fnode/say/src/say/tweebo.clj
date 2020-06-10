@@ -14,6 +14,7 @@
   (:require [say.genie          :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
+            [clojure.data.csv   :as csv]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
             [clojure.pprint     :refer [pp]]
@@ -30,11 +31,23 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-fpath
+  "Returns the filepath associated with a endency tree for later use."
+  ([tid]
+  (get-fpath tid nil))
+
+  ([tid kind]
+  (apply str Tweebo-Dir tid (when kind
+                              ["." (name kind)]))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- go-prepare
   "Prepares a TweeboParser (predicted) dependency tree for later use."
   [runs tid text]
-  (let [ipath (str Tweebo-Dir tid)
-        opath (str ipath ".predict")]
+  (let [ipath (get-fpath tid)
+        opath (get-fpath tid :predict)]
     (if (.exists (io/file opath))
       runs
       (do
@@ -59,4 +72,22 @@
   "Prepares a TweeboParser (predicted) dependency tree for later use."
   [tid text]
   (send-off Runner go-prepare tid text))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn predict
+  "Prepares a TweeboParser (predicted) dependency tree for later use."
+  [tid]
+  (with-open [rdr (io/reader (get-fpath tid :predict))]
+    (doall (csv/read-csv rdr :separator \tab))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn wait
+  "Blocks execution until all pernding Tweebo Parser requests have completed."
+  []
+  (log/fmt-info "Syncing Tweebo requests: cnt[~a]" @Runner)
+  (await Runner))
 
