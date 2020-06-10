@@ -30,3 +30,4 @@ resources/KB/catalog-*.xml
 resources/political/*.tsv
 resources/test/test.A??.Sentiment140.arff
 resources/test/tweebo/test.A??.owl
+resources/tweebo/t*

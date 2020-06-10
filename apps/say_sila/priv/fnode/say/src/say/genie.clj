@@ -160,7 +160,6 @@
   If the first element is a hyphen, then the rest of the elements will be
   separated by hyphens."
   [& elms]
-  (prn elms)
   (keyword (if (= :- (first elms))
                (apply hyphenize (rest elms))
                (apply str (map keystr elms)))))

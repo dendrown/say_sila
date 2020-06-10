@@ -18,6 +18,7 @@
             [say.dolce          :as dul]
             [say.log            :as log]
             [say.cmu-pos        :as pos]
+            [say.tweebo         :as twbo]
             [weka.core          :as weka]
             [weka.tweet         :as tw]
             [clojure.data.csv   :as csv]
@@ -664,18 +665,18 @@
 
 
   ([ont clue
-    {:keys [content id polarity pos-tags rules]}            ; Text (tweet) breakdown
-    {:keys [full-links? pos-neg? secondaries? use-scr?]}]   ; Senti-configuration
+    {:keys [content id polarity pos-tags rules]}                        ; Text (tweet) breakdown
+    {:keys [full-links? pos-neg? secondaries? use-scr? use-tweebo?]}]   ; Senti-configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (label-text id)
+          msg     (apply str (interpose " " content))
           text    (individual ont tid       ; Entity representing the text
                     :type (if pos-neg?
                               (case polarity :negative NegativeText
                                              :positive PositiveText)
                               Text)
-                    :annotation (annotation TextualContent
-                                            (apply str (interpose " " content))))
+                    :annotation (annotation TextualContent msg))
           affect? #(or (contains? Affect-Names %)
                        (contains? Dyad-Names %))
           express (fn [ttid token concept]
@@ -687,6 +688,10 @@
                         (log/debug "Tweet token" ttid "expresses" concept))
 
                       (refine ont token :fact (is prop (individual say-senti concept)))))]
+
+     ;; Prepare for Tweebo Parsing if desired
+     (when use-tweebo?
+       (twbo/prepare tid msg))
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
