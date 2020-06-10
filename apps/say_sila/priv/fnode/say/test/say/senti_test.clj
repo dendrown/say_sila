@@ -64,8 +64,8 @@
   (if (cfg/?? :senti :use-tweebo?)
     (let [xmps (gold-examples)
           ont  (populate-ontology :lein-test xmps)
-          deps (with-open [reader (io/reader GOLD-TWEEBO)]
-               (doall (csv/read-csv reader :separator \tab)))]
+          deps (with-open [rdr (io/reader GOLD-TWEEBO)]
+                 (doall (csv/read-csv rdr :separator \tab)))]
       (add-dependencies ont (first xmps) deps)
       (owl/save-ontology ont TEST-ONTOLOGY :owl)
       (is (apply = (map slurp [TEST-ONTOLOGY
