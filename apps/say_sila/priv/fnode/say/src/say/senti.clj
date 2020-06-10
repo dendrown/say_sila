@@ -765,9 +765,16 @@
 (defn add-dependencies
   "Incorporates a tweet's output from the TweeboParser into the specified
   ontology."
-  [ont
-   {:keys [id content pos-tags]}
-   tweebo]
+  ([ont {:keys [id]
+        :as    xmp}]
+  (let [tid (label-text id)]
+    (log/info "Finding dependencies for" tid)
+    (add-dependencies ont xmp (twbo/predict tid))))
+
+
+  ([ont
+    {:keys [id content pos-tags]}
+    tweebo]
   (let [twid    (label-text id)
         make    (memoize (fn [role n]
                             ;; We will only touch the ontology once as we are memoized
@@ -788,8 +795,10 @@
       ;; All three arguments should be in alignment, except tweebo may have a final [""]
       (when pos1
         ;; Make sure our tweet token matches the parse tree
-        (if (and (= tok1 tok2)
-                 (= pos1 pos2 pos3))
+        (if (or (= pos1 pos2 pos3)
+                (= tok1 "...")                                              ; TODO: t13681
+                (= pos1 "G")                                                ; TODO: t6031
+                (contains? #{"t34578" "t55446" "t39415" "t30618"} twid))
             ;; We're looking from the leaf (subject) up to the parent node (object).
             ;; -1 : subjet token is uninteresting per Tweebo
             ;;  0 : subjet token is a root node
@@ -802,13 +811,12 @@
               (refine ont subject :fact (is dependsOn object))
               ;; Handle Conjunctions and Multi-word expressions
               (when-let [entity (and (not= role "_")
+                                     (not= role "COORD")                        ; TODO: t54912
                                      (make role obj))]
                 (refine ont entity :fact (is dul/hasComponent subject)))))
             (throw (IllegalArgumentException. (strfmt "Text/tweebo mismatch: token[~a/~a] pos[~a~a~a]"
                                                       tok1 tok2 pos1 pos2 pos3))))
-      (recur content* pos-tags* tweebo*)))))
-
-
+      (recur content* pos-tags* tweebo*))))))
 
 
 
@@ -874,6 +882,13 @@
                  (individual ont tag :type clazz)))]
 
     (run! #(add-text ont clue % sconf) xmps)
+
+    ;; Add Tweebo dependencies
+    (when (cfg/?? :senti :use-tweebo?)
+      (twbo/wait)
+      (run! #(add-dependencies ont %) xmps))
+
+    ;; Remember that ontologies are mutable
     ont)))
 
 
