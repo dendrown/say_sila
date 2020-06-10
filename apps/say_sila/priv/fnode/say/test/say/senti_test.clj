@@ -1,6 +1,7 @@
 (ns say.senti-test
     (:require [clojure.test     :refer :all]
               [say.senti        :refer :all]
+              [say.config       :as cfg]
               [say.log          :as log]
               [clojure.data.csv :as csv]
               [clojure.java.io  :as io]
@@ -60,12 +61,15 @@
 
 ;; ---------------------------------------------------------------------------
 (deftest tweebo
-  (let [xmps (gold-examples)
-        ont  (populate-ontology :lein-test xmps)
-        deps (with-open [reader (io/reader GOLD-TWEEBO)]
+  (if (cfg/?? :senti :use-tweebo?)
+    (let [xmps (gold-examples)
+          ont  (populate-ontology :lein-test xmps)
+          deps (with-open [reader (io/reader GOLD-TWEEBO)]
                (doall (csv/read-csv reader :separator \tab)))]
-    (add-dependencies ont (first xmps) deps)
-    (owl/save-ontology ont TEST-ONTOLOGY :owl)
-    (is (apply = (map slurp [TEST-ONTOLOGY
-                             GOLD-ONTOLOGY])))))
+      (add-dependencies ont (first xmps) deps)
+      (owl/save-ontology ont TEST-ONTOLOGY :owl)
+      (is (apply = (map slurp [TEST-ONTOLOGY
+                               GOLD-ONTOLOGY]))))
+
+    (log/warn "Enable Tweebo for tweebo test")))
 
