@@ -90,6 +90,7 @@
 (def ^:const INIT-DATA-TAG      :Sentiment140)
 (def ^:const INIT-DATA-SPLIT    {:datasets 10, :train 500, :test 500, :parts 10 :rand-seed 1})
 (def ^:const INIT-LEX-TAG       :nrc)
+(def ^:const INIT-LEARN-CAP     1)
 (def ^:const INIT-TARGET        "sentiment")
 
 ; FIXME: The text index in our ARFF doesn't jive with the :emote config (used w/ gender & hierarchy)
@@ -1719,14 +1720,16 @@
   [solns]
   (let [re-soln #(partial re-find %)
         [with
-         without] (map re-soln [SOLN-WITH SOLN-WITHOUT])]
+         without] (map re-soln [SOLN-WITH SOLN-WITHOUT])
+        learn-cap (cfg/?? :senti :learn-cap INIT-LEARN-CAP)]
 
-    ;; We're currently storing these in a file for processing by hand
+    ;; Cap the solutions we keep from those with the elements we want and without those we don't
     (with-open [ss (io/writer SOLN-LOG :append true)]
       (.write ss (str ";;; -" (java.util.Date.)
                       "-------------------------------------------\n"))
-      (doseq [soln (filter with
-                           (remove without solns))]
+      (doseq [soln (take learn-cap
+                         (filter with
+                                 (remove without solns)))]
         (.write ss (str soln "\n"))))
     (log/info "Solutions saved to" SOLN-LOG)))
 
