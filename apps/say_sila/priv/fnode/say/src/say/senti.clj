@@ -821,6 +821,26 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn read-solutions
+  "Returns a vector of candidate solutions that were probably previously
+  stored using process-solutions."
+  ([]
+  (read-solutions SOLN-LOG))
+
+
+  ([fpath]
+  (log/info "Reading DL-Learner solutions:" fpath)
+    (with-open [rdr (io/reader fpath)]
+       (seq (reduce (fn [solns txt]
+                      (if-let [s (dll/read-solution txt)]
+                        (conj solns s)
+                        solns))
+              []
+              (line-seq rdr))))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn save-scr-ontologies
   "Saves Sentiment Composition Rule ontologies in OWL format."
   []
@@ -894,16 +914,24 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn populate-scr-ontologies!
+(defun populate-scr-ontologies!
   "Populates the senti ontology using examples from the ARFFs"
-  []
+  ([]
+  (populate-scr-ontologies! nil))
+
+
+  ([:learn]
+  (populate-scr-ontologies! (read-solutions)))
+
+
+  ([learned]
   (let [sconf (cfg/? :senti)]               ; Freeze the configuration while we work
     ;; Create ontologies for each SCR, each populated with individuals expressing the rule
     (reset! SCR-Ontologies
-            (update-kv-values @SCR-Examples #(populate-ontology %1 %2 sconf)))
+            (update-kv-values @SCR-Examples #(populate-ontology %1 %2 learned sconf)))
 
     ;; Return the collection of rule tags
-    (keys @SCR-Ontologies)))
+    (keys @SCR-Ontologies))))
 
 
 
@@ -1685,26 +1713,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn read-solutions
-  "Returns a vector of candidate solutions that were probably previously
-  stored using process-solutions."
-  ([]
-  (read-solutions SOLN-LOG))
-
-
-  ([fpath]
-  (log/info "Reading DL-Learner solutions:" fpath)
-    (with-open [rdr (io/reader fpath)]
-       (seq (reduce (fn [solns txt]
-                      (if-let [s (dll/read-solution txt)]
-                        (conj solns s)
-                        solns))
-              []
-              (line-seq rdr))))))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn process-solutions
   "Handles candidate solutions.  This function is in FLUX...big time!!"
   [solns]
@@ -1745,25 +1753,24 @@
                   (log/debug "ARFF:" arff)
                   ;; (Re)generate the examples and ontologies from the ARFF
                   (create-scr-examples! dtag arff)
-                  (populate-scr-ontologies!)
+                  (populate-scr-ontologies! (some #{:learn} opts))
                   (save-ontologies)
 
                   ;; Do reasoner tests if requested
                   (when (some #{:timings} opts)
                     (run-timings))
 
-                  ;; Run DL-Learner batch
+                  ;; Run batch with DL-Learner
                   (update-kv-values @SCR-Examples
                     (fn [rule xmps]
                       (dll/write-pn-config :base     base
                                            :rule     rule
                                            :prefixes (merge PREFIXES {"scr" (make-iri rule)})
                                            :examples (pn-examples rule "scr" xmps))))
-                  (dll/run base dtag))]
+                  (process-solutions (dll/run base dtag)))]
 
     ;; For DL-Learner (non-weka), run the first of the data (sub)splits
     (if (some #{:weka} opts)
         (log/notice "Created" (count dpaths) "train/test ARFF pairs")   ; No run for Weka
-        (->> (domap check! (:parts ((key-prng) dpaths)))                ; TODO: Run all splits
-             (run! process-solutions)))))
+        (domap check! (:parts ((key-prng) dpaths))))))                  ; TODO: Run all splits
 
