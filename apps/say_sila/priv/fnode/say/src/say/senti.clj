@@ -829,14 +829,15 @@
 
 
   ([fpath]
-  (log/info "Reading DL-Learner solutions:" fpath)
-    (with-open [rdr (io/reader fpath)]
-       (seq (reduce (fn [solns txt]
-                      (if-let [s (dll/read-solution txt)]
-                        (conj solns s)
-                        solns))
-              []
-              (line-seq rdr))))))
+  (when (.exists (io/file fpath))
+    (log/info "Reading DL-Learner solutions:" fpath)
+      (with-open [rdr (io/reader fpath)]
+         (seq (reduce (fn [solns txt]
+                        (if-let [s (dll/read-solution txt)]
+                          (conj solns s)
+                          solns))
+                      []
+                      (line-seq rdr)))))))
 
 
 
