@@ -37,6 +37,7 @@
 
 (def ^:const INIT-ALGORITHM :ocel)
 (def ^:const INIT-REASONER  :cwa)
+(def ^:const LEARNED-POS    "LearnedPositiveText")  ; Equivalency class from DL-Learner results
 
 (defonce Delimiters     (conj (repeat \,) \space))              ; For printing comma-separated series
 
@@ -68,6 +69,19 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn name-learned
+  "Returns the name of the learned class and subclasses representing rules
+  to represent it."
+  ([]
+  LEARNED-POS)
+
+
+  ([n]
+  (str (name-learned) "-" n)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defprotocol Converter
   (->tawny [s] "Reorders a solution sequence such that it may be used with Tawny-OWL."))
 
@@ -94,12 +108,26 @@
              (map ->tawny (conj (seq inds) (first ops)))
              (throw (IllegalArgumentException. (strfmt "TAWNY?<~a> ~a" (count s) s))))))))
 
+
+  clojure.lang.Symbol
+  (->tawny [sym]
+    ;; We have to be on the lookout for learned concepts
+    (let [sname      (str sym)
+          [main sub] (str/split sname #"-" 2)]
+      ;; LearnedPositiveText-N refers to a class in an ontology that doesn't yet exist
+      (if (str/starts-with? sname (str LEARNED-POS "-"))
+          ;; Create the class reference.  The client will bind the build ontology
+          (list 'tawny.owl/owl-class
+                'say.senti/*build-ontology*
+                sname)
+          ;; Normal case: lookup namespace-qualified symbol
+          (get @Symbols sym sym))))
+
+
   Object
   (->tawny [obj]
-    ;; Lookup the namespace-qualified symbol
-    (if-let [sym (get @Symbols obj)]
-      (symbol sym)
-      obj)))
+    ;; Literals get passed unchanged
+    obj))
 
 
 

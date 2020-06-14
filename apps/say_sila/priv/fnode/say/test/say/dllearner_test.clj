@@ -11,16 +11,18 @@
   "Compare DL-Learner rule vs. a test OWL expression."
   [rule owl]
   ;(log/warn "EQ:" rule "=?=" owl)
-  (cond
-    (symbol? rule)          (= rule owl)                            ; Same symbols?
-    (number? rule)          true                                    ; Cardinality constant
-    (and (empty? rule)
-         (empty? owl))      true                                    ; All done!
-    (and (seqable? rule)
-         (seqable? owl))    (and (equiv? (first rule) (first owl))  ; Recurse
-                                 (equiv? (next  rule) (next  owl)))
-    :else                   (boolean                                ; Bad match!
-                              (log/error rule "\n:\n" owl))))
+  (let [eq? #(= rule owl)]
+    (cond
+      (symbol? rule)          (eq?)                                   ; Same symbols?
+      (number? rule)          (eq?)                                   ; Cardinality constant
+      (string? rule)          (eq?)                                   ; Used for LearnedPositiveText
+      (and (empty? rule)
+           (empty? owl))      true                                      ; All done!
+      (and (seqable? rule)
+           (seqable? owl))    (and (equiv? (first rule) (first owl))    ; Recurse
+                                   (equiv? (next  rule) (next  owl)))
+      :else                   (boolean                                  ; Bad match!
+                              (log/error rule "\n:\n" owl)))))
 
 
 (defn match?
@@ -32,13 +34,24 @@
 
 
 ;; ---------------------------------------------------------------------------
+(deftest learned-names
+  (are [n1 n2] (= n1 n2)
+    "LearnedPositiveText"   (name-learned)
+    "LearnedPositiveText-9" (name-learned 9)
+    "LearnedPositiveText-9" (name-learned "9")))
+
+
+;; ---------------------------------------------------------------------------
 (deftest ocel-solutions
   (are [txt owl] (match? txt owl)
     "hasComponent min 3 (precedes max 1 (follows some (denotesAffect some Negative))) (accuracy 66.667%, length 11, depth 4)"
     '(tawny.owl/at-least 3 say.dolce/hasComponent
        (tawny.owl/at-most 1 say.dolce/precedes
          (tawny.english/some say.dolce/follows
-           (tawny.english/some say.senti/denotesAffect say.senti/Negative))))))
+           (tawny.english/some say.senti/denotesAffect say.senti/Negative))))
+
+    "LearnedPositiveText-1 and (hasComponent some (denotesAffect some Trust)) (accuracy 65.116%, length 7, depth 2)"
+    '(tawny.english/and (tawny.owl/owl-class say.senti/*build-ontology* "LearnedPositiveText-1") (tawny.english/some say.dolce/hasComponent (tawny.english/some say.senti/denotesAffect say.senti/Trust)))))
 
 
 ;; ---------------------------------------------------------------------------

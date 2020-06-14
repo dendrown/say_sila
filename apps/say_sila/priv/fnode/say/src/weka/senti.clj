@@ -12,6 +12,7 @@
 ;;;; -------------------------------------------------------------------------
 (ns weka.senti
   (:require [say.genie          :refer :all]
+            [say.dllearner      :as dll]
             [say.log            :as log]
             [say.jvm            :as jvm]
             [say.senti          :as senti]
@@ -45,7 +46,7 @@
   (let [xmps    (senti/instances->examples (Instances. insts i0 cnt))
         ont     (senti/populate-ontology :eval xmps solns)
         rsnr    (rsn/reasoner ont)
-        learned (owl-class ont senti/LEARNED-POS)               ; DL-Learner equivalent soln
+        learned (owl-class ont (dll/name-learned))              ; DL-Learner equivalent soln
         ptexts  (rsn/instances ont learned)                     ; Predicted positive texts
         np->01  #(if (contains? ptexts(individual ont %)) 1 0)] ; Index: neg=0, pos=1
 

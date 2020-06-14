@@ -81,7 +81,6 @@
 (def ^:const SOLN-LOG       "resources/emo-sa/say-senti.solutions.edn")
 (def ^:const SOLN-WITH      #"\bdenotesAffect\b|\bisPartOfSpeech\b")
 (def ^:const SOLN-WITHOUT   #"\bThing\b")
-(def ^:const LEARNED-POS    "LearnedPositiveText")  ; Equivalency class from DL-Learner results
 
 
 ;;; --------------------------------------------------------------------------
@@ -106,6 +105,8 @@
                                  InferenceType/OBJECT_PROPERTY_ASSERTIONS   ; <- say-senti's gotcha!
                                  InferenceType/DATA_PROPERTY_ASSERTIONS
                                  InferenceType/SAME_INDIVIDUAL]))
+
+(defonce ^:dynamic *build-ontology* nil)    ; Rebound to create ontologies with learned rules
 
 
 ;;; --------------------------------------------------------------------------
@@ -552,7 +553,7 @@
                  :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))
 
         ;; Create a parent class for output representations as described by DL-Learner
-        dltext (owl-class ont LEARNED-POS
+        dltext (owl-class ont (dll/name-learned)
                  :super    Text
                  :label    "Learned Positive Text"
                  :comment  (str "A Text representing a candidate formula for determining if a given Text "
@@ -560,14 +561,15 @@
 
         add-dl (fn [n expr]
                  (log/fmt-info "LEARNED<~a>: ~a" n expr)
-                 (owl-class ont (str LEARNED-POS "-" n)
+                 (owl-class ont (dll/name-learned n)
                    :super dltext
                    :equivalent (eval expr))
                  (inc n))]
 
     ;; If we've got learned expressions, create corresponding classes to describe Postive Texts
     (when learned
-      (reduce add-dl 1 learned))
+      (binding [*build-ontology* ont]
+        (reduce add-dl 1 learned)))
 
     ont)))
 
