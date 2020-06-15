@@ -69,7 +69,10 @@
                           %-------------------------------------------
                           q1_2019 => <<"tbl_statuses_2019_q1">>,
                           q2_2019 => <<"tbl_statuses_2019_q2">>,
-                          q3_2019 => <<"tbl_statuses_2019_q3">>}).
+                          q3_2019 => <<"tbl_statuses_2019_q3">>,
+                          q4_2019 => <<"tbl_statuses_2019_q4">>,
+                          %-------------------------------------------
+                          q1_2020 => <<"tbl_statuses_2020_q1">>}).
 -define(status_table(X), maps:get(X, ?STATUS_TABLES, ?STATUS_TABLE)).
 
 
@@ -328,22 +331,7 @@ get_players(Tracker, Options) ->
                               | string()
                               | player()
                               | all) -> list().
-%
-% @doc  Returns the tweets for one or more accounts; `ScreenNames' can
-%       take one of the following forms:
-%           - <<"denDrown">>                : for one account
-%           - ["denDrown", "someOneElse"]   : for multiple accounts
-%           - `all'                         : all available tweets (careful!)
-%
-%       NOTE: this pulls only classic 140 and 280 char tweets (no
-%             extended tweets)
-% @end  --
-get_tweets(Tracker, ScreenNames) ->
-    get_tweets(Tracker, ScreenNames, []).
 
-
-
-%%--------------------------------------------------------------------
 -spec get_tweets(Tracker     :: atom(),
                  ScreenNames :: binary()
                               | string()
@@ -369,6 +357,10 @@ get_tweets(Tracker, ScreenNames) ->
 %       NOTE: this pulls only classic 140 and 280 char tweets (no
 %             extended tweets)
 % @end  --
+get_tweets(Tracker, ScreenNames) ->
+    get_tweets(Tracker, ScreenNames, []).
+
+
 get_tweets(_, [], _) ->
     [];
 
