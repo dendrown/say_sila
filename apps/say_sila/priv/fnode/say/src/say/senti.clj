@@ -412,10 +412,15 @@
 ;;; Support for TweeboParser dependency trees?
 (when (cfg/?? :senti :use-tweebo?)
 
+  (defclass Coordination
+    :super   dul/Concept
+    :label   "Coordination"
+    :comment "A linguistic Concept that links one or more Conjuncts.")
+
   (defclass Conjuncts
     :super   dul/Collection
     :label   "Conjuncts"
-    :comment "A Collection that contains the set of conjuncts conjoined with a conjunction.")
+    :comment "A Collection that contains the set of conjuncts conjoined with a conjunction or coordination.")
 
   (defclass MultiWordExpression
     :super   dul/Collection
@@ -779,29 +784,40 @@
     {:keys [id content pos-tags]}
     tweebo]
   (let [twid    (label-text id)
-        make    (memoize (fn [role n]
-                            ;; We will only touch the ontology once as we are memoized
+        include #(refine ont %1 :fact (is dul/hasComponent %2))
+        equiv?  #(or (= %1 %2)
+                     (every? #{"\"" "QUOTE"} [%1 %2]))
+        make    (memoize (fn [ling n]
                             (let [tokid  (label-text-token twid n)
-                                  entid  (label-text-token twid n role)
+                                  token  (individual ont tokid)
+                                  entid  (label-text-token twid n ling)
                                   entity (individual ont entid
-                                           :type (case role "CONJ" Conjuncts
+                                           :type (case ling "CONJ"  Conjuncts
+                                                            "COORD" Coordination
                                                              "MWE"  MultiWordExpression))]
                               ;; Add the relation for token-->entity to the ontology.
                               ;; The Tweebo map entry for Token N does not reference the entity.
-                              (log/notice "Adding" role entid)
-                              (refine ont (individual ont tokid) :fact (is dul/expresses entity))
+                              (log/notice "Adding" ling entid)
+                              (refine ont token :fact (is dul/expresses entity))
+
+                              ;; Multi-word expression roots (n) don't have the MWE code
+                              (when (= ling "MWE")
+                                (include entity token))
+
+                              ;; We will only touch the ontology once as we are memoized
                               entity)))]
+
     ;; Run through our example and the Tweebo parse, token by token
     (loop [[tok1                              & content*]   content     ; Tweet tokens
            [pos1                              & pos-tags*]  pos-tags    ; Parts of Speech
-           [[sub tok2 _ pos2 pos3 _ obj role] & tweebo*]    tweebo]     ; Tweebo output
+           [[sub tok2 _ pos2 pos3 _ obj ling] & tweebo*]    tweebo]     ; Tweebo output
       ;; All three arguments should be in alignment, except tweebo may have a final [""]
       (when pos1
         ;; Make sure our tweet token matches the parse tree
-        (if (or (= pos1 pos2 pos3)
-                (= tok1 "...")                                              ; TODO: t13681
-                (= pos1 "G")                                                ; TODO: t6031
-                (contains? #{"t34578" "t55446" "t39415" "t30618"} twid))
+        (when (not= pos1 pos2 pos3)
+            (log/fmt-warn "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
+                          twid tok1 tok2 pos1 pos2 pos3))
+        (if (equiv? tok1 tok2)
             ;; We're looking from the leaf (subject) up to the parent node (object).
             ;; -1 : subjet token is uninteresting per Tweebo
             ;;  0 : subjet token is a root node
@@ -812,13 +828,12 @@
               ;; Add dependency relation to ontology
               (log/debug subid  "dependsOn" objid)
               (refine ont subject :fact (is dependsOn object))
-              ;; Handle Conjunctions and Multi-word expressions
-              (when-let [entity (and (not= role "_")
-                                     (not= role "COORD")                        ; TODO: t54912
-                                     (make role obj))]
-                (refine ont entity :fact (is dul/hasComponent subject)))))
-            (throw (IllegalArgumentException. (strfmt "Text/tweebo mismatch: token[~a/~a] pos[~a~a~a]"
-                                                      tok1 tok2 pos1 pos2 pos3))))
+              ;; Handle linguistic entities: Conjuncts, Coordinations and Multi-word expressions
+              (when-let [entity (and (not= ling "_")
+                                     (make ling obj))]
+                (include entity subject))))
+            (throw (IllegalArgumentException. (strfmt "Text/tweebo mismatch on ~a: token[~a/~a] pos[~a~a~a]"
+                                                      twid tok1 tok2 pos1 pos2 pos3))))
       (recur content* pos-tags* tweebo*))))))
 
 
