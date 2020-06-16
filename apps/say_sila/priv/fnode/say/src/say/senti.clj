@@ -753,7 +753,7 @@
             ;; TODO: This is prototypical code for secondary emotions
             (when secondaries?
               (doseq [sec (primaries->secondaries rules)]
-                (log/debug "Token" ttid "expresses dyad:" sec)
+                ;(log/debug "Token" ttid "expresses dyad:" sec)
                 (express ttid curr sec)))
 
             ;; Continue the reduction
@@ -813,11 +813,12 @@
            [[sub tok2 _ pos2 pos3 _ obj ling] & tweebo*]    tweebo]     ; Tweebo output
       ;; All three arguments should be in alignment, except tweebo may have a final [""]
       (when pos1
-        ;; Make sure our tweet token matches the parse tree
+        ;; Complain if the POS analysis doesn't match up (uncommon)
         (when (not= pos1 pos2 pos3)
             (log/fmt-warn "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
                           twid tok1 tok2 pos1 pos2 pos3))
         (if (equiv? tok1 tok2)
+          (do
             ;; We're looking from the leaf (subject) up to the parent node (object).
             ;; -1 : subjet token is uninteresting per Tweebo
             ;;  0 : subjet token is a root node
@@ -825,16 +826,22 @@
             (when (pos? (Long/parseLong obj))
               (let [[subid   objid]  (map #(label-text-token twid %) [sub obj]) ; t99-9
                     [subject object] (map #(individual ont %) [subid objid])]   ; Tokens
+
               ;; Add dependency relation to ontology
-              (log/debug subid  "dependsOn" objid)
+              ;(log/debug subid  "dependsOn" objid)
               (refine ont subject :fact (is dependsOn object))
+
               ;; Handle linguistic entities: Conjuncts, Coordinations and Multi-word expressions
               (when-let [entity (and (not= ling "_")
                                      (make ling obj))]
                 (include entity subject))))
-            (throw (IllegalArgumentException. (strfmt "Text/tweebo mismatch on ~a: token[~a/~a] pos[~a~a~a]"
-                                                      twid tok1 tok2 pos1 pos2 pos3))))
-      (recur content* pos-tags* tweebo*))))))
+
+              ;; Move on to the next token
+              (recur content* pos-tags* tweebo*))
+
+            ;; Abort!  The parsers disagree wrt tokenization.
+            (log/fmt-error "Text/tweebo mismatch on ~a: token[~a/~a] pos[~a~a~a]"
+                           twid tok1 tok2 pos1 pos2 pos3)))))))
 
 
 
