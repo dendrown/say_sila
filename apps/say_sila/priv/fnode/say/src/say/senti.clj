@@ -860,6 +860,26 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn cap-solutions
+  "Selects a the best solutions from the specified sequence."
+  ([solns]
+  (cap-solutions solns (cfg/?? :senti :learn-cap INIT-LEARN-CAP)))
+
+
+  ([solns cap]
+  ;; Keep the solutions with the elements we want and remove those we don't
+  (let [score   #(let [m (meta %)]      ; Scores are in the meta data
+                   (or (:f1 m)          ; Prefer F-measure [CELOE and OCEL]
+                        (:acc m)))      ; Fallback to accuracy [OCEL only]
+        better  #(compare (score %2)    ; Sort high to low
+                          (score %1))]
+
+    ;; Cap at a maximum number of solutions,
+    (take cap (sort better solns)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn save-scr-ontologies
   "Saves Sentiment Composition Rule ontologies in OWL format."
   []
@@ -944,10 +964,14 @@
 
 
   ([learned]
-  (let [sconf (cfg/? :senti)]               ; Freeze the configuration while we work
+  (let [sconf (cfg/? :senti)                ; Freeze the configuration while we work
+        solns (comment cap-solutions learned (get sconf :learn-cap INIT-LEARN-CAP))]
+
     ;; Create ontologies for each SCR, each populated with individuals expressing the rule
+    ;; TODO: We're still using all the learned rules, instead of the capped solutions
+    ;;       because we need any referenced rules, even if they didn't make the cut.
     (reset! SCR-Ontologies
-            (update-kv-values @SCR-Examples #(populate-ontology %1 %2 learned sconf)))
+            (update-kv-values @SCR-Examples #(populate-ontology %1 %2 learned sconf)))  ; TODO: learned => solns
 
     ;; Return the collection of rule tags
     (keys @SCR-Ontologies))))

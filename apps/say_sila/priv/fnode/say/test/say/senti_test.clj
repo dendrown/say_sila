@@ -13,9 +13,14 @@
 (def ^:const TEST-DATASET   "resources/test/test.A00.csv")
 (def ^:const GOLD-ARFF      "resources/test/test.A00.Sentiment140.GOLD.arff")
 
+(def ^:const SOLN-OCEL      "resources/test/soln.S00.ocel.txt")
+(def ^:const SOLN-CELOE     "resources/test/soln.S00.celoe.txt")
+
 (def ^:const GOLD-TWEEBO    "resources/test/tweebo/test.A00.GOLD.twt.predict")
 (def ^:const GOLD-ONTOLOGY  "resources/test/tweebo/test.A00.GOLD.owl")
 (def ^:const TEST-ONTOLOGY  "resources/test/tweebo/test.A00.owl")
+
+
 
 ;; NOTE: The Sentiment140 daataset marks t29923 as positive.  Is it really?
 (def ^:const GOLD-EXAMPLE   {:id        29923
@@ -55,8 +60,29 @@
 
 ;; ---------------------------------------------------------------------------
 (deftest example
-    (is (= GOLD-EXAMPLE
-           (first (gold-examples)))))
+  (is (= GOLD-EXAMPLE
+         (first (gold-examples)))))
+
+
+;; ---------------------------------------------------------------------------
+(deftest solutions
+  (let [[ocel
+         celoe] (map read-solutions [SOLN-OCEL
+                                     SOLN-CELOE])]
+    (are [x y] (= x y)
+     (cap-solutions ocel 1)
+     '((tawny.english/and
+         (tawny.english/not (tawny.owl/owl-class say.senti/*build-ontology* "LearnedPositiveText-4"))
+         (tawny.english/some say.dolce/hasComponent (tawny.english/some say.cmu-pos/isPartOfSpeech say.cmu-pos/CommonNoun))))
+
+      (cap-solutions celoe 1)
+      '(say.senti/Text)
+
+      (cap-solutions celoe 2)
+      '(say.senti/Text
+       (tawny.english/and
+         say.senti/Text
+         (tawny.english/some say.dolce/hasComponent say.dolce/SocialObject))))))
 
 
 ;; ---------------------------------------------------------------------------

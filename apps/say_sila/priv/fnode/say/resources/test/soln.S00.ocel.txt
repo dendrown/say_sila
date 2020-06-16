@@ -1,0 +1,17 @@
+;;; -Mon Jun 15 01:37:02 EDT 2020-------------------------------------------
+hasComponent some (denotesAffect some Anticipation) (accuracy 61.224%, length 5, depth 2)
+;;; -Mon Jun 15 02:07:26 EDT 2020-------------------------------------------
+hasComponent some (denotesAffect some Joy) (accuracy 61%, length 5, depth 2)
+;;; -Mon Jun 15 02:38:04 EDT 2020-------------------------------------------
+LearnedPositiveText-1 and (hasComponent some (directlyFollows some (isPartOfSpeech some CommonNoun))) (accuracy 60.204%, length 9, depth 3)
+;;; -Mon Jun 15 03:09:17 EDT 2020-------------------------------------------
+;;; -Mon Jun 15 03:40:11 EDT 2020-------------------------------------------
+;;; -Mon Jun 15 04:11:00 EDT 2020-------------------------------------------
+hasComponent some ((directlyFollows some (isPartOfSpeech some Verb)) and (directlyPrecedes some (isPartOfSpeech some Preposition))) (accuracy 61.856%, length 13, depth 3)
+;;; -Mon Jun 15 04:41:38 EDT 2020-------------------------------------------
+;;; -Mon Jun 15 05:12:25 EDT 2020-------------------------------------------
+(not (LearnedPositiveText-4)) and (hasComponent some (isPartOfSpeech some Preposition)) (accuracy 63.265%, length 8, depth 2)
+;;; -Mon Jun 15 05:43:43 EDT 2020-------------------------------------------
+(not (LearnedPositiveText-4)) and (hasComponent some (isPartOfSpeech some CommonNoun)) (accuracy 63.918%, length 8, depth 2)
+;;; -Mon Jun 15 06:15:30 EDT 2020-------------------------------------------
+LearnedPositiveText-2 and (LearnedPositiveText-3 or (hasComponent some (isPartOfSpeech some NominalVerbal))) (accuracy 59.596%, length 9, depth 2)
