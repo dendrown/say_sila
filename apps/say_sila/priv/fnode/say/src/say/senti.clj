@@ -79,7 +79,7 @@
 ;;; --------------------------------------------------------------------------
 ;;; TODO: Automate solution handling
 (def ^:const SOLN-LOG       "resources/emo-sa/say-senti.solutions.edn")
-(def ^:const SOLN-WITH      #"\bdenotesAffect\b|\bisPartOfSpeech\b")
+(def ^:const SOLN-WITH      #"expresses\b|\bdenotesAffect\b|\bisPartOfSpeech\b")
 (def ^:const SOLN-WITHOUT   #"\bThing\b")
 
 
