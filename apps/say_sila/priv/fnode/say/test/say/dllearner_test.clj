@@ -1,10 +1,13 @@
 (ns say.dllearner-test
-    (:require [clojure.test  :refer :all]
-              [say.dllearner :refer :all]
-              [say.log       :as log]
+    (:require [clojure.test     :refer :all]
+              [say.dllearner    :refer :all]
+              [say.log          :as log]
               [say.dolce]
               [say.senti]
-              [tawny.english]))
+              [tawny.english]
+              [clojure.string   :as str]))
+
+(def ^:const OCEL-SOLUTIONS "resources/test/soln.S01.ocel.txt")
 
 
 (defn equiv?
@@ -39,6 +42,17 @@
     "LearnedPositiveText"   (name-learned)
     "LearnedPositiveText-9" (name-learned 9)
     "LearnedPositiveText-9" (name-learned "9")))
+
+
+;; ---------------------------------------------------------------------------
+(deftest solution-ordering
+  (let [acc   #(:acc (meta (read-solution %)))
+        solns (-> (slurp  "resources/test/soln.S01.ocel.txt")
+                  (str/split  #"\n")
+                  (reorder-solutions :ocel))]
+    (are [a which] (= a (acc (which solns)))
+      88.888 first
+      22.222 last)))
 
 
 ;; ---------------------------------------------------------------------------

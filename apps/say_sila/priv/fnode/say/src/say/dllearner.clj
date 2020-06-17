@@ -132,26 +132,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- reorder-solutions
-  "Ensures that the specified solutions are in order starting from the best
-  performer.  This function allows us to overcome the difficulty wherein
-  different DL-Learner learning algorithms report the rules they generate
-  in different orders."
-  ([solns]
-  (let [alg (cfg/?? :dllearner :alg {})
-        cel (:type :algx)]
-    (reorder-solutions solns cel)))
-
-  ([solns cel]
-  (case cel
-    :ocel   (reverse solns)
-    :celoe  solns
-    nil     (do (log/warn "No class expression learner configured")
-                solns))))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn read-solution
   "Converts a string representing a DLL-Learner solution into a Clojure
   expression that can be handled by Tawny-OWL.  The statistics that DL-Learner
@@ -180,6 +160,29 @@
         (log/info "RULE:" rule)
         (with-meta (->tawny rule)
                    (update-keys (partition 2 stats) keyword))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn reorder-solutions
+  "Ensures that the specified solutions are in order starting from the best
+  performer.  This function allows us to overcome the difficulty wherein
+  different DL-Learner learning algorithms report the rules they generate
+  in different orders."
+  ([solns]
+  (let [alg (cfg/?? :dllearner :alg {})
+        cel (:type alg)]
+    (reorder-solutions solns cel)))
+
+  ([solns cel]
+  (case cel
+    :celoe  solns
+    :ocel   ; Parse solutions & sort by accuracy (Z-to-A)
+            (vals (into (sorted-map)
+                        (map #(vector (-> (read-solution %) meta :acc -) %)
+                             solns)))
+    nil     (do (log/warn "No class expression learner configured")
+                solns))))
 
 
 
