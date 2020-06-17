@@ -132,6 +132,26 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- reorder-solutions
+  "Ensures that the specified solutions are in order starting from the best
+  performer.  This function allows us to overcome the difficulty wherein
+  different DL-Learner learning algorithms report the rules they generate
+  in different orders."
+  ([solns]
+  (let [alg (cfg/?? :dllearner :alg {})
+        cel (:type :algx)]
+    (reorder-solutions solns cel)))
+
+  ([solns cel]
+  (case cel
+    :ocel   (reverse solns)
+    :celoe  solns
+    nil     (do (log/warn "No class expression learner configured")
+                solns))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn read-solution
   "Converts a string representing a DLL-Learner solution into a Clojure
   expression that can be handled by Tawny-OWL.  The statistics that DL-Learner
@@ -367,7 +387,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn find-solutions
-  "Processes DL-Learner output and returns a sequence of Solutions."
+  "Processes DL-Learner output and returns a sequence of solutions."
   [{:keys [err exit out]}]
   (letfn [(collect [solns line]
             ;; We're reducing a block of lines of the form "N: (...)"
@@ -400,5 +420,7 @@
   (let [dconf (apply make-config-fpath tags)
         exec  (cfg/?? :dllearner :exec DLL-EXEC)]
     (log/fmt-notice "Running DL-Learner: cfg[~a]" dconf)
-    (find-solutions (sh/sh exec "-c" dconf))))
+    (-> (sh/sh exec "-c" dconf)
+        find-solutions
+        reorder-solutions)))
 

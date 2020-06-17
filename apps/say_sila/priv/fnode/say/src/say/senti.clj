@@ -1771,6 +1771,10 @@
          without] (map re-soln [SOLN-WITH SOLN-WITHOUT])
         learn-cap (cfg/?? :senti :learn-cap INIT-LEARN-CAP)]
 
+    ;; Log the full solution set to make sure the ordering is correct
+    (doseq [soln solns]
+      (log/fmt-debug "SOLN: ~a" soln))
+
     ;; Cap the solutions we keep from those with the elements we want and without those we don't
     (with-open [ss (io/writer SOLN-LOG :append true)]
       (.write ss (str ";;; -" (java.util.Date.)
