@@ -22,7 +22,8 @@
   :senti
     {:all-data?         true                    ; Use complete dataset (vs. a manageable subset)
      :balance?          false                   ; Equal representation for pos/neg classes
-     :full-links?       false                   ; Create links explicitly rather than depending on reasoner
+     :links?            true                    ; Include ordering of Tokens (must be on for full-links)
+     :full-links?       false                   ; Create all links explicitly rather than depending on reasoner
      :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
      :pos-clue?         false                   ; Include positive Text indicator to guide (or evaluate) the system
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion

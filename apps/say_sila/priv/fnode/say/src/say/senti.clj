@@ -673,8 +673,8 @@
 
 
   ([ont clue
-    {:keys [content id polarity pos-tags rules]}                        ; Text (tweet) breakdown
-    {:keys [full-links? pos-neg? secondaries? use-scr? use-tweebo?]}]   ; Senti-configuration
+    {:keys [content id polarity pos-tags rules]}                                ; Text (tweet) breakdown
+    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [tid     (label-text id)
@@ -727,16 +727,19 @@
 
             ;; Link tokens to each other
             (when-let [prev (first tokens)]
-              (refine ont curr :fact (is dul/directlyFollows prev))
 
-              ;; The reasoner can figure out the rest, but being explicit may be faster
-              (when full-links?
-                ;; The current Token comes after all the tokens we've seen so far
-                (refine ont prev :fact (is dul/directlyPrecedes curr))
-                (run! (fn [tok]
-                        (refine ont curr :fact (is dul/follows tok))
-                        (refine ont tok  :fact (is dul/precedes curr)))
-                      tokens))
+              ;; Are we including the Token ordering?
+              (when links?
+                (refine ont curr :fact (is dul/directlyFollows prev))
+
+                ;; The reasoner can figure out the rest, but being explicit may be faster
+                (when full-links?
+                  ;; The current Token comes after all the tokens we've seen so far
+                  (refine ont prev :fact (is dul/directlyPrecedes curr))
+                  (run! (fn [tok]
+                          (refine ont curr :fact (is dul/follows tok))
+                          (refine ont tok  :fact (is dul/precedes curr)))
+                        tokens)))
 
               ;; TODO: This is SCR prototypical code.  Integrate it into the module if it's successful.
               (when use-scr?
@@ -797,7 +800,7 @@
                                                              "MWE"  MultiWordExpression))]
                               ;; Add the relation for token-->entity to the ontology.
                               ;; The Tweebo map entry for Token N does not reference the entity.
-                              (log/notice "Adding" ling entid)
+                              (log/debug "Adding" ling entid)
                               (refine ont token :fact (is dul/expresses entity))
 
                               ;; Multi-word expression roots (n) don't have the MWE code

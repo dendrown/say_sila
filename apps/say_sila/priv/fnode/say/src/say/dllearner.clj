@@ -115,7 +115,7 @@
     (let [sname      (str sym)
           [main sub] (str/split sname #"-" 2)]
       ;; LearnedPositiveText-N refers to a class in an ontology that doesn't yet exist
-      (if (str/starts-with? sname (str LEARNED-POS "-"))
+      (if (str/starts-with? sname LEARNED-POS)
           ;; Create the class reference.  The client will bind the build ontology
           (list 'tawny.owl/owl-class
                 'say.senti/*build-ontology*
