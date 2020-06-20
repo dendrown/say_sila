@@ -17,6 +17,8 @@ Here in the development stage, it still needs a manual startup:
 
 ## Libraries
 Note: We're updating this list as we touch the associated libraries in the code
+- [Tawny OWL](https://github.com/phillord/tawny-owl): OWL Ontologies in a Clojure Environment 
+- [HermiT](https://github.com/owlcs/hermit-reasoner): Conformant OWL 2 DL reasoner that uses the direct semantics
 - [Tweebo Parser](https://github.com/ikekonglp/TweeboParser): A Dependency Parser for Tweets
 
 
