@@ -431,11 +431,6 @@
         <NamedIndividual IRI="t29923-11"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-10"/>
-        <NamedIndividual IRI="t29923-9"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-11"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#CommonNoun"/>
@@ -444,11 +439,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
         <NamedIndividual IRI="t29923-11"/>
         <NamedIndividual IRI="t29923-9"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-11"/>
-        <NamedIndividual IRI="t29923-10"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -461,19 +451,9 @@
         <NamedIndividual IRI="t29923-9"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-12"/>
-        <NamedIndividual IRI="t29923-11"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-13"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Punctuation"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-13"/>
-        <NamedIndividual IRI="t29923-12"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -484,11 +464,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
         <NamedIndividual IRI="t29923-14"/>
         <NamedIndividual IRI="t29923-15"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-14"/>
-        <NamedIndividual IRI="t29923-13"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -521,19 +496,9 @@
         <NamedIndividual IRI="t29923-16"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-15"/>
-        <NamedIndividual IRI="t29923-14"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-16"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Verb"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-16"/>
-        <NamedIndividual IRI="t29923-15"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -551,11 +516,6 @@
         <NamedIndividual IRI="http://www.dendrown.net/uqam/say-senti.owl#NEGATION"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-17"/>
-        <NamedIndividual IRI="t29923-16"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-18"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Adjective"/>
@@ -566,19 +526,9 @@
         <NamedIndividual IRI="t29923-16"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-18"/>
-        <NamedIndividual IRI="t29923-17"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-19"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Punctuation"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-19"/>
-        <NamedIndividual IRI="t29923-18"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -591,11 +541,6 @@
         <NamedIndividual IRI="t29923-3"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-2"/>
-        <NamedIndividual IRI="t29923-1"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-20"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Determiner"/>
@@ -604,11 +549,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
         <NamedIndividual IRI="t29923-20"/>
         <NamedIndividual IRI="t29923-21"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-20"/>
-        <NamedIndividual IRI="t29923-19"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -621,19 +561,9 @@
         <NamedIndividual IRI="t29923-22"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-21"/>
-        <NamedIndividual IRI="t29923-20"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-22"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Verb"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-22"/>
-        <NamedIndividual IRI="t29923-21"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -646,11 +576,6 @@
         <NamedIndividual IRI="t29923-22"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-23"/>
-        <NamedIndividual IRI="t29923-22"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-24"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
@@ -661,11 +586,6 @@
         <NamedIndividual IRI="t29923-26"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-24"/>
-        <NamedIndividual IRI="t29923-23"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-25"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
@@ -674,11 +594,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
         <NamedIndividual IRI="t29923-25"/>
         <NamedIndividual IRI="t29923-26"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-25"/>
-        <NamedIndividual IRI="t29923-24"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -689,11 +604,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
         <NamedIndividual IRI="t29923-26"/>
         <NamedIndividual IRI="t29923-23"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-26"/>
-        <NamedIndividual IRI="t29923-25"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#expresses"/>
@@ -711,11 +621,6 @@
         <NamedIndividual IRI="t29923-28"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-27"/>
-        <NamedIndividual IRI="t29923-26"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-28"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
@@ -724,11 +629,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
         <NamedIndividual IRI="t29923-28"/>
         <NamedIndividual IRI="t29923-26"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-28"/>
-        <NamedIndividual IRI="t29923-27"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#expresses"/>
@@ -741,11 +641,6 @@
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Punctuation"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-29"/>
-        <NamedIndividual IRI="t29923-28"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-3"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#ProperNoun"/>
@@ -756,11 +651,6 @@
         <NamedIndividual IRI="t29923-4"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-3"/>
-        <NamedIndividual IRI="t29923-2"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#expresses"/>
         <NamedIndividual IRI="t29923-3"/>
         <NamedIndividual IRI="t29923-mwe3"/>
@@ -769,11 +659,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-4"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Verb"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-4"/>
-        <NamedIndividual IRI="t29923-3"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#expresses"/>
@@ -791,11 +676,6 @@
         <NamedIndividual IRI="t29923-4"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-5"/>
-        <NamedIndividual IRI="t29923-4"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-6"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#VerbParticle"/>
@@ -804,11 +684,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
         <NamedIndividual IRI="t29923-6"/>
         <NamedIndividual IRI="t29923-4"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-6"/>
-        <NamedIndividual IRI="t29923-5"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
@@ -821,11 +696,6 @@
         <NamedIndividual IRI="t29923-4"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-7"/>
-        <NamedIndividual IRI="t29923-6"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-8"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Pronoun"/>
@@ -836,11 +706,6 @@
         <NamedIndividual IRI="t29923-9"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-8"/>
-        <NamedIndividual IRI="t29923-7"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.dendrown.net/uqam/cmu-pos.owl#isPartOfSpeech"/>
         <NamedIndividual IRI="t29923-9"/>
         <NamedIndividual IRI="http://www.dendrown.net/uqam/cmu-pos.owl#Verb"/>
@@ -849,11 +714,6 @@
         <ObjectProperty IRI="http://www.dendrown.net/uqam/say-senti.owl#dependsOn"/>
         <NamedIndividual IRI="t29923-9"/>
         <NamedIndividual IRI="t29923-7"/>
-    </ObjectPropertyAssertion>
-    <ObjectPropertyAssertion>
-        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#directlyFollows"/>
-        <NamedIndividual IRI="t29923-9"/>
-        <NamedIndividual IRI="t29923-8"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
@@ -877,8 +737,23 @@
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-mwe28"/>
+        <NamedIndividual IRI="t29923-28"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
         <NamedIndividual IRI="t29923-mwe3"/>
         <NamedIndividual IRI="t29923-2"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-mwe3"/>
+        <NamedIndividual IRI="t29923-3"/>
+    </ObjectPropertyAssertion>
+    <ObjectPropertyAssertion>
+        <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
+        <NamedIndividual IRI="t29923-mwe4"/>
+        <NamedIndividual IRI="t29923-4"/>
     </ObjectPropertyAssertion>
     <ObjectPropertyAssertion>
         <ObjectProperty IRI="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasComponent"/>
