@@ -82,7 +82,7 @@
          :fact (is hasPartOfSpeechTag ~tag))))
 
 
-;Nominal, Nominal + Verbal
+; Nominal, Nominal + Verbal
 (defpos CommonNoun               "N" "a common noun (NN,NNS)")
 (defpos Pronoun                  "O" "a pronoun (personal/WH, not possessive; PRP,WP)")
 (defpos NominalPossessive        "S" "a nominal + possessive")
