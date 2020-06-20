@@ -65,6 +65,22 @@
 
 
 ;; ---------------------------------------------------------------------------
+(deftest wanted-solutions
+  (are [s] (good-solution? s)
+    "LearnedPositiveText and (hasComponent some (isPartOfSpeech some Adjective)) (accuracy 60.204%, length 7, depth 2)"
+    "hasComponent some (expresses some (Concept and (not (Surprise)))) (accuracy 60.204%, length 8, depth 2)"
+    "Text and (hasComponent some (denotesAffect some (not (Negative)))) (pred. acc.: 63.27%, F-measure: 66.04%)"))
+
+
+;; ---------------------------------------------------------------------------
+(deftest unwanted-solutions
+  (are [s] (not (good-solution? s))
+    "(hasComponent min 5 (follows only (denotesAffect only InformationObject))) (pred. acc.: 56.70%, F-measure: 65.00%)"
+    "(Text and (hasComponent some Object)) (accuracy 11.22%, length 5)"
+    "(Text and (hasComponent min 5 (follows only (expresses only Nothing))))"))
+
+
+;; ---------------------------------------------------------------------------
 (deftest solutions
   (let [[ocel
          celoe] (map read-solutions [SOLN-OCEL

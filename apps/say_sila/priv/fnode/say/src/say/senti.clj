@@ -78,9 +78,8 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: Automate solution handling
-(def ^:const SOLN-LOG       "resources/emo-sa/say-senti.solutions.edn")
-(def ^:const SOLN-WITH      #"expresses\b|\bdenotesAffect\b|\bisPartOfSpeech\b")
-(def ^:const SOLN-WITHOUT   #"\bThing\b")
+(def ^:const Soln-Log       "resources/emo-sa/say-senti.solutions.edn")
+(def ^:const Soln-Without   #"\bThing\b")
 
 
 ;;; --------------------------------------------------------------------------
@@ -853,7 +852,7 @@
   "Returns a vector of candidate solutions that were probably previously
   stored using process-solutions."
   ([]
-  (read-solutions SOLN-LOG))
+  (read-solutions Soln-Log))
 
 
   ([fpath]
@@ -1766,27 +1765,37 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defonce Soln-With (into Affect-Names pos/POS-Names))   ; Set of desired elements
+
+(defn good-solution?
+  "Returns  passed a 'useful' solution string (as repoted by DL-Learner)"
+  [soln]
+  ;; First make sure there are no silly-solution markers
+  (when-not (re-find Soln-Without soln)
+    ;; Split it into basic elements and make sure there's at least one we want
+    (not (empty? (filter Soln-With
+                         (remove empty? (str/split soln #" |\(|\)")))))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn process-solutions
-  "Handles candidate solutions.  This function is in FLUX...big time!!"
+  "Handles candidate solutions.  This function is still in FLUX."
   [solns]
-  (let [re-soln #(partial re-find %)
-        [with
-         without] (map re-soln [SOLN-WITH SOLN-WITHOUT])
-        learn-cap (cfg/?? :senti :learn-cap INIT-LEARN-CAP)]
+  (let [learn-cap (cfg/?? :senti :learn-cap INIT-LEARN-CAP)]
 
     ;; Log the full solution set to make sure the ordering is correct
     (doseq [soln solns]
       (log/fmt-debug "SOLN: ~a" soln))
 
     ;; Cap the solutions we keep from those with the elements we want and without those we don't
-    (with-open [ss (io/writer SOLN-LOG :append true)]
+    (with-open [ss (io/writer Soln-Log :append true)]
       (.write ss (str ";;; -" (java.util.Date.)
                       "-------------------------------------------\n"))
       (doseq [soln (take learn-cap
-                         (filter with
-                                 (remove without solns)))]
+                         (filter good-solution? solns))]
         (.write ss (str soln "\n"))))
-    (log/info "Solutions saved to" SOLN-LOG)))
+    (log/info "Solutions saved to" Soln-Log)))
 
 
 
@@ -1796,8 +1805,8 @@
   [& opts]
   ;; Shall we do some precleaning
   (when (some #{:reset} opts)
-    (log/info "Recreating solutions file:" SOLN-LOG)
-    (io/delete-file SOLN-LOG true))
+    (log/info "Recreating solutions file:" Soln-Log)
+    (io/delete-file Soln-Log true))
 
   ;; Recreate our source ARFF if num-examples has been updated in the Config
   (when (some #{:arff} opts)
