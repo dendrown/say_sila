@@ -195,16 +195,6 @@
   :label    "Affect"
   :comment  "A concept describing human sentiment or emotion.")
 
-(defoproperty denotesAffect
-  :super    dul/expresses
-  :label    "denotes affect"
-  :domain   pos/Token
-  :range    Affect
-  :comment  "A relationship between a Token and the affect it expresses.")
-
-;;; TODO: Resolve the discrepancy between pos/neg sentiment Affect and the P/N SCRs
-;;;       Also, these affect concepts should use noun forms (Positivity and Negativity),
-;;;       but we're using terms from the lexicon for the initial evaluation.
 (as-subclasses Affect
   (defclass Positive
     :label   "Positive"
@@ -373,7 +363,7 @@
     :label    "Affect Negator"
     :equivalent (dl/and pos/Token
                         (dl/some indicatesRule NEGATION)
-                        (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
+                        (dl/some dul/directlyPrecedes (dl/some dul/expresses Affect))))
 
   (defoproperty negatesAffect
     :super    dul/expresses
@@ -381,30 +371,6 @@
     :domain   AffectNegator
     :range    Affect))
 
-
-;;; --------------------------------------------------------------------------
-;;; TODO: Put SentimentPolarity back in after we handle timing considerations
-;(defclass SentimentPolarity
-;  :super   dul/Quality
-;  :label   "Sentiment Polarity"
-;  :comment "A Quality describing an Information Object's expression as positive, negative, or neutral.")
-;
-;(as-subclasses SentimentPolarity
-;  :disjoint
-;  (defclass PositiveSentimentPolarity
-;    :label   "Positive Sentiment Polarity"
-;    :comment "A Sentiment Polarity expressing positive sentiment")
-;  (defclass NegativeSentimentPolarity
-;    :label   "Negative Sentiment Polarity"
-;    :comment "A Sentiment Polarity expressing negative sentiment"))
-;(defpun PositiveSentimentPolarity)
-;(defpun NegativeSentimentPolarity)
-;
-;(defoproperty hasPolarity
-;  :super    dul/hasQuality
-;  :label    "has Polarity"
-;  :domain   dul/InformationObject
-;  :range    SentimentPolarity)
 
 
 ;;; --------------------------------------------------------------------------
@@ -664,7 +630,7 @@
    A positivity clue (an OWL individual) may be specified to add an explicit
    relation:
 
-        <Text denotesAffect PositiveToken>
+        <Text expresses PositiveToken>
 
    for the purpose of guiding learning or evaluating the system."
   ([ont tinfo sconf]
@@ -687,14 +653,7 @@
           affect? #(or (contains? Affect-Names %)
                        (contains? Dyad-Names %))
           express (fn [ttid token concept]
-                    (let [prop (if (affect? concept)
-                                   denotesAffect
-                                   indicatesRule)]
-                      ;; Report the real SCR rules (not P|N because there are too many)
-                      (when (= prop indicatesRule)
-                        (log/debug "Tweet token" ttid "expresses" concept))
-
-                      (refine ont token :fact (is prop (individual say-senti concept)))))]
+                    (refine ont token :fact (is dul/expresses (individual say-senti concept))))]
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?
@@ -715,14 +674,14 @@
 
               ;; Link Token to the original Text and set POS Quality
               (refine ont text :fact (is dul/hasComponent curr))
-              (refine ont curr :fact (is pos/isPartOfSpeech pos))
+              (refine ont curr :fact (is dul/hasQuality pos))
 
               ;; Add positivity clue if we're going to guide learning
               (when (and clue                                   ; Optional (caller decides on clues)
                          (= cnt 1)                              ; Add the relation on the first word
                          (= polarity :positive))
                 ;; Coax DL-Learner into looking at what denotes affect
-                (refine ont curr :fact (is denotesAffect clue)))
+                (refine ont curr :fact (is dul/expresses clue)))
 
             ;; Link tokens to each other
             (when-let [prev (first tokens)]
