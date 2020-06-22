@@ -6,9 +6,9 @@
 ;;;;         _/    _/    _/        _/    _/
 ;;;;  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 ;;;;
-;;;; Ontology utilities
+;;;; Ontological utilities
 ;;;;
-;;;; @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.ontology
   (:refer-clojure :exclude [==])
@@ -19,11 +19,13 @@
             [tawny.query        :as qry]
             [tawny.owl          :refer :all]
             [clojure.core.logic :refer :all :exclude [annotate is]])
-  (:import  [org.semanticweb.owlapi.model   IRI HasIRI
+  (:import  (org.semanticweb.owlapi.model   IRI HasIRI
                                             OWLDataFactory
-                                            OWLOntologyID]
-            [org.semanticweb.owlapi.search EntitySearcher]
-            [uk.ac.manchester.cs.owl.owlapi OWLClassImpl]))
+                                            OWLOntologyID)
+            (org.semanticweb.owlapi.profiles OWL2QLProfile
+                                             OWLProfileReport)
+            (org.semanticweb.owlapi.search EntitySearcher)
+            (uk.ac.manchester.cs.owl.owlapi OWLClassImpl)))
 
 
 (set! *warn-on-reflection* true)
@@ -128,6 +130,33 @@
         man (owl-ontology-manager)]
     (remove-ontology-maybe id)
     (.loadOntologyFromOntologyDocument man (IRI/create rsc))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ^OWLProfileReport ql-report
+  "Returns an OWL2 QL profile report for the specified ontology."
+  [ont]
+  (-> (OWL2QLProfile.)
+      (.checkOntology ont)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ql-violations
+  "Returns true if the specified ontology and its import clojure is within
+  the OWL2 QL profile."
+  [ont]
+  (.getViolations (ql-report ont)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ql?
+  "Returns true if the specified ontology and its import clojure is within
+  the OWL2 QL profile."
+  [ont]
+  (.isInProfile (ql-report ont)))
 
 
 
