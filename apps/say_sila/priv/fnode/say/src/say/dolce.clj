@@ -14,7 +14,7 @@
   (:require [say.genie      :refer :all]
             [say.ontology   :refer :all]
             [say.config     :as cfg]
-            [say.dllearner      :as dll]
+            [say.dllearner  :as dll]
             [say.log        :as log]
             [tawny.repl     :as repl]               ; <= DEBUG
             [tawny.owl      :refer :all]))
