@@ -134,11 +134,27 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn which-ontology
+  "Returns the ontology associated with the specified namespace, defaulting to
+  the current (caller's) namespace, or nil if there is no such ontology."
+  ([]
+  (which-ontology *ns*))
+
+  ([nspace]
+  (get @ontology-for-namespace nspace)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn ^OWLProfileReport ql-report
   "Returns an OWL2 QL profile report for the specified ontology."
-  [ont]
+  ([]
+  (ql-report (which-ontology)))
+
+
+  ([ont]
   (-> (OWL2QLProfile.)
-      (.checkOntology ont)))
+      (.checkOntology ont))))
 
 
 
@@ -146,8 +162,16 @@
 (defn ql-violations
   "Returns true if the specified ontology and its import clojure is within
   the OWL2 QL profile."
-  [ont]
-  (.getViolations (ql-report ont)))
+  ([& opts]
+  (let [ont (if (and opts
+                     (not (keyword? (first opts))))
+                (first opts)
+                (which-ontology))
+        vs  (.getViolations (ql-report ont))]
+    ;; Do they just want the types?
+    (if (some #{:type} opts)
+        (map first (group-by type vs))
+        vs))))
 
 
 
@@ -155,8 +179,12 @@
 (defn ql?
   "Returns true if the specified ontology and its import clojure is within
   the OWL2 QL profile."
-  [ont]
-  (.isInProfile (ql-report ont)))
+  ([]
+  (ql? (which-ontology)))
+
+
+  ([ont]
+  (.isInProfile (ql-report ont))))
 
 
 
