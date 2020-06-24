@@ -194,12 +194,12 @@
 (defn in-profile?
   "Returns true if the specified ontology and its import clojure is within
   the OWL2 QL profile."
-  ([]
+  ([prof]
   (in-profile? (which-ontology)))
 
 
-  ([ont]
-  (.isInProfile (report ont))))
+  ([prof ont]
+  (.isInProfile (report prof ont))))
 
 
 
