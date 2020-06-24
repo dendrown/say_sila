@@ -14,7 +14,7 @@
   (:require [say.genie      :refer :all]
             [say.ontology   :refer :all]
             [say.config     :as cfg]
-            [say.dllearner      :as dll]
+            [say.dllearner  :as dll]
             [say.log        :as log]
             [tawny.repl     :as repl]               ; <= DEBUG
             [tawny.owl      :refer :all]))
@@ -76,6 +76,7 @@
 (redefoproperty hasPart)
 (redefoproperty hasComponent)
 
+
 ;;; Tell DL-Learner about our ontology elements
 (dll/register-ns)
 
@@ -98,6 +99,7 @@
            ent->ent #(apply dom->rng % Entity Entity %&)]
 
         ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
+        (refine Entity)
         (refine Objekt              :super Entity)
         (refine SocialObject        :super Objekt)
         (refine Collection          :super SocialObject)

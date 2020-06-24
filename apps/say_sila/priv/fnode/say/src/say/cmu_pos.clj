@@ -34,8 +34,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defontology cmu-pos
-  :iri    ONT-IRI
-  :prefix "pos")
+  :iri          ONT-IRI
+  :prefix       "pos"
+  :versioninfo  "0.1.1")
 (dul/access)
 
 (defclass Token
