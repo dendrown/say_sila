@@ -62,8 +62,8 @@
   :domain  PartOfSpeech
   :range   :XSD_STRING
   :label   "has part of speech tag"
-  :comment "Defines a descriptive tag used to designate the part of speech of an Information Object."
-  :characteristic :functional)
+  ;OWL2_QL :characteristic :functional
+  :comment "Defines a descriptive tag used to designate the part of speech of an Information Object.")
 
 
 ;;; --------------------------------------------------------------------------
@@ -74,8 +74,7 @@
   `(do (defclass ~pos
          :super   PartOfSpeech
          :label   (str/join " " (soc/tokenize (name '~pos)))
-         :comment (str "A Part-of-Speech representing " ~descr)
-         :equivalent (has-value hasPartOfSpeechTag ~tag))
+         :comment (str "A Part-of-Speech representing " ~descr))
 
        (defpun ~pos)
        (refine (individual (str '~pos))

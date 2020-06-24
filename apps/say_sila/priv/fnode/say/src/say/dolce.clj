@@ -14,7 +14,7 @@
   (:require [say.genie      :refer :all]
             [say.ontology   :refer :all]
             [say.config     :as cfg]
-            [say.dllearner      :as dll]
+            [say.dllearner  :as dll]
             [say.log        :as log]
             [tawny.repl     :as repl]               ; <= DEBUG
             [tawny.owl      :refer :all]))
@@ -76,6 +76,7 @@
 (redefoproperty hasPart)
 (redefoproperty hasComponent)
 
+
 ;;; Tell DL-Learner about our ontology elements
 (dll/register-ns)
 
@@ -98,6 +99,7 @@
            ent->ent #(apply dom->rng % Entity Entity %&)]
 
         ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
+        (refine Entity              :super owl-thing)
         (refine Objekt              :super Entity)
         (refine SocialObject        :super Objekt)
         (refine Collection          :super SocialObject)
@@ -125,11 +127,6 @@
                     follows  directlyFollows]]
           (ent->ent op))
 
-        ;; Mark transitive properties as such. (Likage is transitive, direct linkage is not.)
-        (doseq [op [precedes
-                    follows]]
-          (refine op :characteristic :transitive))
-
         ;; Do we want our part of the DUL hierarchy?
         (when (= mode :hierarchy)
 
@@ -141,6 +138,6 @@
                       follows]]
             (refine op :super associatedWith))
 
-          (ent->ent hasPart      :super associatedWith :characteristic :transitive)
+          (ent->ent hasPart      :super associatedWith)
           (refine   hasComponent :super hasPart))))))
 
