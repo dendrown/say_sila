@@ -78,7 +78,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; TODO: Automate solution handling
-(def ^:const Soln-Log       "resources/emo-sa/say-senti.solutions.edn")
+(def ^:const Soln-Log       "resources/emo-sa/say-senti.solutions.l")
 (def ^:const Soln-Without   #"\bThing\b")
 
 
