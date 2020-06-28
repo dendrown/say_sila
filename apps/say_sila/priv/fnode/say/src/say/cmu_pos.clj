@@ -73,10 +73,10 @@
   "Adds a PartOfSpeech subclass to the cmu-pos ontology"
   [pos tag descr]
   `(do (defclass ~pos
+         ;:equivalent (has-value hasPartOfSpeechTag ~tag)           ; !QL and !used
          :super   PartOfSpeech
          :label   (str/join " " (soc/tokenize (name '~pos)))
-         :comment (str "A Part-of-Speech representing " ~descr)
-         :equivalent (has-value hasPartOfSpeechTag ~tag))
+         :comment (str "A Part-of-Speech representing " ~descr))
 
        (defpun ~pos)
        (refine (individual (str '~pos))
