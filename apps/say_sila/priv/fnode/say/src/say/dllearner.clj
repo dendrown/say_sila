@@ -50,9 +50,10 @@
   (update-values (ns-publics nspace) symbol))
 
 
-(defonce Symbols        (atom (apply merge                      ; Function and class variable lookup
-                                     '{min tawny.owl/at-least   ; DLL/Tawny mismatched names
-                                       max tawny.owl/at-most}
+(defonce Symbols        (atom (apply merge                          ; Function and class variable lookup
+                                     '{min    tawny.owl/at-least    ; DLL/Tawny mismatched names
+                                       max    tawny.owl/at-most
+                                       Object say.dolce/Objekt}     ; DUL/Java overlap
                                      (map symbolize-ns '[tawny.owl
                                                          tawny.english]))))
 
