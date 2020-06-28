@@ -34,8 +34,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defontology cmu-pos
-  :iri    ONT-IRI
-  :prefix "pos")
+  :iri          ONT-IRI
+  :prefix       "pos"
+  :versioninfo  "0.1.1")
 (dul/access)
 
 (defclass Token
@@ -72,6 +73,7 @@
   "Adds a PartOfSpeech subclass to the cmu-pos ontology"
   [pos tag descr]
   `(do (defclass ~pos
+         ;:equivalent (has-value hasPartOfSpeechTag ~tag)           ; !QL and !used
          :super   PartOfSpeech
          :label   (str/join " " (soc/tokenize (name '~pos)))
          :comment (str "A Part-of-Speech representing " ~descr))

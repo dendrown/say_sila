@@ -22,19 +22,20 @@
   (:import  (org.semanticweb.owlapi.model   IRI HasIRI
                                             OWLDataFactory
                                             OWLOntologyID)
-            (org.semanticweb.owlapi.profiles OWL2QLProfile
-                                             OWLProfileReport)
+            (org.semanticweb.owlapi.profiles OWL2QLProfile  ; FIXME!
+            OWLProfileReport)
             (org.semanticweb.owlapi.search EntitySearcher)
             (uk.ac.manchester.cs.owl.owlapi OWLClassImpl)))
 
 
 (set! *warn-on-reflection* true)
 
-(def ^:const Getters {:class      'getOWLClass
-                      :individual 'getOWLNamedIndividual
-                      :aproperty  'getOWLAnnotationProperty
-                      :dproperty  'getOWLDataProperty
-                      :oproperty  'getOWLObjectProperty})
+(def ^:const OWL-Profiles   #{:el :ql :rl :dl})
+(def ^:const OWL-Getters    {:class      'getOWLClass
+                             :individual 'getOWLNamedIndividual
+                             :aproperty  'getOWLAnnotationProperty
+                             :dproperty  'getOWLDataProperty
+                             :oproperty  'getOWLObjectProperty})
 
 (defonce Factory (.getOWLDataFactory (owl-ontology-manager)))
 
@@ -45,7 +46,7 @@
   type. Note that the argument to the returned function should be an IRI object
   (as opposed to a string)."
   [otype]
-  `(fn [iri#] (. ^OWLDataFactory Factory ~(Getters otype) iri#)))
+  `(fn [iri#] (. ^OWLDataFactory Factory ~(OWL-Getters otype) iri#)))
 
 
 
@@ -146,28 +147,42 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn ^OWLProfileReport ql-report
+(defmacro owl-profile
+  "Creates a function that will accept a profile tag and return the corresponding
+  OWL profile."
+  []
+  (let [prof  #(str "org.semanticweb.owlapi.profiles.OWL2" (KEYSTR %) "Profile")
+        profs (mapcat #(vector % `(new ~(symbol (prof %))))
+                      OWL-Profiles)]
+    `(fn [p#]
+       (case p#
+         ~@profs))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ^OWLProfileReport report
   "Returns an OWL2 QL profile report for the specified ontology."
-  ([]
-  (ql-report (which-ontology)))
+  ([prof]
+  (report prof (which-ontology)))
 
 
-  ([ont]
-  (-> (OWL2QLProfile.)
+  ([prof ont]
+  (-> ((owl-profile) prof)
       (.checkOntology ont))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn ql-violations
+(defn violations
   "Returns true if the specified ontology and its import clojure is within
   the OWL2 QL profile."
-  ([& opts]
+  ([prof & opts]
   (let [ont (if (and opts
                      (not (keyword? (first opts))))
                 (first opts)
                 (which-ontology))
-        vs  (.getViolations (ql-report ont))]
+        vs  (.getViolations (report prof ont))]
     ;; Do they just want the types?
     (if (some #{:type} opts)
         (map first (group-by type vs))
@@ -176,15 +191,15 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn ql?
+(defn in-profile?
   "Returns true if the specified ontology and its import clojure is within
   the OWL2 QL profile."
-  ([]
-  (ql? (which-ontology)))
+  ([prof]
+  (in-profile? prof (which-ontology)))
 
 
-  ([ont]
-  (.isInProfile (ql-report ont))))
+  ([prof ont]
+  (.isInProfile (report prof ont))))
 
 
 
