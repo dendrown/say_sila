@@ -17,13 +17,16 @@
     {:access            :minimal}               ; Options: import|hierarchy|minimal
 
   :cmu-pos
-    {:ignore            #{"," "~"}}
+    {:dproperties?      false                   ; Include optional data (sub) properties (pos:hasPartOfSpeechTag)
+     :oproperties?      false                   ; Include optional object (sub) properties (pos:isPartOfSpeech)
+     :ignore            #{"," "~"}}
 
   :senti
     {:all-data?         true                    ; Use complete dataset (vs. a manageable subset)
      :balance?          false                   ; Equal representation for pos/neg classes
      :links?            true                    ; Include ordering of Tokens (must be on for full-links)
      :full-links?       false                   ; Create all links explicitly rather than depending on reasoner
+     :oproperties?      false                   ; Include optional object (sub) properties (senti:denotesAffect)
      :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
      :pos-clue?         false                   ; Include positive Text indicator to guide (or evaluate) the system
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion

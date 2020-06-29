@@ -22,7 +22,7 @@
   (:import  (org.semanticweb.owlapi.model   IRI HasIRI
                                             OWLDataFactory
                                             OWLOntologyID)
-            (org.semanticweb.owlapi.profiles OWL2QLProfile  ; FIXME!
+            (org.semanticweb.owlapi.profiles OWLProfile
             OWLProfileReport)
             (org.semanticweb.owlapi.search EntitySearcher)
             (uk.ac.manchester.cs.owl.owlapi OWLClassImpl)))
@@ -122,6 +122,22 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro defoproperty-per
+  "Defines an object property per the specified configuration fragment.
+  If cfg? is true, this macro acts as defoproperty for prop, creating an
+  object property in the ontology associated with the caller's namespace.
+  If untrue, the macro defines (once) the variable prop as an alias to
+  the specified superclass."
+  [cfg? prop & {:keys [super]
+                :as   args}]
+  ;; TODO: Generalize this macro for other OWL types
+  (if (eval cfg?)
+      `(defoproperty ~prop ~@(flatten (seq args)))
+      `(defonce ~prop ~super)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn load-ontology
   "Reads an ontology from the file system."
   [^String iri
@@ -168,8 +184,8 @@
 
 
   ([prof ont]
-  (-> ((owl-profile) prof)
-      (.checkOntology ont))))
+  (let [chk ^OWLProfile ((owl-profile) prof)]
+    (.checkOntology chk ont))))
 
 
 

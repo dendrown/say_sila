@@ -207,6 +207,15 @@
 (run! #(defpun %) [Positive Negative])
 
 
+;;; Are we using specialized object properties?
+(defoproperty-per (cfg/?? :senti :oproperties?)
+  denotesAffect :super   dul/expresses
+                :label   "denotes affect"
+                :domain  pos/Token
+                :range   Affect
+                :comment "A relationship between a Token and the affect it expresses.")
+
+
 (defmacro defemotion
   "Adds a Concept reprenting an emotion to the say-senti ontology"
   [emo sys & combos]
@@ -246,10 +255,10 @@
                                            (rsn/instances Affect))))
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
 
+
 ;;; We must declare the different types of Aspect to be disjoint for the reasoner
 ;;; to handle equivalency classes based on the complement of a given Aspect.
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
-
 
 
 ;;; --------------------------------------------------------------------------
@@ -313,6 +322,14 @@
 (defonce Dyad-Names         (into #{} (map name (keys Secondaries))))
 
 
+(defn affect?
+  "Returns true if the named concept is the name of a sentiment or emotion
+  defined in this ontology."
+  [concept]
+  (or (contains? Affect-Names concept)
+      (contains? Dyad-Names concept)))
+
+
 ;;; --------------------------------------------------------------------------
 ;;; Sentiment Composition Rules (SCR):
 ;;; \ref{bing2015}
@@ -328,12 +345,13 @@
                  positive or negative contribution to the polarity of that Text."))
 
 
-(defoproperty indicatesRule
-  :super    dul/expresses
-  :label    "indicates rule"
-  :domain   pos/Token
-  :range    SentimentCompositionRule
-  :comment  "A relationship between a Token and the sentiment composition rule it expresses.")
+;;; Are we using specialized object properties?
+(defoproperty-per (cfg/?? :senti :oproperties?)
+  indicatesRule :super   dul/expresses
+                :label   "indicates rule"
+                :domain  pos/Token
+                :range   SentimentCompositionRule
+                :comment "A relationship between a Token and the sentiment composition rule it expresses.")
 
 
 (defmacro defscr
@@ -363,7 +381,7 @@
     :label    "Affect Negator"
     :equivalent (dl/and pos/Token
                         (dl/some indicatesRule NEGATION)
-                        (dl/some dul/directlyPrecedes (dl/some dul/expresses Affect))))
+                        (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
 
   (defoproperty negatesAffect
     :super    dul/expresses
@@ -625,12 +643,24 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- express
+  "Creates"
+  [ont ttid token concept]
+  (let [prop (if (affect? concept)  ; NOTE: depending on the oproperties? config setting,
+                 denotesAffect      ;       both properties may collapse to dul/express,
+                 indicatesRule)]    ;       but this will not hurt functionality.
+
+    (refine ont token :fact (is prop (individual say-senti concept)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- add-text
   "Adds a Text individual to the specified Sentiment Component Rule ontology.
    A positivity clue (an OWL individual) may be specified to add an explicit
    relation:
 
-        <Text expresses PositiveToken>
+        <Text denotesAffect PositiveToken>
 
    for the purpose of guiding learning or evaluating the system."
   ([ont tinfo sconf]
@@ -649,11 +679,7 @@
                               (case polarity :negative NegativeText
                                              :positive PositiveText)
                               Text)
-                    :annotation (annotation TextualContent msg))
-          affect? #(or (contains? Affect-Names %)
-                       (contains? Dyad-Names %))
-          express (fn [ttid token concept]
-                    (refine ont token :fact (is dul/expresses (individual say-senti concept))))]
+                    :annotation (annotation TextualContent msg))]
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?
@@ -674,14 +700,14 @@
 
               ;; Link Token to the original Text and set POS Quality
               (refine ont text :fact (is dul/hasComponent curr))
-              (refine ont curr :fact (is dul/hasQuality pos))
+              (refine ont curr :fact (is pos/isPartOfSpeech pos))
 
               ;; Add positivity clue if we're going to guide learning
               (when (and clue                                   ; Optional (caller decides on clues)
                          (= cnt 1)                              ; Add the relation on the first word
                          (= polarity :positive))
                 ;; Coax DL-Learner into looking at what denotes affect
-                (refine ont curr :fact (is dul/expresses clue)))
+                (refine ont curr :fact (is denotesAffect clue)))
 
             ;; Link tokens to each other
             (when-let [prev (first tokens)]
@@ -709,13 +735,13 @@
 
             ;; Express sentiment composition rules
             (doseq [rule rules]
-              (express ttid curr rule))
+              (express ont ttid curr rule))
 
             ;; TODO: This is prototypical code for secondary emotions
             (when secondaries?
               (doseq [sec (primaries->secondaries rules)]
                 ;(log/debug "Token" ttid "expresses dyad:" sec)
-                (express ttid curr sec)))
+                (express ont ttid curr sec)))
 
             ;; Continue the reduction
             [(inc cnt)
@@ -735,7 +761,7 @@
   "Incorporates a tweet's output from the TweeboParser into the specified
   ontology."
   ([ont {:keys [id]
-        :as    xmp}]
+         :as   xmp}]
   (let [tid (label-text id)]
     (log/info "Finding dependencies for" tid)
     (add-dependencies ont xmp (twbo/predict tid))))

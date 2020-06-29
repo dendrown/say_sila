@@ -53,12 +53,6 @@
   :comment (str "A quality describing an appropriate Information Object's part-of-speech"
                 " according to the CMU POS tagging system."))
 
-(defoproperty isPartOfSpeech
-  :super    dul/hasQuality
-  :label    "is part of speech"
-  :domain   Token
-  :range    PartOfSpeech)
-
 (defdproperty hasPartOfSpeechTag
   :domain  PartOfSpeech
   :range   :XSD_STRING
@@ -67,20 +61,34 @@
   :characteristic :functional)
 
 
+;;; Specialized object properties?
+(defoproperty-per (cfg/?? :cmu-pos :oproperties?)
+  isPartOfSpeech :super  dul/hasQuality
+                 :label  "is part of speech"
+                 :domain Token
+                 :range  PartOfSpeech)
+
+
 ;;; --------------------------------------------------------------------------
 ;; CMU POS tags are described in \cite{gimpel2011}
 (defmacro defpos
   "Adds a PartOfSpeech subclass to the cmu-pos ontology"
   [pos tag descr]
+  ;; NOTE: We have multiple evaluations of pos, but it is valid here
+  ;;       because pos must be a symbol or the defclass will fail.
   `(do (defclass ~pos
-         ;:equivalent (has-value hasPartOfSpeechTag ~tag)           ; !QL and !used
          :super   PartOfSpeech
          :label   (str/join " " (soc/tokenize (name '~pos)))
          :comment (str "A Part-of-Speech representing " ~descr))
-
        (defpun ~pos)
+
        (refine (individual (str '~pos))
-         :fact (is hasPartOfSpeechTag ~tag))))
+         :fact (is hasPartOfSpeechTag ~tag))
+
+       ;; Are we keeping track of POS data tags in the ontology?
+       (when (cfg/?? :cmu-pos :dproperties?)
+         (refine ~pos
+           :equivalent (has-value hasPartOfSpeechTag ~tag)))))  ; !QL and !used
 
 
 ; Nominal, Nominal + Verbal
