@@ -1,3 +1,12 @@
+;;; TODO Override for insecure repositories
+;;;      @see https://github.com/technomancy/leiningen/blob/master/doc/FAQ.md
+;;; - DL-Learner:
+;;;      davidsoergel.releases: http://dev.davidsoergel.com/nexus/content/repositories/releases
+(comment require 'cemerick.pomegranate.aether)
+(cemerick.pomegranate.aether/register-wagon-factory!
+  "http" #(org.apache.maven.wagon.providers.http.HttpWagon.))
+
+
 (defproject say "0.2.0-SNAPSHOT"
   :description  "Bridge to JVM-based utilities for Say-Sila"
   :url          "http://dendrown.net"
@@ -9,6 +18,8 @@
         weka.filters.unsupervised.attribute.TweetToGenderFeatures]
   :java-source-paths ["java/src"]
   :plugins [[lein-localrepo "0.5.4"]]
+  :repositories [["maven.aksw.internal"  {:url "https://maven.aksw.org/repository/internal/"}]
+                 ["maven.aksw.snapshots" {:url "https://maven.aksw.org/repository/snapshots/"}]]
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [org.erlang.otp/jinterface "1.9.1"]
                  [org.clojure/core.async "1.0.567"]
@@ -30,9 +41,11 @@
                  [affective/affectivetweets "1.0.2"]
                  [org.tartarus/snowball "1.0.0"]
                  ; Ontologies
+                ;[org.dllearner/components-core "1.4.0"]                        ; TODO: Enable
                  [net.sourceforge.owlapi/org.semanticweb.hermit "1.4.5.456"]    ; Override Tawny's dep
                  [uk.org.russet/tawny-owl "2.0.3"]
                  [com.google.guava/guava "25.0-jre"]])                          ; OWL caching dep
+
 
 ;-------------------------------------------------------------------------------
 ; External JARs [ lein localrepo install ]
