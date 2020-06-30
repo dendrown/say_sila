@@ -1168,6 +1168,26 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn report-scr-examples
+  ""
+  ([]
+  (run! report-scr-examples (keys @SCR-Examples)))
+
+
+  ([dtag]
+  (let [p100  #(* 100. ( / (:positive %)
+                           (:count %)))
+        stats (reduce #(update-values %1 [:count (:polarity %2)] inc)
+                      {:count 0
+                       :positive 0
+                       :negative 0}
+                      (get @SCR-Examples dtag #{}))]
+  (log/fmt-info "SCR~a examples: p[~1$%] xmps~a"
+                dtag (p100 stats) stats))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn create-scr-examples!
   "Create examples based on part-of-speech tokens.
 
@@ -1195,8 +1215,7 @@
             (instances->examples dset insts))
 
     ;; Just tell them how many we have for each rule
-    (update-values @SCR-Examples count))))
-
+    (report-scr-examples))))
 
 
 ;;; --------------------------------------------------------------------------
