@@ -312,6 +312,15 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn zero-hashmap
+  "Returns a hashmap with the specified keys and integer zeros for all the
+  values."
+  [& ks]
+  (into {} (map #(vector % 0) ks)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn update-keys
   "Maps the specified function across all the elements in a hashmap, updating
   the keys with the value returned by the passed funtion.  This fuction is of

@@ -1175,15 +1175,41 @@
 
 
   ([dtag]
-  (let [p100  #(* 100. ( / (:positive %)
-                           (:count %)))
-        stats (reduce #(update-values %1 [:count (:polarity %2)] inc)
-                      {:count 0
-                       :positive 0
-                       :negative 0}
-                      (get @SCR-Examples dtag #{}))]
-  (log/fmt-info "SCR~a examples: p[~1$%] xmps~a"
-                dtag (p100 stats) stats))))
+  (let [stats (reduce #(let [ss (if (every? empty? (:rules %2))
+                                     :stoic
+                                     :senti)]
+                        (update-values %1 [:count (:polarity %2) ss] inc))
+                      (zero-hashmap :count :positive :negative :senti :stoic)
+                      (get @SCR-Examples dtag #{}))
+
+        p100  #(* 100. (/ (stats %)
+                          (stats :count)))]
+
+  (log/fmt-info "SCR~a: p[~1$%] s[~1$%] xmps~a"
+                dtag (p100 :positive) (p100 :senti) stats))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn report-scr-examples
+  ""
+  ([]
+  (run! report-scr-examples (keys @SCR-Examples)))
+
+
+  ([dtag]
+  (let [stats (reduce #(let [ss (if (every? empty? (:rules %2))
+                                     :stoic
+                                     :senti)]
+                        (update-values %1 [:count (:polarity %2) ss] inc))
+                      (zero-hashmap :count :positive :negative :senti :stoic)
+                      (get @SCR-Examples dtag #{}))
+
+        p100  #(* 100. (/ (stats %)
+                          (stats :count)))]
+
+  (log/fmt-info "SCR~a: p[~1$%] s[~1$%] xmps~a"
+                dtag (p100 :positive) (p100 :senti) stats))))
 
 
 
