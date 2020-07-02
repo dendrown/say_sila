@@ -312,6 +312,14 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn yn
+  "Returns «y» for a truthy argument and «n» for a falsy one."
+  [x]
+  (if x "y" "n"))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn zero-hashmap
   "Returns a hashmap with the specified keys and integer zeros for all the
   values."

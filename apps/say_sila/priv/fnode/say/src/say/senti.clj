@@ -1379,6 +1379,48 @@
     oinst)))
 
 
+
+;;; --------------------------------------------------------------------------
+(defn affective-instances?
+  "A simple check to ensure that a set of data instances begins with the
+  attributes <id, text, sentiment> and has additional attributes that are
+  assumed to keep affective values for a text."
+  [^Instances insts]
+  (let [aname #(.name (.attribute insts (int %)))
+        attrs ["id", "text", "sentiment"]
+        acnt  (count attrs)]
+    (boolean
+     (and (> (.numAttributes insts) acnt)
+          (every? #(= (attrs %)
+                      (aname %))
+                  (range acnt))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn stoic-instance?
+  "Determines if the given instance has zero values for all affective attributes
+  Note that the function simply ignores the first three attributes, assuming the
+  full dataset has previously been checked with `affective_instances?`.  The
+  subsequent attributes specify the affect information for the instance"
+  ([inst]
+  (stoic-instance? true inst))
+
+
+  ([skip-neutrals? ^Instance inst]
+  (boolean
+   (when skip-neutrals?
+     (let [acnt (.numAttributes inst)
+           vs   (.toDoubleArray inst)       ; Weka's internal data storage
+           aff? #(pos? (aget vs %)) ]       ; Non-zero value for affect attribute
+       (loop [ai (inc (.classIndex inst))]  ; Affect data comes after the class
+         (cond
+          (>= ai acnt)  true
+          (aff? ai)     false
+          :else         (recur (inc ai)))))))))
+
+
+
 ;;; --------------------------------------------------------------------------
 (defn create-arffs
   "Converts a multi-source input CSV (usually, DATASET) to a separate
@@ -1470,7 +1512,7 @@
 
   ([dtag]
   ;; Pull what we need from the config before creating the cnt datasets
-  (let [{:keys  [all-data? data-split text-index]
+  (let [{:keys  [all-data? skip-neutrals? data-split text-index]
          :or    {data-split INIT-DATA-SPLIT
                  text-index INIT-TEXT-INDEX}}     (cfg/? :senti)
         {:keys  [datasets parts train rand-seed]} data-split
@@ -1482,7 +1524,7 @@
       (domap
         (fn [n]
           (let [rseed    (+ rand-seed n)
-                trn-tst  (split-data dtag rseed all-data? text-index reattr)
+                trn-tst  (split-data dtag rseed all-data? skip-neutrals? text-index reattr)
                 arffs    (if (= dtag :weka)
                              ;; That's all the Weka Experimenter needs
                              trn-tst
@@ -1492,7 +1534,8 @@
                                    extras (rem  train parts)        ; Leftovers from an uneven split
                                    iinsts (weka/load-arff ftrain)]  ; Reload the training instances
 
-                               (log/info "Creating" parts "subsets of" subcnt "instances")
+                               (log/fmt-info "Creating ~a subsets of ~a instances: aff[~a]"
+                                             parts subcnt (yn (affective-instances? iinsts)))
                                (when-not (zero? extras)
                                  (log/warn "Extra instances:" extras))
 
@@ -1511,11 +1554,11 @@
         (range datasets)))))
 
 
-  ([dtag seed all? tndx reattr]
+  ([dtag seed all-data? skip-neutrals? tndx reattr]
   ;; This is the workhorse clause.  It is not meant to be called directly
   (let [rtag    (str "r" seed)
         goals   (split-pn-goals dtag)
-        ipath   (if all?
+        ipath   (if all-data?
                     (weka/tag-filename (ARFFs dtag) "COMPLETE" :arff)
                     (ARFFs dtag))
         iinsts  (weka/load-arff ipath (which-target))
@@ -1536,7 +1579,8 @@
                           (let [inst  (.get iinsts ndx)
                                 pn    (polarize inst)
                                 used* (conj used ndx)]
-                            (if (creation-full? cnts pn goal)
+                            (if (or (creation-full? cnts pn goal)           ; Finished one of the buckets?
+                                    (stoic-instance? skip-neutrals? inst))  ; Ignore non-affective data?
                               ;; Add this index to the "used" set, but don't add instance
                               (recur used* data-info)
                               (do ;(println "Adding to" (.relationName oinsts) "#" ndx)
