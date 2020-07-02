@@ -1143,7 +1143,10 @@
                         pole   (polarize inst)
                         pairs  (map #(str/split % #"_" 2)   ; Pairs are "pos_term"
                                      (str/split (.stringValue inst COL-TEXT) #" "))
-                        terms  (map second pairs)
+                        terms  (map #(-> % (second)                             ; FIXME: Get terms using
+                                           (str/lower-case)                     ;  affective.core.Utils/tokenize
+                                           (.replaceAll "([a-z])\\1+" "$1$1"))  ;  repeated letters
+                                     pairs)
                         affect (map ->sense terms)          ; Affect: pos|neg|emo or nil per term
                         rules  (map ->scr   terms)]         ; Set of match-term rules per term
 
@@ -1233,10 +1236,12 @@
 
 
   ([dset arff]
-  (log/debug "Loading" dset "dataset" arff)
+  (log/fmt-debug "Loading dataset~a: ~a" dset arff)
   (let [insts (weka/load-arff arff
                              (which-target))]
+
     ;; Create the new set of Text examples
+    (log/fmt-debug "Tweet instances~a: ~a" dset (.numInstances insts))
     (reset! SCR-Examples
             (instances->examples dset insts))
 
