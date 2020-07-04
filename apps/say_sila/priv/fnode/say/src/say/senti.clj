@@ -1536,22 +1536,27 @@
                              ;; Chop trainers into parts for DL-Learner
                              (let [ftrain (:train trn-tst)
                                    subcnt (quot train parts)        ; Number of instances in a part
-                                   extras (rem  train parts)        ; Leftovers from an uneven split
-                                   iinsts (weka/load-arff ftrain)]  ; Reload the training instances
-
-                               (log/fmt-info "Creating ~a subsets of ~a instances: aff[~a]"
-                                             parts subcnt (yn (affective-instances? iinsts)))
-                               (when-not (zero? extras)
-                                 (log/warn "Extra instances:" extras))
-
+                                   extras (rem  train parts)]       ; Leftovers from an uneven split
+                               ;; Build a sequence of ARFF fpaths for the training sub-splits
                                (assoc trn-tst
                                       :parts
-                                      (domap
-                                        #(weka/save-file (enumerate-dataset ftrain %)    ; Suffix: part num
-                                                         (Instances. iinsts              ; Instances subset
-                                                                     (int (* % subcnt))
-                                                                     (int subcnt)))
-                                        (range parts)))))]
+                                      (domap #(let [fsub (enumerate-dataset ftrain %)]  ; Suffix: part num
+                                                ;; Only rebuild if necessary
+                                                (if (.exists (io/file fsub))
+                                                  fsub
+                                                  (let [iinsts (weka/load-arff ftrain)      ; TODO: atomize!
+                                                        oinsts (Instances. iinsts           ; Instances subset
+                                                                           (int (* % subcnt))
+                                                                           (int subcnt))]
+
+                                                    (log/fmt-info "Creating sub-split ~a: cnt[~a] affective[~a]"
+                                                                  % subcnt (yn (affective-instances? iinsts)))
+
+                                                    (when-not (zero? extras)
+                                                      (log/warn "Extra instances:" extras))
+
+                                                    (weka/save-file fsub oinsts))))
+                                             (range parts)))))]
 
             ;; We are building a hashmap
             [(key-prng rseed) arffs]))
@@ -1567,7 +1572,6 @@
                                  [% (weka/tag-filename ipath ttag :arff)])      ; Weka split sub-dataset 
                               SPLIT-TAGS))]
     ;; Do the train/test ARFFs already exist?
-    (log/debug "TRN/TST:" trn-tst)
     (if (every? #(.exists (io/file %)) (vals trn-tst))
       trn-tst
       (let [goals   (split-pn-goals dtag)
