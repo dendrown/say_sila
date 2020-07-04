@@ -1562,69 +1562,74 @@
   ([dtag seed all-data? skip-neutrals? tndx reattr]
   ;; This is the workhorse clause.  It is not meant to be called directly
   (let [rtag    (str "r" seed)
-        goals   (split-pn-goals dtag)
-        ipath   (if all-data?
-                    (weka/tag-filename (ARFFs dtag) "COMPLETE" :arff)
-                    (ARFFs dtag))
-        iinsts  (weka/load-arff ipath (which-target))
-        icnt    (.numInstances iinsts)
+        ipath   (ARFFs dtag)
+        trn-tst (into {} (map #(let [ttag (str rtag "." (name %))]              ; pRNG seed & train|test tag
+                                 [% (weka/tag-filename ipath ttag :arff)])      ; Weka split sub-dataset 
+                              SPLIT-TAGS))]
+    ;; Do the train/test ARFFs already exist?
+    (log/debug "TRN/TST:" trn-tst)
+    (if (every? #(.exists (io/file %)) (vals trn-tst))
+      trn-tst
+      (let [goals   (split-pn-goals dtag)
+            iarff   (if all-data?
+                        (weka/tag-filename (ARFFs dtag) "COMPLETE" :arff)       ; Potentially a huge dataset
+                        (ARFFs dtag))                                           ; Probably a less huge subset
+            iinsts  (weka/load-arff iarff (which-target))                       ; FIXME: atomize & load once!
+            icnt    (.numInstances iinsts)
 
-        dsets   (atom (rebase-data->hashmap SPLIT-TAGS iinsts))
-        rng     (Random. seed)
-        fill    (fn [used [^Instances oinsts cnts goal
-                           :as data-info]]
-                  (if (creation-done? cnts goal)
-                    ;; We're done filling the dataset.  The used-index set is the accumulator.
-                    used
-                    ;; Keep pulling from the input data
-                    (let [ndx (.nextInt rng icnt)]
-                      (if (contains? used ndx)
-                          (do ;(log/debug "Resampling on repeat index:" ndx)
-                              (recur used data-info))
-                          (let [inst  (.get iinsts ndx)
-                                pn    (polarize inst)
-                                used* (conj used ndx)]
-                            (if (or (creation-full? cnts pn goal)           ; Finished one of the buckets?
-                                    (stoic-instance? skip-neutrals? inst))  ; Ignore non-affective data?
-                              ;; Add this index to the "used" set, but don't add instance
-                              (recur used* data-info)
-                              (do ;(println "Adding to" (.relationName oinsts) "#" ndx)
-                                  (add-instance oinsts inst)
-                                  (recur used* [oinsts
-                                                (inc-pn-counter cnts dtag pn)
-                                                goal]))))))))
+            dsets   (atom (rebase-data->hashmap SPLIT-TAGS iinsts))
+            rng     (Random. seed)
+            fill    (fn [used [^Instances oinsts cnts goal
+                               :as data-info]]
+                      (if (creation-done? cnts goal)
+                        ;; We're done filling the dataset.  The used-index set is the accumulator.
+                        used
+                        ;; Keep pulling from the input data
+                        (let [ndx (.nextInt rng icnt)]
+                          (if (contains? used ndx)
+                              (do ;(log/debug "Resampling on repeat index:" ndx)
+                                  (recur used data-info))
+                              (let [inst  (.get iinsts ndx)
+                                    pn    (polarize inst)
+                                    used* (conj used ndx)]
+                                (if (or (creation-full? cnts pn goal)           ; Finished one of the buckets?
+                                        (stoic-instance? skip-neutrals? inst))  ; Ignore non-affective data?
+                                  ;; Add this index to the "used" set, but don't add instance
+                                  (recur used* data-info)
+                                  (do ;(println "Adding to" (.relationName oinsts) "#" ndx)
+                                      (add-instance oinsts inst)
+                                      (recur used* [oinsts
+                                                    (inc-pn-counter cnts dtag pn)
+                                                    goal]))))))))
 
-        wfilter (fn [data tt]
-                  ;; Finalize the dataset for Weka
-                  (let [reorder (Reorder.)
-                        insts*  (-> (data tt)
-                                    (extend-data (weka/index1->0 tndx))         ; Insert POS counts
-                                    (weka/filter-instances reorder reattr))]    ; Remove text & put class last
-                    (assoc data tt insts*)))]
+            wfilter (fn [data tt]
+                      ;; Finalize the dataset for Weka
+                      (let [reorder (Reorder.)
+                            insts*  (-> (data tt)
+                                        (extend-data (weka/index1->0 tndx))         ; Insert POS counts
+                                        (weka/filter-instances reorder reattr))]    ; Remove text & put class last
+                        (assoc data tt insts*)))]
 
-    ;; Fill up the datasets with random instances from the input set
-    (reduce fill
-            #{}                                                 ; Set of used indices
-            (map (fn [[tt insts]]                               ; Instances & counts for train/test
-                    (log/info (describe-creation goals tt)
-                              "instances:" rtag)
-                    [insts (zero-pn-counter dtag) (goals tt)])
-                 @dsets))
+        ;; Fill up the datasets with random instances from the input set
+        (reduce fill
+                #{}                                                 ; Set of used indices
+                (map (fn [[tt insts]]                               ; Instances & counts for train/test
+                        (log/info (describe-creation goals tt)
+                                  "instances:" rtag)
+                        [insts (zero-pn-counter dtag) (goals tt)])
+                     @dsets))
 
-    ;; If these are Weka datasets, prepare them for the Experimenter.
-    ;; Note, this updates the dsets atom with new Instances.
-    (when (= dtag :weka)
-      (log/debug "Filtering datasets for Weka")
-      (run! #(swap! dsets wfilter %) SPLIT-TAGS))
+        ;; If these are Weka datasets, prepare them for the Experimenter.
+        ;; Note, this updates the dsets atom with new Instances.
+        (when (= dtag :weka)
+          (log/debug "Filtering datasets for Weka")
+          (run! #(swap! dsets wfilter %) SPLIT-TAGS))
 
-    ;; Save the output train/test datasets & return a map of the ARFF paths
-    (into {} (domap (fn [[tt ^Instances insts]]
-                      (.randomize insts rng)                        ; Distribute pos/neg more-or-less evenly
-                      [tt (weka/save-file (ARFFs dtag)              ; Main filename stub
-                                          (str rtag "." (name tt))  ; pRNG seed & train|test tag
-                                          insts                     ; Sampled train|test data
-                                          :arff)])
-                    @dsets)))))
+        ;; Save the output train/test datasets & return a map of the ARFF paths
+        (into {} (domap (fn [[tt ^Instances insts]]
+                          (.randomize insts rng)                    ; Distribute pos/neg more-or-less evenly
+                          [tt (weka/save-file (trn-tst tt) insts)]) ; ARFF fpath w/ pRNG seed & train|test tag
+                        @dsets)))))))
 
 
 
