@@ -1427,6 +1427,27 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn ^Instances load-arff!
+  "Loads the dataset specified by arff into the atom dset if it has not
+  previously been loaded.  The caller may request the «COMPLETE» version
+  of the dataset using a truthy value for all-data?."
+  ([dset arff]
+  (load-arff! dset arff false))
+
+
+  ([dset arff all-data?]
+  (swap! dset
+         #(if % ; Got a dataset?
+              % ; That's the data!
+              (weka/load-arff (if all-data?
+                                  (weka/tag-filename arff  "COMPLETE")  ; Potentially a huge dataset
+                                  arff)                                 ; Probably a less huge subset
+                              (which-target))))))
+
+
+
+
+;;; --------------------------------------------------------------------------
 (defn create-arffs
   "Converts a multi-source input CSV (usually, DATASET) to a separate
   ARFF for each source."
@@ -1517,10 +1538,11 @@
 
   ([dtag]
   ;; Pull what we need from the config before creating the cnt datasets
-  (let [{:keys  [all-data? skip-neutrals? data-split text-index]
-         :or    {data-split INIT-DATA-SPLIT
-                 text-index INIT-TEXT-INDEX}}     (cfg/? :senti)
+  (let [{:keys  [data-split]
+         :as    sconf
+         :or    {data-split INIT-DATA-SPLIT}}   (cfg/? :senti)
         {:keys  [datasets parts train rand-seed]} data-split
+        dset    (atom nil)                                      ; Load input ARFF only if needed
         target  (inc (.classIndex (base-data)))                 ; 1-based dependent attribute index
         reattr  ["-R" (str (inc target) "-last," target)]]      ; Reorder filter opts: "4-last,3"
 
@@ -1529,12 +1551,13 @@
       (domap
         (fn [n]
           (let [rseed    (+ rand-seed n)
-                trn-tst  (split-data dtag rseed all-data? skip-neutrals? text-index reattr)
+                trn-tst  (split-data dtag dset rseed reattr sconf)
                 arffs    (if (= dtag :weka)
                              ;; That's all the Weka Experimenter needs
                              trn-tst
                              ;; Chop trainers into parts for DL-Learner
                              (let [ftrain (:train trn-tst)
+                                   dtrain (atom nil)                ; Only load trainers if needed
                                    subcnt (quot train parts)        ; Number of instances in a part
                                    extras (rem  train parts)]       ; Leftovers from an uneven split
                                ;; Build a sequence of ARFF fpaths for the training sub-splits
@@ -1544,12 +1567,12 @@
                                                 ;; Only rebuild if necessary
                                                 (if (.exists (io/file fsub))
                                                   fsub
-                                                  (let [iinsts (weka/load-arff ftrain)      ; TODO: atomize!
+                                                  (let [iinsts (load-arff! dtrain ftrain)   ; Load trainers once
                                                         oinsts (Instances. iinsts           ; Instances subset
                                                                            (int (* % subcnt))
                                                                            (int subcnt))]
 
-                                                    (log/fmt-info "Creating sub-split ~a: cnt[~a] affective[~a]"
+                                                    (log/fmt-info "Creating sub-split ~a: cnt[~a] all-affect[~a]"
                                                                   % subcnt (yn (affective-instances? iinsts)))
 
                                                     (when-not (zero? extras)
@@ -1564,7 +1587,8 @@
         (range datasets)))))
 
 
-  ([dtag seed all-data? skip-neutrals? tndx reattr]
+  ([dtag dset seed reattr {:keys [all-data? skip-neutrals? text-index]
+                           :or   {text-index INIT-TEXT-INDEX}}]
   ;; This is the workhorse clause.  It is not meant to be called directly
   (let [rtag    (str "r" seed)
         ipath   (ARFFs dtag)
@@ -1575,10 +1599,7 @@
     (if (every? #(.exists (io/file %)) (vals trn-tst))
       trn-tst
       (let [goals   (split-pn-goals dtag)
-            iarff   (if all-data?
-                        (weka/tag-filename (ARFFs dtag) "COMPLETE" :arff)       ; Potentially a huge dataset
-                        (ARFFs dtag))                                           ; Probably a less huge subset
-            iinsts  (weka/load-arff iarff (which-target))                       ; FIXME: atomize & load once!
+            iinsts  (load-arff! dset ipath all-data?)
             icnt    (.numInstances iinsts)
 
             dsets   (atom (rebase-data->hashmap SPLIT-TAGS iinsts))
@@ -1610,7 +1631,7 @@
                       ;; Finalize the dataset for Weka
                       (let [reorder (Reorder.)
                             insts*  (-> (data tt)
-                                        (extend-data (weka/index1->0 tndx))         ; Insert POS counts
+                                        (extend-data (weka/index1->0 text-index))   ; Insert POS counts
                                         (weka/filter-instances reorder reattr))]    ; Remove text & put class last
                         (assoc data tt insts*)))]
 
