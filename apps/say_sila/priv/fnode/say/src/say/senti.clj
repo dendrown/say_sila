@@ -1533,15 +1533,18 @@
          It either identifies the dataset of it's a flag that this is a
          weka dataset. Our ambiguity-bridge is (ARFFs :weka)."
   ([]
-    (split-data INIT-DATA-TAG))
+  (split-data INIT-DATA-TAG))
 
 
   ([dtag]
+  (split-data dtag (cfg/? :senti)))
+
+
+  ([dtag {:keys  [data-split]
+          :as    sconf
+          :or    {data-split INIT-DATA-SPLIT}}]
   ;; Pull what we need from the config before creating the cnt datasets
-  (let [{:keys  [data-split]
-         :as    sconf
-         :or    {data-split INIT-DATA-SPLIT}}   (cfg/? :senti)
-        {:keys  [datasets parts train rand-seed]} data-split
+  (let [{:keys  [datasets parts train rand-seed]} data-split
         dset    (atom nil)                                      ; Load input ARFF only if needed
         target  (inc (.classIndex (base-data)))                 ; 1-based dependent attribute index
         reattr  ["-R" (str (inc target) "-last," target)]]      ; Reorder filter opts: "4-last,3"
@@ -1655,6 +1658,28 @@
                           (.randomize insts rng)                    ; Distribute pos/neg more-or-less evenly
                           [tt (weka/save-file (trn-tst tt) insts)]) ; ARFF fpath w/ pRNG seed & train|test tag
                         @dsets)))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn get-split-arffs
+  "Retrieves a sequence of ARFF filepath from a split-data result map."
+  ([arffs]
+  (get-split-arffs arffs (cfg/? :senti)))
+
+
+  ([arffs {:keys [data-split]}]
+  ;; TODO: We currently process only data for the first (configured) random seed,
+  ;;       but we will need to handle a series of datasets starting from that seed.
+  (let [{:keys [iterate?
+                rand-seed]} data-split
+        rpng  (key-prng rand-seed)
+        split (arffs rpng)]
+
+    (log/fmt-debug "Retreiving data split ~a" (name rpng))
+    (if iterate?
+        (:parts split)
+        (list (:train split))))))
 
 
 
@@ -1910,7 +1935,13 @@
 
 ;;; --------------------------------------------------------------------------
 (defn run
-  "Runs a DL-Learner session to determine equivalent classes for Positive Texts."
+  "Runs a DL-Learner session to determine equivalent classes for Positive Texts.
+  Supported options are:
+    :arff       Create Weka datasets from original CSV data
+    :reset      Deletes the solutions file before commencing learning
+    :learn      Use rules learned in previous iterations as learning continues
+    :timings    Run timed tests with HermiT on each iteration
+    :weka       No ontological learning; just prepare data for Weka explorer"
   [& opts]
   ;; Shall we do some precleaning
   (when (some #{:reset} opts)
@@ -1924,7 +1955,8 @@
   ;; Will this be Sentiment140 or another dataset?
   (let [base    "say-senti"
         dtag    (apply which-data opts)
-        dpaths  (split-data dtag)
+        sconf   (cfg/? :senti)
+        dpaths  (split-data dtag sconf)
 
         check!  (fn [arff]
                   (log/debug "ARFF:" arff)
@@ -1948,6 +1980,6 @@
 
     ;; For DL-Learner (non-weka), run the first of the data (sub)splits
     (if (some #{:weka} opts)
-        (log/notice "Created" (count dpaths) "train/test ARFF pairs")   ; No run for Weka
-        (domap check! (:parts ((key-prng) dpaths))))))                  ; TODO: Run all splits
+        (log/notice "Created" (count dpaths) "train/test ARFF pairs")   ; No ontological run for Weka
+        (run! check! (get-split-arffs dpaths sconf)))))                 ; TODO: Run all splits
 
