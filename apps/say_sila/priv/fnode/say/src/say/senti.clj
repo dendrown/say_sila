@@ -109,8 +109,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defonce SCR-Examples   (atom {}))
-(defonce SCR-Ontologies (atom {}))
+(defonce SCR            (atom {:examples   {}      ; TODO Use a more appropriate name than SCR
+                               :ontologies {}}))
 
 (defonce Expressions    (if (cfg/?? :senti :use-scr?)
                             ;; Word sets which invoke Sentiment Composition Rules
@@ -258,6 +258,8 @@
 
 ;;; We must declare the different types of Aspect to be disjoint for the reasoner
 ;;; to handle equivalency classes based on the complement of a given Aspect.
+;;;
+;;; TODO: How do we want to handle secondaries wrt disjointness?
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
 
@@ -564,6 +566,27 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn learned-positive-texts
+  "Returns a set of LearnedPositiveText individuals from the specified
+  ontology."
+  [ont]
+  (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-silent)]
+    (let [rsnr    (rsn/reasoner ont)
+          learned (owl-class ont (dll/name-learned))              ; DL-Learner equivalent soln
+          ptexts  (rsn/instances ont learned)]                    ; Predicted positive texts
+
+      (log/debug "Learned:" (rsn/isubclasses ont learned))
+
+      ;; Make sure HermiT doesn't hoard memory.  Tawny-OWL (as of version 2.0.3) is
+      ;; not calling dispose on the HermiT reasoner due to crashiness they've seen.
+      (.dispose rsnr)
+      (rsn/discard-reasoner ont)
+
+      ptexts)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defprotocol Polarizer
   "Determines negative|positive polarity for various datatypes."
   (polarize [x] "Return the sentiment polarity as :positive or :negative."))
@@ -668,18 +691,17 @@
 
 
   ([ont clue
-    {:keys [content id polarity pos-tags rules]}                                ; Text (tweet) breakdown
+    {:keys [content tid polarity pos-tags rules]}                                ; Text (tweet) breakdown
     {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
-    (let [tid     (label-text id)
-          msg     (apply str (interpose " " content))
-          text    (individual ont tid       ; Entity representing the text
-                    :type (if pos-neg?
-                              (case polarity :negative NegativeText
-                                             :positive PositiveText)
-                              Text)
-                    :annotation (annotation TextualContent msg))]
+    (let [msg   (apply str (interpose " " content))
+          text  (individual ont tid       ; Entity representing the text
+                  :type (if pos-neg?
+                            (case polarity :negative NegativeText
+                                           :positive PositiveText)
+                            Text)
+                  :annotation (annotation TextualContent msg))]
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?
@@ -760,24 +782,22 @@
 (defn add-dependencies
   "Incorporates a tweet's output from the TweeboParser into the specified
   ontology."
-  ([ont {:keys [id]
+  ([ont {:keys [tid]
          :as   xmp}]
-  (let [tid (label-text id)]
-    (log/info "Finding dependencies for" tid)
-    (add-dependencies ont xmp (twbo/predict tid))))
+  (log/info "Finding dependencies for" tid)
+  (add-dependencies ont xmp (twbo/predict tid)))
 
 
   ([ont
-    {:keys [id content pos-tags]}
+    {:keys [tid content pos-tags]}
     tweebo]
-  (let [twid    (label-text id)
-        include #(refine ont %1 :fact (is dul/hasComponent %2))
+  (let [include #(refine ont %1 :fact (is dul/hasComponent %2))
         equiv?  #(or (= %1 %2)
                      (every? #{"\"" "QUOTE"} [%1 %2]))
         make    (memoize (fn [ling n]
-                            (let [tokid  (label-text-token twid n)
+                            (let [tokid  (label-text-token tid n)
                                   token  (individual ont tokid)
-                                  entid  (label-text-token twid n ling)
+                                  entid  (label-text-token tid n ling)
                                   entity (individual ont entid
                                            :type (case ling "CONJ"  Conjuncts
                                                             "COORD" Coordination
@@ -803,7 +823,7 @@
         ;; Complain if the POS analysis doesn't match up (uncommon)
         (when (not= pos1 pos2 pos3)
             (log/fmt-warn "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
-                          twid tok1 tok2 pos1 pos2 pos3))
+                          tid tok1 tok2 pos1 pos2 pos3))
         (if (equiv? tok1 tok2)
           (do
             ;; We're looking from the leaf (subject) up to the parent node (object).
@@ -811,7 +831,7 @@
             ;;  0 : subjet token is a root node
             ;;  N : subjet token depends on the Nth token (object)
             (when (pos? (Long/parseLong obj))
-              (let [[subid   objid]  (map #(label-text-token twid %) [sub obj]) ; t99-9
+              (let [[subid   objid]  (map #(label-text-token tid %) [sub obj])  ; t99-9
                     [subject object] (map #(individual ont %) [subid objid])]   ; Tokens
 
               ;; Add dependency relation to ontology
@@ -828,7 +848,7 @@
 
             ;; Abort!  The parsers disagree wrt tokenization.
             (log/fmt-error "Text/tweebo mismatch on ~a: token[~a/~a] pos[~a~a~a]"
-                           twid tok1 tok2 pos1 pos2 pos3)))))))
+                           tid tok1 tok2 pos1 pos2 pos3)))))))
 
 
 
@@ -879,7 +899,7 @@
   []
   ;; Create ontologies for each SCR, each populated with individuals expressing the rule
   (update-kv-values
-    @SCR-Ontologies
+    (:ontologies @SCR)
     (fn [rule ont]
       (let [fpath (str ONT-FSTUB "-" (name rule) ".owl")]
         (save-ontology ont fpath :owl)
@@ -947,28 +967,21 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defun populate-scr-ontologies!
-  "Populates the senti ontology using examples from the ARFFs"
-  ([]
-  (populate-scr-ontologies! nil))
+(defn- populate-scr-ontologies
+  "Populates the SCR ontologies using SCR examples from the ARFFs"
+  ([xmps]
+  (populate-scr-ontologies xmps false))
 
 
-  ([:learn]
-  (populate-scr-ontologies! (read-solutions)))
-
-
-  ([learned]
+  ([xmps solns?]
   (let [sconf (cfg/? :senti)                ; Freeze the configuration while we work
-        solns (comment cap-solutions learned (get sconf :learn-cap INIT-LEARN-CAP))]
-
+        solns (when solns?
+                (read-solutions))]
     ;; Create ontologies for each SCR, each populated with individuals expressing the rule
     ;; TODO: We're still using all the learned rules, instead of the capped solutions
     ;;       because we need any referenced rules, even if they didn't make the cut.
-    (reset! SCR-Ontologies
-            (update-kv-values @SCR-Examples #(populate-ontology %1 %2 learned sconf)))  ; TODO: learned => solns
+    (update-kv-values xmps #(populate-ontology %1 %2 solns sconf)))))
 
-    ;; Return the collection of rule tags
-    (keys @SCR-Ontologies))))
 
 
 
@@ -1139,7 +1152,7 @@
                 (if (creation-done? cnts goal)
                   (do (log/info "Examples:" cnts)
                       (reduced info))
-                  (let [id     (long (.value inst COL-ID))
+                  (let [tid    (label-text (.value inst COL-ID))
                         pole   (polarize inst)
                         pairs  (map #(str/split % #"_" 2)   ; Pairs are "pos_term"
                                      (str/split (.stringValue inst COL-TEXT) #" "))
@@ -1157,7 +1170,7 @@
                       [(inc-pn-counter cnts dset pole)                  ; Update pos/neg/all counts
                        (update-values xmap                              ; Add Text for full set & all SCRs
                                       (apply set/union #{dset} rules)
-                                      #(conj % {:id       id
+                                      #(conj % {:tid      tid
                                                 :polarity pole
                                                 :content  terms
                                                 :pos-tags (map first pairs)
@@ -1171,19 +1184,21 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn report-scr-examples
-  ""
-  ([]
-  (run! report-scr-examples (keys @SCR-Examples)))
+(defn report-examples
+  "Give positive/negative coverage and sentiment statistics for the SCR examples."
+  ([xmps]
+  (if (map? xmps)
+      (run! #(apply report-examples %) xmps)        ; Report keyed example sets
+      (report-examples :examples xmps)))            ; Single set of examples
 
 
-  ([dtag]
+  ([dtag xmps]
   (let [stats (reduce #(let [ss (if (every? empty? (:rules %2))
                                      :stoic
                                      :senti)]
                         (update-values %1 [:count (:polarity %2) ss] inc))
                       (zero-hashmap :count :positive :negative :senti :stoic)
-                      (get @SCR-Examples dtag #{}))
+                      xmps)
 
         p100  #(* 100. (/ (stats %)
                           (stats :count)))]
@@ -1194,36 +1209,107 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn create-scr-examples!
+(defn report-scr-examples
+  "Give positive/negative coverage and sentiment statistics for the SCR examples."
+  []
+  (report-examples (:examples @SCR)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- create-scr-examples
   "Create examples based on part-of-speech tokens.
 
   Example:  #3955 '- toothache subsiding, thank god for extra strength painkillers'
 
-  Results in this entry being added to the @SCR-Examples value set under the key «DECREASE-N»:
-            {:id 3955
+  Results in this entry being added to the @SCR :examples value set under the key «DECREASE-N»:
+            {:tid «t3955»
              :polarity :positive
              :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
              :rules    (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
-  ([]
-  (create-scr-examples! INIT-DATA-TAG))
-
-
-  ([dset]
-  (create-scr-examples! dset (ARFFs dset)))
-
-
-  ([dset arff]
+  [dset arff]
   (log/fmt-debug "Loading dataset~a: ~a" dset arff)
   (let [insts (weka/load-arff arff
                              (which-target))]
 
     ;; Create the new set of Text examples
     (log/fmt-debug "Tweet instances~a: ~a" dset (.numInstances insts))
-    (reset! SCR-Examples
-            (instances->examples dset insts))
+    (instances->examples dset insts)))
 
-    ;; Just tell them how many we have for each rule
+
+
+
+;;; --------------------------------------------------------------------------
+(defn create-scr!
+  "Loads the SCR examples and ontologies."
+  ([]
+  (create-scr! INIT-DATA-TAG))
+
+
+  ([dtag]
+  (create-scr! dtag (ARFFs dtag)))
+
+
+  ([dtag arff]
+  (create-scr! dtag arff false))
+
+
+  ([dtag arff solns?]
+  (let [xmps (create-scr-examples dtag arff)]
+
+    ;; Give feedback on the examples while we're building the ontology
+    (future
+     (report-examples xmps))
+
+    ;; Set our top-level state
+    (reset! SCR {:examples   xmps
+                 :ontologies (populate-scr-ontologies xmps solns?)})
+
+    ;; Return the collection of rule tags
+    (keys xmps))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn partition-scr!
+  "Splits SCR examples and ontology by positive and negative individuals for
+  the specified (or default) data tag."
+  ([]
+  (partition-scr! INIT-DATA-TAG))
+
+
+  ([dtag]
+  ;; Create the keys for the new partitions
+  (let [dtag-p (keyize dtag :- :positive)
+        dtag-n (keyize dtag :- :negative)]
+    ;; Do all the work atomically
+    (swap! SCR
+      (fn [scr]
+        (let [all-xmps  (:examples   scr)
+              all-onts  (:ontologies scr)
+              xmps      (all-xmps dtag)
+              ont       (all-onts dtag)]
+          ;; Do we know this data tag?
+          (if (and xmps
+                   ont)
+            ;; Find the positive texts and use them to partition the examples
+            (let [ptexts (learned-positive-texts ont)
+                  xparts (group-by #(if (contains? ptexts (individual ont (:tid %)))
+                                        dtag-p
+                                        dtag-n)
+                                   xmps)]
+              ;; NOTE: the added p/n ontologies will not have any learned solutions
+              {:examples   (merge all-xmps xparts)
+               :ontologies (merge all-onts (populate-scr-ontologies xparts))})
+
+            ;; Unknown data tag...no change!
+            scr))))
+
+
     (report-scr-examples))))
+
+
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -1573,7 +1659,7 @@
   (let [rtag    (str "r" seed)
         ipath   (ARFFs dtag)
         trn-tst (into {} (map #(let [ttag (str rtag "." (name %))]              ; pRNG seed & train|test tag
-                                 [% (weka/tag-filename ipath ttag :arff)])      ; Weka split sub-dataset 
+                                 [% (weka/tag-filename ipath ttag :arff)])      ; Weka split sub-dataset
                               SPLIT-TAGS))]
     ;; Do the train/test ARFFs already exist?
     (if (every? #(.exists (io/file %)) (vals trn-tst))
@@ -1669,18 +1755,18 @@
   (pn-examples rule ONT-PREFIX))
 
   ([rule prefix]
-  (pn-examples rule prefix (get @SCR-Examples rule)))
+  (pn-examples rule prefix (get-in @SCR [:examples rule])))
 
   ([rule prefix examples]
-  (let [tag     (str prefix (when prefix ":") TWEET-TAG)
+  (let [tag     (str prefix (when prefix ":"))
         tagger  #(str tag %)
-        ids     (reduce (fn [acc {:keys[id polarity]}]
+        tids    (reduce (fn [acc {:keys[tid polarity]}]
                           (update-in acc [polarity]
-                                         #(conj % id)))
+                                         #(conj % tid)))
                         {:positive (sorted-set)             ; Collect IDs for pos/neg examples
                          :negative (sorted-set)}
                         examples)
-        xmps    (update-values ids #(map tagger %))]        ; Prefix % tag pos/neg IDs
+        xmps    (update-values tids #(map tagger %))]       ; Prefix % tag pos/neg IDs
 
     ;; Save P/N Text to pull in for DL-Learner runs
     (spit (str "resources/emo-sa/pn-examples-" (name rule) ".edn")
@@ -1862,7 +1948,7 @@
   (run-timings INIT-DATA-TAG))
 
   ([tag]
-  (if-let[ont (get @SCR-Ontologies tag)]
+  (if-let[ont (get-in @SCR [:ontologies tag])]
 
     ;; Right now, we're just testing with HermiT.
     (let [rsnr (make-reasoner :hermit ont)]
@@ -1938,8 +2024,7 @@
         check!  (fn [arff]
                   (log/debug "ARFF:" arff)
                   ;; (Re)generate the examples and ontologies from the ARFF
-                  (create-scr-examples! dtag arff)
-                  (populate-scr-ontologies! (some #{:learn} opts))
+                  (create-scr! dtag arff (some #{:learn} opts))
                   (save-ontologies)
 
                   ;; Do reasoner tests if requested
@@ -1947,7 +2032,7 @@
                     (run-timings))
 
                   ;; Run batch with DL-Learner
-                  (update-kv-values @SCR-Examples
+                  (update-kv-values (:examples @SCR)
                     (fn [rule xmps]
                       (dll/write-pn-config :base     base
                                            :rule     rule
