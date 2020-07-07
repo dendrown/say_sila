@@ -109,8 +109,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defonce SCR            (atom {:examples   {}      ; TODO Use a more appropriate name than SCR
-                               :ontologies {}}))
+(defonce SCR            (atom {:examples {}         ; TODO Use a more appropriate name than SCR
+                               :ontology {}}))
 
 (defonce Expressions    (if (cfg/?? :senti :use-scr?)
                             ;; Word sets which invoke Sentiment Composition Rules
@@ -899,7 +899,7 @@
   []
   ;; Create ontologies for each SCR, each populated with individuals expressing the rule
   (update-kv-values
-    (:ontologies @SCR)
+    (:ontology @SCR)
     (fn [rule ont]
       (let [fpath (str ONT-FSTUB "-" (name rule) ".owl")]
         (save-ontology ont fpath :owl)
@@ -1185,7 +1185,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defn report-examples
-  "Give positive/negative coverage and sentiment statistics for the SCR examples."
+  "Give positive/negative coverage and sentiment statistics for sets of
+  intermediate-format examples or a hashmap with multiple sets of examples
+  as values."
   ([xmps]
   (if (map? xmps)
       (run! #(apply report-examples %) xmps)        ; Report keyed example sets
@@ -1193,7 +1195,8 @@
 
 
   ([dtag xmps]
-  (let [stats (reduce #(let [ss (if (every? empty? (:rules %2))
+  (let [;; Statistics on text polarity and presence of affect
+        stats (reduce #(let [ss (if (every? empty? (:rules %2))
                                      :stoic
                                      :senti)]
                         (update-values %1 [:count (:polarity %2) ss] inc))
@@ -1201,16 +1204,30 @@
                       xmps)
 
         p100  #(* 100. (/ (stats %)
-                          (stats :count)))]
+                          (stats :count)))
+
+        ;; Breakdown of affective elements
+        affs  (reduce (fn [cnts aff]
+                        (update-values cnts aff inc))           ; Sum the affect in a set
+                      (apply zero-hashmap Affect-Names)         ; Acc: affect counts (zeros)
+                      (flatten (map #(remove empty? (:rules %)) ; Seq: affect sets from Texts
+                                   xmps)))
+        pull  #(vector % (affs %))]                             ; Affective [key val] shortcut
 
   (log/fmt-info "SCR~a: p[~1$%] s[~1$%] xmps~a"
-                dtag (p100 :positive) (p100 :senti) stats))))
+                dtag (p100 :positive) (p100 :senti) stats)
+
+  ;; Report pos/neg first
+  (doseq [[elm cnt] (conj (sort (dissoc affs "Positive" "Negative"))    ; ABCize the rest
+                          (pull "Negative")                             ; Add onto head
+                          (pull "Positive"))]                           ; ..of the list
+    (log/fmt-debug "Count~a: ~a: ~a" dtag elm cnt)))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn report-scr-examples
-  "Give positive/negative coverage and sentiment statistics for the SCR examples."
+(defn report-scr
+  "Give positive/negative coverage and sentiment statistics for the SCR elements."
   []
   (report-examples (:examples @SCR)))
 
@@ -1262,8 +1279,8 @@
      (report-examples xmps))
 
     ;; Set our top-level state
-    (reset! SCR {:examples   xmps
-                 :ontologies (populate-scr-ontologies xmps solns?)})
+    (reset! SCR {:examples xmps
+                 :ontology (populate-scr-ontologies xmps solns?)})
 
     ;; Return the collection of rule tags
     (keys xmps))))
@@ -1285,8 +1302,8 @@
     ;; Do all the work atomically
     (swap! SCR
       (fn [scr]
-        (let [all-xmps  (:examples   scr)
-              all-onts  (:ontologies scr)
+        (let [all-xmps  (:examples scr)
+              all-onts  (:ontology scr)
               xmps      (all-xmps dtag)
               ont       (all-onts dtag)]
           ;; Do we know this data tag?
@@ -1299,14 +1316,14 @@
                                         dtag-n)
                                    xmps)]
               ;; NOTE: the added p/n ontologies will not have any learned solutions
-              {:examples   (merge all-xmps xparts)
-               :ontologies (merge all-onts (populate-scr-ontologies xparts))})
+              {:examples (merge all-xmps xparts)
+               :ontology (merge all-onts (populate-scr-ontologies xparts))})
 
             ;; Unknown data tag...no change!
             scr))))
 
 
-    (report-scr-examples))))
+    (report-scr))))
 
 
 
@@ -1948,7 +1965,7 @@
   (run-timings INIT-DATA-TAG))
 
   ([tag]
-  (if-let[ont (get-in @SCR [:ontologies tag])]
+  (if-let[ont (get-in @SCR [:ontology tag])]
 
     ;; Right now, we're just testing with HermiT.
     (let [rsnr (make-reasoner :hermit ont)]
