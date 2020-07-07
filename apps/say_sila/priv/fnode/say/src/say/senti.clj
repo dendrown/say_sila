@@ -1206,22 +1206,35 @@
         p100  #(* 100. (/ (stats %)
                           (stats :count)))
 
-        ;; Breakdown of affective elements
-        affs  (reduce (fn [cnts aff]
-                        (update-values cnts aff inc))           ; Sum the affect in a set
-                      (apply zero-hashmap Affect-Names)         ; Acc: affect counts (zeros)
-                      (flatten (map #(remove empty? (:rules %)) ; Seq: affect sets from Texts
-                                   xmps)))
-        pull  #(vector % (affs %))]                             ; Affective [key val] shortcut
+        ;; We'll need a sequence of affect (rule) sets for the Texts
+        rules (map #(:rules %) xmps)                            ; Affect sets from Texts
+        zeros (apply zero-hashmap Affect-Names)                 ; Acc init: affect counts
 
+        ;; Breakdown of affective elements
+        texts (reduce (fn [cnts aff]
+                        (update-values cnts
+                                       (reduce #(apply conj %1 %2) #{} aff)
+                                       inc))
+                        zeros
+                        rules)
+
+        toks (reduce (fn [cnts aff]
+                        (update-values cnts aff inc))           ; Sum the affect in a set
+                      zeros
+                      (flatten (map #(remove empty? %) rules)))]
+
+  ;; Report the basic statistics
   (log/fmt-info "SCR~a: p[~1$%] s[~1$%] xmps~a"
                 dtag (p100 :positive) (p100 :senti) stats)
 
   ;; Report pos/neg first
-  (doseq [[elm cnt] (conj (sort (dissoc affs "Positive" "Negative"))    ; ABCize the rest
-                          (pull "Negative")                             ; Add onto head
-                          (pull "Positive"))]                           ; ..of the list
-    (log/fmt-debug "Count~a: ~a: ~a" dtag elm cnt)))))
+  (doseq [elm (conj (sort (keys (dissoc texts "Positive" "Negative")))  ; ABCize the rest
+                    "Negative"                                          ; Add onto head
+                    "Positive")]                                        ; ..of the list
+    (log/fmt-debug "Count~a ~12a [~4d Tokens in ~4d Texts]"
+                   dtag elm
+                   (get toks  elm)
+                   (get texts elm))))))
 
 
 
