@@ -137,6 +137,7 @@
 (defonce POS-Fragments  (into {} (map #(vector (:literal (check-fact % hasPartOfSpeechTag))
                                                (iri-fragment %))
                                       POS)))
+(defonce POS-Codes      (into #{} (keys POS-Fragments)))
 (defonce POS-Names      (into #{} (vals POS-Fragments)))
 
 

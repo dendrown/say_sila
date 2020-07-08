@@ -28,6 +28,7 @@
             [clojure.pprint     :refer [pp pprint]]
             [defun.core         :refer [defun]]
             [tawny.english      :as dl]
+            [tawny.query        :as qry]
             [tawny.read         :as rd]
             [tawny.reasoner     :as rsn]
             [tawny.repl         :as repl]                           ; <= DEBUG
@@ -575,7 +576,7 @@
           learned (owl-class ont (dll/name-learned))              ; DL-Learner equivalent soln
           ptexts  (rsn/instances ont learned)]                    ; Predicted positive texts
 
-      (log/debug "Learned:" (rsn/isubclasses ont learned))
+      (log/debug "Learned:" (map qry/tawny-name (rsn/isubclasses ont learned)))
 
       ;; Make sure HermiT doesn't hoard memory.  Tawny-OWL (as of version 2.0.3) is
       ;; not calling dispose on the HermiT reasoner due to crashiness they've seen.
@@ -1206,35 +1207,54 @@
         p100  #(* 100. (/ (stats %)
                           (stats :count)))
 
+        zeros #(apply zero-hashmap %)
+        kount #(update-values %1 %2 inc)                        ; Accumulate hits from seq %2
+
         ;; We'll need a sequence of affect (rule) sets for the Texts
-        rules (map #(:rules %) xmps)                            ; Affect sets from Texts
-        zeros (apply zero-hashmap Affect-Names)                 ; Acc init: affect counts
+        aff-rules (map #(:rules %) xmps)                        ; Affect sets from Texts
+        aff-zeros (zeros Affect-Names)                          ; Acc init: affect counts
 
         ;; Breakdown of affective elements
-        texts (reduce (fn [cnts aff]
-                        (update-values cnts
-                                       (reduce #(apply conj %1 %2) #{} aff)
-                                       inc))
-                        zeros
-                        rules)
+        aff-toks  (reduce kount                                 ; Sum the affect in a set
+                          aff-zeros
+                          (flatten (map #(remove empty? %) aff-rules)))
 
-        toks (reduce (fn [cnts aff]
-                        (update-values cnts aff inc))           ; Sum the affect in a set
-                      zeros
-                      (flatten (map #(remove empty? %) rules)))]
+        aff-texts (reduce (fn [cnts aff]
+                            (update-values cnts (apply set/union aff) inc))
+                            aff-zeros
+                            aff-rules)
+
+        ;; Now get a sequence of part-of-speech tags for the Texts
+        pos-tags  (map #(:pos-tags %) xmps)                     ; POS tags for all Texts
+        pos-zeros (zeros pos/POS-Codes)                         ; Acc init: POS tag counts
+
+        pos-toks  (reduce kount pos-zeros pos-tags)
+        pos-texts (reduce (fn [cnts pos]
+                            (update-values cnts (into #{} pos) inc))
+                          pos-zeros
+                          pos-tags)]
 
   ;; Report the basic statistics
   (log/fmt-info "SCR~a: p[~1$%] s[~1$%] xmps~a"
                 dtag (p100 :positive) (p100 :senti) stats)
 
-  ;; Report pos/neg first
-  (doseq [elm (conj (sort (keys (dissoc texts "Positive" "Negative")))  ; ABCize the rest
-                    "Negative"                                          ; Add onto head
-                    "Positive")]                                        ; ..of the list
-    (log/fmt-debug "Count~a ~12a [~4d Tokens in ~4d Texts]"
-                   dtag elm
-                   (get toks  elm)
-                   (get texts elm))))))
+  ;; Report pos/neg first, then the emotions
+  (doseq [aff (conj (sort (keys (dissoc aff-texts "Positive" "Negative")))  ; ABCize emotions
+                    "Negative"                                              ; Add onto head
+                    "Positive")]                                            ; ..of the list
+    (log/fmt-debug "Affect~a ~12a [~4d Tokens in ~4d Texts]"
+                   dtag aff
+                   (get aff-toks  aff)
+                   (get aff-texts aff)))
+
+  ;; Report part-of-speech tags
+  (doseq [pos (sort-by pos/POS-Fragments
+                      (keys pos-texts))]
+    (log/fmt-debug "Speech~a ~24a [~4d Tokens in ~4d Texts]"
+                   dtag
+                   (pos/POS-Fragments pos)
+                   (get pos-toks  pos)
+                   (get pos-texts pos))))))
 
 
 
