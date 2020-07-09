@@ -1267,6 +1267,20 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn report-scr-polarity
+  "Give positive/negative coverage and sentiment statistics for the SCR elements."
+  ([pole]
+  (report-scr-polarity (which-data) pole))
+
+
+  ([dtag pole]
+  (let [xmps (filter #(= pole (:polarity %))
+                     (-> @SCR :examples dtag))]
+    (report-examples dtag xmps))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- create-scr-examples
   "Create examples based on part-of-speech tokens.
 
