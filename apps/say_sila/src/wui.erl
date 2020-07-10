@@ -8,7 +8,7 @@
 %%
 %% @doc Web User Interface (WUI) server for Say-Sila
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(wui).
@@ -44,14 +44,15 @@
 -define(STATUS_DIR, ?DOC_ROOT "/status").
 -define(GCONFS,     [{id, ?ID},
                      {logdir,     ?LOG_DIR}]).
--define(SCONFS,     [{port,       8080},
+
+-define(SCONFS,     [%{port,       8080},
                      {servername, "sila"},
                      {listen,     {0,0,0,0}},
                      {docroot,    ?DOC_ROOT},
                      {appmods,    [{"/emote", wui_emote}]} ]).
 
--define(GOOD_TRACKS, ["cc", "gw"]).     % TODO: Link to `twitter' definitions
 
+-define(GOOD_TRACKS, ["cc", "gw"]).     % TODO: Link to `twitter' definitions
 
 -record(state, {yaws :: yaws_conf()}).
 %type state() :: #state{}.
@@ -154,10 +155,15 @@ get_comms_atom(Arg, Default) ->
 %       A supervisor should call this function.
 % @end  --
 get_conf() ->
-    {ok, SConfs, GConf, ChildSpecs} = yaws_api:embedded_start_conf(?DOC_ROOT,
-                                                                   ?SCONFS,
-                                                                   ?GCONFS,
-                                                                   ?ID),
+    % YAWS seems to want configuration overrides at the END of the list
+    {ok, App}  = application:get_application(),
+    WUIConf    = application:get_env(App, ?MODULE, []),
+    SConfParms = ?SCONFS ++ proplists:get_value(sconfs, WUIConf, []),
+
+    {ok,
+     SConfs,
+     GConf,
+     ChildSpecs} = yaws_api:embedded_start_conf(?DOC_ROOT, SConfParms, ?GCONFS, ?ID),
     Conf = #yaws_conf{id     = ?ID,
                       gConf  = GConf,
                       sConfs = SConfs,
