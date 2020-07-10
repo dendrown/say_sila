@@ -45,7 +45,7 @@
 -define(GCONFS,     [{id, ?ID},
                      {logdir,     ?LOG_DIR}]).
 
--define(SCONFS,     [%{port,       8080},
+-define(SCONFS,     [{port,       8080},
                      {servername, "sila"},
                      {listen,     {0,0,0,0}},
                      {docroot,    ?DOC_ROOT},
