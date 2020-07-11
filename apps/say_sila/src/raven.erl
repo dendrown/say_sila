@@ -177,7 +177,7 @@ emote(Tracker, Options) ->
     % Get the full period and a version of Options without start/stop properties
     {PeriodStart,
      PeriodStop,
-     RunOptions} = extract_period(Tracker, Options),
+     RunOptions} = daily:extract_period(Tracker, Options),
 
     % The AUX function will make the gen_server call multiple times
     emote_aux(?reg(Tracker), PeriodStart, PeriodStop, RunOptions).
@@ -641,40 +641,6 @@ string_to_float(Value) ->
 
 
 %%--------------------------------------------------------------------
--spec extract_period(Tracker :: atom(),
-                     Options :: list()) -> {date() | datetime(),
-                                            date() | datetime(),
-                                            list()}.
-%%
-% @doc  Creates the start/stop period for tweet analysis from an `Options'
-%       proplist.  The period defaults are:
-%           - `start'   the DTS of the earliest tweet for the `Tracker' code
-%           - `stop'    the DTS for midnight tomorrow morning
-%                       (so that we pull up to the end of today)
-%
-%       The caller gets back a tuple with the period start and stop dates
-%       and the `Options' proplists with the start/stop elements removed.
-% @end  --
-extract_period(Tracker, Options) ->
-    %
-    PeriodStart = case proplists:get_value(start, Options) of
-        undefined -> twitter:get_first_dts(Tracker, [calendar]);
-        StartDTS  -> StartDTS
-    end,
-
-    PeriodStop = case proplists:get_value(stop, Options) of
-        undefined -> dts:add(calendar:local_time(), 1, day);    % Tomorrow for today
-        StopDTS   -> StopDTS
-    end,
-
-    % For a clean day-to-day progression, start/end everything at midnight
-    {dts:dayize(PeriodStart),
-     dts:dayize(PeriodStop),
-     proplists:delete(start, proplists:delete(stop, Options))}.
-
-
-
-%%--------------------------------------------------------------------
 -spec get_big_players_aux(BigP100  :: float(),
                           TotalCnt :: integer(),
                           Players  :: players()) -> {float(), big_players(), players()}.
@@ -738,18 +704,14 @@ get_big_players_aux(BigP100, TotalCnt, [Player|Rest], BigCntAcc, BigPlayers) ->
 %       make a gen_server call for each day in the period.
 % @end  --
 emote_aux(RavenSrv, Today, StopDay, Options) ->
-    %
-    case Today < StopDay of
-        true ->
-            Tomorrow = dts:add(Today, 1, day),
-            FullOpts = [{start, Today},
-                        {stop,  Tomorrow} | Options],
-            gen_server:call(RavenSrv,
-                            {emote_day, FullOpts},
-                            ?TWITTER_DB_TIMEOUT),
+
+    case daily:step(Today, StopDay, Options) of
+        {Tomorrow,
+         CurrOptions} ->
+            gen_server:call(RavenSrv, {emote_day, CurrOptions}, ?TWITTER_DB_TIMEOUT),
             emote_aux(RavenSrv, Tomorrow, StopDay, Options);
 
-        false -> ok
+        stop -> ok
     end.
 
 

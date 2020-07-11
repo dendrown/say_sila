@@ -16,8 +16,8 @@
 
 -type json_binary()     :: binary().
 
--type property()        :: atom() | {term(), term()}.
--type proplist()        :: [property()].
+-type property()        :: proplists:property().
+-type proplist()        :: proplists:proplist().
 
 % pprops list patterns where we promote singletons to lists
 -type keys()            :: [term()]   | atom().

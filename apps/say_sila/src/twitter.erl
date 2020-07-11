@@ -15,7 +15,7 @@
 %%      referring to Twitter hashtags, and not to hashtables or
 %%      related structures.
 %%
-%% @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(twitter).
