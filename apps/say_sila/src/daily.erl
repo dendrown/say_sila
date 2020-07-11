@@ -16,7 +16,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([extract_period/2,
-         step/3,
+         step/2, step/3,
          tomorrow/1]).
 
 -include("sila.hrl").
@@ -62,18 +62,26 @@ extract_period(Tracker, Options) ->
 
 %%--------------------------------------------------------------------
 -spec step(Today       :: datetime(),
+           StopDay     :: datetime()) -> {datetime(), proplist()}
+                                       | stop.
+
+-spec step(Today       :: datetime(),
            StopDay     :: datetime(),
            Options     :: list()) -> {datetime(), proplist()}
                                            | stop.
 %%
 % @doc  Increments the daily start/stop options, returning a pair with
-%       the datetime corresponding to the next day and (all) options
-%       for the current processing step.  This behaviour continues
-%       until daily processing hits the stop date at which point the
-%       function returns `stop'.
+%       the datetime corresponding to the next day and options for the
+%       current processing step (all options for step/3).  This behaviour
+%       continues until daily processing hits the stop date at which point
+%       the function returns `stop'.
 % @end  --
+step(Today, StopDay) ->
+    step(Today, StopDay, []).
+
+
 step(Today, StopDay, Options) ->
-    
+
     case Today < StopDay of
         true ->
             Tomorrow = tomorrow(Today),
