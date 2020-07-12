@@ -17,7 +17,8 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([start_link/1, start_link/2,
-         stop/0]).
+         stop/0,
+         report/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 % Quickies for development
@@ -26,11 +27,13 @@ opts() -> [no_retweet, {start, {2020, 1, 1}}, {stop, {2020, 4, 1}}].
 
 
 -include("sila.hrl").
+-include("twitter.hrl").
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
 
 -record(state, {tracker       :: tracker(),
+                tweets  = []  :: tweets(),
                 options = []  :: proplist(),
                 workers = #{} :: #{pid() => proplist()} }).
 -type state() :: #state{}.
@@ -67,6 +70,18 @@ start_link(Tracker, Options) ->
 % @end  --
 stop() ->
     gen_server:call(?MODULE, stop).
+
+
+
+%%--------------------------------------------------------------------
+-spec report(Tracker :: tracker(),
+             Worker  :: pid(),
+             Results :: {tweets, list()}) -> ok.
+%%
+% @doc  Reports results from workers collecting and filtering tweets.
+% @end  --
+report(Tracker, Worker, Results) ->
+    gen_server:cast(?MODULE, {report, Tracker, Worker, Results}).
 
 
 
@@ -150,6 +165,23 @@ handle_cast({get_tweets, Options}, State = #state{tracker = Tracker}) ->
                           workers = DoWork(PeriodStart, #{})}};
 
 
+handle_cast({report, Tracker, Worker, {tweets, Results}}, State = #state{tracker = Tracker,
+                                                                         tweets  = Tweets,
+                                                                         workers = Workers}) ->
+    JobOpts = maps:get(Worker, Workers),
+    NewTweets = case Results of
+        [] ->
+            ?warning("No ~s/environmental tweets on ~s: pid~p",
+                       [Tracker, dts:str(proplists:get_value(start, JobOpts)), Worker]),
+            Tweets;
+        _ ->
+            Results ++ Tweets
+    end,
+    {noreply, State#state{tweets  = NewTweets,
+                          workers = Workers#{Worker => [{status, complete} | JobOpts]}}};
+
+
+
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.
@@ -161,6 +193,20 @@ handle_cast(Msg, State) ->
 %%
 % @doc  Process out-of-band messages
 % @end  --
+handle_info({'EXIT', Worker, Why}, State = #state{workers = Workers}) ->
+
+    Job = maps:get(Worker, Workers),
+    NewWorkers = case Why of
+        normal  ->
+            %?debug("Worker ~p finished: job~p", [Worker, Job]),
+            maps:remove(Worker, Workers);
+        _ ->
+            ?error("Worker ~p failed: why[~p] job~p", [Worker, Why, Job]),
+            Workers#{Worker => [{fail, Why} | Job]}
+    end,
+    {noreply, State#state{workers = NewWorkers}};
+
+
 handle_info(Msg, State) ->
     ?warning("Unknown info: ~p", [Msg]),
     {noreply, State}.
@@ -176,5 +222,7 @@ handle_info(Msg, State) ->
 % @doc  Retrieves and processes the tweets for a day.
 % @end  --
 get_tweets(Tracker, Options) ->
-    ?debug("Getting ~s tweets: ~p", [Tracker, Options]).
+    ?debug("Getting ~s tweets: ~p", [Tracker, Options]),
+    timer:sleep(1000),
+    green:report(Tracker, self(), {tweets, [#tweet{}]}).
 
