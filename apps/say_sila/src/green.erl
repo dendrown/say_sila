@@ -18,8 +18,12 @@
 
 -export([start_link/1, start_link/2,
          stop/0,
+         re_pattern/0,
          report/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
+
+-import(lists, [foldl/3]).
+-import(proplists, [get_value/2]).
 
 % Quickies for development
 -export([opts/0]).
@@ -29,6 +33,7 @@ opts() -> [no_retweet, {start, {2020, 1, 1}}, {stop, {2020, 4, 1}}].
 -include("sila.hrl").
 -include("twitter.hrl").
 -include("types.hrl").
+-include_lib("eunit/include/eunit.hrl").
 -include_lib("llog/include/llog.hrl").
 
 
@@ -71,6 +76,18 @@ start_link(Tracker, Options) ->
 stop() ->
     gen_server:call(?MODULE, stop).
 
+
+
+%%--------------------------------------------------------------------
+-spec re_pattern() -> re:mp().
+%%
+% @doc  Returns a compiled regular expression to be used to identify
+%       texts talking about the environment.
+% @end  --
+re_pattern() ->
+    {ok, RE} = re:compile(<<"environment|[[:<:]]env[[:>:]]">>,
+                          [caseless]),
+    RE.
 
 
 %%--------------------------------------------------------------------
@@ -151,18 +168,31 @@ handle_cast({get_tweets, Options}, State = #state{tracker = Tracker}) ->
      PeriodStop,
      RunOpts} = daily:extract_period(Tracker, Options),
 
-     DoWork = fun Recur(CurrDay, Acc) ->
+    % Create jobs for individual days in the period
+     MakeWork = fun Recur(CurrDay, Acc = {Jobs, Cnt}) ->
         case daily:step(CurrDay, PeriodStop) of
-            stop -> Acc;
             {NextDay,
-             DayOpts} ->
-                Worker = spawn_link(fun() -> get_tweets(Tracker, [DayOpts|RunOpts]) end),
-                Recur(NextDay, Acc#{Worker => DayOpts})
+             DayJob} -> Recur(NextDay, {[DayJob|Jobs], Cnt+1});
+            stop     -> Acc
         end
     end,
 
+    % The workers will all hit the twitter gen_server at about the same time.
+    % As they will be servered one-at-a-time, use an appropriate timeout value.
+    {Jobs,
+     JobCnt} = MakeWork(PeriodStart, {[], 0}),
+    JobOpts  = [{timeout, JobCnt * ?TWITTER_DB_TIMEOUT} | RunOpts],
+
+    % Get the workers started pulling and filtering tweets
+    EnvRE  = re_pattern(),
+    DoWork = fun (Job, Acc) ->
+        Worker = spawn_link(fun() -> get_tweets(Tracker, EnvRE, Job++JobOpts) end),
+        Acc#{Worker => Job}
+    end,
+    Workers = foldl(DoWork, #{}, Jobs),
+
     {noreply, State#state{options = Options,
-                          workers = DoWork(PeriodStart, #{})}};
+                          workers = Workers}};
 
 
 handle_cast({report, Tracker, Worker, {tweets, Results}}, State = #state{tracker = Tracker,
@@ -172,7 +202,7 @@ handle_cast({report, Tracker, Worker, {tweets, Results}}, State = #state{tracker
     NewTweets = case Results of
         [] ->
             ?warning("No ~s/environmental tweets on ~s: pid~p",
-                       [Tracker, dts:str(proplists:get_value(start, JobOpts)), Worker]),
+                       [Tracker, dts:str(get_value(start, JobOpts)), Worker]),
             Tweets;
         _ ->
             Results ++ Tweets
@@ -217,12 +247,42 @@ handle_info(Msg, State) ->
 %% Internal functions
 %%--------------------------------------------------------------------
 -spec get_tweets(Tracker :: tracker(),
+                 Pattern :: re:mp(),
                  Options :: proplist()) -> ok.
 %%
 % @doc  Retrieves and processes the tweets for a day.
 % @end  --
-get_tweets(Tracker, Options) ->
-    ?debug("Getting ~s tweets: ~p", [Tracker, Options]),
-    timer:sleep(1000),
-    green:report(Tracker, self(), {tweets, [#tweet{}]}).
+get_tweets(Tracker, Pattern, Options) ->
+    %?debug("Getting ~s tweets: ~p", [Tracker, Options]),
+    DayTweets = twitter:get_tweets(Tracker, all, Options),
+    EnvFilter = fun(T, {Envs, EnvCnt, DayCnt}) ->
+        case re:run(T#tweet.text, Pattern) of
+            nomatch -> {Envs,     EnvCnt,   DayCnt+1};
+            _       -> {[T|Envs], EnvCnt+1, DayCnt+1}
+        end
+    end,
+    {EnvTweets,
+     EnvCnt,
+     DayCnt} = foldl(EnvFilter, {[], 0, 0}, DayTweets),
 
+    ?info("Environmental tweets for ~s: cnt[~3B of ~4B] pct[~.1f%]",
+          [dts:str(dts:day(get_value(start, Options))),
+           EnvCnt, DayCnt,
+           100.0 * (EnvCnt/DayCnt)]),
+    green:report(Tracker, self(), {tweets, EnvTweets}).
+
+
+
+%%====================================================================
+%% Unit tests
+%%--------------------------------------------------------------------
+re_pattern_test() ->
+
+    RE = re_pattern(),
+    {match,_} = re:run(<<"This is env.">>, RE),
+    {match,_} = re:run(<<"This is env\nBang!">>, RE),
+    {match,_} = re:run(<<"This is the environment.">>, RE),
+    {match,_} = re:run(<<"This is the #environment.">>, RE),
+
+    nomatch = re:run(<<"This is enviro.">>, RE),
+    nomatch = re:run(<<"This is the envonment.">>, RE).

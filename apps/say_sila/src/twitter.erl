@@ -50,6 +50,8 @@
          untrack/0]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
+-import(proplists, [get_value/3]).
+
 -include("sila.hrl").
 -include("dts.hrl").
 -include("ioo.hrl").
@@ -376,7 +378,7 @@ get_tweets(Tracker, ScreenName, Options) when is_binary(ScreenName) ->
 get_tweets(Tracker, ScreenNames, Options) ->
     gen_server:call(?MODULE,
                     {get_tweets, Tracker, listify_string(ScreenNames), Options},
-                    ?TWITTER_DB_TIMEOUT).
+                    get_value(timeout, Options, ?TWITTER_DB_TIMEOUT)).
 
 
 

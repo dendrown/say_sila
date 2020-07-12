@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila Date/Timestamp utilities
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(dts).
@@ -18,18 +18,14 @@
 -export([add/3,
          date_str/1, date_str/2,
          date_STR/1, date_STR/2,
-         dayize/1,
-         dayize/2,
+         day/1,
+         dayize/1,   dayize/2,
          earlier/2,
          hourize/1,
          later/2,
-         minutize/1,
-         minutize/2,
-         quarter/1,
-         quarter/2,
-         str/1,
-         str/2,
-         sub/3,
+         minutize/1, minutize/2,
+         quarter/1,  quarter/2,
+         str/1,      str/2, sub/3,
          to_datetime/2,
          to_unix/2]).
 
@@ -122,6 +118,19 @@ date_STR(Date) ->
 date_STR(DTS1970, Unit) ->
     lists:flatten(date_str(DTS1970, Unit)).
 
+
+
+%%--------------------------------------------------------------------
+-spec day(DateTime :: datetime()) -> date().
+%
+% @doc  Strips off the time portion from a datetime tuple.
+% @end  --
+day(Day = {_, _, _}) ->
+    Day;
+
+
+day({Day = {_, _, _}, {_, _, _}}) ->
+    Day.
 
 
 %%--------------------------------------------------------------------
