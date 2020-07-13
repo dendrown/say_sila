@@ -8,7 +8,7 @@
 %%
 %% @doc I/O Operations
 %%
-%% @copyright 2018 Dennis Drown and Ostrich Ideas
+%% @copyright 2018-2020 Dennis Drown and Ostrich Ideas
 %% @end
 %%%-------------------------------------------------------------------
 -ifndef(_ioo_included).
@@ -24,4 +24,6 @@
 -define(io_nl(FOut),            io:put_chars(FOut, "\n")).
 
 -define(ternary(Cond,T,F),      if Cond -> T; true -> F end).
+
+-type filepath() :: unicode:chardata().
 -endif.

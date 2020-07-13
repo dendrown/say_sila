@@ -8,7 +8,7 @@
 %%
 %% @doc I/O Operations
 %%
-%% @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(ioo).
@@ -28,14 +28,14 @@
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
--spec make_fpath(FPath :: stringy()) -> string().
+-spec make_fpath(FPath :: stringy()) -> unicode:chardata().
 
 -spec make_fpath(Path :: stringy(),
-                 Name :: stringy()) -> string().
+                 Name :: stringy()) -> unicode:chardata().
 
 -spec make_fpath(Path :: stringy(),
                  Name :: stringy(),
-                 Extn :: stringy()) -> string().
+                 Extn :: stringy()) -> unicode:chardata().
 %%
 % @doc  Returns the full filepath for the specified file parts.
 %       Note that the path must be valid for this function to succeed.
@@ -43,7 +43,7 @@
 make_fpath(FPath) ->
     FlatFPath = lists:flatten(FPath),
     ok = filelib:ensure_dir(FlatFPath),
-    FlatFPath.
+    types:to_binary(FlatFPath).
 
 
 make_fpath(Path, Name) ->

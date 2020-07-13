@@ -39,7 +39,7 @@
 
 % This is the current Mnesia-based design (in process)
 -record(tweet_lot, {dts     :: datetime(),
-                    arff    :: string(),
+                    arff    :: unicode:chardata(),
                     tweets  :: tweets() }).
 -type tweet_lot() :: #tweet_lot{}.
 

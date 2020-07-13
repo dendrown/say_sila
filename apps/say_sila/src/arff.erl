@@ -17,7 +17,7 @@
 %%
 %%      REF: https://github.com/felipebravom/AffectiveTweets
 %%
-%% @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(arff).
@@ -45,11 +45,11 @@
 -define(put_attr(FOut, Attrib, Type),   io:format(FOut, "@ATTRIBUTE ~s ~s\n",    [Attrib, Type])).
 -define(put_attr(FOut, A0, A1, Type),   io:format(FOut, "@ATTRIBUTE ~s_~s ~s\n", [A0, A1, Type])).
 
--type arff_return() :: {ok, string()}
+-type arff_return() :: {ok, filepath()}
                      | {cont, file:io_device()}
                      | {{error, term()}, string()}.
 
--type arff_return_extra() :: {ok, string(), map()}
+-type arff_return_extra() :: {ok, filepath(), map()}
                            | {{error, term()}, string(), map()}.
 
 %%====================================================================
@@ -329,10 +329,10 @@ make_attribute(Group, Code, Emo) ->
 
 
 %%--------------------------------------------------------------------
--spec make_fpath(Name :: stringy()) -> string().
+-spec make_fpath(Name :: stringy()) -> filepath().
 
 -spec make_fpath(SubDir :: stringy(),
-                 Name   :: stringy()) -> string().
+                 Name   :: stringy()) -> filepath().
 %%
 % @doc  Returns the complete file path for an ARFF with the specifed
 %       (relative) subdirectory and relation name.
@@ -362,7 +362,7 @@ make_weka_fpath(SubDir, Name) ->
 
 
 %%--------------------------------------------------------------------
--spec open_arff(Name :: stringy()) -> {string(), file:io_device()}.
+-spec open_arff(Name :: stringy()) -> {filepath(), file:io_device()}.
 %%
 % @doc  Opens an ARFF file for writing the specified relation and
 %       returns the full pathname to the file and its file descriptor.
@@ -379,7 +379,7 @@ open_arff(Name) ->
 
 %%--------------------------------------------------------------------
 -spec open_arff(SubDir :: stringy(),
-                Name   :: stringy()) -> {string(), file:io_device()}.
+                Name   :: stringy()) -> {filepath(), file:io_device()}.
 %%
 % @doc  Opens an ARFF file in the specified local subdirectory for
 %       the named relation.  Returns the full filepath and the file
@@ -391,10 +391,10 @@ open_arff(SubDir, Name) ->
 
 
 %%--------------------------------------------------------------------
--spec close_arff(FPath :: string(),
+-spec close_arff(FPath :: filepath(),
                  FOut  :: pid()) -> arff_return().
 
--spec close_arff(FPath :: string(),
+-spec close_arff(FPath :: filepath(),
                  FOut  :: pid(),
                  Info  :: map()) -> arff_return_extra().
 %%
@@ -646,7 +646,7 @@ periodize_lots(CommCode, DayLots, Period, Days, InitComm) ->
                        BigCodes :: comm_codes(),
                        RegCodes :: comm_codes(),
                        BigEmos  :: emotions(),
-                       RegEmos  :: emotions()) -> {string(), file:io_device()}.
+                       RegEmos  :: emotions()) -> {filepath(), file:io_device()}.
 %%
 % @doc  Opens an ARFF for biggie influence analysis and writes out the
 %       attribute header.

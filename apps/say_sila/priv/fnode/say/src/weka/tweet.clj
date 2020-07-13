@@ -16,8 +16,8 @@
             [say.log         :as log]
             [weka.core       :as weka]
             [clojure.java.io :as io]
-            [clojure.pprint  :as prt :refer [pp]]
-            [clojure.string  :as str])
+            [clojure.string  :as str]
+            [clojure.pprint  :refer [pp]])
   (:import  [affective.core LexiconEvaluator
                             ArffLexiconEvaluator
                             NRCEmotionLexiconEvaluator
@@ -581,14 +581,15 @@
 (defn emote-arff
   "Reads in an ARFF file with tweets, applies embedding/sentiment/emotion filters,
   as needed for «Say Sila», and then outputs the results in ARFF and CSV formats."
-  [fpath]
-  (log/debug "Emoting:" fpath)
+  [{:keys [arff lexicon]
+     :or   {lexicon :bws}}]
+  (log/fmt-debug "Emoting with ~a: ~a" (KEYSTR lexicon) arff)
   (let [emoter    (prep-emoter (TweetToInputLexiconFeatureVector.)
                                (cfg/? :emote))
-        data-in   (weka/load-arff fpath)
+        data-in   (weka/load-arff arff)
         data-mid  (filter-instances data-in  emoter (:options (:bws FILTERS)))
         data-out  (filter-instances data-mid :attrs)]
 
     (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
-    (weka/save-results fpath "emote" data-out)))
+    (weka/save-results arff "emote" data-out)))
 

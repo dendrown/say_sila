@@ -452,12 +452,13 @@ handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
 
             % Send the tweet lot off to Weka on the JVM
             Lookup  = make_ref(),
+            CmdArgs = jsx:encode(#{arff => FPath}),
             NewTodo = maps:put(Lookup,
                                #tweet_lot{dts    = LotDay,
                                           arff   = FPath,
                                           tweets = Tweets},
                                Todo),
-            {say, JVM} ! {self(), Lookup, WekaCmd, FPath},
+            {say, JVM} ! {self(), Lookup, WekaCmd, CmdArgs},
             State#state{tweet_todo = NewTodo};
 
         % Cache hit! Use the Weka response from last time

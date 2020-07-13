@@ -259,7 +259,7 @@ init_range(Method) ->
 
 %%--------------------------------------------------------------------
 -spec report_open(Name :: stringy(),
-                  Opts :: proplist()) -> {ok, file:io_device(), string()}
+                  Opts :: proplist()) -> {ok, file:io_device(), filepath()}
                                        | {error, file:posix() | badarg | system_limit}.
 %%
 % @doc  Opens a report file and writes a CSV header with the
@@ -576,7 +576,7 @@ init([Tracker, RunTag, RegComm, RegEmo, Params]) ->
                     maps:map(fun(Comm, Cnt) -> Cnt + maps:get(Comm, GrpCntsAcc, 0) end, GrpCounts)
                 end,
 
-                {maps:put(Step, list_to_binary(ARFF), DataAcc),     % Keys: train|parms|test
+                {maps:put(Step, types:to_binary(ARFF), DataAcc),    % Keys: train|parms|test
                  maps:map(Recounter, Counts)}                       % Keys: big|reg => oter|rter|rted|tmed
         end
     end,
@@ -1036,7 +1036,7 @@ eval_params(#data{name      = Name,
 %%--------------------------------------------------------------------
 -spec report_open(Name  :: stringy(),
                   Attrs :: [atom()],
-                  Opts  :: proplist()) -> {ok, file:io_device(), string()}.
+                  Opts  :: proplist()) -> {ok, file:io_device(), filepath()}.
 %%
 % @doc  Opens a report file and writes a CSV header with the
 %       column names for a report on influence as modelled by
@@ -1064,7 +1064,7 @@ report_open(Name, Attrs, Opts) ->
 
 %%--------------------------------------------------------------------
 -spec report_all(Data :: data()) -> {ok, string()}
-                                  | {{error, atom()}, string()}.
+                                  | {{error, atom()}, filepath()}.
 %%
 % @doc  Writes a CSV report for the full set of model runs for this FSM.
 % @end  --

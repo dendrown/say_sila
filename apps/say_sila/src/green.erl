@@ -26,8 +26,12 @@
 -import(proplists, [get_value/2]).
 
 % Quickies for development
--export([opts/0]).
-opts() -> [no_retweet, {start, {2020, 1, 1}}, {stop, {2020, 4, 1}}].
+-export([opts/0, opts/1]).
+
+opts() -> opts(q1).
+
+opts(jan1)  -> [no_retweet, {start, {2020, 1, 1}}, {stop, {2020, 1, 2}}];
+opts(q1)    -> [no_retweet, {start, {2020, 1, 1}}, {stop, {2020, 4, 1}}].
 
 
 -include("sila.hrl").
