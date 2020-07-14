@@ -18,6 +18,7 @@
 
 -export([start_link/1, start_link/2,
          stop/0,
+         make_arff/0,
          re_pattern/0,
          report/3]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
@@ -35,6 +36,7 @@ opts(q1)    -> [no_retweet, {start, {2020, 1, 1}}, {stop, {2020, 4, 1}}].
 
 
 -include("sila.hrl").
+-include("ioo.hrl").
 -include("twitter.hrl").
 -include("types.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -79,6 +81,17 @@ start_link(Tracker, Options) ->
 % @end  --
 stop() ->
     gen_server:call(?MODULE, stop).
+
+
+
+%%--------------------------------------------------------------------
+-spec make_arff() -> arff:arff_return()
+                   | none.
+%%
+% @doc  Create an ARFF with the server's environmenal tweets.
+% @end  --
+make_arff() ->
+    gen_server:call(?MODULE, make_arff).
 
 
 
@@ -152,6 +165,16 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call(make_arff, _From, State = #state{tracker = Tracker,
+                                             tweets  = Tweets}) ->
+    Response = case Tweets of
+        [] -> none;
+        _  -> arff:from_tweets(?str_fmt("tweets.~s.env", [Tracker]),
+                               Tweets)
+    end,
+    {reply, Response, State};
+
+
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 

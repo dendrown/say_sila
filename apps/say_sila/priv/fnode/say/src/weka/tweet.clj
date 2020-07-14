@@ -34,7 +34,6 @@
             [weka.core.stopwords WordsFromFile]
             [weka.filters Filter]
             [weka.filters.unsupervised.attribute RemoveByName
-                                                 Reorder
                                                  ;; Affective Tweets library
                                                  TweetToFeatureVector
                                                  TweetToEmbeddingsFeatureVector
@@ -62,11 +61,12 @@
 ;;       Expanded -N [8e] w2v-dp-BCC-Lex
 ;;
 ;; NOTE: Even though the AffectiveTweets Filter classes are imported in this
-;;       namespace, we must fully qualify the :filter elements in FILTERS
+;;       namespace, we must fully qualify the :filter elements in Filters
 ;;       because the quoted code is likely to be evaluated in a non-binding-thread
 ;;       (future) launched from another namespace, which won't have access to the
 ;;       Java imports.
 ;; ---------------------------------------------------------------------------
+;; TODO: Pull attribute information from the config
 (def ^:const ATTRS-IN   [:id :lang :screen_name :name :description :text])
 (def ^:const ATTRS-OUT  (take 3 ATTRS-IN))
 (def ^:const ARFF-ATTRS (reduce (fn [acc [col ndx]] (assoc acc col ndx))
@@ -75,7 +75,7 @@
                                             (range 1 (inc (count ATTRS-IN))))))
 (def ^:const TEXT-ATTR  (str (:text ARFF-ATTRS)))
 
-(def ^:const FILTERS    {:embed {:filter  '(weka.filters.unsupervised.attribute.TweetToEmbeddingsFeatureVector.)
+(def ^:const Filters    {:embed {:filter  '(weka.filters.unsupervised.attribute.TweetToEmbeddingsFeatureVector.)
                                  :options ["-I" TEXT-ATTR
                                            "-S" "0"    ; 0=avg, 1=add, 2=cat
                                            "-K" "15"   ; Concat word count
@@ -85,6 +85,11 @@
                                                        ;   w2v.twitter.edinburgh.100d.csv.gz
                         :bws    {:filter  '(weka.filters.unsupervised.attribute.TweetToInputLexiconFeatureVector.)
                                  :options ["-I" TEXT-ATTR
+                                           "-U"        ; Lowercase (not upper)
+                                           "-O"]}      ; Normalize URLs/@users
+                        :nrc    {:filter  '(weka.filters.unsupervised.attribute.TweetToLexiconFeatureVector.)
+                                 :options ["-I" TEXT-ATTR
+                                           "-L"        ; NRC-10 Emotion [EmoLex]
                                            "-U"        ; Lowercase (not upper)
                                            "-O"]}      ; Normalize URLs/@users
                         :lex    {:filter  '(weka.filters.unsupervised.attribute.TweetToLexiconFeatureVector.)
@@ -317,7 +322,8 @@
   "Applies a pre-defined filter to the specified data Instances.  The arity/3
   version acts as a pass-through to weka.core's function of the same name."
   ([data flt-key]
-  (let [flt-map (flt-key  FILTERS)
+  (log/fmt-debug "Weka filter: tweet~a" flt-key)
+  (let [flt-map (Filters flt-key)
         sieve   (eval (:filter  flt-map))
         opts    (:options flt-map)]
     (filter-instances data sieve opts)))
@@ -584,12 +590,12 @@
   [{:keys [arff lexicon]
      :or   {lexicon :bws}}]
   (log/fmt-debug "Emoting with ~a: ~a" (KEYSTR lexicon) arff)
-  (let [emoter    (prep-emoter (TweetToInputLexiconFeatureVector.)
-                               (cfg/? :emote))
-        data-in   (weka/load-arff arff)
-        data-mid  (filter-instances data-in  emoter (:options (:bws FILTERS)))
-        data-out  (filter-instances data-mid :attrs)]
+  (let [; TODO: unify bws (prep-emoter) and other lexicons
+        ;emoter    (prep-emoter (TweetToInputLexiconFeatureVector.)
+        ;                       (cfg/? :emote))
+        edata   (-> (weka/load-arff arff)
+                    (filter-instances (keyword lexicon))
+                    (filter-instances :attrs))]
 
-    (log/debug "emote lexicon:" TweetToInputLexiconFeatureVector/NRC_AFFECT_INTENSITY_FILE_NAME)
-    (weka/save-results arff "emote" data-out)))
+    (weka/save-results arff "emote" edata)))
 
