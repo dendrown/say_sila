@@ -12,7 +12,6 @@
 ;;;; -------------------------------------------------------------------------
 (ns weka.core
   (:require [say.genie       :refer :all]
-            [say.genie       :as !!]
             [say.log         :as log]
             [clojure.java.io :as io]
             [clojure.string  :as str])

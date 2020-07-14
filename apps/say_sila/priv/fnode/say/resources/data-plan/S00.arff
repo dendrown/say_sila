@@ -1,0 +1,7 @@
+@RELATION S00
+
+@ATTRIBUTE id numeric
+@ATTRIBUTE text string
+@ATTRIBUTE sentiment {neg,pos}
+
+@DATA

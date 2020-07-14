@@ -1,0 +1,10 @@
+@RELATION T00
+
+@ATTRIBUTE id string
+@ATTRIBUTE lang string
+@ATTRIBUTE screen_name string
+@ATTRIBUTE name string
+@ATTRIBUTE description string
+@ATTRIBUTE text string
+
+@DATA

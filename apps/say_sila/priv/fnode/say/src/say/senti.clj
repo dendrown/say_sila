@@ -20,6 +20,7 @@
             [say.cmu-pos        :as pos]
             [say.tweebo         :as twbo]
             [weka.core          :as weka]
+            [weka.dataset       :as dset]
             [weka.tweet         :as tw]
             [clojure.data.csv   :as csv]
             [clojure.java.io    :as io]
