@@ -17,8 +17,10 @@
 ;;;; -------------------------------------------------------------------------
 (ns weka.dataset
   (:require [say.genie       :refer :all]
+            [say.config      :as cfg]
             [say.log         :as log]
             [weka.core       :as weka]
+            [weka.tweet      :as tw]
             [clojure.string  :as str])
   (:import  [weka.core  Attribute
                         Instances]))
@@ -41,6 +43,18 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn col-index
+  "Returns the column index for the specified dataset format and column tag."
+  [dset col & opts]
+  (let [col (get-in Columns [dset col])]
+     ;; Default is to return a 0-based column
+     (if (some #{:1-based} opts)
+         (weka/index0->1 col)
+         col)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- append-col
   "Adds a new column as the last attribute of the specified instances."
   [^Instances insts tag]
@@ -55,7 +69,7 @@
   "Removes an attribute column, specified by a dataset key (dset) and
   a column key (col)."
   [^Instances insts dset col]
-  (.deleteAttributeAt insts (get-in Columns [dset col])))
+  (.deleteAttributeAt insts (col-index dset col)))
 
 
 
@@ -64,10 +78,20 @@
   "Converts the T00 tweet format to the S00 say-senti format.  The function
   creates a copy of the specified dataset whose filename is tagged with «S00»."
   [arff]
-  (let [insts (weka/load-arff arff)]
-    ;; Remove extra columns in reverse order & add the target w/ unknown values
-    (run! #(delete-col insts :t00 %) [:description :name :screen_name :lang])
-    (append-col insts :sentiment)
+  (let [iinsts (weka/load-arff arff)]
 
-    (weka/save-file arff "S00" insts :arff)))
+    ;; Remove extra columns in reverse order & add the target w/ unknown values
+    (run! #(delete-col iinsts :t00 %) [:description :name :screen_name :lang])
+    (append-col iinsts :sentiment)
+
+    ;; Run emotion and part-of-speech tagging filters
+    (let [lex-tag (cfg/?? :senti :lexicon :liu)
+          txt-ndx (col-index :s00 :text :1-based)
+          oinsts  (reduce #(weka/filter-instances %1 %2)
+                          iinsts
+                          [(tw/make-lexicon-filter lex-tag txt-ndx) ; Senti/emo
+                           (tw/make-tagging-filter txt-ndx)])]      ; POS tags
+
+      ;; Save the new dataset as a tagged version of the input data
+      (weka/save-file arff "S00" oinsts :arff))))
 

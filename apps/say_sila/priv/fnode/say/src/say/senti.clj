@@ -605,9 +605,9 @@
 
   Instance
   (polarize [inst]
-    (try
-      (polarize (.classValue inst))
-      (catch weka.core.UnassignedClassException _ :?)))
+    (if (.classIsMissing inst)
+        :?
+        (polarize (.classValue inst))))
 
 
   String

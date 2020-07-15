@@ -42,10 +42,19 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn ^String index0->1
+  "Converts a 0-based (numeric or string) index to a 1-based String."
+  [i]
+  (str (inc (longify i))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn ^Long index1->0
-  "Converts a 1-based (numeric or string) index to a 0-based long."
+  "Converts a 1-based (numeric or string) index to a 0-based Long."
   [i]
   (dec (longify i)))
+
 
 
 ;; ---------------------------------------------------------------------------
