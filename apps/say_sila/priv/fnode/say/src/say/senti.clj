@@ -60,13 +60,13 @@
 (def ^:const ONT-FSTUB  "resources/KB/say-senti")
 (def ^:const ONT-FPATH  "resources/KB/say-senti.owl")
 (def ^:const ONT-PREFIX "senti")
-(def ^:const DATASET    "resources/emo-sa/sentiment-analysis.csv")
+(def ^:const DATASET    "resources/emo-sa/Sentiment140/sentiment-analysis.csv")
 (def ^:const COUNTS     {:Sentiment140  1577278
                          :Kaggle        1349})
 (def ^:const ARFFs      {:base          "resources/emo-sa/sentiment-analysis.arff"
-                         :Kaggle        "resources/emo-sa/sentiment-analysis.Kaggle.arff"
-                         :Sentiment140  "resources/emo-sa/sentiment-analysis.Sentiment140.arff"
-                         :weka          "resources/emo-sa/sentiment-analysis.Sentiment140.weka.arff"})
+                         :Kaggle        "resources/emo-sa/Sentiment140/sentiment-analysis.Kaggle.arff"
+                         :Sentiment140  "resources/emo-sa/Sentiment140/sentiment-analysis.Sentiment140.arff"
+                         :weka          "resources/emo-sa/Sentiment140/sentiment-analysis.Sentiment140.weka.arff"})
 (def ^:const COL-ID     0)
 (def ^:const COL-TEXT   1)
 (def ^:const COL-CLASS  2)
@@ -1154,7 +1154,7 @@
                 (if (creation-done? cnts goal)
                   (do (log/info "Examples:" cnts)
                       (reduced info))
-                  (let [tid    (label-text (.value inst COL-ID))
+                  (let [tid    (label-text (.stringValue inst COL-ID))
                         pole   (polarize inst)
                         pairs  (map #(str/split % #"_" 2)   ; Pairs are "pos_term"
                                      (str/split (.stringValue inst COL-TEXT) #" "))
@@ -1468,13 +1468,13 @@
   ([^Instances  oinsts
     ^Instance   iinst]
   ;; There may be more, but we're just handling the three always-present attributes
-  (init-instance oinsts (.value       iinst COL-ID)
+  (init-instance oinsts (.stringValue iinst COL-ID)
                         (.stringValue iinst COL-TEXT)
                         (.value       iinst COL-CLASS)))
 
 
   ([^Instances  oinsts
-    ^Double     id
+    ^String     id
     ^String     text
     ^Double     sentiment]
   ;; Create the new Instance and link (but don't add) it to the dataset
@@ -1503,7 +1503,7 @@
 
 
   ([^Instances  oinsts
-    ^Double     id
+    ^String     id
     ^String     text
     ^Double     sentiment]
   ;; We're just handling the three always-present attributes
@@ -1618,10 +1618,7 @@
                   (let [text  (str/trim raw)
                         insts (if-let [ds (get @dsets src)] ds (dset+ src))]
                     ;(log/fmt-debug "~a<~a> [~a] ~a" src id (label-polarity pn) text)
-                    (add-instance insts
-                                  (Float/parseFloat id)
-                                  text
-                                  (Float/parseFloat pn))))]     ; 0.0=neg, 1.0=pos
+                    (add-instance insts id text (Float/parseFloat pn))))]   ; 0.0=neg, 1.0=pos
 
     ;; Process the CSV, separating the sentiment sources
     (try

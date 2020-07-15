@@ -1,6 +1,6 @@
 @RELATION sentiment-analysis-
 
-@ATTRIBUTE id numeric
+@ATTRIBUTE id string
 @ATTRIBUTE text string
 @ATTRIBUTE sentiment {neg,pos}
 

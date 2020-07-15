@@ -21,6 +21,8 @@ resources/emo-sa/*.edn
 resources/emo-sa/*.l
 resources/emo-sa/*.orig
 resources/emo-sa/*.txt
+resources/emo-sa/Sentiment140/*.arff
+resources/emo-sa/Sentiment140/*.csv
 resources/dllearner/*.owl
 resources/dllearner/say-senti-*.conf
 resources/gender/*.csv
