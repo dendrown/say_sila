@@ -30,9 +30,12 @@
 (def ^:const Lt-Yellow  "\033[1;33m")
 (def ^:const LT-Magenta "\033[1;35m")
 
-(def ^:const Lt-Gray "\033[0;37m")
-(def ^:const Dk-Gray "\033[1;30m")
-(def ^:const Red-Inv "\033[7;31m")
+(def ^:const White      "\033[0;97m")
+
+(def ^:const Lt-Gray    "\033[0;37m")
+(def ^:const Dk-Gray    "\033[1;30m")
+
+(def ^:const Red-Inv    "\033[7;31m")
 
 (defmacro deflevel [lvl prompt colour]
   `(def ^:const ~lvl (if USE-COLOUR (str ~colour ~prompt Text) ~prompt)))

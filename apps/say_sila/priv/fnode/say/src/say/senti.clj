@@ -449,11 +449,14 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defonce Polarity-Markers   {"Negative" (str log/Blue      "--")
+                             "Positive" (str log/Lt-Yellow "++")
+                             :?         (str log/White     "??")})
+
 (defonce Emotion-Colours    {"Anger"    log/Red
                              "Fear"     log/Green
                              "Joy"      log/Yellow
                              "Sadness"  log/Magenta})
-
 
 (defn eword
   "Returns a printable colour-coded string of word high-lighted with respect
@@ -470,25 +473,52 @@
                                     (str suf code)]
                                    acc))
                              ["" ""]
-                             [["Negative" (str log/Blue      "--")]
-                              ["Positive" (str log/Lt-Yellow "++")]])
+                             Polarity-Markers)
             ; Colourize the letters in the word according to the emotions
             colours (vals (select-keys Emotion-Colours affect))
             ccnt    (count colours)
-            wlen    (count word)
-            csize   (Math/ceil (/ wlen ccnt))
-            padding (take (- (* ccnt csize) wlen)                       ; Pad num missing
-                          (repeat \*))
-            [pada
-             padz]  (split-at (quot (count padding) 2) padding)         ; Extra pad at end
-            chunks  (partition-all csize (concat pada (seq word) padz)) ; Split *word** evenly
-            weave   (apply str (flatten (interleave colours chunks)))]  ; Colour w/ emotion!
+            weave   (if (zero? ccnt)
+                      word
+                      ;; Pad word for an even split across emotions
+                      (let [wlen    (count word)
+                            csize   (Math/ceil (/ wlen ccnt))
+                            padding (take (- (* ccnt csize) wlen)       ; Extra chars required
+                                          (repeat \*))                  ; Asterix, not Obelix
+                            [pada
+                             padz]  (split-at (quot (count padding) 2) padding) ; Extra @ end: *word**
+                            chunks  (partition-all csize (concat pada
+                                                                 (seq word)
+                                                                 padz))]
+                        ;; Weave emotion colours into word!
+                        (apply str (flatten (interleave colours chunks)))))]
 
         ;; End the colourized word must by going back to no colour
         (str prefix log/Text
              weave  log/Text
              suffix log/Text))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn etweet
+  "Returns a colourized string representing the example tweet"
+  [{:keys [polarity
+           content
+           rules]}]
+  ;; The rules have sentiment, emotion, and SCRs. The latter are ignored.
+  (apply str (Polarity-Markers (Affect-Fragments polarity polarity))
+            log/Text ": "
+            (interpose \space (map (fn [[word affect]]
+                                     (eword word affect))
+                                   (zip content rules)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn eprint-scr
+  "Prints colourized representions of the SCR tweets for the specified data tag."
+  [dtag]
+  (run! #(println (etweet %)) (-> @SCR :examples dtag)))
 
 
 
