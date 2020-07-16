@@ -257,9 +257,6 @@
                                            (rsn/instances Affect))))
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
 
-(defonce Affect-Colours     {"Anger"    log/RED
-                             "Fear"     log/GREEN})
-
 
 ;;; We must declare the different types of Aspect to be disjoint for the reasoner
 ;;; to handle equivalency classes based on the complement of a given Aspect.
@@ -452,18 +449,45 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defonce Emotion-Colours    {"Anger"    log/Red
+                             "Fear"     log/Green
+                             "Joy"      log/Yellow
+                             "Sadness"  log/Magenta})
+
+
 (defn eword
   "Returns a printable colour-coded string of word high-lighted with respect
   to the specified sentiment/emotion set."
-  [word emos]
-  (if (empty? emos)
+  [word affect]
+  (if (empty? affect)
       word
-      (let [colours  (vals (select-keys Affect-Colours emos))
-            ccnt     (Math/ceil (/ (count word)
-                                   (count colours)))
-            chunks   (partition-all ccnt (seq word))
-            weave    (apply str (flatten (interleave colours chunks)))]
-        (str weave log/TEXT))))
+      (let [; Surround the word with colour-coded pos/neg markers
+            [prefix
+             suffix] (reduce (fn [[pri suf :as acc]
+                                  [pole code]]
+                               (if (contains? affect pole)
+                                   [(str code pri)
+                                    (str suf code)]
+                                   acc))
+                             ["" ""]
+                             [["Negative" (str log/Blue      "--")]
+                              ["Positive" (str log/Lt-Yellow "++")]])
+            ; Colourize the letters in the word according to the emotions
+            colours (vals (select-keys Emotion-Colours affect))
+            ccnt    (count colours)
+            wlen    (count word)
+            csize   (Math/ceil (/ wlen ccnt))
+            padding (take (- (* ccnt csize) wlen)                       ; Pad num missing
+                          (repeat \*))
+            [pada
+             padz]  (split-at (quot (count padding) 2) padding)         ; Extra pad at end
+            chunks  (partition-all csize (concat pada (seq word) padz)) ; Split *word** evenly
+            weave   (apply str (flatten (interleave colours chunks)))]  ; Colour w/ emotion!
+
+        ;; End the colourized word must by going back to no colour
+        (str prefix log/Text
+             weave  log/Text
+             suffix log/Text))))
 
 
 

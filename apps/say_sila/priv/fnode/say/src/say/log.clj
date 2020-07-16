@@ -19,25 +19,31 @@
 
 ; Eclipse blocks colour :/
 (def USE-COLOUR (when-not (System/getenv "LEIN_REPL_ACK_PORT") true))
-(def ^:const TEXT    "\033[0m")
-(def ^:const RED     "\033[0;31m")
-(def ^:const GREEN   "\033[0;32m")
-(def ^:const BROWN   "\033[0;33m")
-(def ^:const LT_GRAY "\033[0;37m")
-(def ^:const DK_GRAY "\033[1;30m")
-(def ^:const YELLOW  "\033[1;33m")
-(def ^:const RED_INV "\033[7;31m")
+(def ^:const Text       "\033[0m")
+(def ^:const Red        "\033[0;31m")
+(def ^:const Green      "\033[0;32m")
+(def ^:const Yellow     "\033[0;33m")
+(def ^:const Blue       "\033[0;34m")
+(def ^:const Magenta    "\033[0;35m")
+
+(def ^:const Lt-Red     "\033[1;31m")
+(def ^:const Lt-Yellow  "\033[1;33m")
+(def ^:const LT-Magenta "\033[1;35m")
+
+(def ^:const Lt-Gray "\033[0;37m")
+(def ^:const Dk-Gray "\033[1;30m")
+(def ^:const Red-Inv "\033[7;31m")
 
 (defmacro deflevel [lvl prompt colour]
-  `(def ^:const ~lvl (if USE-COLOUR (str ~colour ~prompt TEXT) ~prompt)))
+  `(def ^:const ~lvl (if USE-COLOUR (str ~colour ~prompt Text) ~prompt)))
 
-(deflevel PANIC  " PANIC:" RED_INV)
-(deflevel CRIT   "  CRIT:" RED_INV)
-(deflevel ERROR  " ERROR:" RED)
-(deflevel WARN   "  WARN:" YELLOW)
-(deflevel NOTICE "NOTICE:" GREEN)
-(deflevel INFO   "  INFO:" BROWN)
-(deflevel DEBUG  " DEBUG:" DK_GRAY)
+(deflevel PANIC  " PANIC:" Red-Inv)
+(deflevel CRIT   "  CRIT:" Red-Inv)
+(deflevel ERROR  " ERROR:" Red)
+(deflevel WARN   "  WARN:" Yellow)
+(deflevel NOTICE "NOTICE:" Green)
+(deflevel INFO   "  INFO:" Blue)
+(deflevel DEBUG  " DEBUG:" Dk-Gray)
 
 (def Logger (agent {:count 0}))
 
