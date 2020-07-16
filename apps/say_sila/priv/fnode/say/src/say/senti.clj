@@ -257,6 +257,9 @@
                                            (rsn/instances Affect))))
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
 
+(defonce Affect-Colours     {"Anger"    log/RED
+                             "Fear"     log/GREEN})
+
 
 ;;; We must declare the different types of Aspect to be disjoint for the reasoner
 ;;; to handle equivalency classes based on the complement of a given Aspect.
@@ -445,6 +448,23 @@
 
   ([pris]
   (primaries->secondaries pris '())))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn eword
+  "Returns a printable colour-coded string of word high-lighted with respect
+  to the specified sentiment/emotion set."
+  [word emos]
+  (if (empty? emos)
+      word
+      (let [colours  (vals (select-keys Affect-Colours emos))
+            ccnt     (Math/ceil (/ (count word)
+                                   (count colours)))
+            chunks   (partition-all ccnt (seq word))
+            weave    (apply str (flatten (interleave colours chunks)))]
+        (str weave log/TEXT))))
+
 
 
 
