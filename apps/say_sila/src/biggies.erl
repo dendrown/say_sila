@@ -34,7 +34,7 @@
 %define(NUM_H0_RUNS,     2).                % Number of H0 runs to average together (DEBUG)
 
 -define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
--define(FPATH_RNG_SEED, ?WORK_DIR "/influence/rand.seed.etf").
+-define(FPATH_RNG_SEED, ?WORK_DIR "/biggies/rand.seed.etf").
 %define(RNG_SEED,       {exrop,[58821664360726008|182501911145310049]}).
 -define(MEASURES,       [correlation, error_mae, error_rmse]).
 
@@ -62,14 +62,16 @@ go(Method) ->
     %Seed = rand:export_seed(),
     %file:write_file(?FPATH_RNG_SEED, term_to_binary(Seed)),
 
-    {ok, Bin} = file:read_file("/srv/say_sila/influence/rand.seed.etf"),
+    {ok, Bin} = file:read_file(?FPATH_RNG_SEED),
     Seed = binary_to_term(Bin),
     rand:seed(Seed),
     ?notice("Random seed: ~p", [Seed]),
 
     % Make it so...!
-    Go = maps:get(Method, #{n  => fun run_top_n/3,
-                            nn => fun run_top_nn/3}),
+    % FIXME: run_top_n/3 and run_top_nn/3 do the same thing.
+    % FIXME: Collapse them into run_run/3-4 and call that run_top_n.
+    Go = maps:get(Method, #{n  => fun run_top_n/3,      % Simple one-pass Weka models
+                            nn => fun run_top_nn/3}),   % Choose attrs across values of N
     Go(gw, lregVp9_ref20, [{data_mode, variation}, {sweep, 9}]).
 
 

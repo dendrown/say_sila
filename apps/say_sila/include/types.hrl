@@ -35,6 +35,7 @@
 -type rec_string()      :: undefined | string().
 -type rec_stringy()     :: undefined | stringy().
 
+-type entity()           :: atom() | pid().
 -type node_reference()  :: {node(), reference()}.
 -type port_data()       :: timeout  | {eol|noeol, string()}.
 

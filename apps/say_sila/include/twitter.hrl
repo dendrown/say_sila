@@ -8,7 +8,7 @@
 %%
 %% @doc Definitions for Twitter Tweets
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -ifndef(_twitter_included).
@@ -29,7 +29,7 @@
                 screen_name     :: binary(),
                 name            :: rec_binary(),
                 description     :: rec_binary(),
-                text            :: rec_binary() | ignored,
+                text            :: rec_binary() | ignored,  % TODO: use full_text
                 lang            :: binary(),
                 %---------------------------------- % Retweeted author
                 rt_id           :: rec_binary(),

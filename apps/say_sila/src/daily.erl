@@ -19,6 +19,8 @@
          step/2, step/3,
          tomorrow/1]).
 
+-import(proplists, [get_value/2, get_value/3]).
+
 -include("sila.hrl").
 -include("dts.hrl").
 -include("types.hrl").
@@ -68,7 +70,7 @@ extract_period(Tracker, Options) ->
 -spec step(Today       :: datetime(),
            StopDay     :: datetime(),
            Options     :: list()) -> {datetime(), proplist()}
-                                           | stop.
+                                   | stop.
 %%
 % @doc  Increments the daily start/stop options, returning a pair with
 %       the datetime corresponding to the next day and options for the

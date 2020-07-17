@@ -6,9 +6,9 @@
   {mod, {say_sila_app, []}},
   {applications, [kernel, stdlib]},     % Possibly: oauth, hackney
   {env,[]},
-  {modules, [arff, biggies, daily, dllearner, dts, emo, fnode,
-             green, influence, ioo, pan, period, player, plot,
-             pprops, r, raven, return, sila, twitter, types,
+  {modules, [arff, biggies, daily, daily_tweets, dllearner, dts,
+             emo, fnode, green, influence, ioo, pan, period, player,
+             plot, pprops, r, raven, return, sila, twitter, types,
              weka, wui, wui_emote, wui_player, wui_report]},
   {maintainers, []},
   {licenses, []},
