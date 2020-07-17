@@ -502,15 +502,17 @@
 ;;; --------------------------------------------------------------------------
 (defn etweet
   "Returns a colourized string representing the example tweet"
-  [{:keys [polarity
+  [{:keys [tid
+           polarity
            content
            rules]}]
-  ;; The rules have sentiment, emotion, and SCRs. The latter are ignored.
-  (apply str (Polarity-Markers (Affect-Fragments polarity polarity))
-            log/Text ": "
-            (interpose \space (map (fn [[word affect]]
-                                     (eword word affect))
-                                   (zip content rules)))))
+  (let [colourize (fn [[word affect]]
+                    (eword word affect))
+        pn-code   (Polarity-Markers (Affect-Fragments polarity polarity))]
+    ;; The rules have sentiment, emotion, and SCRs. The latter are ignored.
+    (apply str (interpose \space
+                          (conj (map colourize (zip content rules)) ; Mark affect
+                                (log/<> tid pn-code))))))           ; Tag tweet
 
 
 
@@ -1276,7 +1278,7 @@
                                      :stoic
                                      :senti)]
                         (update-values %1 [:count (:polarity %2) ss] inc))
-                      (zero-hashmap :count :positive :negative :senti :stoic)
+                      (zero-hashmap :count :positive :negative :? :senti :stoic)
                       xmps)
 
         p100  #(* 100. (/ (stats %)
