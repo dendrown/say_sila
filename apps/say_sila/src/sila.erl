@@ -121,8 +121,8 @@ reset(Options) ->
     case pprops:get_value(cache, Options, false) of
         false -> ok;
         true  ->
-            ?info("Clearing application caches"),
-            ok = clear_cache()
+            Cleared = clear_cache(),
+            ?info("Clearing application caches: ~p", [Cleared])
     end,
 
     % And reset the modules
