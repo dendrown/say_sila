@@ -440,11 +440,8 @@ handle_call({emote_day, Options}, _From, State = #state{tracker    = Tracker,
         [] ->
             ?debug("Pulling tweet lot from DB: day[~s]", [DayTxt]),
 
-            % TODO: We're copying a lot of tweets between processes.
-            %       Consider sending a function for the `twitter' server to spawn.
-            %       CAREFUL: We're saving tweets here to check `id's when we get
-            %                the emotion results from Weka.
-            Tweets = twitter:get_tweets(Tracker, all, Options),
+            % We're saving tweets here to check `id's when we get the emotion results from Weka.
+            Tweets = daily_tweets:get_tweets(Tracker, Options),     % TODO: daily_tweets:spawn_link
 
             % Send to Weka
             ?debug("Packaging tweets for Weka: day[~s]", [DayTxt]),

@@ -86,7 +86,7 @@ stop() ->
 % @doc  Clears ALL caches used by the Say-Sila application.
 % @end  --
 clear_cache() ->
-    return:error_or_first([Mod:clear_cache() || Mod <- [%biggies,   % TODO
+    return:error_or_first([Mod:clear_cache() || Mod <- [biggies,
                                                         player,
                                                         raven]]).
 

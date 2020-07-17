@@ -56,16 +56,24 @@ go() ->
 
 
 go(Method) ->
-    % RNG: Xoroshiro116+, 58 bits precision and period of 2^116-1
-    %      http://prng.di.unimi.it/
+    % PRNG: Xoroshiro116+, 58 bits precision and period of 2^116-1
+    %       http://prng.di.unimi.it/
     rand:uniform(),
-    %Seed = rand:export_seed(),
-    %file:write_file(?FPATH_RNG_SEED, term_to_binary(Seed)),
+    {RandInit,
+     RandSeed} = case file:read_file(?FPATH_RNG_SEED) of
+        {ok, Bin} ->
+            S = binary_to_term(Bin),
+            {<<"Using existing">>, S};
 
-    {ok, Bin} = file:read_file(?FPATH_RNG_SEED),
-    Seed = binary_to_term(Bin),
-    rand:seed(Seed),
-    ?notice("Random seed: ~p", [Seed]),
+        {error, enoent} ->
+            S  = rand:export_seed(),
+            ok = filelib:ensure_dir(?FPATH_RNG_SEED),
+            file:write_file(?FPATH_RNG_SEED, term_to_binary(S)),
+            {<<"Created new">>, S}
+    end,
+
+    ?notice("~s random seed: ~p", [RandInit, RandSeed]),
+    rand:seed(RandSeed),
 
     % Make it so...!
     % FIXME: run_top_n/3 and run_top_nn/3 do the same thing.
@@ -127,7 +135,11 @@ period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 % @doc  Clear development cache.
 % @end  --
 clear_cache() ->
-    dets:delete_all_objects(?RUNS_CACHE).
+    try dets:delete_all_objects(?RUNS_CACHE)
+    catch
+        error:Why -> {error, Why}
+    end.
+
 
 
 
