@@ -147,3 +147,12 @@
   (error (str msg ":") (.getMessage ex))
   (when (some #{:stack} opts)
     (stk/print-stack-trace ex)))
+
+
+;;; --------------------------------------------------------------------------
+(defmacro st
+  "Runs the specified expression in a try/catch loop that gives a stack
+  trace if things go badly."
+  [& args]
+  `(try (do ~@args) (catch Exception ex# (fail ex# "FAIL:" :stack))))
+
