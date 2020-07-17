@@ -16,13 +16,15 @@
 
 -export([start/0, start/1,
          stop/0,
+         clear_cache/0,
          console/1,
-         reset/0,
+         reset/0, reset/1,
          split_on_prop/2,
          split_on_prop/3]).
 
 -include("sila.hrl").
 -include("types.hrl").
+-include_lib("llog/include/llog.hrl").
 
 
 %%====================================================================
@@ -78,6 +80,19 @@ stop() ->
 
 
 %%--------------------------------------------------------------------
+-spec clear_cache() -> ok
+                     | {error, term()}.
+%
+% @doc  Clears ALL caches used by the Say-Sila application.
+% @end  --
+clear_cache() ->
+    return:error_or_first([Mod:clear_cache() || Mod <- [%biggies,   % TODO
+                                                        player,
+                                                        raven]]).
+
+
+
+%%--------------------------------------------------------------------
 -spec console(Level :: lager:log_level()) -> ok.
 %
 % @doc  Set console logging to the specified level.
@@ -89,10 +104,28 @@ console(Level) ->
 
 %%--------------------------------------------------------------------
 -spec reset() -> [{tracker(), [atom()]}].
+
+-spec reset(Options :: options()) -> [{tracker(), [atom()]}].
 %%
 % @doc  Reinitializes the state of the `say_sila' application.
+%
+%       The only option supported is `cache' to clear all
+%       module caches for the application.
 %%--------------------------------------------------------------------
 reset() ->
+    reset([]).
+
+
+reset(Options) ->
+    % Check shortcut to clear all caches
+    case pprops:get_value(cache, Options, false) of
+        false -> ok;
+        true  ->
+            ?info("Clearing application caches"),
+            ok = clear_cache()
+    end,
+
+    % And reset the modules
     Modules  = [raven, player],
     Trackers = [cc, gw],
     ResetTrk = fun(Trk) -> {Trk, [{Mod, Mod:reset(Trk)} || Mod <- Modules]} end,
