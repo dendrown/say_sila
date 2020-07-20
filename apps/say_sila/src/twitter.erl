@@ -328,13 +328,15 @@ get_players(Tracker, Options) ->
 
 
 %%--------------------------------------------------------------------
--spec get_tweets(Tracker     :: atom(),
+-spec get_tweets(Tracker     :: tracker()
+                              | all,
                  ScreenNames :: binary()
                               | string()
                               | player()
                               | all) -> list().
 
--spec get_tweets(Tracker     :: atom(),
+-spec get_tweets(Tracker     :: tracker()
+                              | all,
                  ScreenNames :: binary()
                               | string()
                               | list()
@@ -839,31 +841,35 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
     % Have they asked to exclude retweets?
     RetweetCond = case proplists:get_bool(no_retweet, Options) of
         true  -> <<"AND status->'retweeted_status'->>'id' is NULL">>;
-        false -> <<"">>
+        false -> <<>>
     end,
 
     %?debug("Screenames: ~p", [ScreenNames]),
     ScreenNamesCond = case ScreenNames =/= all of
-        true  -> io_lib:format("AND status->'user'->>'screen_name' IN ('~s'~s) ",
-                               [hd(ScreenNames),
-                                lists:flatten([io_lib:format(",'~s'", [SN]) || SN <- tl(ScreenNames)])]);
-        false -> <<"">>
+        true  -> ?str_fmt("AND status->'user'->>'screen_name' IN ('~s'~s)",
+                          [hd(ScreenNames),
+                           lists:flatten([io_lib:format(",'~s'", [SN]) || SN <- tl(ScreenNames)])]);
+        false -> <<>>
     end,
-    Query = io_lib:format("SELECT status->>'id' AS id, "
-                                 "status->'user'->>'screen_name' AS screen_name, "
-                                 "status->'user'->>'name' AS name, "
-                                 "status->'user'->>'description' AS description, "
-                                 "status->>'timestamp_ms' AS timestamp_ms, "
-                                 "status->>'text' AS text, "
-                                 "status->'retweeted_status'->>'id' AS rt_id, "
-                                 "status->'retweeted_status'->'user'->>'screen_name' AS rt_screen_name "
-                          "FROM ~s "
-                          "WHERE hash_~s "
-                            "AND status->>'lang' ='~s' ~s ~s ~s "
-                          "ORDER BY timestamp_ms",
-                          [StatusTbl, Tracker, ?DB_LANG, TimestampCond, RetweetCond, ScreenNamesCond]),
 
-    %file:write_file("/tmp/sila.get_tweets.sql", Query),
+    TrackerCond = case Tracker of
+        all -> <<>>;
+        _   -> ?str_fmt("AND hash_~s", [Tracker])
+    end,
+    Query = ?str_fmt("SELECT status->>'id' AS id, "
+                            "status->'user'->>'screen_name' AS screen_name, "
+                            "status->'user'->>'name' AS name, "
+                            "status->'user'->>'description' AS description, "
+                            "status->>'timestamp_ms' AS timestamp_ms, "
+                            "status->>'text' AS text, "
+                            "status->'retweeted_status'->>'id' AS rt_id, "
+                            "status->'retweeted_status'->'user'->>'screen_name' AS rt_screen_name "
+                     "FROM ~s "
+                     "WHERE status->>'lang'='~s' ~s ~s ~s ~s "
+                     "ORDER BY timestamp_ms",
+                          [StatusTbl, ?DB_LANG, TrackerCond, TimestampCond, RetweetCond, ScreenNamesCond]),
+
+    file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
 
         {ok, _, Rows} ->

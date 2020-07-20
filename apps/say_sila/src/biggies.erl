@@ -198,11 +198,13 @@ make_h0(Biggies, Players) ->
 
 %%--------------------------------------------------------------------
 -spec run_top_n(RunCode :: run_code(),
-                Tracker :: tracker(),
+                Tracker :: tracker()
+                         | all,
                 RunTag  :: stringy()) -> verifications().
 
 -spec run_top_n(RunCode :: run_code(),
-                Tracker :: tracker(),
+                Tracker :: tracker()
+                         | all,
                 RunTag  :: stringy(),
                 Options :: proplist()) -> verifications().
 %%
@@ -290,7 +292,7 @@ prep_data(Tracker, Method, Periods, Options) ->
 
 %%--------------------------------------------------------------------
 -spec run_run(RunCode :: run_code(),
-              Tracker :: tracker(),
+              Tracker :: tracker() | all,
               RunTag  :: stringy(),
               Options :: proplist()) -> verifications().
 %%
@@ -319,12 +321,12 @@ run_run(RunCode, Tracker, RunTag, Options) ->
 
 %%--------------------------------------------------------------------
 -spec do_run_run(RunCode :: run_code(),
-                 Tracker :: tracker(),
+                 Tracker :: tracker() | all,
                  RunTag  :: stringy(),
                  Options :: proplist()) -> ok.
 
 -spec do_run_run(RunFun  :: run_fun(),
-                 Tracker :: tracker(),
+                 Tracker :: tracker() | all,
                  Method  :: method(),
                  RunTag  :: stringy(),
                  RunNum  :: non_neg_integer(),

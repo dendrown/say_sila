@@ -42,8 +42,10 @@
 -include_lib("ecsv/include/ecsv.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(MOD_CONFIG, #{cc => #{reg => raven_cc, lot => tweet_lot_cc},
-                      gw => #{reg => raven_gw, lot => tweet_lot_gw}}).
+% FIXME: Do we really need separate servers for the trackers?
+-define(MOD_CONFIG, #{all => #{reg => raven_cc, lot => tweet_lot_cc},
+                      cc  => #{reg => raven_cc, lot => tweet_lot_cc},
+                      gw  => #{reg => raven_gw, lot => tweet_lot_gw}}).
 -define(mod(Key), maps:get(Key, ?MOD_CONFIG)).
 -define(reg(Key), maps:get(reg, ?mod(Key), undefined)).
 -define(lot(Key), maps:get(lot, ?mod(Key), undefined)).

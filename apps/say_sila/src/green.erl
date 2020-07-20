@@ -103,7 +103,11 @@ make_arff() ->
 %       texts talking about the environment.
 % @end  --
 re_pattern() ->
-    {ok, RE} = re:compile(<<"environment|[[:<:]]env[[:>:]]">>,
+    {ok, RE} = re:compile(<<"environment"
+                            "|[[:<:]]env[[:>:]]"        % WN3.1 "environmentalism"
+                            "|[[:<:]]conserv"                   % sister term
+                            "|[[:<:]]preserv"                   % direct hyperonym
+                            "|[[:<:]]sav(e|es|ing)[[:>:]]">>,   % direct hyperonym
                           [caseless]),
     RE.
 
@@ -116,9 +120,9 @@ re_pattern() ->
 %       with an environmental theme.
 % @end  --
 run_biggies() ->
-    biggies:run_top_n(n, gw, green_00, [{pattern, re_pattern()},
-                                        {data_mode, variation},
-                                        {sweep,     1}]).       % To start!
+    biggies:run_top_n(n, all, green_00, [{pattern, re_pattern()},
+                                         {data_mode, variation},
+                                         {sweep,     1}]).          % To start!
 
 
 

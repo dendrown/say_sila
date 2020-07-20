@@ -48,8 +48,9 @@
 -include("types.hrl").
 -include_lib("llog/include/llog.hrl").
 
--define(MODULES,    #{cc => player_cc,
-                      gw => player_gw}).
+-define(MODULES,    #{all => player_cc,     % FIXME: Why do we need separate servers?
+                      cc  => player_cc,
+                      gw  => player_gw}).
 -define(reg(Key),   maps:get(Key, ?MODULES, ?MODULE)).
 
 % DETS tables
