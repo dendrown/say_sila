@@ -18,8 +18,7 @@
          period/1]).
 -export([clear_cache/0,
          make_h0/2,
-         run_top_n/2,  run_top_n/3,
-         run_top_nn/2, run_top_nn/3]).
+         run_top_n/3,   run_top_n/4]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -34,7 +33,7 @@
 %define(NUM_H0_RUNS,     2).                % Number of H0 runs to average together (DEBUG)
 
 -define(RUNS_CACHE,     ?WORK_DIR "/dets/biggies_runs").
--define(FPATH_RNG_SEED, ?WORK_DIR "/biggies/rand.seed.etf").
+-define(FPATH_RNG_SEED, ?WORK_DIR "/influence/rand.seed.etf").
 %define(RNG_SEED,       {exrop,[58821664360726008|182501911145310049]}).
 -define(MEASURES,       [correlation, error_mae, error_rmse]).
 
@@ -51,36 +50,25 @@
 
 
 %%--------------------------------------------------------------------
+% Shortcut to do a series of tracking runs for "Big Players".
 go() ->
     go(n).
 
 
 go(Method) ->
-    % PRNG: Xoroshiro116+, 58 bits precision and period of 2^116-1
-    %       http://prng.di.unimi.it/
+    % RNG: Xoroshiro116+, 58 bits precision and period of 2^116-1
+    %      http://prng.di.unimi.it/
     rand:uniform(),
-    {RandInit,
-     RandSeed} = case file:read_file(?FPATH_RNG_SEED) of
-        {ok, Bin} ->
-            S = binary_to_term(Bin),
-            {<<"Using existing">>, S};
+    %Seed = rand:export_seed(),
+    %file:write_file(?FPATH_RNG_SEED, term_to_binary(Seed)),
 
-        {error, enoent} ->
-            S  = rand:export_seed(),
-            ok = filelib:ensure_dir(?FPATH_RNG_SEED),
-            file:write_file(?FPATH_RNG_SEED, term_to_binary(S)),
-            {<<"Created new">>, S}
-    end,
-
-    ?notice("~s random seed: ~p", [RandInit, RandSeed]),
-    rand:seed(RandSeed),
+    {ok, Bin} = file:read_file("/srv/say_sila/influence/rand.seed.etf"),
+    Seed = binary_to_term(Bin),
+    rand:seed(Seed),
+    ?notice("Random seed: ~p", [Seed]),
 
     % Make it so...!
-    % FIXME: run_top_n/3 and run_top_nn/3 do the same thing.
-    % FIXME: Collapse them into run_run/3-4 and call that run_top_n.
-    Go = maps:get(Method, #{n  => fun run_top_n/3,      % Simple one-pass Weka models
-                            nn => fun run_top_nn/3}),   % Choose attrs across values of N
-    Go(gw, lregVp9_ref20, [{data_mode, variation}, {sweep, 9}]).
+    run_top_n(Method, gw, lregVp9_ref20, [{data_mode, variation}, {sweep, 9}]).
 
 
 
@@ -90,15 +78,28 @@ go(Method) ->
 %%
 %% Shortcut to get tracking run period.
 %%
+%% TODO: - Make this module pull period info locally, from green, etc.
+%%       - Remove the parms period type as we're not using it
+%%
 %% RUN-2:   May 2018 -- Aug 2018                        (parms)
 %%          Sep 2018 -- Aug 2019                        (train)
 %%          Sep 2019 -- Dec 2019                        (test)
 %%--------------------------------------------------------------------
--define(RUN, 2).
-%% biggies:run_top_n(gw, run2L, [{data_mode, level}]).      biggies:run_top_nn(gw, run2LL, [{data_mode, level}]).
-%% biggies:run_top_n(gw, run2V, [{data_mode, variation}]).  biggies:run_top_nn(gw, run2VV, [{data_mode, variation}]).
+-define(RUN, green).
+%% biggies:run_top_n(n,  gw, run2L, [{data_mode, level}]).
+%% biggies:run_top_n(nn, gw, run2LL, [{data_mode, level}]).
+%%
+%% biggies:run_top_n(n,  gw, run2V, [{data_mode, variation}]).
+%% biggies:run_top_n(nn, gw, run2VV, [{data_mode, variation}]).
+
 %%--------------------------------------------------------------------
--if(?RUN =:= 2).
+-if(?RUN =:= green).
+period(parms_pct) -> {p100, 0.25};     % <<= Specify in Options
+period(parms) -> [{start, {2018, 10, 01}}, {stop, {2019, 01, 01}}];
+period(train) -> [{start, {2019, 01, 01}}, {stop, {2019, 10, 01}}];
+period(test)  -> [{start, {2019, 10, 01}}, {stop, {2020, 01, 01}}].
+
+-elif(?RUN =:= 2).
 
 period(parms_pct) -> {p100, 0.25};     % <<= Specify in Options
 period(parms) -> [{start, {2017, 10, 01}}, {stop, {2018, 01, 01}}];
@@ -135,11 +136,7 @@ period(test)  -> [{start, {2018, 04, 01}}, {stop, {2018, 07, 01}}].
 % @doc  Clear development cache.
 % @end  --
 clear_cache() ->
-    try dets:delete_all_objects(?RUNS_CACHE)
-    catch
-        error:Why -> {error, Why}
-    end.
-
+    dets:delete_all_objects(?RUNS_CACHE).
 
 
 
@@ -200,16 +197,21 @@ make_h0(Biggies, Players) ->
 
 
 %%--------------------------------------------------------------------
--spec run_top_n(Tracker :: tracker(),
+-spec run_top_n(RunCode :: run_code(),
+                Tracker :: tracker(),
                 RunTag  :: stringy()) -> verifications().
 
--spec run_top_n(Tracker :: tracker(),
+-spec run_top_n(RunCode :: run_code(),
+                Tracker :: tracker(),
                 RunTag  :: stringy(),
                 Options :: proplist()) -> verifications().
 %%
 % @doc  Do the Twitter/Emo influence experiments using the specified
 %       tracker and selecting the Top N big-player accounts across a
 %       range of Ns for one emotion and communication type.
+%
+%       This `nn' method function goes through the Top-N twice, using only
+%       the emo/comm attributes from the higher ranking models.
 %
 %       Supported options are:
 %       - `period'      : Number of days per data instance (default: 7)
@@ -221,42 +223,12 @@ make_h0(Biggies, Players) ->
 %                           `gproc' for GaussianProcesses.
 %                           `m5rules' for M5Rules.
 % @end  --
-run_top_n(Tracker, RunTag) ->
-    run_top_n(Tracker, RunTag, []).
+run_top_n(RunCode, Tracker, RunTag) ->
+    run_top_n(RunCode, Tracker, RunTag, []).
 
 
-run_top_n(Tracker, RunTag, Options) ->
-    run_run(n, Tracker, RunTag, Options).
-
-
-
-%%--------------------------------------------------------------------
--spec run_top_nn(Tracker :: tracker(),
-                 RunTag  :: stringy()) -> verifications().
-
--spec run_top_nn(Tracker :: tracker(),
-                 RunTag  :: stringy(),
-                 Options :: proplist()) -> verifications().
-%%
-% @doc  Do the Twitter/Emo influence experiments using the specified
-%       tracker and selecting the Top N big-player accounts across a
-%       range of Ns for one emotion and communication type.
-%
-%       This `nn' function goes through the Top-N twice, using only
-%       the emo/comm attributes from the higher ranking models.
-%
-%       Supported options are:
-%       - `period'      : Number of days per data instance (default: 7)
-%       - `data_mode'   : The `level'(default) mode uses the raw emotion
-%                         values to create models, while `variation' use
-%                         the difference from one time step to the next.
-% @end  --
-run_top_nn(Tracker, RunTag) ->
-    run_top_nn(Tracker, RunTag, []).
-
-
-run_top_nn(Tracker, RunTag, Options) ->
-    run_run(nn, Tracker, RunTag, Options).
+run_top_n(RunCode, Tracker, RunTag, Options) ->
+    run_run(RunCode, Tracker, RunTag, Options).
 
 
 

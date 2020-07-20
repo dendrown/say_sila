@@ -19,7 +19,8 @@
 -export([start_link/1, start_link/2,
          stop/0,
          make_arff/0,
-         re_pattern/0]).
+         re_pattern/0,
+         run_biggies/0]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -import(lists, [foldl/3]).
@@ -30,8 +31,9 @@
 
 opts() -> opts(q1).
 
-opts(jan1)  -> [no_retweet, {start, {2020, 1, 1}}, {stop, {2020, 1, 2}}];
-opts(q1)    -> [no_retweet, {start, {2020, 1, 1}}, {stop, {2020, 4, 1}}].
+opts(green) -> [no_retweet, {start, {2019, 10, 1}}, {stop, {2020, 7, 1}}];
+opts(q1)    -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
+opts(jan1)  -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}].
 
 
 -include("sila.hrl").
@@ -104,6 +106,19 @@ re_pattern() ->
     {ok, RE} = re:compile(<<"environment|[[:<:]]env[[:>:]]">>,
                           [caseless]),
     RE.
+
+
+
+%%--------------------------------------------------------------------
+-spec run_biggies() -> biggies:verifications().
+%%
+% @doc  Performs a set of "big players" tracking runs using tweets
+%       with an environmental theme.
+% @end  --
+run_biggies() ->
+    biggies:run_top_n(n, gw, green_00, [{pattern, re_pattern()},
+                                        {data_mode, variation},
+                                        {sweep,     1}]).       % To start!
 
 
 
