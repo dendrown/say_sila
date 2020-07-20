@@ -173,7 +173,7 @@ emote(Tracker, Option) when   is_atom(Option)
 
 
 emote(Tracker, Options) ->
-    %
+
     % Get the full period and a version of Options without start/stop properties
     {PeriodStart,
      PeriodStop,

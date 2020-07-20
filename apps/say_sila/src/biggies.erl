@@ -245,7 +245,7 @@ run_top_n(RunCode, Tracker, RunTag, Options) ->
 % @doc  Prepares the `train', `parms' and  `test' datasets as well as
 %       the Big and several Medium (null hypothesis) player communities.
 % @end  --
-prep_data(Tracker, Method, Periods, _Options) ->
+prep_data(Tracker, Method, Periods, Options) ->
 
     % The Method tuple gives us our data range
     {_, {top_n, Min, Max}} = Method,
@@ -257,7 +257,7 @@ prep_data(Tracker, Method, Periods, _Options) ->
         case player:load(Tracker, Period) of
             none ->
                 % Process tweets, rank players and save the results for next time
-                ok = raven:emote(Tracker, Period),
+                ok = raven:emote(Tracker, Period++Options),
                 wait_on_players(Tracker),
                 player:save(Tracker, Period);
             Info ->
