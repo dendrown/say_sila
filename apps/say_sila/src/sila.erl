@@ -86,9 +86,13 @@ stop() ->
 % @doc  Clears ALL caches used by the Say-Sila application.
 % @end  --
 clear_cache() ->
-    return:error_or_first([Mod:clear_cache() || Mod <- [biggies,
-                                                        player,
-                                                        raven]]).
+    Caches  = [%biggies,
+               player,
+               raven],
+    Cleared = return:error_or_first([Mod:clear_cache() || Mod <- Caches]),
+    ?info("Cleared: caches~p stat[~p]", [Caches, Cleared]),
+    ?info("Please clear biggies cache manually."),
+    Cleared.
 
 
 
@@ -120,9 +124,7 @@ reset(Options) ->
     % Check shortcut to clear all caches
     case pprops:get_value(cache, Options, false) of
         false -> ok;
-        true  ->
-            Cleared = clear_cache(),
-            ?info("Clearing application caches: ~p", [Cleared])
+        true  -> clear_cache()
     end,
 
     % And reset the modules
