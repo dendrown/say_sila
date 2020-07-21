@@ -22,6 +22,7 @@
          run_top_n/3,   run_top_n/4]).
 
 
+-import(lists, [foldl/3]).
 -import(proplists, [get_value/2, get_value/3]).
 
 -include("sila.hrl").
@@ -241,16 +242,17 @@ md(Tracker, N) ->
     end,
 
     % Create MD output for a single user account, given a communication category code
-    LineOut = fun(Code, Acct) ->
+    LineOut = fun({Code, Acct}, Num) ->
         Comms = GetActivity(Acct),
 
         TextCnts  = [CountTweets(maps:get(C, Comms, none)) || C <- CommCodes],  % All comms
         EmoLevels = ListEmos(maps:get(Code, Comms, none)),                      % Current comm
 
         Link = ?str_fmt("[~s](https://twitter.com/~s)", [Acct, Acct]),
-        ?fmt("| ~-56s | ~4B | ~4B | ~4B | ~4B | ~.3f | ~.3f | ~.3f | ~.3f |~n", [Link]
-                                                                                ++ TextCnts
-                                                                                ++ EmoLevels)
+        ?fmt("|~2B| ~-56s | ~4B | ~4B | ~4B | ~4B | ~.3f | ~.3f | ~.3f | ~.3f |~n", [Num, Link]
+                                                                                    ++ TextCnts
+                                                                                    ++ EmoLevels),
+        Num + 1
     end,
 
     % Sorts an account list from highest activity to lowest
@@ -282,9 +284,10 @@ md(Tracker, N) ->
                                                                     Pct * 100.0,
                                                                     Cnt]),
         ?nl(),
-        ?fmt("| ~-56.. s | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |~n", [Name]),
-        ?fmt("| ~-56..-s | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
-        [LineOut(Code, A) || A <- SortAccts(Code, Accts)],
+        ?fmt("| N| ~-56.. s | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |~n", [Name]),
+        ?fmt("|-:| ~-56..-s | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
+
+        foldl(LineOut, 1, [{Code, A} || A <- SortAccts(Code, Accts)]),
         ?nl()
     end,
     [{CC, Report(CC)} || CC <- [oter, rter, rted, tmed, tter]].
