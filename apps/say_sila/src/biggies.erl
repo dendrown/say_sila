@@ -249,9 +249,9 @@ md(Tracker, N) ->
         EmoLevels = ListEmos(maps:get(Code, Comms, none)),                      % Current comm
 
         Link = ?str_fmt("[~s](https://twitter.com/~s)", [Acct, Acct]),
-        ?fmt("|~2B| ~-56s | ~4B | ~4B | ~4B | ~4B | ~.3f | ~.3f | ~.3f | ~.3f |~n", [Num, Link]
-                                                                                    ++ TextCnts
-                                                                                    ++ EmoLevels),
+        ?fmt("|~2B| ~-56s | ~4B | ~4B | ~4B | ~4B | ~.3f | ~.3f | ~.3f | ~.3f |     |~n", [Num, Link]
+                                                                                          ++ TextCnts
+                                                                                          ++ EmoLevels),
         Num + 1
     end,
 
@@ -279,13 +279,13 @@ md(Tracker, N) ->
          Cnt,
          Accts} = proplists:get_value(Code, BigTopN),
         ?nl(),
-        ?fmt("### `~s` communications (~s): pct[~.2f%] cnt[~B]~n", [twitter:to_hashtag(Tracker),
-                                                                    Type,
-                                                                    Pct * 100.0,
-                                                                    Cnt]),
+        ?fmt("### `~s` communications (**~s**): pct[~.2f%] cnt[~B]~n", [twitter:to_hashtag(Tracker),
+                                                                        Type,
+                                                                        Pct * 100.0,
+                                                                        Cnt]),
         ?nl(),
-        ?fmt("| N| ~-56.. s | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |~n", [Name]),
-        ?fmt("|-:| ~-56..-s | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
+        ?fmt("| N| ~-56.. s | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |NOTES|~n", [Name]),
+        ?fmt("|-:| ~-56..-s | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|-----|~n", [<<>>]),
 
         foldl(LineOut, 1, [{Code, A} || A <- SortAccts(Code, Accts)]),
         ?nl()
