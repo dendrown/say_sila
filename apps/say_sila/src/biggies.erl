@@ -17,8 +17,11 @@
 -export([go/0,          go/1,               % Shortcut/convenience functions
          period/1]).
 -export([clear_cache/0,
-         make_h0/2,
+         make_h0/2,     make_h0/3,
          run_top_n/3,   run_top_n/4]).
+
+
+-import(proplists, [get_value/3]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -142,12 +145,21 @@ clear_cache() ->
 
 %%--------------------------------------------------------------------
 -spec make_h0(Biggies :: proplist(),
-              Players :: map()) -> proplist().
+              Players :: map(),
+              Options :: proplist()) -> proplist().
 %%
 % @doc  Selects a set of null hypothesis (H0) "medium" players for
 %       comparison runs.
 % @end  --
 make_h0(Biggies, Players) ->
+    make_h0(Biggies, Players, []).
+
+
+make_h0(Biggies, Players, Options) ->
+
+    % What is the minumum tweet count to be a medium player?
+    MinTweets = get_value(h0_tweets, Options, ?MIN_H0_TWEETS),
+
     % Combine the big player accounts from all categories except `tter'
     AllBigs = lists:foldl(fun ({_, {_,_,Bigs}}, Acc) -> Bigs ++ Acc end,
                           [],
@@ -160,7 +172,7 @@ make_h0(Biggies, Players) ->
         FindMediums = fun(Usr, Info, Acc = {Cnt, Meds}) ->
             IsMedium = case maps:get(Comm, Info#profile.comms, none) of
                 none -> false;
-                CCnt -> (CCnt#comm.cnt >= ?MIN_H0_TWEETS) andalso (not lists:member(Usr, AllBigs))
+                CCnt -> (CCnt#comm.cnt >= MinTweets) andalso (not lists:member(Usr, AllBigs))
             end,
 
             % Toss the biggies and the extremely inactive; otherwise, include this guy.
@@ -189,7 +201,7 @@ make_h0(Biggies, Players) ->
 
         Meds = ChooseMediums(Bigs, []),
         ?info("Sampled ~2B medium (H0) ~s players from ~B with at least ~B tweets",
-              [length(Meds), Comm, MediumCnt, ?MIN_H0_TWEETS]),
+              [length(Meds), Comm, MediumCnt, MinTweets]),
         {Comm, {0.0,0,Meds}}
     end,
     [FindMedComm(B) || B <- Biggies].
@@ -271,7 +283,7 @@ prep_data(Tracker, Method, Periods, Options) ->
 
     % The training dataset gives the player community that deines the Top-N groups
     TopBiggies  = maps:from_list([{N, player:get_top_n(Tracker, N)} || N <- lists:seq(Min, Max)]),
-    TopMediumss = [{I, maps:map(fun(_, Bigs) -> make_h0(Bigs, Players) end, TopBiggies)}
+    TopMediumss = [{I, maps:map(fun(_, Bigs) -> make_h0(Bigs, Players, Options) end, TopBiggies)}
                    || I <- lists:seq(1, ?NUM_H0_RUNS)],
 
     % The `p100' option specifies the percentage of training data to reserve
@@ -838,7 +850,7 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
 
     % The model description changes based on what happened and if it's a composite
     Describe = fun
-        (#{incl_attrs := Attrs}) -> Attrs;                  % Linear regression
+       %(#{incl_attrs := Attrs}) -> Attrs;                  % Linear regression
         (#{good_cnt := Cnt})     -> [valid, Cnt];           % Average across runs
         ({need_data, CommPcts})  -> CommPcts;               % All four comms not @ 100%
         (_)                      -> <<"??">>                % Black box

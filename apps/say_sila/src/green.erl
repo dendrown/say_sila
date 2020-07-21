@@ -120,8 +120,9 @@ re_pattern() ->
 %       with an environmental theme.
 % @end  --
 run_biggies() ->
-    biggies:run_top_n(n, all, green_00, [{pattern, re_pattern()},
+    biggies:run_top_n(n, all, green_00, [{pattern,   re_pattern()},
                                          {data_mode, variation},
+                                         {h0_tweets, 31},
                                          {sweep,     1}]).          % To start!
 
 
