@@ -1,6 +1,6 @@
 ## Top 20 Big Players for green run
 
-### `#climatechange` communications (originater): pct[23.19%] cnt[4083]
+### `#climatechange` communications (originator): pct[23.19%] cnt[4083]
 
 | N| SCREEN NAME                                              | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |
 |-:| -------------------------------------------------------- | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|

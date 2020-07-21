@@ -20,7 +20,7 @@
 -define(MIN_COMMS_COUNT,    3).                 % Minimum user activity for processing
 
 -define(COMM_TYPES,     #{tter => tweeter,
-                          oter => originater,
+                          oter => originator,
                           rter => retweeter,
                           rted => retweeted,
                           tmed => mentioned}).
