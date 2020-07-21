@@ -957,7 +957,7 @@ update_players(Account, KeyDTS, CommCodes, Tweet, Players) ->
 %       in the specified `Tweet'.
 % @end  --
 check_network(KeyDTS,
-              Tweet = #tweet{text = Text},
+              Tweet = #tweet{full_text = Text},
               JVM,
               Players,
               Rankings = #{rted := RanksRTed, tmed := RanksTMed},

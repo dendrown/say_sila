@@ -148,7 +148,7 @@ get_top_hit_trs(Emo, TopHits) ->
             {tr, [], {td, [], io_lib:format("No tweets for ~s", [Emo])}};
 
         EmoHits ->
-            lists:map(fun({Level, #tweet{text        = Text,
+            lists:map(fun({Level, #tweet{full_text   = Text,
                                          screen_name = Player}}) ->
                           {tr, [],
                                [{td, [], Player},

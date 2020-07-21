@@ -451,7 +451,7 @@ write_tweets(Out, [Tweet|Rest], Target) ->
                                                    TwRec#tweet.screen_name,
                                                    Clean(TwRec#tweet.name),
                                                    Clean(TwRec#tweet.description),
-                                                   Clean(TwRec#tweet.text)]),
+                                                   Clean(TwRec#tweet.full_text)]),
 
     % Currently, a Target attribute requires the map form
     case Target of

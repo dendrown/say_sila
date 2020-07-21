@@ -62,7 +62,7 @@ from_map(Status = #{<<"id_str">>    := ID,
            screen_name    = UserSN,
            name           = UserName,
            description    = UserDescr,
-           text           = Text,
+           full_text      = Text,
            lang           = Lang,
            %---------------------------------- % Retweeted author
            rt_id          = RetweetID,

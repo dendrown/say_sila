@@ -101,7 +101,7 @@ average(Running  = #emos{count = RunCnt},
 clip_stoic(Tweet) ->
     %
     case emo:is_stoic(Tweet) of
-        true  -> Tweet#tweet{text = ignored};
+        true  -> Tweet#tweet{full_text = ignored};
         false -> Tweet
     end.
 

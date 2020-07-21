@@ -29,7 +29,7 @@
                 screen_name     :: binary(),
                 name            :: rec_binary(),
                 description     :: rec_binary(),
-                text            :: rec_binary() | ignored,  % TODO: use full_text
+                full_text       :: rec_binary() | ignored,
                 lang            :: binary(),
                 %---------------------------------- % Retweeted author
                 rt_id           :: rec_binary(),

@@ -862,6 +862,7 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                             "status->'user'->>'description' AS description, "
                             "status->>'timestamp_ms' AS timestamp_ms, "
                             "status->>'text' AS text, "
+                            "status->'extended_tweet'->>'full_text' AS full_text, "
                             "status->'retweeted_status'->>'id' AS rt_id, "
                             "status->'retweeted_status'->'user'->>'screen_name' AS rt_screen_name "
                      "FROM ~s "
@@ -869,7 +870,7 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                      "ORDER BY timestamp_ms",
                           [StatusTbl, ?DB_LANG, TrackerCond, TimestampCond, RetweetCond, ScreenNamesCond]),
 
-    file:write_file("/tmp/sila.get_tweets.sql", Query),
+    %file:write_file("/tmp/sila.get_tweets.sql", Query),
     Reply = case epgsql:squery(DBConn, Query) of
 
         {ok, _, Rows} ->
@@ -879,11 +880,11 @@ handle_call({get_tweets, Tracker, ScreenNames, Options}, _From, State = #state{d
                     screen_name    = SN,
                     name           = ?null_to_undef(Name),
                     description    = ?null_to_undef(Descr),
-                    text           = Text,
+                    full_text      = ?null_val_not(FullText, Text, FullText),
                     lang           = ?DB_LANG,                  % Ensured in SQL WHERE clause
                     rt_id          = ?null_to_undef(RTID),
                     rt_screen_name = ?null_to_undef(RTSN)}
-             || {ID, SN, Name, Descr, DTS, Text, RTID, RTSN} <- Rows];
+             || {ID, SN, Name, Descr, DTS, Text, FullText, RTID, RTSN} <- Rows];
 
         _ ->
             undefined

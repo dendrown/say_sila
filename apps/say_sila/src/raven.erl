@@ -798,7 +798,7 @@ emote_tweets_csv({newline, [ID, _Lang, ScreenName, Anger, Fear, Sadness, Joy]},
             ?warning("screen name: ~s~n", [ScreenName]),
             ?warning("full name  : ~s~n", [Tweet#tweet.name]),
             ?warning("description: ~s~n", [Tweet#tweet.description]),
-            ?warning("tweet text : ~s~n", [Tweet#tweet.text]),
+            ?warning("tweet text : ~s~n", [Tweet#tweet.full_text]),
             exit(tweet_mismatch) %% {Cnt + 1, RestTweets, EmoTweets}
     end.
 

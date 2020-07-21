@@ -75,7 +75,7 @@ get_tweets(Tracker, Options) ->
         Pattern ->
             % Find the tweets matching the pattern
             Filter = fun(T, {FltTweets, FltCnt, DayCnt}) ->
-                case re:run(T#tweet.text, Pattern) of
+                case re:run(T#tweet.full_text, Pattern) of
                     nomatch -> {FltTweets,     FltCnt,   DayCnt+1};
                     _       -> {[T|FltTweets], FltCnt+1, DayCnt+1}
                 end
