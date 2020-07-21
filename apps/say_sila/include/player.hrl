@@ -8,7 +8,7 @@
 %%
 %% @doc The "Say Sila" Twitter player (account) handler
 %%
-%% @copyright 2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -ifndef(_player_included).
@@ -19,9 +19,13 @@
 
 -define(MIN_COMMS_COUNT,    3).                 % Minimum user activity for processing
 
--define(COMM_TYPES,     [tweeter, originater, retweeter, retweeted, mentioned]).
--define(COMM_CODES,     [tter,    oter,       rter,      rted,      tmed     ]).
--define(COMM4_CODES,    [         oter,       rter,      rted,      tmed     ]).
+-define(COMM_TYPES,     #{tter => tweeter,
+                          oter => originater,
+                          rter => retweeter,
+                          rted => retweeted,
+                          tmed => mentioned}).
+-define(COMM4_CODES,    [         oter,       rter,      rted,      tmed]).
+-define(COMM_CODES,     [tter,    oter,       rter,      rted,      tmed]).
 -type comm_code()   ::   tter|    oter|       rter|      rted|      tmed.
 -type comm_codes()  ::  [comm_code()].
 

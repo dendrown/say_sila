@@ -8,7 +8,7 @@
 %%
 %% @doc Time-period shortcuts for looking at data in "Say Sila".
 %%
-%% @copyright 2017-2019 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(period).
@@ -18,13 +18,6 @@
 
 -include("sila.hrl").
 -include_lib("llog/include/llog.hrl").
-
--define(twitter(Acct),  io_lib:format("[~s](https://twitter.com/~s)", [Acct, Acct])).
-
--define(SN,   <<"SCREEN NAME">>).
--define(OPTS, [{start, {2017, 10, 1}},
-               {stop,  {2017, 11, 1}}]).
-
 
 
 %%--------------------------------------------------------------------

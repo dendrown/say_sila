@@ -18,10 +18,11 @@
          period/1]).
 -export([clear_cache/0,
          make_h0/2,     make_h0/3,
+         md/2,
          run_top_n/3,   run_top_n/4]).
 
 
--import(proplists, [get_value/3]).
+-import(proplists, [get_value/2, get_value/3]).
 
 -include("sila.hrl").
 -include("emo.hrl").
@@ -205,6 +206,88 @@ make_h0(Biggies, Players, Options) ->
         {Comm, {0.0,0,Meds}}
     end,
     [FindMedComm(B) || B <- Biggies].
+
+
+
+%%--------------------------------------------------------------------
+-spec md(Tracker :: tracker(),
+         N       :: pos_integer()) -> proplist().
+%%
+% @doc  Creates an MD report of the big players.
+% @end  --
+md(Tracker, N) ->
+    % We must have already performed a biggies/raven run
+    Name     = <<"SCREEN NAME">>,
+    BigTopN  = player:get_top_n(Tracker, N),
+    Players  = player:get_players(Tracker),
+    CommCodes = arff:get_big_comm_codes(),
+
+    % Returns the communication activity for the specified account
+    GetActivity = fun(Acct) ->
+        #profile{comms = Comms} = maps:get(Acct, Players),
+        Comms
+    end,
+
+    % Returns a user's tweet count for the specified communication category
+    CountTweets = fun
+        (#comm{cnt = Cnt}) -> Cnt;
+        (none)             -> 0
+    end,
+
+    % Returns a list of emotion values for a user's totals for a single communication category
+    ListEmos = fun
+        (#comm{emos = Emos}) -> [maps:get(E, Emos#emos.levels) || E <- ?EMOTIONS];
+        (none)               -> lists:duplicate(4, 0.0)
+    end,
+
+    % Create MD output for a single user account, given a communication category code
+    LineOut = fun(Code, Acct) ->
+        Comms = GetActivity(Acct),
+
+        TextCnts  = [CountTweets(maps:get(C, Comms, none)) || C <- CommCodes],  % All comms
+        EmoLevels = ListEmos(maps:get(Code, Comms, none)),                      % Current comm
+
+        Link = ?str_fmt("[~s](https://twitter.com/~s)", [Acct, Acct]),
+        ?fmt("| ~-56s | ~4B | ~4B | ~4B | ~4B | ~.3f | ~.3f | ~.3f | ~.3f |~n", [Link]
+                                                                                ++ TextCnts
+                                                                                ++ EmoLevels)
+    end,
+
+    % Sorts an account list from highest activity to lowest
+    SortAccts = fun(Code, Accts) ->
+
+        % Get a player code
+        GetCommCnt = fun(Acct) ->
+            Comms = GetActivity(Acct),
+            CountTweets(maps:get(Code, Comms, none))
+        end,
+
+        % Sort by descending activity in this comm code
+        Sorter = fun(A, B) ->
+            GetCommCnt(A) > GetCommCnt(B)
+        end,
+
+        lists:sort(Sorter, Accts)
+    end,
+
+    % Report the Top N users for a single communication category
+    Report = fun(Code) ->
+        Type = maps:get(Code, ?COMM_TYPES),
+        {Pct,
+         Cnt,
+         Accts} = proplists:get_value(Code, BigTopN),
+        ?nl(),
+        ?fmt("### `~s` communications (~s): pct[~.2f%] cnt[~B]~n", [twitter:to_hashtag(Tracker),
+                                                                    Type,
+                                                                    Pct * 100.0,
+                                                                    Cnt]),
+        ?nl(),
+        ?fmt("| ~-56.. s | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |~n", [Name]),
+        ?fmt("| ~-56..-s | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|~n", [<<>>]),
+        [LineOut(Code, A) || A <- SortAccts(Code, Accts)],
+        ?nl()
+    end,
+    [{CC, Report(CC)} || CC <- [oter, rter, rted, tmed, tter]].
 
 
 
@@ -850,10 +933,10 @@ report_run(Tracker, Method, RunNum, Emotion, PeriodSet, Options, RunResults, Ref
 
     % The model description changes based on what happened and if it's a composite
     Describe = fun
-       %(#{incl_attrs := Attrs}) -> Attrs;                  % Linear regression
-        (#{good_cnt := Cnt})     -> [valid, Cnt];           % Average across runs
-        ({need_data, CommPcts})  -> CommPcts;               % All four comms not @ 100%
-        (_)                      -> <<"??">>                % Black box
+        (#{good_cnt := Cnt})     -> [valid, Cnt];               % Average across runs
+        (#{incl_attrs := Attrs}) -> [attrs, length(Attrs)];    % Linear regression
+        ({need_data, CommPcts})  -> CommPcts;                   % All four comms not @ 100%
+        (_)                      -> <<"??">>                    % Black box
     end,
 
     % Report the results, collecting the warnings so we can log them all after the report
