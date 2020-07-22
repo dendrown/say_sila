@@ -15,7 +15,7 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([spawn_link/2, spawn_link/3,
-         get_tweets/2]).
+         get_tweets/2, get_tweets/3]).
 
 
 -import(lists, [foldl/3]).
@@ -47,7 +47,7 @@
 % @end  --
 spawn_link(Tracker, Options) ->
     Invoker = self(),
-    spawn_link(fun() -> get_tweets(Invoker, Tracker, Options) end).
+    spawn_link(fun() -> get_tweets(Invoker, Tracker, all, Options) end).
 
 
 spawn_link(_, stop, _) ->
@@ -62,12 +62,21 @@ spawn_link(Tracker, StepOpts, RunOpts) ->
 %%--------------------------------------------------------------------
 -spec get_tweets(Tracker :: tracker(),
                  Options :: proplist()) -> tweets().
+
+-spec get_tweets(Tracker  :: tracker(),
+                 Accounts :: twitter:account()
+                           | twitter:accounts(),
+                 Options  :: proplist()) -> tweets().
 %%
 % @doc  Retrieves and processes Twitter status messages for a day.
 % @end  --
 get_tweets(Tracker, Options) ->
+    get_tweets(Tracker, all, Options).
+
+
+get_tweets(Tracker, Accounts, Options) ->
     %?debug("Getting ~s tweets: ~p", [Tracker, Options]),
-    DayTweets = twitter:get_tweets(Tracker, all, Options),
+    DayTweets = twitter:get_tweets(Tracker, Accounts, Options),
 
     % Do they have a regular expression for filtering?
     case get_value(pattern, Options) of
@@ -97,16 +106,18 @@ get_tweets(Tracker, Options) ->
 %%====================================================================
 %% Internal functions
 %%--------------------------------------------------------------------
--spec get_tweets(Invoker :: entity(),
-                 Tracker :: tracker(),
-                 Options :: proplist()) -> {daily_tweets,
-                                            entity(),
-                                            tracker(),
-                                            tweets()}.
+-spec get_tweets(Invoker  :: entity(),
+                 Tracker  :: tracker(),
+                 Accounts :: twitter:account()
+                           | twitter:accounts(),
+                 Options  :: proplist()) -> {daily_tweets,
+                                             entity(),
+                                             tracker(),
+                                             tweets()}.
 %%
 % @doc  Retrieves and processes Twitter status messages for a day.
 % @end  --
-get_tweets(Invoker, Tracker, Options) ->
+get_tweets(Invoker, Tracker, Accounts, Options) ->
 
-    Invoker ! {daily_tweets, self(), Tracker, get_tweets(Tracker, Options)}.
+    Invoker ! {daily_tweets, self(), Tracker, get_tweets(Tracker, Accounts, Options)}.
 

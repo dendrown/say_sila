@@ -122,6 +122,9 @@
                 db_conn      :: rec_pid() }).
 -type state() :: #state{}.
 
+-type account()  :: stringy() | player().
+-type accounts() :: [account()] | all.
+
 
 
 -define(TWEET_TIMEOUT,    (5 * ?MILLIS_IN_MIN)).
@@ -330,18 +333,13 @@ get_players(Tracker, Options) ->
 %%--------------------------------------------------------------------
 -spec get_tweets(Tracker     :: tracker()
                               | all,
-                 ScreenNames :: binary()
-                              | string()
-                              | player()
-                              | all) -> list().
+                 ScreenNames :: account()
+                              | accounts()) -> list().
 
 -spec get_tweets(Tracker     :: tracker()
                               | all,
-                 ScreenNames :: binary()
-                              | string()
-                              | list()
-                              | player()
-                              | all,
+                 ScreenNames :: account()
+                              | accounts(),
                  Options     :: list()) -> list().
 %
 % @doc  Returns the tweets for one or more accounts; `ScreenNames' can
@@ -362,7 +360,9 @@ get_players(Tracker, Options) ->
 %             extended tweets)
 % @end  --
 get_tweets(Tracker, ScreenNames) ->
-    get_tweets(Tracker, ScreenNames, []).
+    Start = dts:dayize(dts:now(datetime)),
+    ?info("Tweets published on ~s", [dts:date_str(Start)]),
+    get_tweets(Tracker, ScreenNames, [{start, Start}]).
 
 
 get_tweets(_, [], _) ->

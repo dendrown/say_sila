@@ -16,16 +16,18 @@
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
 -export([add/3,
-         date_str/1, date_str/2,
-         date_STR/1, date_STR/2,
+         date_str/1,    date_str/2,
+         date_STR/1,    date_STR/2,
          day/1,
-         dayize/1,   dayize/2,
+         dayize/1,      dayize/2,
          earlier/2,
          hourize/1,
          later/2,
-         minutize/1, minutize/2,
-         quarter/1,  quarter/2,
-         str/1,      str/2, sub/3,
+         minutize/1,    minutize/2,
+         now/1,
+         quarter/1,     quarter/2,
+         scale_unix/3,
+         str/1,         str/2, sub/3,
          to_datetime/2,
          to_unix/2]).
 
@@ -61,15 +63,9 @@ add({{Year, Month, Day}, Time = {_, _, _}}, Amt, month) ->
 
 
 add(DTS, Amt, Unit) ->
-    Secs = case Unit of
-        millisecond -> Amt div 1000;
-        second      -> Amt;
-        minute      -> Amt * ?SECS_IN_MIN;
-        hour        -> Amt * ?SECS_IN_HOUR;
-        day         -> Amt * ?SECS_IN_DAY
-    end,
+    AmtSecs  = scale_unix(Amt, Unit, second),
     OrigSecs = calendar:datetime_to_gregorian_seconds(DTS),
-    NewSecs  = OrigSecs + Secs,
+    NewSecs  = OrigSecs + AmtSecs,
     calendar:gregorian_seconds_to_datetime(NewSecs).
 
 
@@ -216,6 +212,27 @@ minutize(DTS1970, Unit) ->
     to_unix(minutize(DTS), Unit).
 
 
+
+%%--------------------------------------------------------------------
+-spec now(Unit :: datetime
+                | time_unit()) -> datetime()
+                                | dts_1970().
+%%
+% @doc  Returns the current time as a datetime tuple or a unix epoch-based
+%       timestamp in the specified units.
+% @end  --
+now(datetime) ->
+    to_datetime(now(second), second);
+
+
+now(Unit) ->
+    if  Unit =:= second orelse
+        Unit =:= millisecond  -> erlang:system_time(Unit);
+        true                  -> scale_unix(erlang:system_time(second), second, Unit)
+    end.
+
+
+
 %%--------------------------------------------------------------------
 -spec quarter(DateTime :: tuple()) -> atom().
 %
@@ -238,6 +255,34 @@ quarter({{Year, Month, _}, {_, _, _}}) ->
 % @end  --
 quarter(DTS1970, Unit) ->
     quarter(to_datetime(DTS1970, Unit)).
+
+
+
+%%--------------------------------------------------------------------
+-spec scale_unix(DTS1970  :: integer(),
+                 FromUnit :: time_unit(),
+                 ToUnit   :: time_unit()) -> integer().
+%%
+%     Converts a unix epoch-based timestamp to a unix timestamps using
+%     another time unit.
+% @end  --
+scale_unix(DTS1970, FromUnit, second) ->
+    case FromUnit of
+        millisecond -> DTS1970 div 1000;
+        _           -> DTS1970 * get_scale(FromUnit)
+    end;
+
+
+scale_unix(Secs, second, ToUnit) ->
+    case ToUnit of
+        millisecond -> Secs * 1000;
+        _           -> Secs div get_scale(ToUnit)
+    end;
+
+
+scale_unix(DTS1970, FromUnit, ToUnit) ->
+    Secs = scale_unix(DTS1970, FromUnit, second),
+    scale_unix(Secs, second, ToUnit).
 
 
 
@@ -321,13 +366,21 @@ to_unix({Year, Mon, Day}, Unit) ->
 
 to_unix(DateTime, Unit) ->
     Secs = calendar:datetime_to_gregorian_seconds(DateTime) - ?SECS_EPOCH,
-    case Unit of
-        millisecond -> Secs * 1000;
-        second      -> Secs
-    end.
+    scale_unix(Secs, second, Unit).
 
 
 
 %%====================================================================
 %% Internal functions
-%%====================================================================
+%%--------------------------------------------------------------------
+-spec get_scale(Unit :: time_unit()) -> dts_1970().
+%%
+% @doc  Returns the scale factor with respect to seconds.
+% @end  --
+get_scale(Unit) ->
+    maps:get(Unit, #{millisecond => 1000,
+                     second      => 1,
+                     minute      => ?SECS_IN_MIN,
+                     hour        => ?SECS_IN_HOUR,
+                     day         => ?SECS_IN_DAY}).
+
