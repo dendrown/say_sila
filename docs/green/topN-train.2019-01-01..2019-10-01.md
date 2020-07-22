@@ -5,10 +5,10 @@
 | N| SCREEN NAME                                              | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |NOTES|
 |-:| -------------------------------------------------------- | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|-----|
 | 1| [ecointernetdrgb](https://twitter.com/ecointernetdrgb)   | 2365 |    1 |  589 |    8 | 0.143 | 0.221 | 0.101 | 0.140 |Account suspended|
-| 2| [phillippassmore](https://twitter.com/phillippassmore)   | 1517 |    0 |   32 |    7 | 0.105 | 0.196 | 0.094 | 0.133 |     |
-| 3| [samuelguizani](https://twitter.com/samuelguizani)       | 1505 |    0 |   39 |    2 | 0.000 | 0.000 | 0.114 | 0.437 |     |
-| 4| [gccthinkacttank](https://twitter.com/gccthinkacttank)   |  599 |    0 |  260 |   13 | 0.070 | 0.102 | 0.041 | 0.229 |     |
-| 5| [carriegaard](https://twitter.com/carriegaard)           |  500 |    0 |    7 |    0 | 0.000 | 0.002 | 0.000 | 0.001 |     |
+| 2| [phillippassmore](https://twitter.com/phillippassmore)   | 1517 |    0 |   32 |    7 | 0.105 | 0.196 | 0.094 | 0.133 |ENV - PhD examining online communication of climate change|
+| 3| [samuelguizani](https://twitter.com/samuelguizani)       | 1505 |    0 |   39 |    2 | 0.000 | 0.000 | 0.114 | 0.437 |ENV - It's time to #SaveTheEarth.|
+| 4| [gccthinkacttank](https://twitter.com/gccthinkacttank)   |  599 |    0 |  260 |   13 | 0.070 | 0.102 | 0.041 | 0.229 |ENV|
+| 5| [carriegaard](https://twitter.com/carriegaard)           |  500 |    0 |    7 |    0 | 0.000 | 0.002 | 0.000 | 0.001 |env; feminist; lang: es/en|
 | 6| [greenomic](https://twitter.com/greenomic)               |  404 |    0 |    1 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
 | 7| [sh_rowell](https://twitter.com/sh_rowell)               |  384 |    2 |  137 |   10 | 0.091 | 0.227 | 0.084 | 0.099 |     |
 | 8| [annemariayritys](https://twitter.com/annemariayritys)   |  383 |    3 |  328 |    1 | 0.067 | 0.099 | 0.038 | 0.230 |     |
@@ -30,10 +30,10 @@
 
 | N| SCREEN NAME                                              | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |NOTES|
 |-:| -------------------------------------------------------- | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|-----|
-| 1| [imagine_garden](https://twitter.com/imagine_garden)     |    0 |  345 |    0 |    2 | 0.111 | 0.190 | 0.071 | 0.194 |     |
-| 2| [josephprigith](https://twitter.com/josephprigith)       |    1 |  142 |    4 |    1 | 0.119 | 0.180 | 0.081 | 0.193 |     |
-| 3| [actiontime](https://twitter.com/actiontime)             |    8 |  128 |  203 |    0 | 0.121 | 0.262 | 0.228 | 0.177 |     |
-| 4| [arikring](https://twitter.com/arikring)                 |    5 |  124 |  702 |    6 | 0.446 | 0.000 | 0.000 | 0.395 |     |
+| 1| [imagine_garden](https://twitter.com/imagine_garden)     |    0 |  345 |    0 |    2 | 0.111 | 0.190 | 0.071 | 0.194 |env - Earth Soldier Lifestyle|
+| 2| [josephprigith](https://twitter.com/josephprigith)       |    1 |  142 |    4 |    1 | 0.119 | 0.180 | 0.081 | 0.193 |env|
+| 3| [actiontime](https://twitter.com/actiontime)             |    8 |  128 |  203 |    0 | 0.121 | 0.262 | 0.228 | 0.177 |env? - liberal|
+| 4| [arikring](https://twitter.com/arikring)                 |    5 |  124 |  702 |    6 | 0.446 | 0.000 | 0.000 | 0.395 |ENV - Energy Engineering Expert|
 | 5| [alperstein_o](https://twitter.com/alperstein_o)         |    0 |  108 |    0 |    1 | 0.161 | 0.431 | 0.267 | 0.216 |     |
 | 6| [fightwallst](https://twitter.com/fightwallst)           |    0 |  100 |    0 |    0 | 0.156 | 0.448 | 0.272 | 0.217 |     |
 | 7| [dawnroseturner](https://twitter.com/dawnroseturner)     |    2 |   91 |   25 |    2 | 0.098 | 0.173 | 0.058 | 0.150 |     |
