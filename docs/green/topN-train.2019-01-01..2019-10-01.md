@@ -14,11 +14,11 @@
 | 8| [annemariayritys](https://twitter.com/annemariayritys)   |  383 |    3 |  328 |    1 | 0.067 | 0.099 | 0.038 | 0.230 |env|
 | 9| [gccntwrk](https://twitter.com/gccntwrk)                 |  381 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.406 |ENV - GCC News Brief|
 |10| [ssgovforum](https://twitter.com/ssgovforum)             |  377 |    4 |  102 |    9 | 0.031 | 0.047 | 0.024 | 0.078 |ENV - Security and Sustainability Forum |
-|11| [chrisoldcorn](https://twitter.com/chrisoldcorn)         |  354 |    2 |    7 |    2 | 0.011 | 0.005 | 0.000 | 0.006 |     |
-|12| [ubuntudotnews](https://twitter.com/ubuntudotnews)       |  348 |    0 |   20 |    1 | 0.041 | 0.095 | 0.046 | 0.144 |     |
-|13| [alloutnow](https://twitter.com/alloutnow)               |  280 |    0 |    0 |    3 | 0.106 | 0.244 | 0.103 | 0.042 |     |
-|14| [merlyn43](https://twitter.com/merlyn43)                 |  268 |    0 |    1 |    0 | 0.001 | 0.001 | 0.001 | 0.001 |     |
-|15| [theplanetearth](https://twitter.com/theplanetearth)     |  264 |    0 |    0 |    1 | 0.000 | 0.000 | 0.000 | 0.000 |     |
+|11| [chrisoldcorn](https://twitter.com/chrisoldcorn)         |  354 |    2 |    7 |    2 | 0.011 | 0.005 | 0.000 | 0.006 |liberal? - An investigative journalist holding people, companies, and governments accountable.|
+|12| [ubuntudotnews](https://twitter.com/ubuntudotnews)       |  348 |    0 |   20 |    1 | 0.041 | 0.095 | 0.046 | 0.144 |This account doesn’t exist|
+|13| [alloutnow](https://twitter.com/alloutnow)               |  280 |    0 |    0 |    3 | 0.106 | 0.244 | 0.103 | 0.042 |env - anti-Trump; covid-aware|
+|14| [merlyn43](https://twitter.com/merlyn43)                 |  268 |    0 |    1 |    0 | 0.001 | 0.001 | 0.001 | 0.001 |ENV - going through divorce proceedings w/ the Democratic Party. #GreenParty supporter.|
+|15| [theplanetearth](https://twitter.com/theplanetearth)     |  264 |    0 |    0 |    1 | 0.000 | 0.000 | 0.000 | 0.000 |ENV - name="Global Warming"; Population pressure [...] cause of environmental concerns|
 |16| [sabbah](https://twitter.com/sabbah)                     |  258 |    0 |    4 |    0 | 0.000 | 0.000 | 0.000 | 0.500 |     |
 |17| [cash_rules_](https://twitter.com/cash_rules_)           |  251 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.337 |     |
 |18| [timurhyat](https://twitter.com/timurhyat)               |  250 |    0 |    1 |    1 | 0.000 | 0.000 | 0.002 | 0.000 |     |
@@ -40,11 +40,11 @@
 | 8| [env_onjolo_vic](https://twitter.com/env_onjolo_vic)     |    0 |   64 |    0 |    3 | 0.122 | 0.112 | 0.081 | 0.222 |This account doesn’t exist|
 | 9| [profstrachan](https://twitter.com/profstrachan)         |    5 |   61 |  477 |    8 | 0.156 | 0.082 | 0.000 | 0.384 |ENV - Passionate about Energy, Clean Technology, and Sustainability|
 |10| [euclimateaction](https://twitter.com/euclimateaction)   |    9 |   60 |  280 |   23 | 0.313 | 0.257 | 0.016 | 0.292 |ENV - The Directorate-General for #ClimateAction|
-|11| [johnsnowmtainer](https://twitter.com/johnsnowmtainer)   |    0 |   59 |    0 |    1 | 0.074 | 0.093 | 0.030 | 0.120 |     |
-|12| [richardmunang](https://twitter.com/richardmunang)       |   20 |   59 |   42 |   42 | 0.051 | 0.163 | 0.100 | 0.211 |     |
-|13| [ewestaway](https://twitter.com/ewestaway)               |    0 |   57 |    0 |    0 | 0.140 | 0.190 | 0.061 | 0.312 |     |
-|14| [ejyadev](https://twitter.com/ejyadev)                   |    0 |   57 |    0 |    1 | 0.209 | 0.345 | 0.158 | 0.189 |     |
-|15| [nomoreslaves](https://twitter.com/nomoreslaves)         |    0 |   56 |    0 |    2 | 0.120 | 0.242 | 0.101 | 0.227 |     |
+|11| [johnsnowmtainer](https://twitter.com/johnsnowmtainer)   |    0 |   59 |    0 |    1 | 0.074 | 0.093 | 0.030 | 0.120 |ENV - The climate crisis is the single biggest problem of the future|
+|12| [richardmunang](https://twitter.com/richardmunang)       |   20 |   59 |   42 |   42 | 0.051 | 0.163 | 0.100 | 0.211 |ENV - #ClimateAction Specialist; #Environment Hero Award|
+|13| [ewestaway](https://twitter.com/ewestaway)               |    0 |   57 |    0 |    0 | 0.140 | 0.190 | 0.061 | 0.312 |Env|
+|14| [ejyadev](https://twitter.com/ejyadev)                   |    0 |   57 |    0 |    1 | 0.209 | 0.345 | 0.158 | 0.189 |env - Retweets surveys from [The Spectator Index](https://twitter.com/spectatorindex); covid-aware|
+|15| [nomoreslaves](https://twitter.com/nomoreslaves)         |    0 |   56 |    0 |    2 | 0.120 | 0.242 | 0.101 | 0.227 |env - covid-aware|
 |16| [fingo_org](https://twitter.com/fingo_org)               |    0 |   55 |    0 |    1 | 0.050 | 0.075 | 0.050 | 0.159 |     |
 |17| [avigalsnapir](https://twitter.com/avigalsnapir)         |    0 |   53 |    0 |    0 | 0.095 | 0.163 | 0.074 | 0.207 |     |
 |18| [saleemulhuq](https://twitter.com/saleemulhuq)           |    0 |   52 |    0 |   13 | 0.172 | 0.294 | 0.124 | 0.166 |     |
@@ -66,11 +66,11 @@
 | 8| [ipbes](https://twitter.com/ipbes)                       |    9 |   14 |  907 |   34 | 0.316 | 0.515 | 0.611 | 0.023 |ENV - Intergovernmental Platform on Biodiversity and Ecosystem Services|
 | 9| [atx_patriot](https://twitter.com/atx_patriot)           |    1 |    5 |  816 |    0 | 0.636 | 1.250 | 0.000 | 0.000 |denier? - pro-trump? anti-democrat|
 |10| [jwspry](https://twitter.com/jwspry)                     |   50 |   22 |  786 |  107 | 0.222 | 0.239 | 0.273 | 0.207 |denier|
-|11| [conservamomusa](https://twitter.com/conservamomusa)     |    0 |    6 |  719 |    4 | 0.564 | 0.330 | 0.000 | 0.000 |     |
-|12| [gmbutts](https://twitter.com/gmbutts)                   |    3 |    0 |  714 |    7 | 0.000 | 0.230 | 0.267 | 0.260 |     |
-|13| [arikring](https://twitter.com/arikring)                 |    5 |  124 |  702 |    6 | 0.468 | 0.000 | 0.000 | 0.247 |     |
-|14| [ecointernetdrgb](https://twitter.com/ecointernetdrgb)   | 2365 |    1 |  589 |    8 | 0.114 | 0.184 | 0.098 | 0.099 |     |
-|15| [cognisant2000](https://twitter.com/cognisant2000)       |    2 |    0 |  510 |    0 | 0.485 | 0.000 | 0.281 | 0.625 |     |
+|11| [conservamomusa](https://twitter.com/conservamomusa)     |    0 |    6 |  719 |    4 | 0.564 | 0.330 | 0.000 | 0.000 |denier? - pro-Trump (RT’d by POTUS!)|
+|12| [gmbutts](https://twitter.com/gmbutts)                   |    3 |    0 |  714 |    7 | 0.000 | 0.230 | 0.267 | 0.260 |ENV - Working on climate change and macro.|
+|13| [arikring](https://twitter.com/arikring)                 |    5 |  124 |  702 |    6 | 0.468 | 0.000 | 0.000 | 0.247 |ENV - Expert Consultant. #Solar & #Cleantech Innovation|
+|14| [ecointernetdrgb](https://twitter.com/ecointernetdrgb)   | 2365 |    1 |  589 |    8 | 0.114 | 0.184 | 0.098 | 0.099 |Account suspended|
+|15| [cognisant2000](https://twitter.com/cognisant2000)       |    2 |    0 |  510 |    0 | 0.485 | 0.000 | 0.281 | 0.625 |liberal|
 |16| [ejinaction](https://twitter.com/ejinaction)             |   13 |    0 |  479 |    7 | 0.126 | 0.111 | 0.000 | 0.687 |     |
 |17| [ibusolih](https://twitter.com/ibusolih)                 |    1 |    0 |  479 |    2 | 0.928 | 1.688 | 1.321 | 0.434 |     |
 |18| [profstrachan](https://twitter.com/profstrachan)         |    5 |   61 |  477 |    8 | 0.077 | 0.027 | 0.000 | 0.470 |     |
@@ -92,11 +92,11 @@
 | 8| [smedian_network](https://twitter.com/smedian_network)   |    0 |    0 |    0 |  457 | 0.000 | 0.000 | 0.000 | 0.065 |noise/spam? - Smedian enables writers to easily...|
 | 9| [realdonaldtrump](https://twitter.com/realdonaldtrump)   |    0 |    0 |    0 |  391 | 0.191 | 0.277 | 0.192 | 0.212 |DENIER|
 |10| [wef](https://twitter.com/wef)                           |   31 |    0 | 4457 |  351 | 0.170 | 0.203 | 0.101 | 0.132 |ENV - World Economic Forum|
-|11| [dineshdsouza](https://twitter.com/dineshdsouza)         |    0 |    0 |    0 |  346 | 0.005 | 0.003 | 0.004 | 0.002 |     |
-|12| [joeysalads](https://twitter.com/joeysalads)             |    0 |    0 |    0 |  342 | 0.002 | 0.001 | 0.000 | 0.000 |     |
-|13| [scottmorrisonmp](https://twitter.com/scottmorrisonmp)   |    0 |    0 |    0 |  313 | 0.043 | 0.115 | 0.051 | 0.565 |     |
+|11| [dineshdsouza](https://twitter.com/dineshdsouza)         |    0 |    0 |    0 |  346 | 0.005 | 0.003 | 0.004 | 0.002 |pro-trump|
+|12| [joeysalads](https://twitter.com/joeysalads)             |    0 |    0 |    0 |  342 | 0.002 | 0.001 | 0.000 | 0.000 |Account suspended|
+|13| [scottmorrisonmp](https://twitter.com/scottmorrisonmp)   |    0 |    0 |    0 |  313 | 0.043 | 0.115 | 0.051 | 0.565 |env? -- Liberal Party of Australia; covid-aware|
 |14| aoc-                                                     |    0 |    0 |    0 |  252 | 0.000 | 0.942 | 0.000 | 0.000 |@aoc|
-|15| [ipcc_ch](https://twitter.com/ipcc_ch)                   |    0 |    0 |    0 |  227 | 0.087 | 0.078 | 0.049 | 0.191 |     |
+|15| [ipcc_ch](https://twitter.com/ipcc_ch)                   |    0 |    0 |    0 |  227 | 0.087 | 0.078 | 0.049 | 0.191 |ENV - The Intergovernmental Panel on Climate Change|
 |16| [conservatives](https://twitter.com/conservatives)       |    0 |    1 |  118 |  227 | 0.237 | 0.256 | 0.227 | 0.280 |     |
 |17| [conservationorg](https://twitter.com/conservationorg)   |   30 |    1 | 1142 |  225 | 0.077 | 0.111 | 0.049 | 0.077 |     |
 |18| [nasa](https://twitter.com/nasa)                         |    0 |    0 |    0 |  214 | 0.019 | 0.051 | 0.033 | 0.061 |     |
