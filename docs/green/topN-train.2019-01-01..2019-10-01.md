@@ -19,11 +19,11 @@
 |13| [alloutnow](https://twitter.com/alloutnow)               |  280 |    0 |    0 |    3 | 0.106 | 0.244 | 0.103 | 0.042 |env - anti-Trump; covid-aware|
 |14| [merlyn43](https://twitter.com/merlyn43)                 |  268 |    0 |    1 |    0 | 0.001 | 0.001 | 0.001 | 0.001 |ENV - going through divorce proceedings w/ the Democratic Party. #GreenParty supporter.|
 |15| [theplanetearth](https://twitter.com/theplanetearth)     |  264 |    0 |    0 |    1 | 0.000 | 0.000 | 0.000 | 0.000 |ENV - name="Global Warming"; Population pressure [...] cause of environmental concerns|
-|16| [sabbah](https://twitter.com/sabbah)                     |  258 |    0 |    4 |    0 | 0.000 | 0.000 | 0.000 | 0.500 |     |
-|17| [cash_rules_](https://twitter.com/cash_rules_)           |  251 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.337 |     |
-|18| [timurhyat](https://twitter.com/timurhyat)               |  250 |    0 |    1 |    1 | 0.000 | 0.000 | 0.002 | 0.000 |     |
-|19| [semodu_ag](https://twitter.com/semodu_ag)               |  201 |    0 |    1 |    0 | 0.000 | 0.000 | 0.235 | 0.069 |     |
-|20| [kwamegilbert](https://twitter.com/kwamegilbert)         |  200 |    0 |    4 |    0 | 0.061 | 0.093 | 0.044 | 0.534 |     |
+|16| [sabbah](https://twitter.com/sabbah)                     |  258 |    0 |    4 |    0 | 0.000 | 0.000 | 0.000 | 0.500 |env? - ❤️  Space, Nature, Technology & Science.|
+|17| [cash_rules_](https://twitter.com/cash_rules_)           |  251 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.337 |spam? conservative|
+|18| [timurhyat](https://twitter.com/timurhyat)               |  250 |    0 |    1 |    1 | 0.000 | 0.000 | 0.002 | 0.000 |Env - Sustainable Development Worker [...] Emphasis upon Environment Protection|
+|19| [semodu_ag](https://twitter.com/semodu_ag)               |  201 |    0 |    1 |    0 | 0.000 | 0.000 | 0.235 | 0.069 |Env - modular buildings, groundbreaking energy concepts Impressum|
+|20| [kwamegilbert](https://twitter.com/kwamegilbert)         |  200 |    0 |    4 |    0 | 0.061 | 0.093 | 0.044 | 0.534 |ENV - Energies, Climat, Environnement, Zététique|
 
 
 ### `#climatechange` communications (**retweeter**): pct[2.38%] cnt[1769]
@@ -45,11 +45,11 @@
 |13| [ewestaway](https://twitter.com/ewestaway)               |    0 |   57 |    0 |    0 | 0.140 | 0.190 | 0.061 | 0.312 |Env|
 |14| [ejyadev](https://twitter.com/ejyadev)                   |    0 |   57 |    0 |    1 | 0.209 | 0.345 | 0.158 | 0.189 |env - Retweets surveys from [The Spectator Index](https://twitter.com/spectatorindex); covid-aware|
 |15| [nomoreslaves](https://twitter.com/nomoreslaves)         |    0 |   56 |    0 |    2 | 0.120 | 0.242 | 0.101 | 0.227 |env - covid-aware|
-|16| [fingo_org](https://twitter.com/fingo_org)               |    0 |   55 |    0 |    1 | 0.050 | 0.075 | 0.050 | 0.159 |     |
-|17| [avigalsnapir](https://twitter.com/avigalsnapir)         |    0 |   53 |    0 |    0 | 0.095 | 0.163 | 0.074 | 0.207 |     |
-|18| [saleemulhuq](https://twitter.com/saleemulhuq)           |    0 |   52 |    0 |   13 | 0.172 | 0.294 | 0.124 | 0.166 |     |
-|19| [tweets4vegans](https://twitter.com/tweets4vegans)       |    0 |   51 |    0 |    0 | 0.154 | 0.228 | 0.042 | 0.137 |     |
-|20| [goldeneagle987](https://twitter.com/goldeneagle987)     |    0 |   47 |    0 |    0 | 0.128 | 0.239 | 0.096 | 0.214 |     |
+|16| [fingo_org](https://twitter.com/fingo_org)               |    0 |   55 |    0 |    1 | 0.050 | 0.075 | 0.050 | 0.159 |Env - Focus on future #urbanplanning: [...] #sustainability.|
+|17| [avigalsnapir](https://twitter.com/avigalsnapir)         |    0 |   53 |    0 |    0 | 0.095 | 0.163 | 0.074 | 0.207 |env - liberal|
+|18| [saleemulhuq](https://twitter.com/saleemulhuq)           |    0 |   52 |    0 |   13 | 0.172 | 0.294 | 0.124 | 0.166 |ENV - Work on adaptation to climate change; Followed by CARE Climate Change and IPCC|
+|19| [tweets4vegans](https://twitter.com/tweets4vegans)       |    0 |   51 |    0 |    0 | 0.154 | 0.228 | 0.042 | 0.137 |env|
+|20| [goldeneagle987](https://twitter.com/goldeneagle987)     |    0 |   47 |    0 |    0 | 0.128 | 0.239 | 0.096 | 0.214 |Env - name="wildlife enthusiast"|
 
 
 ### `#climatechange` communications (**retweeted**): pct[40.73%] cnt[30310]
@@ -71,11 +71,11 @@
 |13| [arikring](https://twitter.com/arikring)                 |    5 |  124 |  702 |    6 | 0.468 | 0.000 | 0.000 | 0.247 |ENV - Expert Consultant. #Solar & #Cleantech Innovation|
 |14| [ecointernetdrgb](https://twitter.com/ecointernetdrgb)   | 2365 |    1 |  589 |    8 | 0.114 | 0.184 | 0.098 | 0.099 |Account suspended|
 |15| [cognisant2000](https://twitter.com/cognisant2000)       |    2 |    0 |  510 |    0 | 0.485 | 0.000 | 0.281 | 0.625 |liberal|
-|16| [ejinaction](https://twitter.com/ejinaction)             |   13 |    0 |  479 |    7 | 0.126 | 0.111 | 0.000 | 0.687 |     |
-|17| [ibusolih](https://twitter.com/ibusolih)                 |    1 |    0 |  479 |    2 | 0.928 | 1.688 | 1.321 | 0.434 |     |
-|18| [profstrachan](https://twitter.com/profstrachan)         |    5 |   61 |  477 |    8 | 0.077 | 0.027 | 0.000 | 0.470 |     |
-|19| [zeusfanhouse](https://twitter.com/zeusfanhouse)         |    1 |   31 |  463 |    0 | 0.000 | 0.000 | 0.000 | 0.091 |     |
-|20| [psrenvironment](https://twitter.com/psrenvironment)     |   16 |   13 |  452 |   31 | 0.189 | 0.469 | 0.318 | 0.212 |     |
+|16| [ejinaction](https://twitter.com/ejinaction)             |   13 |    0 |  479 |    7 | 0.126 | 0.111 | 0.000 | 0.687 |Env - Activism to win on #ClimateChange.|
+|17| [ibusolih](https://twitter.com/ibusolih)                 |    1 |    0 |  479 |    2 | 0.928 | 1.688 | 1.321 | 0.434 |President of the Republic of Maldives; covid-aware|
+|18| [profstrachan](https://twitter.com/profstrachan)         |    5 |   61 |  477 |    8 | 0.077 | 0.027 | 0.000 | 0.470 |ENV - Passionate about Energy, Clean Technology, and Sustainability|
+|19| [zeusfanhouse](https://twitter.com/zeusfanhouse)         |    1 |   31 |  463 |    0 | 0.000 | 0.000 | 0.000 | 0.091 |denier? - conservative; pro-Trump|
+|20| [psrenvironment](https://twitter.com/psrenvironment)     |   16 |   13 |  452 |   31 | 0.189 | 0.469 | 0.318 | 0.212 |ENV - PSR Environment #ClimateStrike; Followed by Climate Change News|
 
 
 ### `#climatechange` communications (**mentioned**): pct[20.06%] cnt[13986]
@@ -97,10 +97,10 @@
 |13| [scottmorrisonmp](https://twitter.com/scottmorrisonmp)   |    0 |    0 |    0 |  313 | 0.043 | 0.115 | 0.051 | 0.565 |env? -- Liberal Party of Australia; covid-aware|
 |14| aoc-                                                     |    0 |    0 |    0 |  252 | 0.000 | 0.942 | 0.000 | 0.000 |@aoc|
 |15| [ipcc_ch](https://twitter.com/ipcc_ch)                   |    0 |    0 |    0 |  227 | 0.087 | 0.078 | 0.049 | 0.191 |ENV - The Intergovernmental Panel on Climate Change|
-|16| [conservatives](https://twitter.com/conservatives)       |    0 |    1 |  118 |  227 | 0.237 | 0.256 | 0.227 | 0.280 |     |
-|17| [conservationorg](https://twitter.com/conservationorg)   |   30 |    1 | 1142 |  225 | 0.077 | 0.111 | 0.049 | 0.077 |     |
-|18| [nasa](https://twitter.com/nasa)                         |    0 |    0 |    0 |  214 | 0.019 | 0.051 | 0.033 | 0.061 |     |
-|19| [jayinslee](https://twitter.com/jayinslee)               |    0 |    1 |    0 |  211 | 0.102 | 0.285 | 0.085 | 0.662 |     |
+|16| [conservatives](https://twitter.com/conservatives)       |    0 |    1 |  118 |  227 | 0.237 | 0.256 | 0.227 | 0.280 |??? - Conservatives #StayAlert|
+|17| [conservationorg](https://twitter.com/conservationorg)   |   30 |    1 | 1142 |  225 | 0.077 | 0.111 | 0.049 | 0.077 |ENV - protecting nature; Followed by CARE Climate Change, FAO Climate Change, & Climate Change News|
+|18| [nasa](https://twitter.com/nasa)                         |    0 |    0 |    0 |  214 | 0.019 | 0.051 | 0.033 | 0.061 |env - Followed by NPS Climate Change & CARE Climate Change|
+|19| [jayinslee](https://twitter.com/jayinslee)               |    0 |    1 |    0 |  211 | 0.102 | 0.285 | 0.085 | 0.662 |ENV - On a mission to defeat climate change; Followed by CARE Climate Change|
 |20| '…'                                                      |    0 |    0 |    0 |  193 | 0.017 | 0.057 | 0.047 | 0.280 |     |
 
 
