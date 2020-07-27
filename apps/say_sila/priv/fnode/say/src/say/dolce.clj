@@ -102,9 +102,16 @@
         ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
         (refine Entity)
         (refine Objekt              :super Entity)
+        (refine Agent               :super Objekt)
+        (refine Person              :super Agent)
+
         (refine SocialObject        :super Objekt)
         (refine Collection          :super SocialObject)
+        (refine Collective          :super Collection)
+
+
         (refine Concept             :super SocialObject)
+        (refine Role                :super Concept)
 
         (refine InformationEntity   :super Entity)
         (refine InformationObject   :super InformationEntity)       ; -\ two
