@@ -92,7 +92,8 @@ stop() ->
 % @doc  Create an ARFF with the server's environmenal tweets.
 % @end  --
 make_arff() ->
-    gen_server:call(?MODULE, make_arff).
+    % This may take a while depending on the tweet count
+    gen_server:call(?MODULE, make_arff, 30 * 1000).
 
 
 
