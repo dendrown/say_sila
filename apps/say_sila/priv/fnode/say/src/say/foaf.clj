@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Friend-of-a-friend (foaf) ontology
 ;;;;
-;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.foaf
   (:require [say.ontology    :refer :all]
@@ -27,16 +27,23 @@
 (def ^:const ONT-FPATH  "resources/KB/foaf.owl")
 (def ^:const ONTOLOGY   (load-ontology ONT-IRI ONT-FPATH))
 
+(def ^:const Female "FEMALE")
+(def ^:const Male   "MALE")
+
 (defontology foaf
   :iri    ONT-IRI
   :prefix "foaf")
 
 ; Create access variables only for the foaf classes we need
 (redefclass Agent)
+(redefclass Person)
+(redefclass OnlineAccount)
 
 (redefclass Document ONT-IRI)
 (redefclass Group    ONT-IRI)
 
+
+;;; Data properties
 (redefdproperty gender)
 
 ;;; --------------------------------------------------------------------------

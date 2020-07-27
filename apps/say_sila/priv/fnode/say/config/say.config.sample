@@ -4,6 +4,10 @@
      :sname         "say"}
 
   ;; -------------------------------------------------------------------------
+  :sila
+    {:foaf?             false}                  ; Link to equivalent FOAF classes
+
+  ;; -------------------------------------------------------------------------
   :emote
     {:nlp               :english                ; Options: affective|english
      :id-index          1                       ; ARFF indices are 1-based

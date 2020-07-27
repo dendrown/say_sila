@@ -64,6 +64,7 @@
 ;;; Object properties
 (redefoproperty associatedWith)
 (redefoproperty expresses)
+(redefoproperty hasRole)
 (redefoproperty hasQuality)
 (redefoproperty isMemberOf)
 
