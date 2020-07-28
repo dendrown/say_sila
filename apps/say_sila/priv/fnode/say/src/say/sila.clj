@@ -314,6 +314,13 @@
             (is supports Conservatism)                                  ; 75%
             (dl/not dul/hasRole Environmentalist))
 
+
+;;; TBox: building on dul:InformationObject==>senti:Text
+(defclass PersonalProfile
+  :super   dul/InformationObject
+  :label   "Personal Profile"
+  :comment "An Information Object consisting of a personal description for an online user.")
+
 (defclass Tweet
   :super   senti/Text
   :label   "Tweet"
@@ -332,9 +339,7 @@
     :comment    "A twitter communication, posted by its original author"))
 
 
-
-
-;;; TBox: building on sioc:UserAccount==>sila:TwitterAccount
+;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount
 (as-subclasses TwitterAccount
   :cover                        ; but not disjoint
   (defclass Author
@@ -345,8 +350,7 @@
     :comment "A Twitter account, considered from the viewpoint of publishing tweets"))
 
 
-
-; TBox: building on sioc:UserAccount==>sila:TwitterAccount==>sila:Author
+;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount==>sila:Author
 (as-subclasses Author
   :cover                        ; but not disjoint
   (defclass OriginalAuthor
@@ -361,7 +365,7 @@
 
 
 
-;;; TBox: building on sioc:UserAccount==>sila:TwitterAccount==>sila:Tweeter
+;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount==>sila:Tweeter
 (as-subclasses Tweeter
   :cover                        ; but not disjoint
   (defclass   OriginalTweeter
@@ -471,6 +475,7 @@
   ;;; TBox: building on sioc:Post ⊑ foaf:Document
   (refine  dul/InformationObject :equivalent foaf/Document)
   (refine  OnlineAccount         :equivalent foaf/OnlineAccount)
+  (refine  PersonalProfile       :equivalent foaf/PersonalProfileDocument)
 
   ;; A Survey may be used to compare w/ analysis methods on social media
   (comment defclass Survey

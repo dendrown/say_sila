@@ -147,34 +147,17 @@
 ;;;       scaled-down say-dolce ontology as specified in the Say-Sila configuration.
 (owl-import pos/cmu-pos)
 
-(if false
-    ;; FIXME: Decide how we're handling the InfoObj subclass(es)
-    (do
-      (as-subclasses dul/InformationObject
-      :disjoint
-      (defclass Text
-        :label   "Text"
-        :comment "An Information Object consisting of text.")
+;;; NOTE: Our model was initially based off work by Salguero and Espinilla \cite{salguero2016}.
+;;;       They use the disjoint base classes: Term, Sentence, Document where Token and Punctuation
+;;;       are subclasses of Term.  In our model, Punctuation is covered in cmu-pos, which leaves
+;;;       Term and Token equivalent.  Additionally, following their model of disjoint classes here
+;;;       causes a complexity explosion in the reasoner tableau.
+(defclass Text
+  :super   dul/InformationObject
+  :label   "Text"
+  :comment "An Information Object consisting of text.")
 
-      ; TODO: Differentiate between Punctuation as an Information Object and a "Part of Speech" Quality
-      ;(defclass Punctuation
-      ;  :label   "Punctuation"
-      ;  :comment (str "An Information Object representing a grammatical symbol to organize and"
-      ;                "aid the understanding of written text."))
-
-      (defclass Term
-      ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
-        :label   "Term"
-        :comment "An Information Object representing a syntactic unit of meaning, such as a word."))
-
-      (refine Term :equivalent pos/Token))      ; cmp: (refine pos/Token :equivalent (dl/or Term Punctuation))
-
-  ;; FIXME: Of the three potential InfoObj classes, Text is the only one we actually use
-  (defclass Text
-    :super   dul/InformationObject
-    :label   "Text"
-    :comment "An Information Object consisting of text."))
-
+;;; Keep the actual tweet content as a development aid
 (defaproperty TextualContent)
 
 

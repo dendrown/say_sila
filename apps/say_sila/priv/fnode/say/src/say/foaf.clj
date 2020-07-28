@@ -38,6 +38,7 @@
 (redefclass Agent)
 (redefclass Person)
 (redefclass OnlineAccount)
+(redefclass PersonalProfileDocument)
 
 (redefclass Document ONT-IRI)
 (redefclass Group    ONT-IRI)
