@@ -27,10 +27,12 @@
             [weka.core       :as weka]
             [weka.tweet      :as tw]
             [clojure.string  :as str]
+            [clojure.pprint  :refer [pp]]
             [defun.core      :refer [defun defun-]])
   (:import  (weka.core  Attribute
                         Instances)
-            (weka.filters.unsupervised.instance RemoveDuplicates)))
+            (weka.filters.unsupervised.instance RemoveDuplicates
+                                                SubsetByExpression)))
 
 (set! *warn-on-reflection* true)
 
@@ -47,10 +49,15 @@
 (defonce T00-cols   (col-map [:id :lang :screen_name :name :description :text]))
 (defonce U00-cols   (col-map [:screen_name :name :description :environmentalist]))
 
+;;; Column/attribute lookup by dataset
 (defonce Columns    {:s00 S00-cols
                      :t00 T00-cols
                      :u00 U00-cols})
 
+;;; Current dataset layouts
+(defonce Datasets   {:s :s00
+                     :t :t00
+                     :u :u00})
 
 
 ;;; --------------------------------------------------------------------------
@@ -110,12 +117,17 @@
   (process-text insts dset :text))
 
 
-  ([insts dset col]
+  ([insts dset col & opts]
   (let [lex-tag (cfg/?? :senti :lexicon :liu)
-        txt-ndx (col-index dset col :1-based)]
+        txt-ndx (col-index dset col :1-based)
+        dataset (if (some #{:ensure-text} opts)
+                    (weka/filter-instances insts
+                                           (SubsetByExpression.)
+                                           ["-E" (strfmt "not(ATT~a is '')" txt-ndx)])
+                    insts)]
 
     (reduce #(weka/filter-instances %1 %2)
-            insts
+            dataset
             [(tw/make-lexicon-filter lex-tag txt-ndx)       ; Senti/emo
              (tw/make-tagging-filter txt-ndx)]))))          ; POS tags
 
@@ -140,21 +152,63 @@
   (-> (prep-dataset insts :t00 [:text :lang :id]        ; dels: reverse order
                                [:environmentalist])     ; adds: normal order
       (weka/filter-instances (RemoveDuplicates.))       ; One per user/profile
-      (process-text :u00 :description)))                ; Emo/POS on user profile
+      (process-text :u00 :description :ensure-text)))   ; Emo/POS on user profile
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn ^Instances transform
+(defun transform
   "Converts the current T99 tweet format to the current specified target format.
   The function creates a copy of the specified dataset whose filename is tagged
   to indicate the output data structure."
-  [arff dset xform]
+  ([arff dset xform]
+  (let [insts (weka/load-arff arff)]
+    (transform arff insts dset xform)))
+
+
+  ([arff insts dset xform]
+  ;; The ARFF and instance data should match!
   (weka/save-file arff
                   (KEYSTR dset)                         ; Tag new ARFF
-                  (xform (weka/load-arff arff))         ; Convert dataset
-                  :arff))
+                  (xform insts)                         ; Convert dataset
+                  :arff)))
 
-(defn t->s [arff] (transform arff :s00 t00->s00))
-(defn t->u [arff] (transform arff :u00 t00->u00))
+
+
+;;; --------------------------------------------------------------------------
+(defmacro defn-transform
+  "Creates a transformation function with a name like « t->d » from the
+  tweet (T99) dataset to the current version of the dataset d specified
+  by dset."
+  [dset]
+  (let [dtag  (eval dset)
+        [t99
+         d99] (map #(Datasets %) [:t dtag])
+        xform (symbol (apply str (map name [t99 "->" d99])))
+        t->d  (symbol (str "t->" (name dtag)))]
+    ;; Create a wrapper function that calls the existing transformation function
+    `(defn ~t->d
+       ;; Auto-load data for a single thread of execution
+       ([arff#]
+       (transform arff# ~d99 ~xform))
+
+       ;; Preloaded instances for concurrent execution
+       ([arff# insts#]
+       (transform arff# insts# ~d99 ~xform)))))
+
+(defn-transform :s)     ; fn: t->s
+(defn-transform :u)     ; fn: t->u
+
+
+
+;;; --------------------------------------------------------------------------
+(defn t->su
+  "Concurrently transforms a tweet ARFF (T99) to the most recent senti (S99)
+  and user (U99) formats."
+  [arff]
+  ;; Load the ARFF once and create copies for the transformations
+  ;; FIXME: Results with pmap are showing weird look-alike differences.
+  (let [insts (weka/load-arff arff)]
+    (map #(% arff (Instances. insts)) [t->s             ; TODO: pmap
+                                       t->u])))
 
