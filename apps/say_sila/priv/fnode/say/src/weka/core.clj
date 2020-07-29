@@ -179,6 +179,22 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- ^Instances prep-instances
+  "Intended as a utility function for load-arff and load-data.  This function
+  sets the target class, if specified, and performs data filtering."
+  [^Instances insts
+              target
+              filters]
+    ;; Set the target if we know what it is
+    (when target
+      (.setClass insts (.attribute insts (name target))))
+
+    ; Apply any requested filters.
+    (reduce #(filter-instances %1 %2) insts filters))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn ^Instances load-arff
   "Reads in and returns the Instances from the specified ARFF file.  The caller
   may specify any number of filter keywords after the target attribute (or nil
@@ -186,19 +202,29 @@
   ([fpath]
   (load-arff fpath nil))
 
-  ([^String fpath
-    ^String target
-    &       filters]
-  (let [loader (doto (ArffLoader.)
-                     (.setFile (io/file fpath)))
-        insts  (.getDataSet loader)]
+  ([fpath target & filters]
+  ;; Perform Weka ARFF load and prepare Instances
+  (-> (doto (ArffLoader.)
+            (.setFile (io/file fpath)))
+      (.getDataSet)
+      (prep-instances target filters))))
 
-    ; Set the target if we know what it is
-    (when target
-      (.setClass insts (.attribute insts target)))
 
-    ; Apply any requested filters.
-    (reduce #(filter-instances %1 %2) insts filters))))
+
+;;; --------------------------------------------------------------------------
+(defn ^Instances load-dataset
+  "Accepts either an ARFF filepath or a preloaded set of Instances.  The
+  function prepares the dataset by setting the target class and applying
+  the specified filters if any."
+  ([fpath]
+  (load-dataset fpath nil))
+
+
+  ([data target & filters]
+  (if (string? data)
+      (apply load-arff data target filters)
+      (prep-instances  data target filters))))
+
 
 
 ;;; --------------------------------------------------------------------------

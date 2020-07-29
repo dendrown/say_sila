@@ -27,8 +27,7 @@
             [weka.core       :as weka]
             [weka.tweet      :as tw]
             [clojure.string  :as str]
-            [clojure.pprint  :refer [pp]]
-            [defun.core      :refer [defun defun-]])
+            [clojure.pprint  :refer [pp]])
   (:import  (weka.core  Attribute
                         Instances)
             (weka.filters.unsupervised.instance RemoveDuplicates
@@ -92,19 +91,16 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defun ^Instances prep-dataset
+(defn ^Instances prep-dataset
   "Loads the instances in the specified ARFF which must correspond to the
   specified dataset structure.  The function returns the instances after
   deleting the columns in dels and adding the columns in adds."
-  ([arff :guard string? dset dels adds]
-  (prep-dataset (weka/load-arff arff) dset dels adds))
-
-
-  ([insts dset dels adds]
-  ;; Remove extra columns in reverse order & add the target w/ unknown values
-  (run! #(delete-col insts dset %) dels)
-  (run! #(append-col insts %) adds)
-  insts))
+  [data dset dels adds]
+  (let [insts (weka/load-dataset data)]
+    ;; Remove extra columns in reverse order & add the target w/ unknown values
+    (run! #(delete-col insts dset %) dels)
+    (run! #(append-col insts %) adds)
+    insts))
 
 
 
@@ -157,7 +153,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defun transform
+(defn transform
   "Converts the current T99 tweet format to the current specified target format.
   The function creates a copy of the specified dataset whose filename is tagged
   to indicate the output data structure."
