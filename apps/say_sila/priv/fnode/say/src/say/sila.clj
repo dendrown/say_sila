@@ -12,15 +12,18 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
   (:refer-clojure :exclude [==])
-  (:require [say.ontology       :refer :all]
+  (:require [say.genie          :refer :all]
+            [say.ontology       :refer :all]
             [say.config         :as cfg]
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
             [say.senti          :as senti]
             [say.log            :as log]
+            [weka.core          :as weka]
+            [weka.dataset       :as dset]
             [clojure.string     :as str]
             [clojure.java.io    :as io]
-            [clojure.pprint     :as prt :refer [pp pprint]]
+            [clojure.pprint     :as prt :refer [pp]]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
             [tawny.query        :as qry]
@@ -28,7 +31,8 @@
             [tawny.owl          :refer :all]
             [clojure.core.logic :refer :all :exclude [annotate is]])
   (:import  (org.semanticweb.owlapi.model   IRI
-                                            OWLOntologyID)))
+                                            OWLOntologyID)
+            (weka.core Instance)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -629,4 +633,29 @@
   ([^String fpath]
   (log/info "Saving ontology:" fpath)
   (save-ontology say-sila fpath :owl)))
+
+
+;;; --------------------------------------------------------------------------
+(defn instances->examples
+  "Converts Weka maps corresponding to the specified instances."
+  [data]
+  ;; NOTE: Our Twitter user data (U00) is currently unlabeled.
+  (let [target  :environmentalist
+        insts   (weka/load-dataset data target)
+        dset    (dset/Datasets :u)                              ; Structure for user (U99) data
+        attrs   (select-keys (dset/Columns dset) [:screen_name  ; 0-based attribute indices
+                                                  :name
+                                                  :description
+                                                  :environmentalist])]
+    ;; Create a sequence of maps, each representing a Weka instance
+    (reduce
+     (fn [acc ^Instance inst]
+       (conj acc
+             (update-kv-values attrs
+                               #(let [v (.stringValue inst (int %2))]   ; Pull required attributes
+                                  (if (= %1 target)                     ; Use :? instead of "?"
+                                      (keyword v)
+                                      v)))))
+     '()
+     (weka/instance-seq insts))))
 
