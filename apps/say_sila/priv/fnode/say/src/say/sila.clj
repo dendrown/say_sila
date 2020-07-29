@@ -648,14 +648,11 @@
                                                   :description
                                                   :environmentalist])]
     ;; Create a sequence of maps, each representing a Weka instance
-    (reduce
-     (fn [acc ^Instance inst]
-       (conj acc
-             (update-kv-values attrs
-                               #(let [v (.stringValue inst (int %2))]   ; Pull required attributes
-                                  (if (= %1 target)                     ; Use :? instead of "?"
-                                      (keyword v)
-                                      v)))))
-     '()
-     (weka/instance-seq insts))))
+    (map #(update % target keyword)                             ; Lazily convert "?" to :?
+         (reduce
+           (fn [acc ^Instance inst]                             ; Pull required attr-vals
+             (conj acc
+                   (update-values attrs #(.stringValue inst (int %)))))
+         '()
+         (weka/instance-seq insts)))))
 
