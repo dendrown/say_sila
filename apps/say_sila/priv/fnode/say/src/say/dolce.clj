@@ -66,6 +66,7 @@
 (redefoproperty expresses)
 (redefoproperty hasRole)
 (redefoproperty hasQuality)
+(redefoproperty isAbout)
 (redefoproperty isMemberOf)
 
 (redefoproperty follows)
@@ -118,7 +119,8 @@
         (refine InformationObject   :super SocialObject)            ; -/ parents
 
         (ent->ent hasComponent)                                     ; Do we want isComponentOf?
-        (dom->rng expresses InformationObject SocialObject)         ; Likewise with isExpressedBy?
+        (dom->rng expresses InformationObject SocialObject)         ; Likewise with: isExpressedBy
+        (dom->rng isAbout   InformationObject Entity)               ;                isReferenceOf
 
         ;; Recreate what we need for Qualities
         (refine Quality :super Entity)

@@ -31,6 +31,7 @@
             [tawny.owl          :refer :all]
             [clojure.core.logic :refer :all :exclude [annotate is]])
   (:import  (org.semanticweb.owlapi.model   IRI
+                                            OWLOntology
                                             OWLOntologyID)
             (weka.core Instance)))
 
@@ -38,6 +39,7 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
+(def ^:const ONT-ISTUB  "http://www.dendrown.net/uqam/say-sila")
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-sila.owl#")
 (def ^:const ONT-FPATH  "resources/KB/say-sila.owl")
 
@@ -633,6 +635,50 @@
   ([^String fpath]
   (log/info "Saving ontology:" fpath)
   (save-ontology say-sila fpath :owl)))
+
+
+;;; --------------------------------------------------------------------------
+(defn ont-iri
+  "Creates a (String) IRI to indentify a related say-sila. ontology with
+  individuals from social media."
+  [otag]
+  (str ONT-ISTUB "-" (name otag) ".owl#"))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ^OWLOntology make-ontology
+  "Creates a version (copy) of the say-senti ontology, intended to include
+  individuals expressing the specified Sentiment Composition Rule (SCR)"
+  [otag]
+  (let [oname  (name otag)
+        prefix #(apply str % "-" oname %&)
+        ;; We use a (sub)ontology to hold the texts and DL-Learner solutions
+        ont    (ontology
+                 :tawny.owl/name (prefix "say-sila")
+                 :iri     (ont-iri oname)
+                 :prefix  (prefix oname)
+                 :import  say-sila
+                 :comment (str "Ontology for modelling '" oname "'Twitter users and their activity."))]
+    ont))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ^OWLOntology populate-ontology
+  "Populates an ontology using examples extracted from an ARFF with user data."
+  [ont xmps]
+  (run! (fn [{sname :screen_name
+              descr :description}]
+          (let [acct (individual ont sname :type OnlineAccount)
+                prof (individual ont (str "ProfileOf_" sname)
+                                 :type PersonalProfile
+                                 :fact (is dul/isAbout acct))]
+            ;; TODO: Add PoS/senti for the profile content
+            :todo))
+        xmps)
+    ;; The (Java) ontology is mutable, return the updated version
+    ont)
 
 
 ;;; --------------------------------------------------------------------------

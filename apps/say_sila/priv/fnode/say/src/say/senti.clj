@@ -577,7 +577,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn make-iri
+(defn ont-iri
   "Creates a (String) IRI for the specified Sentiment Composition Rule (SCR)."
   [rule]
   (str ONT-ISTUB "-" (name rule) ".owl#"))
@@ -598,7 +598,7 @@
         ;; We use a (sub)ontology to hold the texts and DL-Learner solutions
         ont    (ontology
                  :tawny.owl/name (prefix "say-senti")
-                 :iri     (make-iri scr)
+                 :iri     (ont-iri scr)
                  :prefix  (prefix "scr")
                  :import  say-senti
                  :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))
@@ -2155,7 +2155,7 @@
                     (fn [rule xmps]
                       (dll/write-pn-config :base     base
                                            :rule     rule
-                                           :prefixes (merge PREFIXES {"scr" (make-iri rule)})
+                                           :prefixes (merge PREFIXES {"scr" (ont-iri rule)})
                                            :examples (pn-examples rule "scr" xmps))))
                   (process-solutions (dll/run base dtag)))]
 
