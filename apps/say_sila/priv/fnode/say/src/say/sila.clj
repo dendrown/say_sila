@@ -668,17 +668,20 @@
 (defn ^OWLOntology populate-ontology
   "Populates an ontology using examples extracted from an ARFF with user data."
   [ont xmps]
-  (run! (fn [{sname :screen_name
+  (run! (fn [{:as xmp
+              sname :screen_name
               descr :description}]
-          (let [acct (individual ont sname :type OnlineAccount)
-                prof (individual ont (str "ProfileOf_" sname)
-                                 :type PersonalProfile
-                                 :fact (is dul/isAbout acct))]
-            ;; TODO: Add PoS/senti for the profile content
-            :todo))
+          (let [sconf (cfg/? :senti)                                ; Use senti/text config
+                acct  (individual ont sname :type OnlineAccount)
+                prof  (individual ont (str "ProfileOf_" sname)
+                                  :type PersonalProfile
+                                  :fact (is dul/isAbout acct))]
+            ;; Add PoS/senti for the profile content
+            (comment add-text ont prof xmp)))
         xmps)
     ;; The (Java) ontology is mutable, return the updated version
     ont)
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -689,6 +692,7 @@
   (let [target  :environmentalist
         insts   (weka/load-dataset data target)
         dset    (dset/Datasets :u)                              ; Structure for user (U99) data
+        tools   (senti/toolbox)                                 ; Sentiment/emotion analysis
         attrs   (select-keys (dset/Columns dset) [:screen_name  ; 0-based attribute indices
                                                   :name
                                                   :description
@@ -696,9 +700,11 @@
     ;; Create a sequence of maps, each representing a Weka instance
     (map #(update % target keyword)                             ; Lazily convert "?" to :?
          (reduce
-           (fn [acc ^Instance inst]                             ; Pull required attr-vals
-             (conj acc
-                   (update-values attrs #(.stringValue inst (int %)))))
+           (fn [acc ^Instance inst]
+             (let [avals (update-values attrs #(.stringValue inst (int %)))     ; Pull attr-vals
+                   xmp   (senti/make-example tools (:description avals))]       ; Check senti/emo
+             ;; Add on hashmap with attribute data plus senti/emo analysis
+             (conj acc (merge avals xmp))))
          '()
          (weka/instance-seq insts)))))
 
