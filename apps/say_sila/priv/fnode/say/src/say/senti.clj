@@ -1199,8 +1199,8 @@
     (map->Toolbox
      {:all-pn?  (fn [] all-pn?)
 
-      :stoic?   (fn [{:keys [rules]}]                           ; Check that we're not including neutral Texts
-                  (and all-pn? (every? empty? rules)))          ; ..and that no sentiment (rule) is expressed
+      :stoic?   (fn [{:keys [analysis]}]                        ; Check that we're not including neutral Texts
+                  (and all-pn? (every? empty? analysis)))       ; ..and that no sentiment (rule) is expressed
 
       :stem     stem
 
@@ -1239,15 +1239,16 @@
                            (.replaceAll "([a-z])\\1+" "$1$1"))  ;  repeated letters
                      pairs)
 
-        affect (map (:sense tools) terms)          ; Affect: pos|neg|emo or nil per term
+        affect (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
         rules  (map (:scr tools) terms)]            ; Set of match-term rules per term
 
     ;; Put all that together to build the example
     {:tid      tid
      :polarity polarity
      :content  terms
+     :rules    rules
      :pos-tags (map first pairs)
-     :rules    (map set/union rules affect)})))
+     :analysis (map set/union affect rules)})))
 
 
 
@@ -1326,7 +1327,7 @@
 
   ([dtag xmps]
   (let [;; Statistics on text polarity and presence of affect
-        stats (reduce #(let [ss (if (every? empty? (:rules %2))
+        stats (reduce #(let [ss (if (every? empty? (:analysis %2))
                                      :stoic
                                      :senti)]
                         (update-values %1 [:count (:polarity %2) ss] inc))
@@ -1340,7 +1341,7 @@
         kount #(update-values %1 %2 inc)                        ; Accumulate hits from seq %2
 
         ;; We'll need a sequence of affect (rule) sets for the Texts
-        aff-rules (map #(:rules %) xmps)                        ; Affect sets from Texts
+        aff-rules (map #(:analysis %) xmps)                     ; Affect sets from Texts
         aff-zeros (zeros Affect-Names)                          ; Acc init: affect counts
 
         ;; Breakdown of affective elements
@@ -1419,7 +1420,8 @@
             {:tid «t3955»
              :polarity :positive
              :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
-             :rules    (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
+             :rules    (#{} #{} #{«DECREASE-N»} #{} #{}    #{} #{} #{} #{} #{})}
+             :analysis (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
   [dset arff]
   (log/fmt-debug "Loading dataset~a: ~a" dset arff)
   (let [insts (weka/load-arff arff
