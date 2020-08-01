@@ -730,17 +730,16 @@
 (defn- text-type
   "Determines the actual ontology class that should be assigned to a textual
   individual."
-  [pos-neg? clazz polarity]
+  [pos-neg? polarity]
   ;; Do we want to explicitly represent positive/negative texts?
-  (if (and pos-neg?
-           (= clazz Text))
+  (if pos-neg?
       ;; If the data has a polarity label, use the pos/neg Text subclass
       (case polarity
         :negative NegativeText
         :positive PositiveText
                   Text)
-      ;; No configured override OR not a base text class
-      clazz))
+      ;; No configured override
+      Text))
 
 
 
@@ -758,33 +757,28 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- add-text
-  "Adds a textual individual to the specified ontology.  The default type is
-  Text, but clazz may be any Entiy needing to represent a series of Tokens.
-   A positivity clue (an OWL individual) may be specified to add an explicit
-   relation:
+(defn add-text
+  "Adds a textual individual to the specified ontology.  The default behaviour
+  is to create a new individual of type Text, but the arity-4 clause allows
+  the caller to specify any entiy needing to represent a series of Tokens."
+  ([ont tinfo]
+  (add-text ont tinfo (cfg/? :senti)))
 
-        <Text denotesAffect PositiveToken>
 
-   for the purpose of guiding learning or evaluating the system."
   ([ont tinfo sconf]
-  (add-text ont Text tinfo sconf))
+  (add-text ont nil tinfo sconf))
 
 
-  ([ont clazz tinfo sconf]
-  (add-text ont clazz nil tinfo sconf))
-
-
-  ([ont clazz clue
-    {:keys [content tid polarity pos-tags rules sname]}                         ; Text (tweet) breakdown
+  ([ont entity
+    {:keys [content tid polarity pos-tags rules]}                               ; Text (tweet) breakdown
     {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-configuration
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [msg   (apply str (interpose " " content))
-          tname (or tid sname)                                      ; Tweet ID or screen-name
-          text  (individual ont tname                               ; Entity representing the text
-                  :type (text-type pos-neg? clazz polarity)         ; Determine textual type
-                  :annotation (annotation TextualContent msg))]     ; Actual msg for the modeller
+          text  (or entity
+                    (individual ont tid                                 ; Entity representing the text
+                      :type (text-type pos-neg? polarity)               ; Determine textual type
+                      :annotation (annotation TextualContent msg)))]    ; Actual msg for the modeller
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?
@@ -806,13 +800,6 @@
               ;; Link Token to the original Text and set POS Quality
               (refine ont text :fact (is dul/hasComponent curr))
               (refine ont curr :fact (is pos/isPartOfSpeech pos))
-
-              ;; Add positivity clue if we're going to guide learning
-              (when (and clue                                   ; Optional (caller decides on clues)
-                         (= cnt 1)                              ; Add the relation on the first word
-                         (= polarity :positive))
-                ;; Coax DL-Learner into looking at what denotes affect
-                (refine ont curr :fact (is denotesAffect clue)))
 
             ;; Link tokens to each other
             (when-let [prev (first tokens)]
@@ -1029,15 +1016,7 @@
 
   ([ont xmps _ sconf]
   ;; Add positivity tokens if we're guiding learning (or testing the system)
-  (let [clue (when (:pos-clue? sconf)
-               (let [tag   "PositivityClue"
-                     clazz (owl-class ont tag
-                             :super   Affect
-                             :label   "Positivity Clue"
-                             :comment "A Positive Text indicator for guiding learners or for system evaluation.")]
-                 (individual ont tag :type clazz)))]
-
-    (run! #(add-text ont Text clue % sconf) xmps)
+  (run! #(add-text ont % sconf) xmps)
 
     ;; Add Tweebo dependencies
     (when (cfg/?? :senti :use-tweebo?)
@@ -1045,7 +1024,7 @@
       (run! #(add-dependencies ont %) xmps))
 
     ;; Remember that ontologies are mutable
-    ont)))
+    ont))
 
 
 
@@ -1221,11 +1200,6 @@
   "Processes raw data to create a hashmap representing an instance in
   'example' form, which is an intermediate structure in a conversion to
   a textual individual in an ontology."
-  ([tools elements]
-  ;; Make an anonymous example
-  (dissoc (make-example tools nil elements) :tid))
-
-
   ([tools tid elements]
   (make-example tools tid elements :?))
 

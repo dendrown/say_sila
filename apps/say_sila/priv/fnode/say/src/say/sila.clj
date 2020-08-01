@@ -664,14 +664,15 @@
   [ont xmps]
   (run! (fn [{:as xmp
               sname :screen_name
-              descr :description}]
-          (let [sconf (cfg/? :senti)                                ; Use senti/text config
-                acct  (individual ont sname :type OnlineAccount)
-                prof  (individual ont (str "ProfileOf_" sname)
+              descr :description                ; User profile text
+              tid   :tid }]                     ; Text ID is the profile ID
+          (let [sconf (cfg/? :senti)                                ; Use senti/text config params
+                acct  (individual ont sname :type OnlineAccount)    ; Twitter user account
+                prof  (individual ont tid                           ; User profile
                                   :type PersonalProfile
                                   :fact (is dul/isAbout acct))]
             ;; Add PoS/senti for the profile content
-            (comment add-text ont prof xmp)))
+            (senti/add-text ont prof xmp sconf)))
         xmps)
     ;; The (Java) ontology is mutable, return the updated version
     ont)
@@ -696,7 +697,8 @@
          (reduce
            (fn [acc ^Instance inst]
              (let [avals (update-values attrs #(.stringValue inst (int %)))     ; Pull attr-vals
-                   xmp   (senti/make-example tools (:description avals))]       ; Check senti/emo
+                   tid   (str "ProfileOf_" (:screen_name avals))                ; TextID is profile name 
+                   xmp   (senti/make-example tools tid (:description avals))]   ; Check senti/emo
              ;; Add on hashmap with attribute data plus senti/emo analysis
              (conj acc (merge avals xmp))))
          '()
