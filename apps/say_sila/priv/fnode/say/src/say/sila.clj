@@ -496,9 +496,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn log-role
-  "
-  Returns a string to indicate a domain==role==>range operation.
-  "
+  "Returns a string to indicate a domain==role==>range operation."
   [role dom rng]
   (log/info (log/<> 'ROLE *ns*) (str dom "--[" role "]--" rng)))
 
@@ -506,9 +504,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn form->ontology
-  "
-  Evaluates a clojure form, presumably to add an entity to the ontology.
-  "
+  "Evaluates a clojure form, presumably to add an entity to the ontology."
   [[call ent & args]]
   ;; These forms usually end up calling def in tawny.owl/intern-owl. We are
   ;; likely here because of a call from another namespace, but Clojure doesn't
@@ -528,14 +524,12 @@
 
 ;;; --------------------------------------------------------------------------
 (defmulti alter-ontology
-  "
-  Processes the ontology command per the incoming map
+  "Processes the ontology command per the incoming map
 
   TODO: Tawny OWL has limited support for handling individuals using Strings.
         We're currently using its 'normal' methodology by which individuals
         are (also) instantiated as variables.  This is not ideal, as we need
-        to handle 10s of thousands of individual Tweeters.
-  "
+        to handle 10s of thousands of individual Tweeters."
   (fn [prop _ _]
     (if (string? prop) prop (name prop))))
 
