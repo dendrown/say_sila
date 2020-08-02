@@ -735,7 +735,7 @@
          track  :tracker
          src    :source
          dir    :dir}   (cfg/?? :sila :data INIT-DATA)
-         [users  texts] (map #(apply strfmt "~a/~a.~a.~a.~a.arff"
+         [users texts]  (map #(apply strfmt "~a/~a.~a.~a.~a.arff"
                                             (map name [dir src track dtag (dset/code %)]))
                              [:user :senti])]
     (create-world! dtag users texts)))
@@ -747,13 +747,16 @@
   (log/fmt-info "Dataset text~a: ~a" dtag atexts)
 
   (let [xusers (instances->examples dtag ausers)
-        xtexts (senti/instances->examples dtag atexts)]
+        xtexts (senti/instances->examples dtag atexts)
+        world  (-> (populate-ontology dtag (xusers dtag))
+                   (senti/populate-ontology (xtexts dtag))) ]
 
-    ;; Set our top-level state
+    ;; Set our top-level state. Each element holds a tagged map of the appropriate data
     (reset! World {:users    xusers
                    :texts    xtexts
-                   :ontology (-> (populate-ontology xusers)
-                                 (senti/populate-ontology xtexts))}))))
+                   :ontology {dtag world}})
+
+    (keys xusers))))
 
 
 
