@@ -966,26 +966,12 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn save-scr-ontologies
-  "Saves Sentiment Composition Rule ontologies in OWL format."
-  []
-  ;; Create ontologies for each SCR, each populated with individuals expressing the rule
-  (update-kv-values
-    (:ontology @SCR)
-    (fn [rule ont]
-      (let [fpath (str ONT-FSTUB "-" (name rule) ".owl")]
-        (save-ontology ont fpath :owl)
-        fpath))))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn save-ontologies
   "Saves the say-senti ontology and all the SCR ontologies in OWL format."
   []
   (save-ontology say-senti ONT-FPATH :owl)
   (merge {:say-senti ONT-FPATH}
-         (save-scr-ontologies)))
+         (save-ontology-map (:ontology @SCR) ONT-FSTUB)))
 
 
 

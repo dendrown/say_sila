@@ -766,10 +766,5 @@
   []
   (save-ontology say-sila ONT-FPATH :owl)
   (merge {:say-senti ONT-FPATH}
-         (update-kv-values
-          (:ontology @World)
-          (fn [tag ont]
-            (let [fpath (str ONT-FSTUB "-" (name tag) ".owl")]
-              (save-ontology ont fpath :owl)
-              fpath)))))
+         (save-ontology-map (:ontology @World) ONT-FSTUB)))
 
