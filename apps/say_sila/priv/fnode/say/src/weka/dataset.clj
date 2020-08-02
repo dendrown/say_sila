@@ -35,6 +35,10 @@
 
 (set! *warn-on-reflection* true)
 
+(def ^:const Codes  {:senti :s
+                     :tweet :t
+                     :user  :u})
+
 
 ;;; --------------------------------------------------------------------------
 (defn- col-map
@@ -57,6 +61,18 @@
 (defonce Datasets   {:s :s00
                      :t :t00
                      :u :u00})
+
+
+;;; --------------------------------------------------------------------------
+(defn code
+  "Returns the current dataset format code in string form for the specified
+  short or long data tag."
+  [dtag]
+  (let [dset (or (Datasets dtag)
+                 (Datasets (Codes dtag)))]
+    (when dset
+      (KEYSTR dset))))
+
 
 
 ;;; --------------------------------------------------------------------------

@@ -23,7 +23,8 @@
             [weka.dataset       :as dset]
             [clojure.string     :as str]
             [clojure.java.io    :as io]
-            [clojure.pprint     :as prt :refer [pp]]
+            [clojure.pprint     :refer [pp]]
+            [defun.core         :refer [defun]]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
             [tawny.query        :as qry]
@@ -42,6 +43,13 @@
 (def ^:const ONT-ISTUB  "http://www.dendrown.net/uqam/say-sila")
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-sila.owl#")
 (def ^:const ONT-FPATH  "resources/KB/say-sila.owl")
+(def ^:const ONT-FSTUB  "resources/KB/say-sila")
+
+(def ^:const INIT-DATA  {:tag :env, :tracker :all, :source :tweets, :dir "resources/emo-sa"})
+
+(defonce World          (atom {:users {}
+                               :texts {}
+                               :ontology {}}))
 
 
 ;;; --------------------------------------------------------------------------
@@ -646,22 +654,29 @@
   individuals expressing the specified Sentiment Composition Rule (SCR)"
   [otag]
   (let [oname  (name otag)
-        prefix #(apply str % "-" oname %&)
-        ;; We use a (sub)ontology to hold the texts and DL-Learner solutions
-        ont    (ontology
-                 :tawny.owl/name (prefix "say-sila")
-                 :iri     (ont-iri oname)
-                 :prefix  (prefix oname)
-                 :import  say-sila
-                 :comment (str "Ontology for modelling '" oname "'Twitter users and their activity."))]
-    ont))
+        prefix #(apply str % "-" oname %&)]
+    ;; We use a (sub)ontology to hold the texts and DL-Learner solutions
+    (ontology
+      :tawny.owl/name (prefix "say-sila")
+      :iri     (ont-iri oname)
+      :prefix  (prefix oname)
+      :import  say-sila
+      :comment (str "Ontology for modelling '" oname "'Twitter users and their activity."))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn ^OWLOntology populate-ontology
+(defun ^OWLOntology populate-ontology
   "Populates an ontology using examples extracted from an ARFF with user data."
-  [ont xmps]
+  ([xmps :guard map?]
+  (update-kv-values xmps #(populate-ontology %1 %2)))
+
+
+  ([dtag :guard keyword? xmps]
+  (populate-ontology (make-ontology dtag) xmps))
+
+
+  ([ont xmps]
   (run! (fn [{:as xmp
               sname :screen_name
               descr :description                ; User profile text
@@ -675,14 +690,14 @@
             (senti/add-text ont prof xmp sconf)))
         xmps)
     ;; The (Java) ontology is mutable, return the updated version
-    ont)
+    ont))
 
 
 
 ;;; --------------------------------------------------------------------------
 (defn instances->examples
   "Converts Weka maps corresponding to the specified instances."
-  [data]
+  ([data]
   ;; NOTE: Our Twitter user data (U00) is currently unlabeled.
   (let [target  :environmentalist
         insts   (weka/load-dataset data target)
@@ -697,10 +712,61 @@
          (reduce
            (fn [acc ^Instance inst]
              (let [avals (update-values attrs #(.stringValue inst (int %)))     ; Pull attr-vals
-                   tid   (str "ProfileOf_" (:screen_name avals))                ; TextID is profile name 
+                   tid   (str "ProfileOf_" (:screen_name avals))                ; TextID is profile name
                    xmp   (senti/make-example tools tid (:description avals))]   ; Check senti/emo
              ;; Add on hashmap with attribute data plus senti/emo analysis
              (conj acc (merge avals xmp))))
          '()
          (weka/instance-seq insts)))))
+
+
+  ([dset data]
+  (hash-map dset (instances->examples data))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn create-world!
+  "Loads the official say-sila examples and ontologies."
+  ([]
+  ;; Pull the configured dataset information for users and their texts.
+  ;; TODO: Incorporate dset/t->su
+  (let [{dtag   :tag
+         track  :tracker
+         src    :source
+         dir    :dir}   (cfg/?? :sila :data INIT-DATA)
+         [users  texts] (map #(apply strfmt "~a/~a.~a.~a.~a.arff"
+                                            (map name [dir src track dtag (dset/code %)]))
+                             [:user :senti])]
+    (create-world! dtag users texts)))
+
+
+  ([dtag ausers atexts]
+  ;; The tweet texts are handled in say.senti
+  (log/fmt-info "Dataset user~a: ~a" dtag ausers)
+  (log/fmt-info "Dataset text~a: ~a" dtag atexts)
+
+  (let [xusers (instances->examples dtag ausers)
+        xtexts (senti/instances->examples dtag atexts)]
+
+    ;; Set our top-level state
+    (reset! World {:users    xusers
+                   :texts    xtexts
+                   :ontology (-> (populate-ontology xusers)
+                                 (senti/populate-ontology xtexts))}))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn save-ontologies
+  "Saves the say-sila ontology and all World ontologies in OWL format."
+  []
+  (save-ontology say-sila ONT-FPATH :owl)
+  (merge {:say-senti ONT-FPATH}
+         (update-kv-values
+          (:ontology @World)
+          (fn [tag ont]
+            (let [fpath (str ONT-FSTUB "-" (name tag) ".owl")]
+              (save-ontology ont fpath :owl)
+              fpath)))))
 

@@ -111,7 +111,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defonce SCR            (atom {:examples {}         ; TODO Use a more appropriate name than SCR
+;;; Generally we'll be using sila/World, but we've got the same setup for
+;;; local experimentation with Sentiment Composition Rules (SCR).
+(defonce SCR            (atom {:examples {}
                                :ontology {}}))
 
 (defonce Expressions    (if (cfg/?? :senti :use-scr?)
@@ -995,6 +997,10 @@
   In either case function returns the ontology, populated with the new examples.
   The called may also specify a sequence of learned expressions that will be
   included in the ontology as subclasses to LearnedPositiveText."
+  ([xmps :guard map?]
+  (update-kv-values xmps #(populate-ontology %1 %2)))
+
+
   ([ont xmps]
   (populate-ontology ont xmps nil))
 
@@ -1236,12 +1242,15 @@
 
   When the dataset is not specified, the function only returns the set
   of example hashmaps corresponding to the specified instances."
-  ([insts]
-  (:data (instances->examples :data insts)))
+  ([data]
+  (:data (instances->examples :data data)))
 
 
-  ([dset ^Instances insts]
-  (instances->examples dset insts (.numInstances insts)))
+  ([dset data]
+  (let [insts (weka/load-dataset data (which-target))
+        icnt  (.numInstances insts)]
+    (log/fmt-debug "Text instances~a: ~a" dset icnt)
+    (instances->examples dset insts icnt)))
 
 
   ([dset ^Instances insts cnt]
@@ -1397,14 +1406,9 @@
              :rules    (#{} #{} #{«DECREASE-N»} #{} #{}    #{} #{} #{} #{} #{})}
              :analysis (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
   [dset arff]
+  ;; Create the official set of Text examples
   (log/fmt-debug "Loading dataset~a: ~a" dset arff)
-  (let [insts (weka/load-arff arff
-                             (which-target))]
-
-    ;; Create the new set of Text examples
-    (log/fmt-debug "Tweet instances~a: ~a" dset (.numInstances insts))
-    (instances->examples dset insts)))
-
+  (instances->examples dset arff))
 
 
 

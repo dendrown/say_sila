@@ -5,7 +5,11 @@
 
   ;; -------------------------------------------------------------------------
   :sila
-    {:foaf?             false}                  ; Link to equivalent FOAF classes
+    {:data              {:tag       :env
+                         :tracker   :all
+                         :source    :tweets
+                         :dir       "resources/emo-sa"}
+     :foaf?             false}                  ; Link to equivalent FOAF classes
 
   ;; -------------------------------------------------------------------------
   :emote
