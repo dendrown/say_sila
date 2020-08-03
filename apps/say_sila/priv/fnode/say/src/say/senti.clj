@@ -778,9 +778,11 @@
   (when (seq pos-tags)
     (let [msg   (apply str (interpose " " content))
           text  (or entity
-                    (individual ont tid                                 ; Entity representing the text
-                      :type (text-type pos-neg? polarity)               ; Determine textual type
-                      :annotation (annotation TextualContent msg)))]    ; Actual msg for the modeller
+                    (individual ont tid                             ; Entity representing the text
+                      :type (text-type pos-neg? polarity)))]        ; Determine textual type
+
+    ;;; Annotate the actual text content as a development aid
+    (refine ont text :annotation (annotation TextualContent msg))
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?
