@@ -44,6 +44,7 @@
      :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
      :system            :plutchik               ; Base emotion system: plutchik|Ekman|nil
      :secondaries?      false                   ; Construct secondary emotions from primary (for Plutchik's theory)
+     :surveys           #{}                     ; Look for links in the specified survey(s) (e.g., :sassy)
      :data-split        {:iterate?      true    ; Learn in steps through subset of the data
                          :datasets      10
                          :train         1000

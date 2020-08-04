@@ -14,10 +14,11 @@
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
             [say.config         :as cfg]
-            [say.dllearner      :as dll]
-            [say.dolce          :as dul]
             [say.log            :as log]
             [say.cmu-pos        :as pos]
+            [say.dllearner      :as dll]
+            [say.dolce          :as dul]
+            [say.survey         :as exp]
             [say.tweebo         :as twbo]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
@@ -174,6 +175,24 @@
     (defclass PositiveText
       :label "Positive Text"
       :comment "A Text which expresses sentiment of a positive polarity.")))
+
+
+;;; --------------------------------------------------------------------------
+;;; A Survey may be used to compare w/ analysis methods on social media
+;;;
+;;; TODO: Survey ontology elements should really be in say-sila, but
+;;;       the actual processing is happening in say-sent.
+(defclass Survey
+  :super   dul/InformationObject
+  :label   "Survey"
+  :comment "A series of questions intended to extract information from a group of people")
+
+(defindividual sassy
+  :type  Survey
+  :label "SASSY"
+  :comment "Six Americas Short Survey")
+
+(defonce Surveys    {:sassy sassy})
 
 
 ;;; --------------------------------------------------------------------------
@@ -490,14 +509,14 @@
   [{:keys [tid
            polarity
            content
-           rules]}]
+           analysis]}]
   (let [colourize (fn [[word affect]]
                     (eword word affect))
         pn-code   (Polarity-Markers (Affect-Fragments polarity polarity))]
-    ;; The rules have sentiment, emotion, and SCRs. The latter are ignored.
+    ;; The analysis includes sentiment, emotion, and SCRs. The latter are ignored.
     (apply str (interpose \space
-                          (conj (map colourize (zip content rules)) ; Mark affect
-                                (log/<> tid pn-code))))))           ; Tag tweet
+                          (conj (map colourize (zip content analysis))  ; Mark affect
+                                (log/<> tid pn-code))))))               ; Tag tweet
 
 
 
@@ -772,8 +791,8 @@
 
 
   ([ont entity
-    {:keys [content tid polarity pos-tags rules]}                               ; Text (tweet) breakdown
-    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-configuration
+    {:keys [analysis content tid polarity pos-tags]}                                    ; Text breakdown
+    {:keys [full-links? links? pos-neg? secondaries? surveys use-scr? use-tweebo?]}]    ; Senti-params
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [msg   (apply str (interpose " " content))
@@ -791,7 +810,7 @@
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
         (fn [[cnt tokens :as info]
-             [tag rules]]
+             [checks tag word]]
           ;; Get the Part of Speech for the tag reported by Weka
           (if-let [pos (pos/lookup# tag)]
 
@@ -825,19 +844,25 @@
               (when use-scr?
                 (binding [*ns* (find-ns 'say.senti)]
                   (when (= 'NEGATION (check-fact prev indicatesRule))
-                    (doseq [aff (filter affect? rules)]
+                    (doseq [aff (filter affect? checks)]
                       (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
                       (refine ont prev :fact (is negatesAffect (individual say-senti aff))))))))
 
             ;; Express sentiment composition rules
-            (doseq [rule rules]
+            (doseq [rule checks]
               (express ont ttid curr rule))
 
             ;; TODO: This is prototypical code for secondary emotions
             (when secondaries?
-              (doseq [sec (primaries->secondaries rules)]
+              (doseq [sec (primaries->secondaries checks)]
                 ;(log/debug "Token" ttid "expresses dyad:" sec)
                 (express ont ttid curr sec)))
+
+            ;; TODO: Prototypical code for Six Americas experimental surveys
+            (when surveys
+              (run! #(when (exp/in-survey? % word)
+                       (refine ont curr :fact (is dul/isComponentOf (% Surveys))))
+                    surveys))
 
             ;; Continue the reduction
             [(inc cnt)
@@ -848,7 +873,7 @@
                 info)))
 
         [1 nil]                             ; Acc: Token counter, reverse seq of tokens
-        (zip pos-tags rules))))))
+        (zip analysis pos-tags content))))))
 
 
 

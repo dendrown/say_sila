@@ -19,7 +19,6 @@
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
             [say.senti          :as senti]
-            [say.survey         :as survy]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
             [clojure.string     :as str]
@@ -473,20 +472,6 @@
 (comment
  refine Influencer :equivalent (dl/and Tweeter (dl/or (at-least 3 isRetweetedIn)
                                                       (at-least 3 isMentionedIn))))
-
-
-;;; --------------------------------------------------------------------------
-;; A Survey may be used to compare w/ analysis methods on social media
-(defclass Survey
-  :super   dul/InformationObject
-  :label   "Survey"
-  :comment "A series of questions intended to extract information from a group of people")
-
-(defindividual sassy
-  :type  Survey
-  :label "SASSY"
-  :comment "Six Americas Short Survey")
-
 
 
 ;;; --------------------------------------------------------------------------
