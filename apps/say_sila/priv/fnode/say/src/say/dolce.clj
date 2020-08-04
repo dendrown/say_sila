@@ -76,7 +76,9 @@
 (redefoproperty directlyPrecedes)
 
 (redefoproperty hasPart)
+(redefoproperty isPartOf)
 (redefoproperty hasComponent)
+(redefoproperty isComponentOf)
 
 
 ;;; Tell DL-Learner about our ontology elements
@@ -97,7 +99,9 @@
       (owl-import dul)
 
       ;; Recreate the bare-bones minimum from DUL in the client's ontology
-      (let[dom->rng #(apply refine % :domain %2 :range %3  %&)
+      (let[dom->rng (fn [clazz dom rng & args]
+                      (apply refine clazz :domain dom :range rng args)
+                      clazz)
            ent->ent #(apply dom->rng % Entity Entity %&)]
 
         ;; The roles we need use the class hierarchy for both the  hierarchy or minimal configurations
@@ -118,9 +122,12 @@
         (refine InformationObject   :super InformationEntity)       ; -\ two
         (refine InformationObject   :super SocialObject)            ; -/ parents
 
-        (ent->ent hasComponent)                                     ; Do we want isComponentOf?
-        (dom->rng expresses InformationObject SocialObject)         ; Likewise with: isExpressedBy
-        (dom->rng isAbout   InformationObject Entity)               ;                isReferenceOf
+        (as-inverse
+          (ent->ent hasComponent)
+          (ent->ent isComponentOf))
+
+        (dom->rng expresses InformationObject SocialObject)         ; Do we want isExpressedBy
+        (dom->rng isAbout   InformationObject Entity)               ; Likewise with: isReferenceOf
 
         ;; Recreate what we need for Qualities
         (refine Quality :super Entity)
@@ -153,6 +160,10 @@
                       follows]]
             (refine op :super associatedWith))
 
-          (ent->ent hasPart      :super associatedWith :characteristic :transitive)
-          (refine   hasComponent :super hasPart))))))
+          (as-inverse
+            (ent->ent hasPart   :super associatedWith :characteristic :transitive)
+            (ent->ent isPartOf  :super associatedWith :characteristic :transitive))
+
+          (refine hasComponent  :super hasPart)
+          (refine isComponentOf :super isPartOf))))))
 

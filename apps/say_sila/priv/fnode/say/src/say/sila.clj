@@ -15,10 +15,11 @@
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
             [say.config         :as cfg]
+            [say.log            :as log]
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
             [say.senti          :as senti]
-            [say.log            :as log]
+            [say.survey         :as survy]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
             [clojure.string     :as str]
@@ -474,6 +475,21 @@
                                                       (at-least 3 isMentionedIn))))
 
 
+;;; --------------------------------------------------------------------------
+;; A Survey may be used to compare w/ analysis methods on social media
+(defclass Survey
+  :super   dul/InformationObject
+  :label   "Survey"
+  :comment "A series of questions intended to extract information from a group of people")
+
+(defindividual sassy
+  :type  Survey
+  :label "SASSY"
+  :comment "Six Americas Short Survey")
+
+
+
+;;; --------------------------------------------------------------------------
 ;;; Align our class hierarchy with FOAF if configured to do so
 (when (cfg/?? :sila :foaf?)
   ;(owl-import foaf/foaf)
@@ -490,12 +506,6 @@
   (refine  dul/InformationObject :equivalent foaf/Document)
   (refine  OnlineAccount         :equivalent foaf/OnlineAccount)
   (refine  PersonalProfile       :equivalent foaf/PersonalProfileDocument)
-
-  ;; A Survey may be used to compare w/ analysis methods on social media
-  (comment defclass Survey
-    :super   foaf/Document
-    :label   "Survey"
-    :comment "A series of questions intended to extract information from a group of people")
 
   ;; We're using a dul/Quality-based modelling for Gender
   (comment refine FemaleGender :equivalent (has-value foaf/gender foaf/Female))
