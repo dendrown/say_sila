@@ -88,6 +88,13 @@
   :label    "Twitter Account"
   :comment  "A user account on Twitter")
 
+(defclass GreenAccount
+  :super    OnlineAccount
+  :label    "Green Account"
+  :comment  "An Online Account that represents someone who is concerned about the environment."
+  :equivalent (dl/some dul/isReferenceOf (dl/and (dl/some senti/denotesAffect senti/Fear)
+                                                 (dl/some dul/hasComponent senti/Survey))))
+
 (comment defclass Influencer
   :super    OnlineAccount
   :label    "Influencer"
