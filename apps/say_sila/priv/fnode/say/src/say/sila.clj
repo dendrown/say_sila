@@ -94,7 +94,7 @@
   :comment  "An Online Account that represents someone who is concerned about the environment."
   :equivalent (dl/some dul/isReferenceOf
                        (dl/and (dl/some dul/hasComponent (dl/some senti/denotesAffect senti/Fear))
-                               (dl/some dul/hasComponent senti/Survey))))
+                               (dl/some dul/hasComponent (dl/some dul/isComponentOf senti/Survey)))))
 
 (comment defclass Influencer
   :super    OnlineAccount
