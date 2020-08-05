@@ -92,8 +92,9 @@
   :super    OnlineAccount
   :label    "Green Account"
   :comment  "An Online Account that represents someone who is concerned about the environment."
-  :equivalent (dl/some dul/isReferenceOf (dl/and (dl/some senti/denotesAffect senti/Fear)
-                                                 (dl/some dul/hasComponent senti/Survey))))
+  :equivalent (dl/some dul/isReferenceOf
+                       (dl/and (dl/some dul/hasComponent (dl/some senti/denotesAffect senti/Fear))
+                               (dl/some dul/hasComponent senti/Survey))))
 
 (comment defclass Influencer
   :super    OnlineAccount
@@ -153,7 +154,7 @@
 ;;; --------------------------------------------------------------------------
 ;;; Object Properties
 (defoproperty supports
-  :super    dul/associatedWith
+ ;:super    dul/associatedWith                  % FIXME: needs DUL hierarchy
   :label    "supports"
   :domain   (dl/or dul/Agent
                    dul/Role)
