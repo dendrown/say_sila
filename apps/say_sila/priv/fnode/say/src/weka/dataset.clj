@@ -48,19 +48,22 @@
   (into {} (map vector attrs (range (count attrs)))))
 
 ;;; Column names generally correspond to Twitter's status (meta)data keys
+(defonce S01-cols   (col-map [:id :screen_name :text :sentiment]))
 (defonce S00-cols   (col-map [:id :text :sentiment]))
+
 (defonce T00-cols   (col-map [:id :lang :screen_name :name :description :text]))
 (defonce U00-cols   (col-map [:screen_name :name :description :environmentalist]))
 
 ;;; Column/attribute lookup by dataset
-(defonce Columns    {:s00 S00-cols
+(defonce Columns    {:s01 S01-cols
+                     :s00 S00-cols
                      :t00 T00-cols
                      :u00 U00-cols})
 
 ;;; Current dataset layouts
-(defonce Datasets   {:s :s00
-                     :t :t00
-                     :u :u00})
+(defonce Datasets   {:s :s00                    ; Sentiment/emotion
+                     :t :t00                    ; Twitter input
+                     :u :u00})                  ; User information
 
 
 ;;; --------------------------------------------------------------------------
@@ -84,6 +87,25 @@
      (if (some #{:1-based} opts)
          (weka/index0->1 col)
          col)))
+
+
+;;; --------------------------------------------------------------------------
+(defn col-target
+  "Returns the key for the last (presumably the target) column for the
+  specified data format code."
+  [dset]
+  (last (keys (Columns dset))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn col-diff
+  "Returns a list of column keys dataset a that are not part of dataset b."
+  [a b]
+  (let [[akeys
+         bkeys] (map #(keys (Columns %)) [a b])]
+    ;; The order will probably need to be reversed, but we don't do it here.
+    (remove (into #{} bkeys) akeys)))
 
 
 
@@ -111,9 +133,13 @@
   "Loads the instances in the specified ARFF which must correspond to the
   specified dataset structure.  The function returns the instances after
   deleting the columns in dels and adding the columns in adds."
-  [data dset dels adds]
-  (let [insts (weka/load-dataset data)]
-    ;; Remove extra columns in reverse order & add the target w/ unknown values
+  [data dset in out & targets]
+  ;; Remove extra columns in reverse order & add the target w/ unknown values
+  (let [insts (weka/load-dataset data)
+        dels  (reverse (col-diff in out))       ; Remove attrs in reverse order
+        adds  (if targets                       ; FIXME: Target should be nominal
+                  targets
+                  [(col-target out)])]
     (run! #(delete-col insts dset %) dels)
     (run! #(append-col insts %) adds)
     insts))
@@ -146,12 +172,21 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- ^Instances t00->s01
+  "Converts the T00 tweet format to the S00 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «S00»."
+  [insts]
+  (-> (prep-dataset insts :t00 :s01)
+      (process-text :s01)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- ^Instances t00->s00
   "Converts the T00 tweet format to the S00 say-senti format.  The function
   creates a copy of the specified dataset whose filename is tagged with «S00»."
   [insts]
-  (-> (prep-dataset insts :t00 [:description :name :screen_name :lang]  ; dels: reverse order
-                               [:sentiment])                            ; adds: normal order
+  (-> (prep-dataset insts :t00 :s00)
       (process-text :s00)))                                             ; Emo/POS on tweet text
 
 
@@ -161,8 +196,7 @@
   "Converts the T00 tweet format to the U00 say-senti format.  The function
   creates a copy of the specified dataset whose filename is tagged with «U00»."
   [insts]
-  (-> (prep-dataset insts :t00 [:text :lang :id]        ; dels: reverse order
-                               [:environmentalist])     ; adds: normal order
+  (-> (prep-dataset insts :t00 :u00)
       (weka/filter-instances (RemoveDuplicates.))       ; One per user/profile
       (process-text :u00 :description :ensure-text)))   ; Emo/POS on user profile
 
