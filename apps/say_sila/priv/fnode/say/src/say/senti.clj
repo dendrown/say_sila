@@ -18,7 +18,7 @@
             [say.cmu-pos        :as pos]
             [say.dllearner      :as dll]
             [say.dolce          :as dul]
-            [say.survey         :as exp]
+            [say.survey         :as six]
             [say.tweebo         :as twbo]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
@@ -866,7 +866,7 @@
 
             ;; TODO: Prototypical code for Six Americas experimental surveys
             (when surveys
-              (run! #(when (exp/in-survey? % word)
+              (run! #(when (six/in-survey? % word)
                        (refine ont curr :fact (is dul/isComponentOf (% Surveys))))
                     surveys))
 

@@ -18,6 +18,7 @@
             [say.log            :as log]
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
+            [say.cmu-pos        :as pos]
             [say.senti          :as senti]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
@@ -74,6 +75,40 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; Environmental clues at the Text level
+;;;
+;;; TBox: building on pos:Token
+(defclass FearToken
+  :super    pos/Token
+  :label    "Fear Token"
+  :comment  "A Token which may indicate fear."
+  :equivalent (dl/and pos/Token
+                      (dl/some senti/denotesAffect senti/Fear)))
+
+(defclass GreenToken
+  :super    pos/Token
+  :label    "Green Token"
+  :comment  "A Token which may indicate a user's tendency towards environmentalism."
+  :equivalent (dl/and pos/Token
+                      (dl/some dul/isComponentOf senti/Survey)))
+
+(defclass FearInformationObject
+  :super    dul/InformationObject
+  :label    "Fear Information Object"
+  :comment  "An Information Object which may indicate fear."
+  :equivalent (dl/and dul/InformationObject
+                      (dl/some dul/hasComponent FearToken)))
+
+(defclass GreenInformationObject
+  :super    dul/InformationObject
+  :label    "Green Information Object"
+  :comment  (str "An Information Object which has one or more components that may indicate a user's "
+                 "tendency towards environmentalism.")
+  :equivalent (dl/and dul/InformationObject
+                      (dl/some dul/hasComponent GreenToken)))
+
+
+;;; --------------------------------------------------------------------------
 ;;; Demographics:
 ;;;
 ;;; TBox: building on dul:SocialObject
@@ -87,14 +122,6 @@
   :super    OnlineAccount
   :label    "Twitter Account"
   :comment  "A user account on Twitter")
-
-(defclass GreenAccount
-  :super    OnlineAccount
-  :label    "Green Account"
-  :comment  "An Online Account that represents someone who is concerned about the environment."
-  :equivalent (dl/some dul/isReferenceOf
-                       (dl/and (dl/some dul/hasComponent (dl/some senti/denotesAffect senti/Fear))
-                               (dl/some dul/hasComponent (dl/some dul/isComponentOf senti/Survey)))))
 
 (comment defclass Influencer
   :super    OnlineAccount
@@ -480,6 +507,25 @@
 (comment
  refine Influencer :equivalent (dl/and Tweeter (dl/or (at-least 3 isRetweetedIn)
                                                       (at-least 3 isMentionedIn))))
+
+
+;;; --------------------------------------------------------------------------
+;;; Environmental clues at the Account level
+;;;
+;;; TBox: building on OnlineAccount ⊑ dul:SocialObject
+(defclass GreenAccount
+  :super    OnlineAccount
+  :label    "Green Account"
+  :comment  "An Online Account that represents someone who is concerned about the environment."
+  :equivalent (dl/and
+                OnlineAccount
+                (dl/or
+                  ;; Profile trigger
+                  (dl/some dul/isReferenceOf (dl/and FearInformationObject
+                                                     GreenInformationObject))
+                  ;; Tweet trigger
+                  (dl/and (dl/some tweets FearInformationObject)
+                          (dl/some tweets GreenInformationObject)))))
 
 
 ;;; --------------------------------------------------------------------------
