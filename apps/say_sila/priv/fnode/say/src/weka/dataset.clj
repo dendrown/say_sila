@@ -61,7 +61,7 @@
                      :u00 U00-cols})
 
 ;;; Current dataset layouts
-(defonce Datasets   {:s :s00                    ; Sentiment/emotion
+(defonce Datasets   {:s :s01                    ; Sentiment/emotion
                      :t :t00                    ; Twitter input
                      :u :u00})                  ; User information
 
@@ -141,14 +141,14 @@
   "Loads the instances in the specified ARFF which must correspond to the
   specified dataset structure.  The function returns the instances after
   deleting the columns in dels and adding the columns in adds."
-  [data dset in out & targets]
+  [data in out & targets]
   ;; Remove extra columns in reverse order & add the target w/ unknown values
   (let [insts (weka/load-dataset data)
         dels  (reverse (col-diff in out))       ; Remove attrs in reverse order
         adds  (if targets                       ; FIXME: Target should be nominal
                   targets
                   [(col-target out)])]
-    (run! #(delete-col insts dset %) dels)
+    (run! #(delete-col insts in %) dels)
     (run! #(append-col insts %) adds)
     insts))
 

@@ -714,9 +714,10 @@
     (map #(update % target keyword)                             ; Lazily convert "?" to :?
          (reduce
            (fn [acc ^Instance inst]
-             (let [avals (update-values attrs #(.stringValue inst (int %)))     ; Pull attr-vals
-                   tid   (str "ProfileOf_" (:screen_name avals))                ; TextID is profile name
-                   xmp   (senti/make-example tools tid (:description avals))]   ; Check senti/emo
+             (let [avals (update-values attrs #(.stringValue inst (int %)))         ; Pull attr-vals
+                   sname (:screen_name avals)
+                   tid   (str "ProfileOf_" sname)                                   ; TextID is profile name
+                   xmp   (senti/make-example tools tid sname (:description avals))] ; Check senti/emo
              ;; Add on hashmap with attribute data plus senti/emo analysis
              (conj acc (merge avals xmp))))
          '()

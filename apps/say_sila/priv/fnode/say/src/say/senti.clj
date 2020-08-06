@@ -75,7 +75,8 @@
 (def ^:const SPLIT-TAGS [:train :test])
 (def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
 
-(defonce Columns        (dset/columns :s))
+(defonce Columns        (dset/columns :s))          ; Weka format for Say-Sila Erlang feed
+(defonce Columns-Film   (dset/columns :s00))        ; Weka format for Sentiment140/Kaggle datasets
 
 
 ;;; --------------------------------------------------------------------------
@@ -716,7 +717,7 @@
 
   Instance
   (label-text [inst]
-    (label-text (.value inst (Columns :id))))
+    (label-text (.value inst (int (Columns :id)))))
 
   String
   (label-text [s]
@@ -790,7 +791,7 @@
 
 
   ([ont entity
-    {:keys [analysis content tid polarity pos-tags]}                                    ; Text breakdown
+    {:keys [account analysis content tid polarity pos-tags]}                            ; Text breakdown
     {:keys [full-links? links? pos-neg? secondaries? surveys use-scr? use-tweebo?]}]    ; Senti-params
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
@@ -799,8 +800,14 @@
                     (individual ont tid                             ; Entity representing the text
                       :type (text-type pos-neg? polarity)))]        ; Determine textual type
 
-    ;;; Annotate the actual text content as a development aid
+    ;; Annotate the actual text content as a development aid
     (refine ont text :annotation (annotation TextualContent msg))
+
+    ;; If they didn't pass an entity, assume this is a tweet
+    ;; TODO: Handle access to say.sila namespace
+    (when (and account                                              ; Test data may not have screen names
+               (not entity))
+      (refine ont (individual ont account) :fact (is (object-property ont "tweets") text)))
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?
@@ -1218,11 +1225,11 @@
   "Processes raw data to create a hashmap representing an instance in
   'example' form, which is an intermediate structure in a conversion to
   a textual individual in an ontology."
-  ([tools tid elements]
-  (make-example tools tid elements :?))
+  ([tools tid sname elements]
+  (make-example tools tid sname elements :?))
 
 
-  ([tools tid elements polarity]
+  ([tools tid sname elements polarity]
   (let [pairs   (map #(str/split % #"_" 2)                      ; Separate elements: [PoS token]
                       (str/split elements #" "))
 
@@ -1235,12 +1242,13 @@
         rules  (map (:scr tools) terms)]            ; Set of match-term rules per term
 
     ;; Put all that together to build the example
-    {:tid      tid
-     :polarity polarity
-     :content  terms
-     :rules    rules
-     :pos-tags (map first pairs)
-     :analysis (map set/union affect rules)})))
+    {:account   sname
+     :tid       tid
+     :polarity  polarity
+     :content   terms
+     :rules     rules
+     :pos-tags  (map first pairs)
+     :analysis  (map set/union affect rules)})))
 
 
 
@@ -1268,7 +1276,8 @@
   ([dset ^Instances insts cnt]
   ;; Keep track of how many examples to create, as per the configured 'balance' setting
   (let [[col-id
-         col-text]  (map Columns [:id :text])
+         col-sname
+         col-text]  (map Columns [:id :screen_name :text])
         tools       (toolbox)
         stoic?      (:stoic? tools)
         goal        (create-pn-goal dset cnt)]
@@ -1292,10 +1301,11 @@
                 (if (creation-done? cnts goal)
                   (do (log/info "Examples:" cnts)
                       (reduced info))
-                  (let [tid    (label-text (.stringValue inst col-id))
+                  (let [tid    (label-text (.stringValue inst (int col-id)))
+                        sname  (.stringValue inst (int col-sname))
                         pole   (polarize inst)
-                        elms   (.stringValue inst col-text)              ; Text elements are "pos_term"
-                        xmp    (make-example tools tid elms pole)       ; Example as a hashmap
+                        elms   (.stringValue inst (int col-text))       ; Text elements are "pos_term"
+                        xmp    (make-example tools tid sname elms pole) ; Example as a hashmap
                         xkeys  (apply set/union #{dset} (xmp :rules))]  ; Full dataset & all SCRs
                     ;; Do we skip|process this Text??
                     (if (or (stoic? xmp)                                ; Is it void of pos/neg/emotion?
@@ -1588,9 +1598,9 @@
   ([^Instances  oinsts
     ^Instance   iinst]
   ;; There may be more, but we're just handling the three always-present attributes
-  (init-instance oinsts (.stringValue iinst (Columns :id))
-                        (.stringValue iinst (Columns :text))
-                        (.value       iinst (Columns :sentiment))))
+  (init-instance oinsts (.stringValue iinst (int (Columns-Film :id)))
+                        (.stringValue iinst (int (Columns-Film :text)))
+                        (.value       iinst (int (Columns-Film :sentiment)))))
 
 
   ([^Instances  oinsts
@@ -1600,9 +1610,9 @@
   ;; Create the new Instance and link (but don't add) it to the dataset
   (doto (DenseInstance. (.numAttributes oinsts))
         (.setDataset oinsts)
-        (.setValue (Columns :id) id)
-        (.setValue (Columns :text) text)
-        (.setValue (Columns :setiment) sentiment))))            ; 0.0=neg, 1.0=pos
+        (.setValue (int (Columns-Film :id)) id)
+        (.setValue (int (Columns-Film :text)) text)
+        (.setValue (int (Columns-Film :setiment)) sentiment)))) ; 0.0=neg, 1.0=pos
 
 
 
@@ -1615,7 +1625,7 @@
   ;; Start with the base three attributes...
   (let [oinst (init-instance oinsts iinst)]
     ;; Copy the remaining attributes
-    (doseq [^Long i (range (inc (Columns :sentiment))
+    (doseq [^Long i (range (inc (Columns-Film :sentiment))
                            (.numAttributes oinsts))]
       (.setValue oinst i (.value iinst i)))
     (.add oinsts oinst)
