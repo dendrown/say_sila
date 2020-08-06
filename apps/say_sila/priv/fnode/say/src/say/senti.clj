@@ -68,15 +68,14 @@
                          :Kaggle        "resources/emo-sa/Sentiment140/sentiment-analysis.Kaggle.arff"
                          :Sentiment140  "resources/emo-sa/Sentiment140/sentiment-analysis.Sentiment140.arff"
                          :weka          "resources/emo-sa/Sentiment140/sentiment-analysis.Sentiment140.weka.arff"})
-(def ^:const COL-ID     0)
-(def ^:const COL-TEXT   1)
-(def ^:const COL-CLASS  2)
 
 (def ^:const PREFIXES   {"senti"    ONT-IRI
                          "pos"      pos/ONT-IRI})
 
 (def ^:const SPLIT-TAGS [:train :test])
 (def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
+
+(defonce Columns        (dset/columns :s))
 
 
 ;;; --------------------------------------------------------------------------
@@ -717,7 +716,7 @@
 
   Instance
   (label-text [inst]
-    (label-text (.value inst COL-ID)))
+    (label-text (.value inst (Columns :id))))
 
   String
   (label-text [s]
@@ -1268,9 +1267,11 @@
 
   ([dset ^Instances insts cnt]
   ;; Keep track of how many examples to create, as per the configured 'balance' setting
-  (let [tools   (toolbox)
-        stoic?  (:stoic? tools)
-        goal    (create-pn-goal dset cnt)]
+  (let [[col-id
+         col-text]  (map Columns [:id :text])
+        tools       (toolbox)
+        stoic?      (:stoic? tools)
+        goal        (create-pn-goal dset cnt)]
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (describe-creation goal)
@@ -1291,9 +1292,9 @@
                 (if (creation-done? cnts goal)
                   (do (log/info "Examples:" cnts)
                       (reduced info))
-                  (let [tid    (label-text (.stringValue inst COL-ID))
+                  (let [tid    (label-text (.stringValue inst col-id))
                         pole   (polarize inst)
-                        elms   (.stringValue inst COL-TEXT)             ; Text elements are "pos_term"
+                        elms   (.stringValue inst col-text)              ; Text elements are "pos_term"
                         xmp    (make-example tools tid elms pole)       ; Example as a hashmap
                         xkeys  (apply set/union #{dset} (xmp :rules))]  ; Full dataset & all SCRs
                     ;; Do we skip|process this Text??
@@ -1587,9 +1588,9 @@
   ([^Instances  oinsts
     ^Instance   iinst]
   ;; There may be more, but we're just handling the three always-present attributes
-  (init-instance oinsts (.stringValue iinst COL-ID)
-                        (.stringValue iinst COL-TEXT)
-                        (.value       iinst COL-CLASS)))
+  (init-instance oinsts (.stringValue iinst (Columns :id))
+                        (.stringValue iinst (Columns :text))
+                        (.value       iinst (Columns :sentiment))))
 
 
   ([^Instances  oinsts
@@ -1599,9 +1600,9 @@
   ;; Create the new Instance and link (but don't add) it to the dataset
   (doto (DenseInstance. (.numAttributes oinsts))
         (.setDataset oinsts)
-        (.setValue COL-ID    id)
-        (.setValue COL-TEXT  text)
-        (.setValue COL-CLASS sentiment))))          ; 0.0=neg, 1.0=pos
+        (.setValue (Columns :id) id)
+        (.setValue (Columns :text) text)
+        (.setValue (Columns :setiment) sentiment))))            ; 0.0=neg, 1.0=pos
 
 
 
@@ -1614,7 +1615,7 @@
   ;; Start with the base three attributes...
   (let [oinst (init-instance oinsts iinst)]
     ;; Copy the remaining attributes
-    (doseq [^Long i (range (inc COL-CLASS)
+    (doseq [^Long i (range (inc (Columns :sentiment))
                            (.numAttributes oinsts))]
       (.setValue oinst i (.value iinst i)))
     (.add oinsts oinst)

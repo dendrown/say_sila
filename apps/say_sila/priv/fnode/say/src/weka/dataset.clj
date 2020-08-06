@@ -79,6 +79,14 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn columns
+  "Returns the column index for the specified dataset format and column tag."
+  [dtag]
+  (Columns (or (Datasets dtag) dtag)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn col-index
   "Returns the column index for the specified dataset format and column tag."
   [dset col & opts]
