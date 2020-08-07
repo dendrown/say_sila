@@ -807,7 +807,7 @@
     ;; TODO: Handle access to say.sila namespace
     (when (and account                                              ; Test data may not have screen names
                (not entity))
-      (refine ont (individual ont account) :fact (is (object-property ont "tweets") text)))
+      (refine ont (individual ont account) :fact (is (object-property ont "publishes") text)))
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?

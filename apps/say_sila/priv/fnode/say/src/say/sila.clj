@@ -118,6 +118,7 @@
   :label    "Online Account"
   :comment  "A user account for an online service.")
 
+(comment
 (defclass TwitterAccount
   :super    OnlineAccount
   :label    "Twitter Account"
@@ -142,9 +143,10 @@
   (defclass RegularPlayer
     :label   "Regular Player"
     :comment "A Player (participant) who demonstrates normal activity during a tracking run"))
-
+);comment
 
 ;;; TODO: Evaluating Gender ⊑ dul/Quality
+(comment
 (defclass Gender
   :super    dul/Quality
   :label    "Gender"
@@ -176,11 +178,11 @@
   :domain   dul/Person
   :range    Gender
   :characteristic :functional)
-
+);comment
 
 ;;; --------------------------------------------------------------------------
 ;;; Object Properties
-(defoproperty supports
+(comment defoproperty supports
  ;:super    dul/associatedWith                  % FIXME: needs DUL hierarchy
   :label    "supports"
   :domain   (dl/or dul/Agent
@@ -190,7 +192,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; Concepts:
-(defindividual Environmentalism
+(comment defindividual Environmentalism
   :type     dul/Concept
   :label    "Environmentalism"
   :comment  "The Concept of caring about the evironment and supporting evironmentally-friendly policies.")
@@ -198,7 +200,7 @@
 
 ;;; --------------------------------------------------------------------------
 ;;; Roles:
-(defindividual Environmentalist
+(comment defindividual Environmentalist
   :type     dul/Role
   :label    "Environmentalist"
   :comment  "The Role of someone involved in Environmentalism"
@@ -211,6 +213,7 @@
 ;;; NOTE: We may be moving towards \cite{porello2014} for modelling social groups
 ;;;
 ;;; TODO: Find and cite source of definitions for political terms
+(comment
 (defclass PoliticalIdeology
   :super    dul/Concept
   :label    "Political Ideology"
@@ -257,12 +260,12 @@
   :comment  (str "The Political Party of no-party "
                  "whose members often consider themselves in the middle of Republicans and Democrats. "
                  "NOTE: We are addressing the fact that independents do not constitute a true Political Party."))
-
-
+);comment
 
 
 ;;; --------------------------------------------------------------------------
 ;;; Six Americas
+(comment
 (defclass AudienceSegment
   :super   dul/Collective
   :label   "Audience Segment"
@@ -362,14 +365,25 @@
             (is dul/isMemberOf RepublicanParty)                         ; 64%
             (is supports Conservatism)                                  ; 75%
             (dl/not dul/hasRole Environmentalist))
+);comment
 
 
 ;;; TBox: building on dul:InformationObject==>senti:Text
+;;;
+;;; TODO: the publishes role will be skillfully merged with tweets
+(defoproperty publishes
+  :label    "publishes"
+  :domain   OnlineAccount
+  :range    dul/InformationObject
+  :comment  "The action of making an Information Object available to an online community.")
+
+
 (defclass PersonalProfile
   :super   dul/InformationObject
   :label   "Personal Profile"
   :comment "An Information Object consisting of a personal description for an online user.")
 
+(comment
 (defclass Tweet
   :super   senti/Text
   :label   "Tweet"
@@ -504,10 +518,9 @@
 
 
 ;;; Big Players and Influencers
-(comment
- refine Influencer :equivalent (dl/and Tweeter (dl/or (at-least 3 isRetweetedIn)
+(refine Influencer :equivalent (dl/and Tweeter (dl/or (at-least 3 isRetweetedIn)
                                                       (at-least 3 isMentionedIn))))
-
+);comment
 
 ;;; --------------------------------------------------------------------------
 ;;; Environmental clues at the Account level
@@ -524,8 +537,8 @@
                   (dl/some dul/isReferenceOf (dl/and FearInformationObject
                                                      GreenInformationObject))
                   ;; Tweet trigger
-                  (dl/and (dl/some tweets FearInformationObject)
-                          (dl/some tweets GreenInformationObject)))))
+                  (dl/and (dl/some publishes FearInformationObject)
+                          (dl/some publishes GreenInformationObject)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -652,7 +665,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn get-gender-tweet-counts
+(comment defn get-gender-tweet-counts
   "Returns a map of the counts of tweets for the specifed Tweeter that were
   classified as :male and :female."
   [tweeter]

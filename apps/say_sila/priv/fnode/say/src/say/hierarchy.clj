@@ -86,8 +86,8 @@
         (let [{[dom rng] :tweets} msg]
           ;; Make sure the user is in the ontology and feed back her F/M tweet counts
           (sila/alter-ontology :tweets dom rng)
-          (>! gnd-fbk (sila/get-gender-tweet-counts dom))
-          ; TODO! (<! gender)
+          (>! gnd-fbk 0)                        ;TODO: (sila/get-gender-tweet-counts dom))
+          ; TODO: (<! gender)
           )
 
         (recur (<! gender))))))

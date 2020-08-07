@@ -118,7 +118,7 @@
 
 
         (refine Concept             :super SocialObject)
-        (refine Role                :super Concept)
+        (comment refine Role        :super Concept)                 ; TODO: reactivate for Six Americas
 
         (refine InformationEntity   :super Entity)
         (refine InformationObject   :super InformationEntity)       ; -\ two
