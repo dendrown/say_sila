@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila Emotion Utilities
 %%
-%% @copyright 2017-2018 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(emo).
@@ -72,7 +72,8 @@ average(Emos = #emos{count = Cnt}) ->
 
 %%--------------------------------------------------------------------
 -spec average(Running  :: emos(),
-              Incoming :: emos()) -> emos().
+              Incoming :: emos()
+                        | undefined) -> emos().
 %
 % @doc  Updates a running average `emos' record with new (incoming)
 %       levels of emotion.
@@ -87,7 +88,11 @@ average(Running  = #emos{count = RunCnt},
                       {Emo, (RunCnt * Run + IncCnt * Inc) / TotalCnt}
                       end,
     #emos{count  = TotalCnt,
-              levels = relevel(Averager)}.
+          levels = relevel(Averager)};
+
+
+average(Running, undefined) ->
+    Running.
 
 
 

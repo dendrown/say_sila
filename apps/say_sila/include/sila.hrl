@@ -8,7 +8,7 @@
 %%
 %% @doc Common definitions for Sila
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -ifndef(_sila_included).
@@ -21,7 +21,7 @@
 -define(DEFAULT_PERIOD,   "day").
 
 -define(TRACKERS, [cc,  gw]).
--type tracker() :: cc | gw.
+-type tracker() :: cc | gw | all.                   % TODO: Make sense of `all'
 
 % Analysis with Weka
 -type data_mode() :: level | variation.

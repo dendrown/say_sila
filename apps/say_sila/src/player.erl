@@ -8,7 +8,7 @@
 %%
 %% @doc The "Say Sila" Twitter player (account) handler
 %%
-%% @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(player).
@@ -530,18 +530,18 @@ tweet(Tracker, Tweet) ->
 % @doc  Updates the first communication info block with a second
 %       block or a raw emotion record.
 % @end  --
-update_comm(Comm = #comm{cnt  = Cnt,
-                         emos = Emos}, Emotions = #emos{}) ->
-    % FIXME: We already have a count in emos
-    Comm#comm{cnt  = 1 + Cnt,
-              emos = emo:average(Emos, Emotions)};
-
-
 update_comm(Comm = #comm{cnt = Cnt1, emos = Emos1},
                    #comm{cnt = Cnt2, emos = Emos2}) ->
     % FIXME: We already have a count in emos
     Comm#comm{cnt  = Cnt1 + Cnt2,
-              emos = emo:average(Emos1, Emos2)}.
+              emos = emo:average(Emos1, Emos2)};
+
+
+update_comm(Comm = #comm{cnt  = Cnt,
+                         emos = Emos}, Emotions) ->
+    % FIXME: We already have a count in emos
+    Comm#comm{cnt  = 1 + Cnt,
+              emos = emo:average(Emos, Emotions)}.
 
 
 
