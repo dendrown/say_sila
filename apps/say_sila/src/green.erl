@@ -33,7 +33,8 @@ opts() -> opts(q1).
 
 opts(green) -> [no_retweet, {start, {2019, 10, 1}}, {stop, {2020, 7, 1}}];
 opts(q1)    -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
-opts(jan1)  -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}].
+opts(jan)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 2, 1}}];
+opts(day)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}].
 
 
 -include("sila.hrl").
@@ -92,7 +93,8 @@ stop() ->
 % @doc  Create an ARFF with the server's environmenal tweets.
 % @end  --
 make_arff() ->
-    gen_server:call(?MODULE, make_arff).
+    % This may take a while depending on the tweet count
+    gen_server:call(?MODULE, make_arff, 30 * 1000).
 
 
 

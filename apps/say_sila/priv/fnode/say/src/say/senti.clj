@@ -14,10 +14,11 @@
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
             [say.config         :as cfg]
-            [say.dllearner      :as dll]
-            [say.dolce          :as dul]
             [say.log            :as log]
             [say.cmu-pos        :as pos]
+            [say.dllearner      :as dll]
+            [say.dolce          :as dul]
+            [say.survey         :as six]
             [say.tweebo         :as twbo]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
@@ -67,15 +68,15 @@
                          :Kaggle        "resources/emo-sa/Sentiment140/sentiment-analysis.Kaggle.arff"
                          :Sentiment140  "resources/emo-sa/Sentiment140/sentiment-analysis.Sentiment140.arff"
                          :weka          "resources/emo-sa/Sentiment140/sentiment-analysis.Sentiment140.weka.arff"})
-(def ^:const COL-ID     0)
-(def ^:const COL-TEXT   1)
-(def ^:const COL-CLASS  2)
 
 (def ^:const PREFIXES   {"senti"    ONT-IRI
                          "pos"      pos/ONT-IRI})
 
 (def ^:const SPLIT-TAGS [:train :test])
 (def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
+
+(defonce Columns        (dset/columns :s))          ; Weka format for Say-Sila Erlang feed
+(defonce Columns-Film   (dset/columns :s00))        ; Weka format for Sentiment140/Kaggle datasets
 
 
 ;;; --------------------------------------------------------------------------
@@ -111,7 +112,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defonce SCR            (atom {:examples {}         ; TODO Use a more appropriate name than SCR
+;;; Generally we'll be using sila/World, but we've got the same setup for
+;;; local experimentation with Sentiment Composition Rules (SCR).
+(defonce SCR            (atom {:examples {}
                                :ontology {}}))
 
 (defonce Expressions    (if (cfg/?? :senti :use-scr?)
@@ -147,34 +150,17 @@
 ;;;       scaled-down say-dolce ontology as specified in the Say-Sila configuration.
 (owl-import pos/cmu-pos)
 
-(if false
-    ;; FIXME: Decide how we're handling the InfoObj subclass(es)
-    (do
-      (as-subclasses dul/InformationObject
-      :disjoint
-      (defclass Text
-        :label   "Text"
-        :comment "An Information Object consisting of text.")
+;;; NOTE: Our model was initially based off work by Salguero and Espinilla \cite{salguero2016}.
+;;;       They use the disjoint base classes: Term, Sentence, Document where Token and Punctuation
+;;;       are subclasses of Term.  In our model, Punctuation is covered in cmu-pos, which leaves
+;;;       Term and Token equivalent.  Additionally, following their model of disjoint classes here
+;;;       causes a complexity explosion in the reasoner tableau.
+(defclass Text
+  :super   dul/InformationObject
+  :label   "Text"
+  :comment "An Information Object consisting of text.")
 
-      ; TODO: Differentiate between Punctuation as an Information Object and a "Part of Speech" Quality
-      ;(defclass Punctuation
-      ;  :label   "Punctuation"
-      ;  :comment (str "An Information Object representing a grammatical symbol to organize and"
-      ;                "aid the understanding of written text."))
-
-      (defclass Term
-      ;TODO:  Consider splitting off: numeral, emoticon, hashtag, @mention
-        :label   "Term"
-        :comment "An Information Object representing a syntactic unit of meaning, such as a word."))
-
-      (refine Term :equivalent pos/Token))      ; cmp: (refine pos/Token :equivalent (dl/or Term Punctuation))
-
-  ;; FIXME: Of the three potential InfoObj classes, Text is the only one we actually use
-  (defclass Text
-    :super   dul/InformationObject
-    :label   "Text"
-    :comment "An Information Object consisting of text."))
-
+;;; Keep the actual tweet content as a development aid
 (defaproperty TextualContent)
 
 
@@ -189,6 +175,24 @@
     (defclass PositiveText
       :label "Positive Text"
       :comment "A Text which expresses sentiment of a positive polarity.")))
+
+
+;;; --------------------------------------------------------------------------
+;;; A Survey may be used to compare w/ analysis methods on social media
+;;;
+;;; TODO: Survey ontology elements should really be in say-sila, but
+;;;       the actual processing is happening in say-sent.
+(defclass Survey
+  :super   dul/InformationObject
+  :label   "Survey"
+  :comment "A series of questions intended to extract information from a group of people")
+
+(defindividual sassy
+  :type  Survey
+  :label "SASSY"
+  :comment "Six Americas Short Survey")
+
+(defonce Surveys    {:sassy sassy})
 
 
 ;;; --------------------------------------------------------------------------
@@ -505,14 +509,14 @@
   [{:keys [tid
            polarity
            content
-           rules]}]
+           analysis]}]
   (let [colourize (fn [[word affect]]
                     (eword word affect))
         pn-code   (Polarity-Markers (Affect-Fragments polarity polarity))]
-    ;; The rules have sentiment, emotion, and SCRs. The latter are ignored.
+    ;; The analysis includes sentiment, emotion, and SCRs. The latter are ignored.
     (apply str (interpose \space
-                          (conj (map colourize (zip content rules)) ; Mark affect
-                                (log/<> tid pn-code))))))           ; Tag tweet
+                          (conj (map colourize (zip content analysis))  ; Mark affect
+                                (log/<> tid pn-code))))))               ; Tag tweet
 
 
 
@@ -594,7 +598,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn make-iri
+(defn ont-iri
   "Creates a (String) IRI for the specified Sentiment Composition Rule (SCR)."
   [rule]
   (str ONT-ISTUB "-" (name rule) ".owl#"))
@@ -615,7 +619,7 @@
         ;; We use a (sub)ontology to hold the texts and DL-Learner solutions
         ont    (ontology
                  :tawny.owl/name (prefix "say-senti")
-                 :iri     (make-iri scr)
+                 :iri     (ont-iri scr)
                  :prefix  (prefix "scr")
                  :import  say-senti
                  :comment (str "Ontology for training sentiment models wrt. the Sentiment Composition Rule " scr))
@@ -713,7 +717,7 @@
 
   Instance
   (label-text [inst]
-    (label-text (.value inst COL-ID)))
+    (label-text (.value inst (int (Columns :id)))))
 
   String
   (label-text [s]
@@ -744,8 +748,26 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- text-type
+  "Determines the actual ontology class that should be assigned to a textual
+  individual."
+  [pos-neg? polarity]
+  ;; Do we want to explicitly represent positive/negative texts?
+  (if pos-neg?
+      ;; If the data has a polarity label, use the pos/neg Text subclass
+      (case polarity
+        :negative NegativeText
+        :positive PositiveText
+                  Text)
+      ;; No configured override
+      Text))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- express
-  "Creates"
+  "Asserts a role relation in the specified ontology of either dul:express
+  or one of its sub-properties."
   [ont ttid token concept]
   (let [prop (if (affect? concept)  ; NOTE: depending on the oproperties? config setting,
                  denotesAffect      ;       both properties may collapse to dul/express,
@@ -756,30 +778,36 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- add-text
-  "Adds a Text individual to the specified Sentiment Component Rule ontology.
-   A positivity clue (an OWL individual) may be specified to add an explicit
-   relation:
+(defn add-text
+  "Adds a textual individual to the specified ontology.  The default behaviour
+  is to create a new individual of type Text, but the arity-4 clause allows
+  the caller to specify any entiy needing to represent a series of Tokens."
+  ([ont tinfo]
+  (add-text ont tinfo (cfg/? :senti)))
 
-        <Text denotesAffect PositiveToken>
 
-   for the purpose of guiding learning or evaluating the system."
   ([ont tinfo sconf]
   (add-text ont nil tinfo sconf))
 
 
-  ([ont clue
-    {:keys [content tid polarity pos-tags rules]}                                ; Text (tweet) breakdown
-    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-configuration
+  ([ont entity
+    {:keys [account analysis content tid polarity pos-tags]}                            ; Text breakdown
+    {:keys [full-links? links? pos-neg? secondaries? surveys use-scr? use-tweebo?]}]    ; Senti-params
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [msg   (apply str (interpose " " content))
-          text  (individual ont tid       ; Entity representing the text
-                  :type (if pos-neg?
-                            (case polarity :negative NegativeText
-                                           :positive PositiveText)
-                            Text)
-                  :annotation (annotation TextualContent msg))]
+          text  (or entity
+                    (individual ont tid                             ; Entity representing the text
+                      :type (text-type pos-neg? polarity)))]        ; Determine textual type
+
+    ;; Annotate the actual text content as a development aid
+    (refine ont text :annotation (annotation TextualContent msg))
+
+    ;; If they didn't pass an entity, assume this is a tweet
+    ;; TODO: Handle access to say.sila namespace
+    (when (and account                                              ; Test data may not have screen names
+               (not entity))
+      (refine ont (individual ont account) :fact (is (object-property ont "publishes") text)))
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?
@@ -788,7 +816,7 @@
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
         (fn [[cnt tokens :as info]
-             [tag rules]]
+             [checks tag word]]
           ;; Get the Part of Speech for the tag reported by Weka
           (if-let [pos (pos/lookup# tag)]
 
@@ -801,13 +829,6 @@
               ;; Link Token to the original Text and set POS Quality
               (refine ont text :fact (is dul/hasComponent curr))
               (refine ont curr :fact (is pos/isPartOfSpeech pos))
-
-              ;; Add positivity clue if we're going to guide learning
-              (when (and clue                                   ; Optional (caller decides on clues)
-                         (= cnt 1)                              ; Add the relation on the first word
-                         (= polarity :positive))
-                ;; Coax DL-Learner into looking at what denotes affect
-                (refine ont curr :fact (is denotesAffect clue)))
 
             ;; Link tokens to each other
             (when-let [prev (first tokens)]
@@ -829,19 +850,25 @@
               (when use-scr?
                 (binding [*ns* (find-ns 'say.senti)]
                   (when (= 'NEGATION (check-fact prev indicatesRule))
-                    (doseq [aff (filter affect? rules)]
+                    (doseq [aff (filter affect? checks)]
                       (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
                       (refine ont prev :fact (is negatesAffect (individual say-senti aff))))))))
 
             ;; Express sentiment composition rules
-            (doseq [rule rules]
+            (doseq [rule checks]
               (express ont ttid curr rule))
 
             ;; TODO: This is prototypical code for secondary emotions
             (when secondaries?
-              (doseq [sec (primaries->secondaries rules)]
+              (doseq [sec (primaries->secondaries checks)]
                 ;(log/debug "Token" ttid "expresses dyad:" sec)
                 (express ont ttid curr sec)))
+
+            ;; TODO: Prototypical code for Six Americas experimental surveys
+            (when surveys
+              (run! #(when (six/in-survey? % word)
+                       (refine ont curr :fact (is dul/isComponentOf (% Surveys))))
+                    surveys))
 
             ;; Continue the reduction
             [(inc cnt)
@@ -852,7 +879,7 @@
                 info)))
 
         [1 nil]                             ; Acc: Token counter, reverse seq of tokens
-        (zip pos-tags rules))))))
+        (zip analysis pos-tags content))))))
 
 
 
@@ -972,26 +999,12 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn save-scr-ontologies
-  "Saves Sentiment Composition Rule ontologies in OWL format."
-  []
-  ;; Create ontologies for each SCR, each populated with individuals expressing the rule
-  (update-kv-values
-    (:ontology @SCR)
-    (fn [rule ont]
-      (let [fpath (str ONT-FSTUB "-" (name rule) ".owl")]
-        (save-ontology ont fpath :owl)
-        fpath))))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn save-ontologies
   "Saves the say-senti ontology and all the SCR ontologies in OWL format."
   []
   (save-ontology say-senti ONT-FPATH :owl)
   (merge {:say-senti ONT-FPATH}
-         (save-scr-ontologies)))
+         (save-ontology-map (:ontology @SCR) ONT-FSTUB)))
 
 
 
@@ -1003,6 +1016,10 @@
   In either case function returns the ontology, populated with the new examples.
   The called may also specify a sequence of learned expressions that will be
   included in the ontology as subclasses to LearnedPositiveText."
+  ([xmps :guard map?]
+  (update-kv-values xmps #(populate-ontology %1 %2)))
+
+
   ([ont xmps]
   (populate-ontology ont xmps nil))
 
@@ -1024,15 +1041,7 @@
 
   ([ont xmps _ sconf]
   ;; Add positivity tokens if we're guiding learning (or testing the system)
-  (let [clue (when (:pos-clue? sconf)
-               (let [tag   "PositivityClue"
-                     clazz (owl-class ont tag
-                             :super   Affect
-                             :label   "Positivity Clue"
-                             :comment "A Positive Text indicator for guiding learners or for system evaluation.")]
-                 (individual ont tag :type clazz)))]
-
-    (run! #(add-text ont clue % sconf) xmps)
+  (run! #(add-text ont % sconf) xmps)
 
     ;; Add Tweebo dependencies
     (when (cfg/?? :senti :use-tweebo?)
@@ -1040,7 +1049,7 @@
       (run! #(add-dependencies ont %) xmps))
 
     ;; Remember that ontologies are mutable
-    ont)))
+    ont))
 
 
 
@@ -1168,6 +1177,82 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defrecord Toolbox [all-pn?         ; Use only texts with sentiment/emotion
+                    stoic?          ; Determines if text is void of sentiment
+                    stem            ; Find grammatical stem for a word
+                    sense           ; Identify tokens with sentiment/emotion
+                    scr])           ; Identify tokens invoking sentiment composition rules
+
+
+(defn toolbox
+  "Creates and bundles utility functions used for processing textual examples
+  with respect to sentiment/emotion content and sentiment composition rules.
+  This function bundle is tuned by parameters in the :senti section of the
+  configuration."
+  []
+  ;; Create a closure for a configuration-based analysis
+  (let [all-pn? (cfg/?? :senti :skip-neutrals?)
+        lex     (tw/make-lexicon (cfg/?? :senti :lexicon :liu)) ; TODO: Capture lex change on config update
+        sball   (tw/make-stemmer)                               ; Weka Affective Tweets plus Snowball stemmer
+        stem    (fn [w]
+                  (.stem sball w))
+        exprs   (update-values Expressions                      ; Pre-stem Liu's SCR expressions
+                               #(into #{} (map stem %)))]
+
+    ;; Bundle everything up
+    (map->Toolbox
+     {:all-pn?  (fn [] all-pn?)
+
+      :stoic?   (fn [{:keys [analysis]}]                        ; Check that we're not including neutral Texts
+                  (and all-pn? (every? empty? analysis)))       ; ..and that no sentiment (rule) is expressed
+
+      :stem     stem
+
+      :sense    #(tw/analyze-token+- lex % Affect-Fragments)    ; Lexicon lookup for P/N rules
+
+      :scr      #(let [term (stem %)]                           ; Match terms for Sentiment Composite Rules
+                   (reduce (fn [acc [scr terms]]
+                             (if (contains? terms term)
+                                 (conj acc scr)
+                                 acc))
+                           #{}
+                           exprs))})))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn make-example
+  "Processes raw data to create a hashmap representing an instance in
+  'example' form, which is an intermediate structure in a conversion to
+  a textual individual in an ontology."
+  ([tools tid sname elements]
+  (make-example tools tid sname elements :?))
+
+
+  ([tools tid sname elements polarity]
+  (let [pairs   (map #(str/split % #"_" 2)                      ; Separate elements: [PoS token]
+                      (str/split elements #" "))
+
+        terms  (map #(-> % (second)                             ; FIXME: Get terms using
+                           (str/lower-case)                     ;  affective.core.Utils/tokenize
+                           (.replaceAll "([a-z])\\1+" "$1$1"))  ;  repeated letters
+                     pairs)
+
+        affect (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
+        rules  (map (:scr tools) terms)]            ; Set of match-term rules per term
+
+    ;; Put all that together to build the example
+    {:account   sname
+     :tid       tid
+     :polarity  polarity
+     :content   terms
+     :rules     rules
+     :pos-tags  (map first pairs)
+     :analysis  (map set/union affect rules)})))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn instances->examples
   "When a dataset tag is specified (dset), this function returns a hashmap
   keyed by that tag plus any SCR tags which apply to one or more instances.
@@ -1177,44 +1262,30 @@
 
   When the dataset is not specified, the function only returns the set
   of example hashmaps corresponding to the specified instances."
-  ([insts]
-  (:data (instances->examples :data insts)))
+  ([data]
+  (:data (instances->examples :data data)))
 
 
-  ([dset ^Instances insts]
-  (instances->examples dset insts (.numInstances insts)))
+  ([dset data]
+  (let [insts (weka/load-dataset data (which-target))
+        icnt  (.numInstances insts)]
+    (log/fmt-debug "Text instances~a: ~a" dset icnt)
+    (instances->examples dset insts icnt)))
 
 
   ([dset ^Instances insts cnt]
-  (let [;;-- Keep track of how many examples to create, as per the configured 'balance' setting
-        goal    (create-pn-goal dset cnt)
-        all-pn? (cfg/?? :senti :skip-neutrals?)
-        stoic?  (fn [rules]                                     ; Check that we're not including neutral Texts
-                  (and all-pn? (every? empty? rules)))          ; ..and that no sentiment (rule) is expressed
-
-        ;;-- We bring in examples using Weka's Affective Tweets plugin and a Snowball stemmer
-        sball   (tw/make-stemmer)
-        stem    #(.stem sball %)
-        exprs   (update-values Expressions                      ; Pre-stem Liu's SCR expressions
-                               #(into #{} (map stem %)))
-
-        ;;-- Functions to identify pos/neg tokens and Sentiment composition rules
-        lex     (tw/make-lexicon (cfg/?? :senti :lexicon :liu)) ; TODO: Capture lex change on config update
-        ->sense #(tw/analyze-token+- lex % Affect-Fragments)    ; Lexicon lookup for P/N rules
-        ->scr   #(let [term (stem %)]                           ; Match terms for Sentiment Composite Rules
-                   (reduce (fn [acc [scr terms]]
-                             (if (contains? terms term)
-                                 (conj acc scr)
-                                 acc))
-                           #{}
-                           exprs))]
+  ;; Keep track of how many examples to create, as per the configured 'balance' setting
+  (let [[col-id
+         col-sname
+         col-text]  (map Columns [:id :screen_name :text])
+        tools       (toolbox)
+        stoic?      (:stoic? tools)
+        goal        (create-pn-goal dset cnt)]
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (describe-creation goal)
               "SCR examples [pos/neg]"
-              (if all-pn?
-                  "(emotive)"
-                  "(includes stoic)"))
+              (if ((:all-pn? tools)) "(emotive)" "(includes stoic)"))
 
     ;; Shall we (pseudo)randomize the instances?
     (when-let [seed (cfg/?? :senti :rand-seed)]
@@ -1223,41 +1294,30 @@
 
     ;; Throw away the counter & return the folded example sequence
     (second
-      (reduce (fn [[cnts xmap :as info]
+      (reduce (fn [[cnts xmap :as info]                             ; FUN: add a textual eXample
                    ^Instance inst]
                 ;(log/debug "Counts:" cnts)
                 ;; Do we have enough examples to stop?
                 (if (creation-done? cnts goal)
                   (do (log/info "Examples:" cnts)
                       (reduced info))
-                  (let [tid    (label-text (.stringValue inst COL-ID))
+                  (let [tid    (label-text (.stringValue inst (int col-id)))
+                        sname  (.stringValue inst (int col-sname))
                         pole   (polarize inst)
-                        pairs  (map #(str/split % #"_" 2)   ; Pairs are "pos_term"
-                                     (str/split (.stringValue inst COL-TEXT) #" "))
-                        terms  (map #(-> % (second)                             ; FIXME: Get terms using
-                                           (str/lower-case)                     ;  affective.core.Utils/tokenize
-                                           (.replaceAll "([a-z])\\1+" "$1$1"))  ;  repeated letters
-                                     pairs)
-                        affect (map ->sense terms)          ; Affect: pos|neg|emo or nil per term
-                        rules  (map ->scr   terms)]         ; Set of match-term rules per term
-
+                        elms   (.stringValue inst (int col-text))       ; Text elements are "pos_term"
+                        xmp    (make-example tools tid sname elms pole) ; Example as a hashmap
+                        xkeys  (apply set/union #{dset} (xmp :rules))]  ; Full dataset & all SCRs
                     ;; Do we skip|process this Text??
-                    (if (or (stoic? affect)                     ; Is it void of pos/neg/emotion?
-                            (creation-full? cnts pole goal))    ; Still collecting for this polarity?
+                    (if (or (stoic? xmp)                                ; Is it void of pos/neg/emotion?
+                            (creation-full? cnts pole goal))            ; Still collecting for this polarity?
                       info
                       [(inc-pn-counter cnts dset pole)                  ; Update pos/neg/all counts
-                       (update-values xmap                              ; Add Text for full set & all SCRs
-                                      (apply set/union #{dset} rules)
-                                      #(conj % {:tid      tid
-                                                :polarity pole
-                                                :content  terms
-                                                :pos-tags (map first pairs)
-                                                :rules    (map set/union rules affect)}))]))))
+                       (update-values xmap xkeys #(conj % xmp))]))))
 
-            [(zero-pn-counter dset)                                 ; Acc: total/pos/neg counts
+            [(zero-pn-counter dset)                                 ; ACC: total/pos/neg counts
              (reduce #(assoc %1 %2 #{}) {} (keys Expressions))]     ;      Examples keyed by rule
 
-            (enumeration-seq (.enumerateInstances insts)))))))      ; Seq: Weka instances
+            (enumeration-seq (.enumerateInstances insts)))))))      ; SEQ: Weka instances
 
 
 
@@ -1274,7 +1334,7 @@
 
   ([dtag xmps]
   (let [;; Statistics on text polarity and presence of affect
-        stats (reduce #(let [ss (if (every? empty? (:rules %2))
+        stats (reduce #(let [ss (if (every? empty? (:analysis %2))
                                      :stoic
                                      :senti)]
                         (update-values %1 [:count (:polarity %2) ss] inc))
@@ -1288,7 +1348,7 @@
         kount #(update-values %1 %2 inc)                        ; Accumulate hits from seq %2
 
         ;; We'll need a sequence of affect (rule) sets for the Texts
-        aff-rules (map #(:rules %) xmps)                        ; Affect sets from Texts
+        aff-rules (map #(:analysis %) xmps)                     ; Affect sets from Texts
         aff-zeros (zeros Affect-Names)                          ; Acc init: affect counts
 
         ;; Breakdown of affective elements
@@ -1367,16 +1427,12 @@
             {:tid «t3955»
              :polarity :positive
              :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
-             :rules    (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
+             :rules    (#{} #{} #{«DECREASE-N»} #{} #{}    #{} #{} #{} #{} #{})}
+             :analysis (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
   [dset arff]
+  ;; Create the official set of Text examples
   (log/fmt-debug "Loading dataset~a: ~a" dset arff)
-  (let [insts (weka/load-arff arff
-                             (which-target))]
-
-    ;; Create the new set of Text examples
-    (log/fmt-debug "Tweet instances~a: ~a" dset (.numInstances insts))
-    (instances->examples dset insts)))
-
+  (instances->examples dset arff))
 
 
 
@@ -1448,8 +1504,6 @@
 
 
     (report-scr))))
-
-
 
 
 
@@ -1544,9 +1598,9 @@
   ([^Instances  oinsts
     ^Instance   iinst]
   ;; There may be more, but we're just handling the three always-present attributes
-  (init-instance oinsts (.stringValue iinst COL-ID)
-                        (.stringValue iinst COL-TEXT)
-                        (.value       iinst COL-CLASS)))
+  (init-instance oinsts (.stringValue iinst (int (Columns-Film :id)))
+                        (.stringValue iinst (int (Columns-Film :text)))
+                        (.value       iinst (int (Columns-Film :sentiment)))))
 
 
   ([^Instances  oinsts
@@ -1556,9 +1610,9 @@
   ;; Create the new Instance and link (but don't add) it to the dataset
   (doto (DenseInstance. (.numAttributes oinsts))
         (.setDataset oinsts)
-        (.setValue COL-ID    id)
-        (.setValue COL-TEXT  text)
-        (.setValue COL-CLASS sentiment))))          ; 0.0=neg, 1.0=pos
+        (.setValue (int (Columns-Film :id)) id)
+        (.setValue (int (Columns-Film :text)) text)
+        (.setValue (int (Columns-Film :setiment)) sentiment)))) ; 0.0=neg, 1.0=pos
 
 
 
@@ -1571,7 +1625,7 @@
   ;; Start with the base three attributes...
   (let [oinst (init-instance oinsts iinst)]
     ;; Copy the remaining attributes
-    (doseq [^Long i (range (inc COL-CLASS)
+    (doseq [^Long i (range (inc (Columns-Film :sentiment))
                            (.numAttributes oinsts))]
       (.setValue oinst i (.value iinst i)))
     (.add oinsts oinst)
@@ -2174,7 +2228,7 @@
                     (fn [rule xmps]
                       (dll/write-pn-config :base     base
                                            :rule     rule
-                                           :prefixes (merge PREFIXES {"scr" (make-iri rule)})
+                                           :prefixes (merge PREFIXES {"scr" (ont-iri rule)})
                                            :examples (pn-examples rule "scr" xmps))))
                   (process-solutions (dll/run base dtag)))]
 

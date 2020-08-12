@@ -24,6 +24,7 @@ resources/emo-sa/*.txt
 resources/emo-sa/Sentiment140/*.arff
 resources/emo-sa/Sentiment140/*.csv
 resources/dllearner/*.owl
+resources/dllearner/say-sila-*.conf
 resources/dllearner/say-senti-*.conf
 resources/gender/*.csv
 resources/gender/*.zip

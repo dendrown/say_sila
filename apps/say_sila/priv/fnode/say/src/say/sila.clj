@@ -6,41 +6,51 @@
 ;;;;         _/    _/    _/        _/    _/
 ;;;;  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 ;;;;
-;;;; Say-Sila ontology
+;;;; The say-sila ontology and associtated functionality.
 ;;;;
-;;;; @copyright 2018-2019 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
   (:refer-clojure :exclude [==])
-  (:require [say.ontology       :refer :all]
+  (:require [say.genie          :refer :all]
+            [say.ontology       :refer :all]
             [say.config         :as cfg]
+            [say.log            :as log]
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
-            [say.sioc           :as sioc]
-            [say.log            :as log]
+            [say.cmu-pos        :as pos]
+            [say.senti          :as senti]
+            [weka.core          :as weka]
+            [weka.dataset       :as dset]
             [clojure.string     :as str]
             [clojure.java.io    :as io]
-            [clojure.pprint     :as prt :refer [pp pprint]]
+            [clojure.pprint     :refer [pp]]
+            [defun.core         :refer [defun]]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
             [tawny.query        :as qry]
             [tawny.repl         :as repl]                   ; <= debug
             [tawny.owl          :refer :all]
             [clojure.core.logic :refer :all :exclude [annotate is]])
-  (:import  [org.semanticweb.owlapi.model   IRI
-                                            OWLOntologyID]))
+  (:import  (org.semanticweb.owlapi.model   IRI
+                                            OWLOntology
+                                            OWLOntologyID)
+            (weka.core Instance)))
 
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
+(def ^:const ONT-ISTUB  "http://www.dendrown.net/uqam/say-sila")
 (def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-sila.owl#")
 (def ^:const ONT-FPATH  "resources/KB/say-sila.owl")
+(def ^:const ONT-FSTUB  "resources/KB/say-sila")
 
+(def ^:const INIT-DATA  {:tag :env, :tracker :all, :source :tweets, :dir "resources/emo-sa"})
 
-;;; --------------------------------------------------------------------------
-;;; TODO: we have a number of decisions that are not yet final...
-(def ^:const FOAF?      true)
+(defonce World          (atom {:users {}
+                               :texts {}
+                               :ontology {}}))
 
 
 ;;; --------------------------------------------------------------------------
@@ -54,92 +64,143 @@
 ;;; --------------------------------------------------------------------------
 ;;; Top level:
 ;;;
-;;; Bring in the DOLCE+DnS Ultralite foundational ontology as configured
-(dul/access)
-(when FOAF?
-  (owl-import foaf/foaf))
+;;; We use the DOLCE+DnS Ultralite (DUL) foundational ontology.  However, to
+;;; avoid making multiple class declarations, we use a chain of imports.
+;;;
+;;; say-sila <- say-senti <- cmu-pos <- DUL
+;;;
+;;; (This issue may be due to Tawny-OWL's co-maintaining RDF/XML and Clojure
+;;; variables in namespaces representing the various ontologies.)
+(owl-import senti/say-senti)
 
-;;; Top-level ontology: Dolce+D&S Ultralite
-(defcopy dul/Agent)
-(defcopy dul/Concept)
-(defcopy dul/Person)
-(defcopy dul/Organization)
 
-(defcopy dul/associatedWith)
-(defcopy dul/isMemberOf)
+;;; --------------------------------------------------------------------------
+;;; Environmental clues at the Text level
+;;;
+;;; TBox: building on pos:Token
+(defclass FearToken
+  :super    pos/Token
+  :label    "Fear Token"
+  :comment  "A Token which may indicate fear."
+  :equivalent (dl/and pos/Token
+                      (dl/some senti/denotesAffect senti/Fear)))
 
-(defclass Tester
-  :super   dul/Person
-  :label   "Tester"
-  :comment "This is a class to test building on DOLCE")
+(defclass GreenToken
+  :super    pos/Token
+  :label    "Green Token"
+  :comment  "A Token which may indicate a user's tendency towards environmentalism."
+  :equivalent (dl/and pos/Token
+                      (dl/some dul/isComponentOf senti/Survey)))
+
+(defclass FearInformationObject
+  :super    dul/InformationObject
+  :label    "Fear Information Object"
+  :comment  "An Information Object which may indicate fear."
+  :equivalent (dl/and dul/InformationObject
+                      (dl/some dul/hasComponent FearToken)))
+
+(defclass GreenInformationObject
+  :super    dul/InformationObject
+  :label    "Green Information Object"
+  :comment  (str "An Information Object which has one or more components that may indicate a user's "
+                 "tendency towards environmentalism.")
+  :equivalent (dl/and dul/InformationObject
+                      (dl/some dul/hasComponent GreenToken)))
 
 
 ;;; --------------------------------------------------------------------------
 ;;; Demographics:
 ;;;
-;;; TODO: make final decision on whether or not to utilise FOAF
-(if FOAF?
-  ;; TODO: Evaluating HCLS/POMR Ontology (predecessor of Bio-zen plus \cite{samwald2008})
-  (do
-    (refine Agent :equivalent foaf/Agent)
-    (defcopy foaf/gender)
+;;; TBox: building on dul:SocialObject
+(defclass OnlineAccount
+  :super    dul/SocialObject
+  :disjoint senti/Text
+  :label    "Online Account"
+  :comment  "A user account for an online service.")
 
-    (def Female "FEMALE")
-    (def Male   "MALE"))
+(comment
+(defclass TwitterAccount
+  :super    OnlineAccount
+  :label    "Twitter Account"
+  :comment  "A user account on Twitter")
 
-  ;; TODO: Evaluating Gender ⊑ dul/Quality
-  (do
-    (defclass Gender
-      :super    dul/Quality
-      :label    "Gender"
-      :comment  (str "The Quality of being a specific biological sex and/or being part of the corresponding"
-                     "social group"))
+(comment defclass Influencer
+  :super    OnlineAccount
+  :label    "Influencer"
+  :comment  "User (not necessarily active) who affects other users' behaviour during a Say-Sila tracking run")
 
-    (defindividual Female
-      :type     Gender
-      :label    "Female"
-      :comment  (str "The Gender associated with having female reproductive organs and/or "
-                     "fulfilling a feminine role in society."))
+(defclass Player
+  :super    OnlineAccount
+  :label    "Player"
+  :comment  "Active participant during a Say-Sila tracking run")
 
-    (defindividual Male
-      :type     Gender
-      :label    "Male"
-      :comment  (str "The Gender associated with having male reproductive organs and/or "
-                     "fulfilling a masculine role in society."))
+(as-subclasses Player
+  :cover
+  :disjoint
+  (defclass BigPlayer
+    :label   "Big Player"
+    :comment "A Player (participant) who is extremely active during a tracking run")
+  (defclass RegularPlayer
+    :label   "Regular Player"
+    :comment "A Player (participant) who demonstrates normal activity during a tracking run"))
+);comment
 
-    (defoproperty gender                            ; TODO: Change to isOfGender if !FOAF
-      :super    associatedWith
-      :domain   Agent
-      :range    Gender
-      :characteristic :functional)))
+;;; TODO: Evaluating Gender ⊑ dul/Quality
+(comment
+(defclass Gender
+  :super    dul/Quality
+  :label    "Gender"
+  :comment  (str "The Quality of being a specific biological sex and/or being part of the corresponding"
+                 "social group"))
 
+(as-subclasses Gender
+  ;; NOTE: we are (for the moment) being insensitive to non-binary-indentifying persons
+  ;;       in an effort to create a working ontological system.  With apologies to anyone
+  ;;       asserting that the covers/disjoint keys here are do not reflect today's reality,
+  ;;        we shall reconsider these definitions at a future time.
+  :cover
+  :disjoint
+  (defclass FemaleGender
+    :label    "Female Gender"
+    :comment  (str "The Gender associated with having female reproductive organs and/or "
+                   "fulfilling a feminine role in society."))
+
+  (defclass MaleGender
+    :label    "Male Gender"
+    :comment  (str "The Gender associated with having male reproductive organs and/or "
+                   "fulfilling a masculine role in society.")))
+
+(defpun FemaleGender)
+(defpun MaleGender)
+
+(defoproperty isOfGender
+  :super    dul/hasQuality
+  :domain   dul/Person
+  :range    Gender
+  :characteristic :functional)
+);comment
 
 ;;; --------------------------------------------------------------------------
 ;;; Object Properties
-(defoproperty hasRole
-  :super    associatedWith
-  :label    "has Role"
-  :domain   dul/Agent
-  :range    dul/Role)
-
-(defoproperty supports
-  :super    associatedWith
+(comment defoproperty supports
+ ;:super    dul/associatedWith                  % FIXME: needs DUL hierarchy
   :label    "supports"
   :domain   (dl/or dul/Agent
                    dul/Role)
-  :range    Concept)
+  :range    dul/Concept)
 
 
 ;;; --------------------------------------------------------------------------
 ;;; Concepts:
-(defindividual Environmentalism
-  :type     Concept
+(comment defindividual Environmentalism
+  :type     dul/Concept
   :label    "Environmentalism"
   :comment  "The Concept of caring about the evironment and supporting evironmentally-friendly policies.")
 
+
 ;;; --------------------------------------------------------------------------
 ;;; Roles:
-(defindividual Environmentalist
+(comment defindividual Environmentalist
   :type     dul/Role
   :label    "Environmentalist"
   :comment  "The Role of someone involved in Environmentalism"
@@ -152,8 +213,9 @@
 ;;; NOTE: We may be moving towards \cite{porello2014} for modelling social groups
 ;;;
 ;;; TODO: Find and cite source of definitions for political terms
+(comment
 (defclass PoliticalIdeology
-  :super    Concept
+  :super    dul/Concept
   :label    "Political Ideology"
   :comment  "The Concept concerning the ideals of a political system.")
 
@@ -198,18 +260,18 @@
   :comment  (str "The Political Party of no-party "
                  "whose members often consider themselves in the middle of Republicans and Democrats. "
                  "NOTE: We are addressing the fact that independents do not constitute a true Political Party."))
-
-
+);comment
 
 
 ;;; --------------------------------------------------------------------------
 ;;; Six Americas
+(comment
 (defclass AudienceSegment
   :super   dul/Collective
   :label   "Audience Segment"
   :comment "A collective that is a potential target for an information campaign")
 
-(defoproperty inAudienceSegment :domain Person :range AudienceSegment)
+(defoproperty inAudienceSegment :domain dul/Person :range AudienceSegment)
 
 (as-subclasses AudienceSegment
   :cover
@@ -256,93 +318,77 @@
   :type     AlarmedSegment
   :label    "Alarmed Person Prototype"
   :comment  "A hypothetical member of the Alarmed Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Female)                                          ; 61%
-            (is isMemberOf DemocraticParty)                             ; 58%
+  :fact     (is isOfGender theFemaleGender)                             ; 61%
+            (is dul/isMemberOf DemocraticParty)                         ; 58%
             (is supports Liberalism)                                    ; 48%
-            (is hasRole Environmentalist))
+            (is dul/hasRole Environmentalist))
 
 (defindividual ConcernedPersonPrototype
   :type     ConcernedSegment
   :label    "Concerned Person Prototype"
   :comment  "A hypothetical member of the Concerned Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Female)                                          ; 52% (remove?)
-            (is isMemberOf DemocraticParty)                             ; 47%
+  :fact     (is isOfGender theFemaleGender)                             ; 52% (remove?)
+            (is dul/isMemberOf DemocraticParty)                         ; 47%
             (is supports Moderatism)                                    ; 45%
-            (is hasRole Environmentalist))                              ; "somewhat"
+            (is dul/hasRole Environmentalist))                          ; "somewhat"
 
 (defindividual CautiousPersonPrototype
   :type     CautiousSegment
   :label    "Cautious Person Prototype"
   :comment  "A hypothetical member of the Cautious Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Male)                                            ; 53% (remove?)
+  :fact     (is isOfGender theMaleGender)                               ; 53% (remove?)
             (is supports Moderatism))                                   ; 40%
 
 (defindividual DisengagedPersonPrototype
   :type     DisengagedSegment
   :label    "Disengaged Person Prototype"
   :comment  "A hypothetical member of the Disengaged Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Female)                                          ; 62%
-            (is isMemberOf DemocraticParty)                             ; 41%
+  :fact     (is isOfGender theFemaleGender)                             ; 62%
+            (is dul/isMemberOf DemocraticParty)                         ; 41%
             (is supports Moderatism)                                    ; 44%
-            (dl/not hasRole Environmentalist))
+            (dl/not dul/hasRole Environmentalist))
 
 (defindividual DoubtfulPersonPrototype
   :type     DoubtfulSegment
   :label    "Doubtful Person Prototype"
   :comment  "A hypothetical member of the Doubtful Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Male)                                            ; 59%
-            (is isMemberOf RepublicanParty)                             ; 56%
+  :fact     (is isOfGender theMaleGender)                               ; 59%
+            (is dul/isMemberOf RepublicanParty)                         ; 56%
             (is supports Conservatism)                                  ; 61%
-            (dl/not hasRole Environmentalist))
+            (dl/not dul/hasRole Environmentalist))
 
 (defindividual DismissivePersonPrototype
   :type     DismissiveSegment
   :label    "Dismissive Person Prototype"
   :comment  "A hypothetical member of the Dismissive Segment who embodies all qualities of that Audience Segment."
-  :fact     (is gender Male)                                            ; 63%
-            (is isMemberOf RepublicanParty)                             ; 64%
+  :fact     (is isOfGender theMaleGender)                               ; 63%
+            (is dul/isMemberOf RepublicanParty)                         ; 64%
             (is supports Conservatism)                                  ; 75%
-            (dl/not hasRole Environmentalist))
+            (dl/not dul/hasRole Environmentalist))
+);comment
 
 
-;;; TODO FOAF/SIOC are no longer primary as we move onto DOLCE-based ontologies
+;;; TBox: building on dul:InformationObject==>senti:Text
 ;;;
-;;; TBox: building on sioc:Post ⊑ foaf:Document
-(owl-class sioc/Post
-  :super foaf/Document)
+;;; TODO: the publishes role will be skillfully merged with tweets
+(defoproperty publishes
+  :label    "publishes"
+  :domain   OnlineAccount
+  :range    dul/InformationObject
+  :comment  "The action of making an Information Object available to an online community.")
 
-(defclass Survey
-  :super   foaf/Document
-  :label   "Survey"
-  :comment "A series of questions intended to extract information from a group of people")
 
+(defclass PersonalProfile
+  :super   dul/InformationObject
+  :label   "Personal Profile"
+  :comment "An Information Object consisting of a personal description for an online user.")
+
+(comment
 (defclass Tweet
-  :super   sioc/Post
+  :super   senti/Text
   :label   "Tweet"
-  :comment "A Twitter message post")
+  :comment "A Twitter message status message.")
 
-;;; TBox: building on sioc:Role
-(defclass Influencer
-  :super    sioc/Role
-  :disjoint Tweet
-  :label    "Influencer"
-  :comment  "User (not necessarily active) who affects other users' behaviour during a Say-Sila tracking run")
-
-(defclass Player
-  :super    sioc/Role
-  :disjoint Tweet
-  :label    "Player"
-  :comment  "Active participant during a Say-Sila tracking run")
-
-;;; TBox: building on sioc:UserAccount
-(defclass TwitterAccount
-  :super    sioc/UserAccount
-  :disjoint Tweet
-  :label    "Twitter Account"
-  :comment  "A user account on Twitter")
-
-
-;;; TBox: building on sioc:Post==>sila:Tweet
 (as-subclasses Tweet
   :cover
   :disjoint
@@ -356,20 +402,7 @@
     :comment    "A twitter communication, posted by its original author"))
 
 
-;;; TBox: building on sioc:Role==>sila:Player
-(as-subclasses Player
-  :cover
-  :disjoint
-  (defclass BigPlayer
-    :label   "Big Player"
-    :comment "A Player (participant) who is extremely active during a tracking run")
-  (defclass RegularPlayer
-    :label   "Regular Player"
-    :comment "A Player (participant) who demonstrates normal activity during a tracking run"))
-
-
-
-;;; TBox: building on sioc:UserAccount==>sila:TwitterAccount
+;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount
 (as-subclasses TwitterAccount
   :cover                        ; but not disjoint
   (defclass Author
@@ -380,8 +413,7 @@
     :comment "A Twitter account, considered from the viewpoint of publishing tweets"))
 
 
-
-; TBox: building on sioc:UserAccount==>sila:TwitterAccount==>sila:Author
+;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount==>sila:Author
 (as-subclasses Author
   :cover                        ; but not disjoint
   (defclass OriginalAuthor
@@ -396,7 +428,7 @@
 
 
 
-;;; TBox: building on sioc:UserAccount==>sila:TwitterAccount==>sila:Tweeter
+;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount==>sila:Tweeter
 (as-subclasses Tweeter
   :cover                        ; but not disjoint
   (defclass   OriginalTweeter
@@ -488,13 +520,53 @@
 ;;; Big Players and Influencers
 (refine Influencer :equivalent (dl/and Tweeter (dl/or (at-least 3 isRetweetedIn)
                                                       (at-least 3 isMentionedIn))))
+);comment
+
+;;; --------------------------------------------------------------------------
+;;; Environmental clues at the Account level
+;;;
+;;; TBox: building on OnlineAccount ⊑ dul:SocialObject
+(defclass GreenAccount
+  :super    OnlineAccount
+  :label    "Green Account"
+  :comment  "An Online Account that represents someone who is concerned about the environment."
+  :equivalent (dl/and
+                OnlineAccount
+                (dl/or
+                  ;; Profile trigger
+                  (dl/some dul/isReferenceOf (dl/and FearInformationObject
+                                                     GreenInformationObject))
+                  ;; Tweet trigger
+                  (dl/and (dl/some publishes FearInformationObject)
+                          (dl/some publishes GreenInformationObject)))))
+
+
+;;; --------------------------------------------------------------------------
+;;; Align our class hierarchy with FOAF if configured to do so
+(when (cfg/?? :sila :foaf?)
+  ;(owl-import foaf/foaf)
+
+  ;; NOTE: Linking in the FOAF and SIOC ontologies is a bit problematic, considering
+  ;;       how the Agent, Person, and Role classes differ somewhat from DUL.
+  ;;       Compare with:
+  ;;        - Human activity representation in smart-homes \cite{ni2016})
+  ;;        - HCLS/POMR Ontology (predecessor of Bio-zen plus \cite{samwald2008})
+  (refine dul/Agent   :equivalent foaf/Agent)
+  (refine dul/Person  :equivalent foaf/Person)
+
+  ;;; TBox: building on sioc:Post ⊑ foaf:Document
+  (refine  dul/InformationObject :equivalent foaf/Document)
+  (refine  OnlineAccount         :equivalent foaf/OnlineAccount)
+  (refine  PersonalProfile       :equivalent foaf/PersonalProfileDocument)
+
+  ;; We're using a dul/Quality-based modelling for Gender
+  (comment refine FemaleGender :equivalent (has-value foaf/gender foaf/Female))
+  (comment refine MaleGender   :equivalent (has-value foaf/gender foaf/Male)))
 
 
 ;;; --------------------------------------------------------------------------
 (defn log-role
-  "
-  Returns a string to indicate a domain==role==>range operation.
-  "
+  "Returns a string to indicate a domain==role==>range operation."
   [role dom rng]
   (log/info (log/<> 'ROLE *ns*) (str dom "--[" role "]--" rng)))
 
@@ -502,9 +574,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn form->ontology
-  "
-  Evaluates a clojure form, presumably to add an entity to the ontology.
-  "
+  "Evaluates a clojure form, presumably to add an entity to the ontology."
   [[call ent & args]]
   ;; These forms usually end up calling def in tawny.owl/intern-owl. We are
   ;; likely here because of a call from another namespace, but Clojure doesn't
@@ -524,14 +594,12 @@
 
 ;;; --------------------------------------------------------------------------
 (defmulti alter-ontology
-  "
-  Processes the ontology command per the incoming map
+  "Processes the ontology command per the incoming map
 
   TODO: Tawny OWL has limited support for handling individuals using Strings.
         We're currently using its 'normal' methodology by which individuals
         are (also) instantiated as variables.  This is not ideal, as we need
-        to handle 10s of thousands of individual Tweeters.
-  "
+        to handle 10s of thousands of individual Tweeters."
   (fn [prop _ _]
     (if (string? prop) prop (name prop))))
 
@@ -597,7 +665,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn get-gender-tweet-counts
+(comment defn get-gender-tweet-counts
   "Returns a map of the counts of tweets for the specifed Tweeter that were
   classified as :male and :female."
   [tweeter]
@@ -631,4 +699,135 @@
   ([^String fpath]
   (log/info "Saving ontology:" fpath)
   (save-ontology say-sila fpath :owl)))
+
+
+;;; --------------------------------------------------------------------------
+(defn ont-iri
+  "Creates a (String) IRI to indentify a related say-sila. ontology with
+  individuals from social media."
+  [otag]
+  (str ONT-ISTUB "-" (name otag) ".owl#"))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn ^OWLOntology make-ontology
+  "Creates a version (copy) of the say-senti ontology, intended to include
+  individuals expressing the specified Sentiment Composition Rule (SCR)"
+  [otag]
+  (let [oname  (name otag)
+        prefix #(apply str % "-" oname %&)]
+    ;; We use a (sub)ontology to hold the texts and DL-Learner solutions
+    (ontology
+      :tawny.owl/name (prefix "say-sila")
+      :iri     (ont-iri oname)
+      :prefix  (prefix oname)
+      :import  say-sila
+      :comment (str "Ontology for modelling '" oname "'Twitter users and their activity."))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defun ^OWLOntology populate-ontology
+  "Populates an ontology using examples extracted from an ARFF with user data."
+  ([xmps :guard map?]
+  (update-kv-values xmps #(populate-ontology %1 %2)))
+
+
+  ([dtag :guard keyword? xmps]
+  (populate-ontology (make-ontology dtag) xmps))
+
+
+  ([ont xmps]
+  (run! (fn [{:as xmp
+              sname :screen_name
+              descr :description                ; User profile text
+              tid   :tid }]                     ; Text ID is the profile ID
+          (let [sconf (cfg/? :senti)                                ; Use senti/text config params
+                acct  (individual ont sname :type OnlineAccount)    ; Twitter user account
+                prof  (individual ont tid                           ; User profile
+                                  :type PersonalProfile
+                                  :fact (is dul/isAbout acct))]
+            ;; Add PoS/senti for the profile content
+            (senti/add-text ont prof xmp sconf)))
+        xmps)
+    ;; The (Java) ontology is mutable, return the updated version
+    ont))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn instances->examples
+  "Converts Weka maps corresponding to the specified instances."
+  ([data]
+  ;; NOTE: Our Twitter user data (U00) is currently unlabeled.
+  (let [target  :environmentalist
+        insts   (weka/load-dataset data target)
+        dset    (dset/Datasets :u)                              ; Structure for user (U99) data
+        tools   (senti/toolbox)                                 ; Sentiment/emotion analysis
+        attrs   (select-keys (dset/Columns dset) [:screen_name  ; 0-based attribute indices
+                                                  :name
+                                                  :description
+                                                  :environmentalist])]
+    ;; Create a sequence of maps, each representing a Weka instance
+    (map #(update % target keyword)                             ; Lazily convert "?" to :?
+         (reduce
+           (fn [acc ^Instance inst]
+             (let [avals (update-values attrs #(.stringValue inst (int %)))         ; Pull attr-vals
+                   sname (:screen_name avals)
+                   tid   (str "ProfileOf_" sname)                                   ; TextID is profile name
+                   xmp   (senti/make-example tools tid sname (:description avals))] ; Check senti/emo
+             ;; Add on hashmap with attribute data plus senti/emo analysis
+             (conj acc (merge avals xmp))))
+         '()
+         (weka/instance-seq insts)))))
+
+
+  ([dset data]
+  (hash-map dset (instances->examples data))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn create-world!
+  "Loads the official say-sila examples and ontologies."
+  ([]
+  ;; Pull the configured dataset information for users and their texts.
+  ;; TODO: Incorporate dset/t->su
+  (let [{dtag   :tag
+         track  :tracker
+         src    :source
+         dir    :dir}   (cfg/?? :sila :data INIT-DATA)
+         [users texts]  (map #(apply strfmt "~a/~a.~a.~a.~a.arff"
+                                            (map name [dir src track dtag (dset/code %)]))
+                             [:user :senti])]
+    (create-world! dtag users texts)))
+
+
+  ([dtag ausers atexts]
+  ;; The tweet texts are handled in say.senti
+  (log/fmt-info "Dataset user~a: ~a" dtag ausers)
+  (log/fmt-info "Dataset text~a: ~a" dtag atexts)
+
+  (let [xusers (instances->examples dtag ausers)
+        xtexts (senti/instances->examples dtag atexts)
+        world  (-> (populate-ontology dtag (xusers dtag))
+                   (senti/populate-ontology (xtexts dtag))) ]
+
+    ;; Set our top-level state. Each element holds a tagged map of the appropriate data
+    (reset! World {:users    xusers
+                   :texts    xtexts
+                   :ontology {dtag world}})
+
+    (keys xusers))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn save-ontologies
+  "Saves the say-sila ontology and all World ontologies in OWL format."
+  []
+  (save-ontology say-sila ONT-FPATH :owl)
+  (merge {:say-senti ONT-FPATH}
+         (save-ontology-map (:ontology @World) ONT-FSTUB)))
 

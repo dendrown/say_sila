@@ -93,7 +93,7 @@ get_tweets(Tracker, Accounts, Options) ->
              FltCnt,
              DayCnt} = foldl(Filter, {[], 0, 0}, DayTweets),
 
-            ?info("Tweets (~s) for ~s: cnt[~3B of ~4B] pct[~.1f%]",
+            ?info("Tweets (~s) for ~s: cnt[~4B of ~5B] pct[~4.1f%]",
                   [get_value(tag, Options, filtered),
                    dts:str(dts:day(get_value(start, Options))),
                    FltCnt, DayCnt,

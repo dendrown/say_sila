@@ -4,6 +4,14 @@
      :sname         "say"}
 
   ;; -------------------------------------------------------------------------
+  :sila
+    {:data              {:tag       :env
+                         :tracker   :all
+                         :source    :tweets
+                         :dir       "resources/emo-sa"}
+     :foaf?             false}                  ; Link to equivalent FOAF classes
+
+  ;; -------------------------------------------------------------------------
   :emote
     {:nlp               :english                ; Options: affective|english
      :id-index          1                       ; ARFF indices are 1-based
@@ -28,7 +36,6 @@
      :full-links?       false                   ; Create all links explicitly rather than depending on reasoner
      :oproperties?      false                   ; Include optional object (sub) properties (senti:denotesAffect)
      :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
-     :pos-clue?         false                   ; Include positive Text indicator to guide (or evaluate) the system
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
      :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
      :use-tweebo?       false                   ; Tweebo Parser dependency trees for tweets
@@ -37,6 +44,7 @@
      :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
      :system            :plutchik               ; Base emotion system: plutchik|Ekman|nil
      :secondaries?      false                   ; Construct secondary emotions from primary (for Plutchik's theory)
+     :surveys           #{}                     ; Look for links in the specified survey(s) (e.g., :sassy)
      :data-split        {:iterate?      true    ; Learn in steps through subset of the data
                          :datasets      10
                          :train         1000
