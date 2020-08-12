@@ -312,26 +312,29 @@ get_top_n(Tracker, N) ->
     Rankings = get_rankings(Tracker),
 
     % Start by grabbing the top N accounts with their tweet counts
-    TopReducer = fun Recur(TweetTotal, Ranks, {AcctCnt, TweetCnt, Accts}) ->
-                     % 
-                     % NOTE: When we hit N accounts, we add the tweet percentage
-                     %       to the final returned tuple.
-                     if AcctCnt =:= N ->
-                            {TweetCnt/TweetTotal, TweetCnt, Accts};
-                        AcctCnt > N ->
-                            ?warning("Same activity rate for N=~B, returning ~B accounts",
-                                     [N, AcctCnt]),
-                            {TweetCnt/TweetTotal, TweetCnt, Accts};
-                        true ->
-                            {RankTweets,
-                             RankAccts,
-                             NewRanks} = gb_trees:take_largest(Ranks),
-                             NumAccts  = length(RankAccts),
-                             NumTweets = NumAccts * RankTweets,
-                             Recur(TweetTotal, NewRanks, {AcctCnt  + NumAccts,
-                                                          TweetCnt + NumTweets,
-                                                          RankAccts ++ Accts})
-                     end end,
+    TopReducer = fun
+        Recur(0, _, Acc) -> Acc;
+
+        Recur(TweetTotal, Ranks, {AcctCnt, TweetCnt, Accts}) ->
+            % NOTE: When we hit N accounts, we add the tweet percentage
+            %       to the final returned tuple.
+            if  AcctCnt =:= N ->
+                    {TweetCnt/TweetTotal, TweetCnt, Accts};
+                AcctCnt > N ->
+                    ?warning("Same activity rate for N=~B, returning ~B accounts",
+                             [N, AcctCnt]),
+                    {TweetCnt/TweetTotal, TweetCnt, Accts};
+                true ->
+                    {RankTweets,
+                     RankAccts,
+                     NewRanks} = gb_trees:take_largest(Ranks),
+                     NumAccts  = length(RankAccts),
+                     NumTweets = NumAccts * RankTweets,
+                     Recur(TweetTotal, NewRanks, {AcctCnt  + NumAccts,
+                                                  TweetCnt + NumTweets,
+                                                  RankAccts ++ Accts})
+            end
+    end,
     [{Comm, TopReducer(maps:get(Comm, Totals),
                        maps:get(Comm, Rankings), {0, 0, []})} || Comm <- ?COMM_CODES].
 
