@@ -20,7 +20,8 @@
          stop/0,
          make_arff/0,
          re_pattern/0,
-         run_biggies/0]).
+         run_biggies/0,
+         use_top_n/1, use_top_n/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -import(lists, [foldl/3]).
@@ -39,6 +40,7 @@ opts(day)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}].
 
 -include("sila.hrl").
 -include("ioo.hrl").
+-include("player.hrl").
 -include("twitter.hrl").
 -include("types.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -126,6 +128,27 @@ run_biggies() ->
                                          {data_mode, variation},
                                          {h0_tweets, 31},
                                          {sweep,     1}]).          % To start!
+
+
+
+%%--------------------------------------------------------------------
+-spec use_top_n(N :: pos_integer()) -> ok.
+
+-spec use_top_n(N         :: pos_integer(),
+                CommCodes :: comm_code()
+                           | comm_codes()) -> ok.
+%%
+% @doc  Strips the server's tweets to use only the Top N users as
+%       reported by the player server.  The caller may specifiy one
+%       or more communication codes.  Only `oter' and `rter' are
+%       currently supported, and `oter' is the default.
+% @end  --
+use_top_n(N) ->
+    use_top_n(N, oter).
+
+
+use_top_n(N, CommCodes) ->
+    gen_server:cast(?MODULE, {use_top_n, N, CommCodes}).
 
 
 
@@ -233,6 +256,16 @@ handle_cast({get_tweets, Options}, State = #state{tracker = Tracker}) ->
                           workers = Workers}};
 
 
+handle_cast({use_top_n, N, CommCodes}, State = #state{tracker = Tracker,
+                                                      tweets  = Tweets}) ->
+    TopN  = player:get_top_n(Tracker, N, CommCodes, [user_list]),
+    Users = gb_sets:from_list(TopN),
+
+    NewTweets = lists:filter(fun(#tweet{screen_name = U}) -> gb_sets:is_member(U, Users) end,
+                             Tweets),
+    {noreply, State#state{tweets = NewTweets}};
+
+
 handle_cast(Msg, State) ->
     ?warning("Unknown cast: ~p", [Msg]),
     {noreply, State}.
@@ -261,6 +294,10 @@ handle_info({'EXIT', Worker, Why}, State = #state{workers = Workers}) ->
 handle_info({daily_tweets, Worker, Tracker, DayTweets}, State = #state{tracker = Tracker,
                                                                        tweets  = Tweets,
                                                                        workers = Workers}) ->
+    % Update rankings for Twitter user
+    [player:tweet(Tracker, T) || T <- DayTweets],
+
+    % Update state to reflect the work done
     JobOpts = maps:get(Worker, Workers),
     NewTweets = case DayTweets of
         [] ->

@@ -25,7 +25,7 @@
          get_comm_combos/0,
          get_players/1,
          get_rankings/1,
-         get_top_n/2,
+         get_top_n/2,       get_top_n/3, get_top_n/4,
          get_totals/1,      get_totals/2,
          load/2,
          plot/1,            plot/2, plot/3,
@@ -298,6 +298,17 @@ get_rankings(Tracker) ->
 %%--------------------------------------------------------------------
 -spec get_top_n(Tracker :: tracker(),
                 N       :: pos_integer()) -> proplist().
+
+-spec get_top_n(Tracker   :: tracker(),
+                N         :: pos_integer(),
+                CommCodes :: comm_code()
+                           | comm_codes()) -> proplist().
+
+-spec get_top_n(Tracker   :: tracker(),
+                N         :: pos_integer(),
+                CommCodes :: comm_code()
+                           | comm_codes(),
+                Options   :: options()) -> proplist().
 %%
 % @doc  Returns a list of the top N big players, candidate influencers,
 %       as a property list keyed by communication code.  Each property
@@ -305,9 +316,20 @@ get_rankings(Tracker) ->
 %       represented by the top N players, the number of tweets that the
 %       players are responsible for, and finally a list of the players
 %       themselves.  (This is the same data/format as `get_biggies'.
+%
+%       The only option currently supported is `user_list' to return
+%       a simple list of all top N screen names.
 % @end  --
 get_top_n(Tracker, N) ->
-    %
+    get_top_n(Tracker, N, ?COMM_CODES).
+
+
+get_top_n(Tracker, N, Comm) when is_atom(Comm) ->
+    get_top_n(Tracker, N, [Comm]);
+
+
+get_top_n(Tracker, N, CommCodes) ->
+
     Totals   = get_totals(Tracker),
     Rankings = get_rankings(Tracker),
 
@@ -336,7 +358,17 @@ get_top_n(Tracker, N) ->
             end
     end,
     [{Comm, TopReducer(maps:get(Comm, Totals),
-                       maps:get(Comm, Rankings), {0, 0, []})} || Comm <- ?COMM_CODES].
+                       maps:get(Comm, Rankings), {0, 0, []})} || Comm <- CommCodes].
+
+
+get_top_n(Tracker, N, CommCodes, Options) ->
+    TopN = get_top_n(Tracker, N, CommCodes),
+
+    % Our options are post-processing
+    case pprops:get_value(user_list, Options, false) of
+        false -> TopN;
+        true  -> lists:flatten([Users || {_, {_, _, Users}} <- TopN])
+    end.
 
 
 
