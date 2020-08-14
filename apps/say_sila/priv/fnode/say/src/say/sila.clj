@@ -824,6 +824,19 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn report-world
+  "Give positive/negative/emotion/survey/part-of-speech coverage for the
+  Say-Sila World data."
+  []
+  (run! (fn [[elm title]]
+          (log/info title)
+          (senti/report-examples (@World elm))
+          (log/debug))
+        [[:users "User Profiles:"]
+         [:texts "User Tweets:"]]))
+
+
+;;; --------------------------------------------------------------------------
 (defn save-ontologies
   "Saves the say-sila ontology and all World ontologies in OWL format."
   []
