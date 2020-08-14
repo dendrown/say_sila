@@ -1344,48 +1344,49 @@
 
   ([dtag xmps]
   (let [;; Statistics on text polarity and presence of affect
-        stats (reduce #(let [ss (if (every? empty? (:analysis %2))
-                                     :stoic
-                                     :senti)]
-                        (update-values %1 [:count (:polarity %2) ss] inc))
-                      (zero-hashmap :count :positive :negative :? :senti :stoic)
-                      xmps)
+        stats   (reduce #(let [ss (if (every? empty? (:analysis %2))
+                                      :stoic
+                                      :senti)]
+                           (update-values %1 [:count (:polarity %2) ss] inc))
+                        (zero-hashmap :count :positive :negative :? :senti :stoic)
+                        xmps)
 
-        p100  #(* 100. (/ (stats %)
-                          (stats :count)))
+        ;; Generalized roll-up functionality
+        p100    #(* 100. (/ (stats %)
+                            (stats :count)))
 
-        zeros #(apply zero-hashmap %)
-        kount #(update-values %1 %2 inc)                        ; Accumulate hits from seq %2
+        zero    #(apply zero-hashmap %)
+        init    #(vector (map %1 xmps)                          ; [elements, initial count-map]
+                         (zero %2))
+        kount   #(update-values %1 %2 inc)                      ; Accumulate hits from seq %2
+
+        count-tokens    (fn [zeros elements]
+                          (reduce kount
+                                  zeros
+                                  (flatten (map #(remove empty? %) elements))))
+
+        count-texts     (fn [zeros elements]
+                          (reduce #(update-values %1 (apply set/union %2) inc)
+                                  zeros
+                                  elements))
 
         ;; We'll need a sequence of affect (rule) sets for the Texts
-        aff-rules (map #(:analysis %) xmps)                     ; Affect sets from Texts
-        aff-zeros (zeros Affect-Names)                          ; Acc init: affect counts
+        [aff-rules                                              ; Affect sets from Texts
+         aff-zeros] (init :analysis Affect-Names)               ; Acc init: affect counts
 
-        ;; Breakdown of affective elements
-        aff-toks  (reduce kount                                 ; Sum the affect in a set
-                          aff-zeros
-                          (flatten (map #(remove empty? %) aff-rules)))
+        aff-toks    (count-tokens aff-zeros aff-rules)
+        aff-texts   (count-texts  aff-zeros aff-rules)
 
-        aff-texts (reduce (fn [cnts aff]
-                            (update-values cnts (apply set/union aff) inc))
-                            aff-zeros
-                            aff-rules)
-
-        ;; TODO: Generalize the surveys and PoS rollup functions
-        ;;
         ;; Six Americas surveys
-        svy-hits  (map #(:surveys %) xmps)                      ; Keyword hits from surveys
-        svy-zeros (zeros (keys Surveys))
+        [svy-hits                                               ; Keyword hits from surveys
+         svy-zeros] (init :surveys (keys Surveys))              ; Acc init: survey counts
 
-        svy-toks  (reduce kount svy-zeros svy-hits)
-        svy-texts (reduce (fn [cnts svy]
-                            (update-values cnts (into #{} svy) inc))
-                          svy-zeros
-                          svy-hits)
+        svy-toks    (count-tokens svy-zeros svy-hits)
+        svy-texts   (count-texts  svy-zeros svy-hits)
 
-        ;; Now get a sequence of part-of-speech tags for the Texts
-        pos-tags  (map #(:pos-tags %) xmps)                     ; POS tags for all Texts
-        pos-zeros (zeros pos/POS-Codes)                         ; Acc init: POS tag counts
+        ;; Now get a sequence of part-of-speech tags for the Texts.
+        [pos-tags                                               ; POS tags for all Texts
+         pos-zeros] (init :pos-tags pos/POS-Codes)              ; Acc init: POS tag counts
 
         pos-toks  (reduce kount pos-zeros pos-tags)
         pos-texts (reduce (fn [cnts pos]
@@ -1407,13 +1408,15 @@
                    (get aff-texts aff)))
 
   ;; Six Americas surveys
-  (doseq [svy (sort svy-texts)]
-    (log/fmt-debug "Survey~a ~24a [~4d Tokens in ~4d Texts]"
+  (log/debug)
+  (doseq [svy (sort (keys svy-texts))]
+    (log/fmt-debug "Survey~a ~12a [~4d Tokens in ~4d Texts]"
                     dtag (name svy)
                     (get svy-toks svy)
                     (get svy-texts svy)))
 
   ;; Report part-of-speech tags
+  (log/debug)
   (doseq [pos (sort-by pos/POS-Fragments
                       (keys pos-texts))]
     (log/fmt-debug "Speech~a ~24a [~4d Tokens in ~4d Texts]"
