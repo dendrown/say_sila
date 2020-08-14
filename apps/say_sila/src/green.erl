@@ -16,7 +16,8 @@
 
 -author("Dennis Drown <drown.dennis@courrier.uqam.ca>").
 
--export([start_link/1, start_link/2,
+-export([start/1,       start/2,
+         start_link/1,  start_link/2,
          stop/0,
          make_arff/0,
          re_pattern/0,
@@ -57,6 +58,27 @@ opts(day)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}].
 %%====================================================================
 %% API
 %%--------------------------------------------------------------------
+-spec start(Tracker :: tracker()) -> gen:start_ret().
+%%
+% @doc  Startup function for modelling enviromentalism.
+% @end  --
+start(Tracker) ->
+    start(Tracker, opts()).
+
+
+
+%%--------------------------------------------------------------------
+-spec start(Tracker :: tracker(),
+            Options :: proplist()) -> gen:start_ret().
+%%
+% @doc  Startup function for modelling enviromentalism.
+% @end  --
+start(Tracker, Options) ->
+    start_up(start, Tracker, Options).
+
+
+
+%%--------------------------------------------------------------------
 -spec start_link(Tracker :: tracker()) -> gen:start_ret().
 %%
 % @doc  Startup function for modelling enviromentalism.
@@ -73,8 +95,7 @@ start_link(Tracker) ->
 % @doc  Startup function for modelling enviromentalism.
 % @end  --
 start_link(Tracker, Options) ->
-    Args = [Tracker, Options],
-    gen_server:start_link({?REG_DIST, ?MODULE}, ?MODULE, Args, []).
+    start_up(start_link, Tracker, Options).
 
 
 
@@ -320,7 +341,16 @@ handle_info(Msg, State) ->
 
 %%====================================================================
 %% Internal functions
-%%====================================================================
+%%--------------------------------------------------------------------
+-spec start_up(Starter :: start|start_link,
+               Tracker :: tracker(),
+               Options :: proplist()) -> gen:start_ret().
+%%
+% @doc  Startup function for modelling enviromentalism.
+% @end  --
+start_up(Starter, Tracker, Options) ->
+    Args = [Tracker, Options],
+    gen_server:Starter({?REG_DIST, ?MODULE}, ?MODULE, Args, []).
 
 
 
