@@ -192,7 +192,9 @@
   :label "SASSY"
   :comment "Six Americas Short Survey")
 
-(defonce Surveys    {:sassy sassy})
+(defonce Surveys        (select-keys {:sassy sassy}                 ; Only configured surveys
+                                     (cfg/?? :senti :surveys #{})))
+(defonce Survey-Names   (map name (keys Surveys)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -791,8 +793,8 @@
 
 
   ([ont entity
-    {:keys [account analysis content tid polarity pos-tags]}                            ; Text breakdown
-    {:keys [full-links? links? pos-neg? secondaries? surveys use-scr? use-tweebo?]}]    ; Senti-params
+    {:keys [account analysis content tid polarity pos-tags surveys]}            ; Text breakdown
+    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-params
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [msg   (apply str (interpose " " content))
@@ -816,7 +818,7 @@
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
         (fn [[cnt tokens :as info]
-             [checks tag word]]
+             [checks tag word svys]]
           ;; Get the Part of Speech for the tag reported by Weka
           (if-let [pos (pos/lookup# tag)]
 
@@ -865,10 +867,8 @@
                 (express ont ttid curr sec)))
 
             ;; TODO: Prototypical code for Six Americas experimental surveys
-            (when surveys
-              (run! #(when (six/in-survey? % word)
-                       (refine ont curr :fact (is dul/isComponentOf (% Surveys))))
-                    surveys))
+            (doseq [s svys]
+                (refine ont curr :fact (is dul/isComponentOf (Surveys s))))
 
             ;; Continue the reduction
             [(inc cnt)
@@ -879,7 +879,7 @@
                 info)))
 
         [1 nil]                             ; Acc: Token counter, reverse seq of tokens
-        (zip analysis pos-tags content))))))
+        (zip analysis pos-tags content surveys))))))
 
 
 
@@ -1181,7 +1181,8 @@
                     stoic?          ; Determines if text is void of sentiment
                     stem            ; Find grammatical stem for a word
                     sense           ; Identify tokens with sentiment/emotion
-                    scr])           ; Identify tokens invoking sentiment composition rules
+                    scr             ; Identify tokens invoking sentiment composition rules
+                    surveys])       ; Identify surveys where this word is a keyword
 
 
 (defn toolbox
@@ -1196,6 +1197,7 @@
         sball   (tw/make-stemmer)                               ; Weka Affective Tweets plus Snowball stemmer
         stem    (fn [w]
                   (.stem sball w))
+
         exprs   (update-values Expressions                      ; Pre-stem Liu's SCR expressions
                                #(into #{} (map stem %)))]
 
@@ -1216,7 +1218,14 @@
                                  (conj acc scr)
                                  acc))
                            #{}
-                           exprs))})))
+                           exprs))
+
+      :surveys  #(reduce (fn [acc s]                            ; Link Six Americas surveys
+                           (if (six/in-survey? s % sball)
+                               (conj acc s)
+                               acc))
+                          #{}
+                          (keys Surveys))})))
 
 
 
@@ -1233,13 +1242,13 @@
   (let [pairs   (map #(str/split % #"_" 2)                      ; Separate elements: [PoS token]
                       (str/split elements #" "))
 
-        terms  (map #(-> % (second)                             ; FIXME: Get terms using
-                           (str/lower-case)                     ;  affective.core.Utils/tokenize
-                           (.replaceAll "([a-z])\\1+" "$1$1"))  ;  repeated letters
-                     pairs)
+        terms   (map #(-> % (second)                            ; FIXME: Get terms using
+                            (str/lower-case)                    ;  affective.core.Utils/tokenize
+                            (.replaceAll "([a-z])\\1+" "$1$1")) ;  repeated letters
+                      pairs)
 
-        affect (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
-        rules  (map (:scr tools) terms)]            ; Set of match-term rules per term
+        affect  (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
+        rules   (map (:scr tools) terms)]            ; Set of match-term rules per term
 
     ;; Put all that together to build the example
     {:account   sname
@@ -1248,6 +1257,7 @@
      :content   terms
      :rules     rules
      :pos-tags  (map first pairs)
+     :surveys   (map (:surveys tools) terms)
      :analysis  (map set/union affect rules)})))
 
 
@@ -1361,6 +1371,18 @@
                             aff-zeros
                             aff-rules)
 
+        ;; TODO: Generalize the surveys and PoS rollup functions
+        ;;
+        ;; Six Americas surveys
+        svy-hits  (map #(:surveys %) xmps)                      ; Keyword hits from surveys
+        svy-zeros (zeros (keys Surveys))
+
+        svy-toks  (reduce kount svy-zeros svy-hits)
+        svy-texts (reduce (fn [cnts svy]
+                            (update-values cnts (into #{} svy) inc))
+                          svy-zeros
+                          svy-hits)
+
         ;; Now get a sequence of part-of-speech tags for the Texts
         pos-tags  (map #(:pos-tags %) xmps)                     ; POS tags for all Texts
         pos-zeros (zeros pos/POS-Codes)                         ; Acc init: POS tag counts
@@ -1383,6 +1405,13 @@
                    dtag aff
                    (get aff-toks  aff)
                    (get aff-texts aff)))
+
+  ;; Six Americas surveys
+  (doseq [svy (sort svy-texts)]
+    (log/fmt-debug "Survey~a ~24a [~4d Tokens in ~4d Texts]"
+                    dtag (name svy)
+                    (get svy-toks svy)
+                    (get svy-texts svy)))
 
   ;; Report part-of-speech tags
   (doseq [pos (sort-by pos/POS-Fragments
