@@ -282,7 +282,11 @@ handle_cast({use_top_n, N, CommCodes}, State = #state{tracker = Tracker,
     TopN  = player:get_top_n(Tracker, N, CommCodes, [user_list]),
     Users = gb_sets:from_list(TopN),
 
-    NewTweets = lists:filter(fun(#tweet{screen_name = U}) -> gb_sets:is_member(U, Users) end,
+    [?debug("Big Player: ~s", [U]) || U <- TopN],
+
+    NewTweets = lists:filter(fun(#tweet{screen_name = U}) ->
+                                gb_sets:is_member(string:casefold(U), Users)
+                                end,
                              Tweets),
     {noreply, State#state{tweets = NewTweets}};
 
