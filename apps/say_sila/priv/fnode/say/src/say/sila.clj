@@ -540,6 +540,12 @@
                   (dl/and (dl/some publishes FearInformationObject)
                           (dl/some publishes GreenInformationObject)))))
 
+(defclass RogueAccount
+  :super    OnlineAccount
+  :label    "Rogue Account"
+  :comment  "An Online Account which does not adhere to the rules of its associated online provider.")
+
+
 
 ;;; --------------------------------------------------------------------------
 ;;; Align our class hierarchy with FOAF if configured to do so
