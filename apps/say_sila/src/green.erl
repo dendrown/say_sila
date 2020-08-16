@@ -29,14 +29,26 @@
 -import(proplists, [get_value/2]).
 
 % Quickies for development
--export([opts/0, opts/1]).
+-export([go/0,   go/1,
+         opts/0, opts/1]).
 
+%%%-------------------------------------------------------------------
+go() ->
+    go(gw).
+
+
+go(Tracker) ->
+    start(Tracker, biggies:period(train)).      % NOTE: inclues retweets
+
+
+%%%-------------------------------------------------------------------
 opts() -> opts(q1).
 
-opts(green) -> [no_retweet, {start, {2019, 10, 1}}, {stop, {2020, 7, 1}}];
-opts(q1)    -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
-opts(jan)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 2, 1}}];
-opts(day)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}].
+opts(green)   -> [no_retweet, {start, {2019, 10, 1}}, {stop, {2020, 7, 1}}];
+opts(q1)      -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
+opts(jan)     -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 2, 1}}];
+opts(day)     -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}];
+opts(biggies) -> [no_retweet| biggies:period(train)].
 
 
 -include("sila.hrl").
