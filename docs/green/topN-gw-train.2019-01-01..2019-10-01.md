@@ -1,29 +1,29 @@
-## Top 20 Big Players for green training run
+## Top 20 Big Players for GREEN training run
 
 ### `#globalwarming` communications (**originator**): pct[20.10%] cnt[1006]
 
 | N| SCREEN NAME                                              | OTER | RTER | RTED | TMED |  ANGR |  FEAR |  SAD  |  JOY  |NOTES|
 |-:| -------------------------------------------------------- | ----:|-----:|-----:|-----:| -----:| -----:| -----:| -----:|-----|
-| 1| [luluwalcott1](https://twitter.com/luluwalcott1)         |  132 |    0 |   13 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-| 2| [docuterror](https://twitter.com/docuterror)             |  121 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-| 3| [denybot6000](https://twitter.com/denybot6000)           |   88 |    0 |    6 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-| 4| [sgkplanet](https://twitter.com/sgkplanet)               |   70 |    0 |    3 |    1 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-| 5| [gridpointwx](https://twitter.com/gridpointwx)           |   68 |    0 |    3 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-| 6| [timmelino](https://twitter.com/timmelino)               |   66 |    0 |   10 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-| 7| [climageddon](https://twitter.com/climageddon)           |   59 |    0 |   18 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-| 8| [optimumamerica](https://twitter.com/optimumamerica)     |   57 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-| 9| [pauljimerson](https://twitter.com/pauljimerson)         |   57 |    0 |   20 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|10| [earthaccounting](https://twitter.com/earthaccounting)   |   38 |   11 |   31 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|11| [ubuntudotnews](https://twitter.com/ubuntudotnews)       |   36 |    0 |   12 |    1 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|12| [super_koala_](https://twitter.com/super_koala_)         |   33 |    0 |  109 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|13| [elizabeth_ruler](https://twitter.com/elizabeth_ruler)   |   32 |    2 |  245 |    3 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|14| [rpujolvives](https://twitter.com/rpujolvives)           |   32 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|15| [vetrepreneurone](https://twitter.com/vetrepreneurone)   |   21 |    0 |    6 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|16| [daylee](https://twitter.com/daylee)                     |   21 |    0 |    3 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|17| [projecthelp16](https://twitter.com/projecthelp16)       |   20 |    0 |    0 |    7 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|18| [billjryan](https://twitter.com/billjryan)               |   20 |    8 |   12 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|19| [4pawshop](https://twitter.com/4pawshop)                 |   18 |    0 |   35 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
-|20| [diaryernesto](https://twitter.com/diaryernesto)         |   17 |    0 |    1 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |     |
+| 1| [luluwalcott1](https://twitter.com/luluwalcott1)         |  132 |    0 |   13 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |Env - name: Green Bernie Bro @GreenPartyUS 🌻 - Los Angeles - progressive|
+| 2| [docuterror](https://twitter.com/docuterror)             |  121 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |conservative - Proud #UK Patriot. Supporter of #Brexit|
+| 3| [denybot6000](https://twitter.com/denybot6000)           |   88 |    0 |    6 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |env - heavy sarcasm (pretends to deny CC)|
+| 4| [sgkplanet](https://twitter.com/sgkplanet)               |   70 |    0 |    3 |    1 | 0.000 | 0.000 | 0.000 | 0.000 |Env - Here we listen to science|
+| 5| [gridpointwx](https://twitter.com/gridpointwx)           |   68 |    0 |    3 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |env - links to news stories|
+| 6| [timmelino](https://twitter.com/timmelino)               |   66 |    0 |   10 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |Env - Renewable Energy Meteorologist, interested in the #environment|
+| 7| [climageddon](https://twitter.com/climageddon)           |   59 |    0 |   18 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |Env - BIG picture of #globalwarming...in this...book|
+| 8| [optimumamerica](https://twitter.com/optimumamerica)     |   57 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |env - Book author - same tweet to promote book|
+| 9| [pauljimerson](https://twitter.com/pauljimerson)         |   57 |    0 |   20 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |Env - BLM, climate, anti-Trump|
+|10| [earthaccounting](https://twitter.com/earthaccounting)   |   38 |   11 |   31 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |ENV  |
+|11| [ubuntudotnews](https://twitter.com/ubuntudotnews)       |   36 |    0 |   12 |    1 | 0.000 | 0.000 | 0.000 | 0.000 |This account doesn’t exist|
+|12| [super_koala_](https://twitter.com/super_koala_)         |   33 |    0 |  109 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |ENV - sustainability, the environment, sunsets 😊 climate change, global warming|
+|13| [elizabeth_ruler](https://twitter.com/elizabeth_ruler)   |   32 |    2 |  245 |    3 | 0.000 | 0.000 | 0.000 | 0.000 |ENV  |
+|14| [rpujolvives](https://twitter.com/rpujolvives)           |   32 |    0 |    0 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |Env  |
+|15| [vetrepreneurone](https://twitter.com/vetrepreneurone)   |   21 |    0 |    6 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |env? - covid awareness, humanitarian posts (many non-English)|
+|16| [daylee](https://twitter.com/daylee)                     |   21 |    0 |    3 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |Env - ...atrocities of what we are doing to the Earth and Animals - BC Canada - covid|
+|17| [projecthelp16](https://twitter.com/projecthelp16)       |   20 |    0 |    0 |    7 | 0.000 | 0.000 | 0.000 | 0.000 |This account doesn’t exist|
+|18| [billjryan](https://twitter.com/billjryan)               |   20 |    8 |   12 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |env? - #DemocraticSocialist #RepublicansAreAntiCHRISTians|
+|19| [4pawshop](https://twitter.com/4pawshop)                 |   18 |    0 |   35 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |env? - covid-aware, leans liberal, one anti-pollution post|
+|20| [diaryernesto](https://twitter.com/diaryernesto)         |   17 |    0 |    1 |    0 | 0.000 | 0.000 | 0.000 | 0.000 |ENV - name: Environmental Diary - the most important emergency on the planet|
 
 
 ### `#globalwarming` communications (**retweeter**): pct[8.02%] cnt[425]

@@ -1,4 +1,4 @@
-## Top 20 Big Players for green training run
+## Top 20 Big Players for GREEN training run
 
 ### `#climatechange` communications (**originator**): pct[20.06%] cnt[11089]
 
