@@ -156,9 +156,10 @@
 ;;;       Term and Token equivalent.  Additionally, following their model of disjoint classes here
 ;;;       causes a complexity explosion in the reasoner tableau.
 (defclass Text
-  :super   dul/InformationObject
-  :label   "Text"
-  :comment "An Information Object consisting of text.")
+  :super    dul/InformationObject
+  :disjoint pos/Token
+  :label    "Text"
+  :comment  "An Information Object consisting of text.")
 
 ;;; Keep the actual tweet content as a development aid
 (defaproperty TextualContent)

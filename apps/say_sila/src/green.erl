@@ -38,7 +38,7 @@ go() ->
 
 
 go(Tracker) ->
-    start(Tracker, biggies:period(train)).      % NOTE: inclues retweets
+    start(Tracker, opts(biggies)).
 
 
 %%%-------------------------------------------------------------------

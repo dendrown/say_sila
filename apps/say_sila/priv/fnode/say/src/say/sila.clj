@@ -114,7 +114,6 @@
 ;;; TBox: building on dul:SocialObject
 (defclass OnlineAccount
   :super    dul/SocialObject
-  :disjoint senti/Text
   :label    "Online Account"
   :comment  "A user account for an online service.")
 
@@ -145,6 +144,11 @@
     :comment "A Player (participant) who demonstrates normal activity during a tracking run"))
 );comment
 
+;;; Help DL-Learner to not confuse our primary entities
+(as-disjoint OnlineAccount dul/InformationObject dul/Quality)
+
+
+;;; --------------------------------------------------------------------------
 ;;; TODO: Evaluating Gender ⊑ dul/Quality
 (comment
 (defclass Gender
@@ -382,6 +386,8 @@
   :super   dul/InformationObject
   :label   "Personal Profile"
   :comment "An Information Object consisting of a personal description for an online user.")
+
+(as-disjoint PersonalProfile senti/Text pos/Token)
 
 (comment
 (defclass Tweet
@@ -832,14 +838,24 @@
 ;;; --------------------------------------------------------------------------
 (defn report-world
   "Give positive/negative/emotion/survey/part-of-speech coverage for the
-  Say-Sila World data."
-  []
-  (run! (fn [[elm title]]
-          (log/info title)
-          (senti/report-examples (@World elm))
-          (log/debug))
-        [[:users "User Profiles:"]
-         [:texts "User Tweets:"]]))
+  Say-Sila World data. Passing a :users option will list the users for
+  each data tag."
+  [& opts]
+  (let [world @World
+        users (when (some #{:users} opts)               ; On request:
+                (update-values (world :users)           ; Tagged maps of user sequences
+                               #(into #{} (map :screen_name %))))]
+    ;; Report affect and PoS in profiles and tweets
+    (run! (fn [[elm title]]
+            (log/info title)
+            (senti/report-examples (world elm))
+            (log/debug))
+          [[:users "User Profiles:"]
+           [:texts "User Tweets:"]])
+
+    (doseq [[tag us] users]
+      (log/debug)
+      (log/fmt-info "USERS~a: ~a" tag us))))
 
 
 ;;; --------------------------------------------------------------------------
