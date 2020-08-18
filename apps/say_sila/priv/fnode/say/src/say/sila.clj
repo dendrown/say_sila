@@ -78,12 +78,52 @@
 ;;; Environmental clues at the Text level
 ;;;
 ;;; TBox: building on pos:Token
-(defclass FearToken
-  :super    pos/Token
-  :label    "Fear Token"
-  :comment  "A Token which may indicate fear."
-  :equivalent (dl/and pos/Token
-                      (dl/some senti/denotesAffect senti/Fear)))
+
+(defmacro def-affect-token
+  "Creates an affect Token class for the given (String) sentiment polarity or emotion."
+  [aff]
+  `(defclass ~(symbol (str aff "Token"))
+     :super    pos/Token
+     :label    (str ~aff " Token")
+     :comment  (str "A Token which may indicate " ~aff ".")
+     :equivalent (dl/and pos/Token
+                         (dl/some senti/denotesAffect (owl-class senti/say-senti ~aff)))));)
+
+;;; Create affect Token and Information Objects for all defined polarities and emotions
+;(run! #(def-affect-token %) senti/Affect-Names)                ; FIXME
+(def-affect-token "Positive")
+(def-affect-token "Negative")
+(def-affect-token "Anger")
+(def-affect-token "Fear")
+(def-affect-token "Sadness")
+(def-affect-token "Joy")
+(def-affect-token "Surprise")
+(def-affect-token "Anticipation")
+(def-affect-token "Disgust")
+(def-affect-token "Trust")
+
+(defmacro def-affect-info-obj
+  "Creates an affect InformationObject class for the given (String) sentiment polarity or emotion."
+  [aff]
+  `(defclass ~(symbol (str aff "InformationObject"))
+    :super    dul/InformationObject
+    :label    (str ~aff " Information Object")
+    :comment  (str "An Information Object which may indicate " ~aff ".")
+    :equivalent (dl/and dul/InformationObject
+                        (dl/some dul/hasComponent ~(symbol (str aff "Token"))))))
+
+;(run! #(def-affect-info-obj %) senti/Affect-Names)         ; FIXME
+(def-affect-info-obj "Positive")
+(def-affect-info-obj "Negative")
+(def-affect-info-obj "Anger")
+(def-affect-info-obj "Fear")
+(def-affect-info-obj "Sadness")
+(def-affect-info-obj "Joy")
+(def-affect-info-obj "Surprise")
+(def-affect-info-obj "Anticipation")
+(def-affect-info-obj "Disgust")
+(def-affect-info-obj "Trust")
+
 
 (defclass GreenToken
   :super    pos/Token
@@ -91,13 +131,6 @@
   :comment  "A Token which may indicate a user's tendency towards environmentalism."
   :equivalent (dl/and pos/Token
                       (dl/some dul/isComponentOf senti/Survey)))
-
-(defclass FearInformationObject
-  :super    dul/InformationObject
-  :label    "Fear Information Object"
-  :comment  "An Information Object which may indicate fear."
-  :equivalent (dl/and dul/InformationObject
-                      (dl/some dul/hasComponent FearToken)))
 
 (defclass GreenInformationObject
   :super    dul/InformationObject
@@ -724,7 +757,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^OWLOntology make-ontology
-  "Creates a version (copy) of the say-senti ontology, intended to include
+  "Creates a version (copy) of the say-sila ontology, intended to include
   individuals expressing the specified Sentiment Composition Rule (SCR)"
   [otag]
   (let [oname  (name otag)
@@ -863,6 +896,6 @@
   "Saves the say-sila ontology and all World ontologies in OWL format."
   []
   (save-ontology say-sila ONT-FPATH :owl)
-  (merge {:say-senti ONT-FPATH}
+  (merge {:say-sila ONT-FPATH}
          (save-ontology-map (:ontology @World) ONT-FSTUB)))
 
