@@ -191,9 +191,15 @@
 (defindividual sassy
   :type  Survey
   :label "SASSY"
-  :comment "Six Americas Short Survey")
+  :comment "Six Americas Short SurveY")
 
-(defonce Surveys        (select-keys {:sassy sassy}                 ; Only configured surveys
+(defindividual six36
+  :type  Survey
+  :label "Six Americas 36-Question Survey"
+  :comment "Original Six Americas survey with 36 questions.")
+
+(defonce Surveys        (select-keys {:sassy sassy                  ; Only configured surveys
+                                      :six36 six36}
                                      (cfg/?? :senti :surveys #{})))
 (defonce Survey-Names   (map name (keys Surveys)))
 
