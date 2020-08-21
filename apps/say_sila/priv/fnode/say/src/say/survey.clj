@@ -16,7 +16,9 @@
             [weka.tweet         :as tw]
             [clojure.set        :as set]
             [clojure.string     :as str]
-            [clojure.pprint     :refer [pp]])
+            [clojure.pprint     :refer [pp]]
+            [incanter.core      :refer [dataset view with-data]]
+            [incanter.charts    :refer [bar-chart]])
   (:import  [weka.core.stemmers SnowballStemmer]))
 
 
@@ -26,14 +28,14 @@
 (def ^:const INIT-SURVEY    :sassy)
 
 ;;; Six Americas Surveys:
-;;; Keywords do not (currently) include:
+;;; Key-words do not (currently) include:
 ;;; - personal pronouns
 ;;; - think/know
 ;;;
 ;;; TODO:
-;;; - Model keywords as #{general alarmed ... dismissive}
+;;; - Model Key-Words as #{general alarmed ... dismissive}
 ;;; - handle bigrams
-(defonce Keywords   {:six36 (set/union
+(defonce Key-Words  {:six36 (set/union
                              #{"change" "mind" "global" "warming" "issues"          ; Table 2"
                                "information" "opinion"}
 
@@ -105,9 +107,11 @@
                               "important" "issue" "personally"
                               "worried"}})
 
-(defonce Stemwords  (update-values Keywords (fn [words]
-                                              (let [sball (tw/make-stemmer)]
-                                                (into #{} (map #(.stem sball %) words))))))
+(defonce Stem-Words     (update-values Key-Words (fn [words]
+                                                   (let [sball (tw/make-stemmer)]
+                                                     (into #{} (map #(.stem sball %) words))))))
+
+(defonce Stem-Counts    (agent (into {} (map #(vector % {}) (keys Stem-Words)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -118,6 +122,34 @@
 
 
   ([survey word sball]
-  (contains? (Stemwords survey)
-             (.stem ^SnowballStemmer sball word))))
+  (let [stem (.stem ^SnowballStemmer sball word)
+        in?  (contains? (Stem-Words survey) stem)]
+    (when in?
+      (send Stem-Counts #(update-in % [survey stem] (fnil inc 0))))
+    in?)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn report-survey
+  "Rerports word (stem) coverage for words checked against surveys associated
+  with this  namespace."
+  ([]
+  (run! report-survey (keys Stem-Words)))
+
+
+  ([survey & opts]
+  (await Stem-Counts)
+  (let [stems (sort (fn [[_ a] [_ b]]
+                      (> a b))
+                    (@Stem-Counts survey))]
+
+    (when (some #{:chart} opts)
+      (future
+       (with-data (dataset [:stem :freq] stems)
+         (view (bar-chart :stem :freq)))))
+
+    (run! (fn [[stem freq]]
+            (log/fmt-info "~14a: ~4a" stem freq))
+          stems))))
 
