@@ -80,10 +80,12 @@
                                "provides" "jobs" "reduces" "conflict"
                                "environmental" "protection" "important" "problems"}
 
-                             #{; BIGRAMS: "turn off" "air conditioning"             ; Table 12 & 13
+                             #{; BIGRAMS: "turn off" "air conditioning"             ; Tables 12,13,17,18
                                ;          "brush teeth" "wash dishes"
                                ;          "power strips" "surge protectors"
                                ;          "light bulbs" "compact fluorescent"
+                               ;          "air conditioning" "beverage container"
+                               ;          "public transportation"
                                "lights" "electronics" "TVs" "computers" "recycle"
                                "home" "winter" "thermostat" "degrees" "cooler"
                                "summer" "warmer" "air" "conditioning" "re-usable"
@@ -98,7 +100,73 @@
                                "energy-saving" "actions" "months" "reduce"
                                "personal" "contribution" "global" "warming"
                                "United" "States" "people" "modern" "industrialized"
-                               "countries" "world"})
+                               "countries" "world"}
+
+                             #{; BIGRAMS: "taking steps"                            ; Table 15
+                               "rewarde" "companies" "steps" "reduce" "global"
+                               "warming" "buy" "products" "punish" "opposing"}
+
+                             #{; BIGRAMS:                                           ; Table 16
+                               "volunteere" "donate" "money" "organization"
+                               "working" "reduce" "global" "warming" "posted"
+                               "comment" "online" "response" "news" "story" "blog"
+                               "written" "letters" "emailed" "phoned" "government"
+                               "officials" "contacted" "urged" "take" "action"
+                               "volunteer"}
+
+                             #{; BIGRAMS:                                           ; Table 19
+                               "home" "family" "friends" "people" "global" "warming"
+                               "spoken" "share" "views"}
+
+                             #{; BIGRAMS: "saving energy"                           ; Table 20
+                               "discuss" "global" "warming" "children" "agree"
+                               "saving" "energy"}
+
+                             #{; BIGRAMS:                                           ; Table 21
+                               "people" "spoken" "global" "warming" "information"
+                               "advice"}
+
+                             #{; BIGRAMS:                                           ; Table 22
+                               "view" "humans" "reduce" "global" "warming"
+                               "successfully" "unclear" "change" "behavior"
+                               "happening" "actions" "single" "individual"
+                               "difference"}
+
+                             #{; BIGRAMS: "United States"                           ; Table 23
+                               "countries" "industrialized" "England" "Germany"
+                               "Japan" "reduce" "emissions" "developing" "China"
+                               "India" "Brazil" "US" "United" "States" "large-scale"
+                               "effort" "large" "economic" "costs" "medium-scale"
+                               "moderate" "small-scale" "small"}
+
+                             #{; BIGRAMS:                                           ; Table 24
+                               "low" "medium" "high" "priority" "president"
+                               "congress" "developing" "sources" "clean" "energy"}
+
+                             #{; BIGRAMS : "tax rebates" "solar panels"             ; Table 25
+                               ;            "carbon dioxide" "greenhouse gas"
+                               ;            "offshore drilling" "natural gas"
+                               ;            "renewable energy" "energy sources"
+                               ;            "United States" ""nuclear power"
+                               ;            "power plants" energy efficient"
+                               ;            "electric bill" "income tax"
+                               ;            "average household" international treaty"
+                               ; TRIGRAMS: "renewable energy sources"
+                               "support" "oppose" "policies" "fund" "research"
+                               "renewable" "energy" "sources" "solar" "wind" "power"
+                               "provide" "tax" "rebates" "people" "purchase"
+                               "energy-efficient" "vehicles" "panels" "regulate"
+                               "carbon" "dioxide" "primary" "greenhouse" "gas"
+                               "pollutant" "expand" "offshore" "drilling" "oil"
+                               "natural" "U.S." "coast" "Require" "electric"
+                               "utilities" "produce" "electricity" "cost" "average"
+                               "household" "sign" "international" "treaty" "requires"
+                               "United" "States" " emissions" "build" "nuclear"
+                               "plants" "establish" "special" "help" "buildings"
+                               "efficient" "teach" "Americans" "reduce" "surcharge"
+                               "bill" "increase" "taxes" "gasoline" "cents" "gallon"
+                               "return" "revenues" "taxpayers" "reducing" "federal"
+                               "income"})
 
                      :sassy #{"think"
                               "global" "warming"
@@ -109,7 +177,8 @@
 
 (defonce Stem-Words     (update-values Key-Words (fn [words]
                                                    (let [sball (tw/make-stemmer)]
-                                                     (into #{} (map #(.stem sball %) words))))))
+                                                     (into #{} (map #(.stem sball (str/lower-case %))
+                                                                    words))))))
 
 (defonce Stem-Counts    (agent (into {} (map #(vector % {}) (keys Stem-Words)))))
 
