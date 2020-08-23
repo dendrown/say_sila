@@ -166,8 +166,52 @@
                                "efficient" "teach" "Americans" "reduce" "surcharge"
                                "bill" "increase" "taxes" "gasoline" "cents" "gallon"
                                "return" "revenues" "taxpayers" "reducing" "federal"
-                               "income"})
+                               "income"}
 
+                             #{; BIGRAMS: "news organizations"                          ; Table 26,27
+                               "news" "controversial" "emails" "climate" "scientists"
+                               "England" "US" "organizations" "release" "Climategate"
+                               "followed" "stories" "closely" "certain" "global" "warming"
+                               "happening" "influence" "trust" "errors" "Intergovernmental"
+                               "Panel" "Climate" "Change" "IPCC" "report" "certainty"}
+
+                             #{; BIGRAMS : "mainstream news" "religious leaders"        ; Table 28
+                               ; TRIGRAMS: "mainstream news media"
+                               "trust" "distrust" "source" "information" "global"
+                               "warming" "scientists" "mainstream" "news" "media"
+                               "television" "weather" "reporters" "religious" "leaders"}
+
+                             #{; BIGRAMS : "media sources" "world events"               ; Table 29
+                               ; TRIGRAMS: "point of view"         
+                               "media" "sources" "current" "news" "world" "events"
+                               "television" "internet" "email" "radio" "print"
+                               "newspapers" "magazines" "political" "point" "view"
+                               "share"}
+
+                             #{; BIGRAMS : "TV news" "Weather Channel" "Fox News"       ; Table 30
+                               ;           "OReilly Factor" "Bill OReilly" "Glenn Beck"
+                               ;           "Daily Show" "Jon Stewart" "Sean Hannity"
+                               ;           "Rush Limbaugh" "Keith Olbermann"
+                               ;           "Rachel Maddow" "Colbert Report"
+                               ;           "Stephen Colbert"
+                               ; TRIGRAMS: "Meet the Press" "New York Times"
+                               ;           "Wall Street Journal"
+                               "watch" "listen" "shows" "visit" "websites" "local"
+                               "TV" "news" "national" "nightly" "network" "CBS" "ABC"
+                               "NBC" "newspaper" "print" "online" "Weather" "Channel"
+                               "Fox" "cable" "CNN" "Public" "Radio" "NPR" "Sunday"
+                               "morning" "Meet" "Press" "MSNBC" "OReilly" "Factor" "Bill"
+                               "Glenn" "Beck" "Program" "Daily" "Show" "Jon" "Stewart"
+                               "Sean" "Hannity" "Rush" "Limbaugh" "New" "York" "Times"
+                               "Countdown" "Keith" "Olbermann" "Rachel" "Maddow"
+                               "Colbert" "Report" "Stephen" "Wall" "Street" "Journal"}
+
+                             #{; BIGRAMS : "Tea Party"                                  ; Table 31
+                               ; TRIGRAMS: "middle of the road"    
+                               "Republican" "Democrat" "Independent" "party" "interested"
+                               "politics" "liberal" "moderate" "conservative" "Tea" "Party"
+                               "movement" "registered" "vote"}
+)
                      :sassy #{"think"
                               "global" "warming"
                               "harm"
