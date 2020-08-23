@@ -82,5 +82,8 @@
      :ocel              {}
      :celoe             {:maxNrOfResults            10}}
 
+  ;; -------------------------------------------------------------------------
+  :survey
+    {:min-chart-hits    5}                      ; Mininimum hit frequency to be included in report chart
 }
 ;;; vim: ft=clojure:

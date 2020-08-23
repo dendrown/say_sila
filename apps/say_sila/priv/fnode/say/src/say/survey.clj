@@ -12,12 +12,13 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.survey
   (:require [say.genie          :refer :all]
+            [say.config         :as cfg]
             [say.log            :as log]
             [weka.tweet         :as tw]
             [clojure.set        :as set]
             [clojure.string     :as str]
             [clojure.pprint     :refer [pp]]
-            [incanter.core      :refer [dataset view with-data]]
+            [incanter.core      :refer [dataset view with-data $where]]
             [incanter.charts    :refer [bar-chart]])
   (:import  [weka.core.stemmers SnowballStemmer]))
 
@@ -25,7 +26,8 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const INIT-SURVEY    :sassy)
+(def ^:const INIT-SURVEY    :six36)
+
 
 ;;; Six Americas Surveys:
 ;;; Key-words do not (currently) include:
@@ -253,16 +255,23 @@
 
   ([survey & opts]
   (await Stem-Counts)
-  (let [stems (sort (fn [[_ a] [_ b]]
+  (let [hits  (cfg/?? :survey :min-chart-hits 5)
+        stems (sort (fn [[_ a] [_ b]]
                       (> a b))
                     (@Stem-Counts survey))]
 
     (when (some #{:chart} opts)
       (future
-       (with-data (dataset [:stem :freq] stems)
-         (view (bar-chart :stem :freq)))))
+       (with-data (->> stems
+                       (dataset [:stem :freq])
+                       ($where {:freq {:gte hits}}))
+         (view (bar-chart :stem :freq
+                          :title (strfmt "~a Keyword Hits (min ~a)" (KEYSTR survey) hits)
+                          :y-label "frequency"
+                          :x-label "keyword stem"       ; x/y-labels are flipped for non-vertical chart
+                          :vertical false)))))
 
     (run! (fn [[stem freq]]
-            (log/fmt-info "~14a: ~4a" stem freq))
+            (log/fmt-info "~16a: ~4a" stem freq))
           stems))))
 
