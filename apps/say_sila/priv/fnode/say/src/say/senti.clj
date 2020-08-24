@@ -462,15 +462,30 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defonce Polarity-Markers   {"Negative" (str log/Blue      "--")
+(def     Polarity-Markers   {"Negative" (str log/Lt-Blue   "--")
                              "Positive" (str log/Lt-Yellow "++")
                              :?         (str log/White     "??")})
 
-(defonce Emotion-Colours    {"Anger"    log/Red
-                             "Fear"     log/Green
-                             "Joy"      log/Yellow
-                             "Sadness"  log/Magenta})
+(def     Emotion-Colours    {"Anger"        log/Red
+                             "Fear"         log/Green3
+                             "Joy"          log/Gold1
+                             "Sadness"      log/Magenta
+                             "Anticipation" log/Orange3
+                             "Surprise"     log/Cyan1
+                             "Trust"        log/SpringGreen1
+                             "Disgust"      log/Magenta2
+                             })
 
+(defn elegend
+  "Returns a legend for emotion to colour mapping."
+  []
+  (map (fn [[emo col]]
+         (str col emo log/Text))
+       (merge Emotion-Colours
+              Polarity-Markers)))
+
+
+;;; --------------------------------------------------------------------------
 (defn eword
   "Returns a printable colour-coded string of word high-lighted with respect
   to the specified sentiment/emotion set."

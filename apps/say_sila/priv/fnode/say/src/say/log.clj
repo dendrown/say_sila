@@ -17,18 +17,29 @@
 
 (set! *warn-on-reflection* true)
 
-; Eclipse blocks colour :/
+;;; Eclipse blocks colour :/
 (def USE-COLOUR (when-not (System/getenv "LEIN_REPL_ACK_PORT") true))
+
+;;; Standard xterm colours
+;;; @ref https://misc.flogisoft.com/bash/tip_colors_and_formatting
 (def ^:const Text       "\033[0m")
+(def ^:const Bright     "\033[1m")
+(def ^:const Dim        "\033[2m")
+(def ^:const Underline  "\033[3m")
+
 (def ^:const Red        "\033[0;31m")
 (def ^:const Green      "\033[0;32m")
 (def ^:const Yellow     "\033[0;33m")
 (def ^:const Blue       "\033[0;34m")
 (def ^:const Magenta    "\033[0;35m")
+(def ^:const Cyan       "\033[0;36m")
 
 (def ^:const Lt-Red     "\033[1;31m")
+(def ^:const Lt-Green   "\033[1;92m")
 (def ^:const Lt-Yellow  "\033[1;33m")
-(def ^:const LT-Magenta "\033[1;35m")
+(def ^:const Lt-Blue    "\033[1;94m")
+(def ^:const Lt-Magenta "\033[1;35m")
+(def ^:const Lt-Cyan    "\033[1;36m")
 
 (def ^:const White      "\033[0;97m")
 
@@ -37,15 +48,29 @@
 
 (def ^:const Red-Inv    "\033[7;31m")
 
+;;; Selections from the 256-colour xterm palette
+;;; @ref https://jonasjacek.github.io/colors/
+(def ^:const Green4         "\033[38;5;28m")
+(def ^:const Green3         "\033[38;5;34m")
+(def ^:const Turquoise2     "\033[38;5;45m")
+(def ^:const SpringGreen1   "\033[38;5;48m")
+(def ^:const Cyan1          "\033[38;5;51m")
+(def ^:const Orange3        "\033[38;5;172m")
+(def ^:const Magenta2       "\033[38;5;200m")
+(def ^:const Lt-Salmon1     "\033[38;5;216m")
+(def ^:const Gold1          "\033[38;5;220m")
+(def ^:const Yellow1        "\033[38;5;226m")
+
+;;; --------------------------------------------------------------------------
 (defmacro deflevel [lvl prompt colour]
   `(def ^:const ~lvl (if USE-COLOUR (str ~colour ~prompt Text) ~prompt)))
 
 (deflevel PANIC  " PANIC:" Red-Inv)
 (deflevel CRIT   "  CRIT:" Red-Inv)
-(deflevel ERROR  " ERROR:" Red)
-(deflevel WARN   "  WARN:" Yellow)
-(deflevel NOTICE "NOTICE:" Green)
-(deflevel INFO   "  INFO:" Blue)
+(deflevel ERROR  " ERROR:" Lt-Red)
+(deflevel WARN   "  WARN:" Lt-Yellow)
+(deflevel NOTICE "NOTICE:" Lt-Green)
+(deflevel INFO   "  INFO:" Lt-Blue)
 (deflevel DEBUG  " DEBUG:" Dk-Gray)
 
 (def Logger (agent {:count 0}))
