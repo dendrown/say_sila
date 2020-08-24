@@ -25,7 +25,7 @@
 (def ^:const Text       "\033[0m")
 (def ^:const Bright     "\033[1m")
 (def ^:const Dim        "\033[2m")
-(def ^:const Underline  "\033[3m")
+(def ^:const Underline  "\033[4m")
 
 (def ^:const Red        "\033[0;31m")
 (def ^:const Green      "\033[0;32m")
@@ -56,6 +56,7 @@
 (def ^:const SpringGreen1   "\033[38;5;48m")
 (def ^:const Cyan1          "\033[38;5;51m")
 (def ^:const Orange3        "\033[38;5;172m")
+(def ^:const Red1           "\033[38;5;196m")
 (def ^:const Magenta2       "\033[38;5;200m")
 (def ^:const Lt-Salmon1     "\033[38;5;216m")
 (def ^:const Gold1          "\033[38;5;220m")

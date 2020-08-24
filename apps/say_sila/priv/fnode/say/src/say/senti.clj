@@ -466,15 +466,14 @@
                              "Positive" (str log/Lt-Yellow "++")
                              :?         (str log/White     "??")})
 
-(def     Emotion-Colours    {"Anger"        log/Red
+(def     Emotion-Colours    {"Anger"        log/Red1
                              "Fear"         log/Green3
                              "Joy"          log/Gold1
                              "Sadness"      log/Magenta
                              "Anticipation" log/Orange3
                              "Surprise"     log/Cyan1
                              "Trust"        log/SpringGreen1
-                             "Disgust"      log/Magenta2
-                             })
+                             "Disgust"      log/Magenta2})
 
 (defn elegend
   "Returns a legend for emotion to colour mapping."
@@ -489,8 +488,19 @@
 (defn eword
   "Returns a printable colour-coded string of word high-lighted with respect
   to the specified sentiment/emotion set."
-  [word affect]
-  (if (empty? affect)
+  ([word affect]
+  (eword word affect nil nil))
+
+
+  ([word affect survey]
+  (eword word affect survey (tw/make-stemmer)))
+
+
+  ([word affect survey sball]
+  (let [smark (when (and survey (six/in-survey? survey word sball))
+                log/Underline)]
+    ;; Make sure we have something to process
+    (if (every? empty? [affect smark])
       word
       (let [; Surround the word with colour-coded pos/neg markers
             [prefix
@@ -506,7 +516,7 @@
             colours (vals (select-keys Emotion-Colours affect))
             ccnt    (count colours)
             weave   (if (zero? ccnt)
-                      word
+                      (str smark word)
                       ;; Pad word for an even split across emotions
                       (let [wlen    (count word)
                             csize   (Math/ceil (/ wlen ccnt))
@@ -518,29 +528,39 @@
                                                                  (seq word)
                                                                  padz))]
                         ;; Weave emotion colours into word!
-                        (apply str (flatten (interleave colours chunks)))))]
+                        (apply str (flatten (interleave (repeat smark) colours chunks)))))]
 
         ;; End the colourized word must by going back to no colour
         (str prefix log/Text
              weave  log/Text
-             suffix log/Text))))
+             suffix log/Text))))))
 
 
 
 ;;; --------------------------------------------------------------------------
 (defn etweet
-  "Returns a colourized string representing the example tweet"
-  [{:keys [tid
-           polarity
-           content
-           analysis]}]
-  (let [colourize (fn [[word affect]]
-                    (eword word affect))
+  "Returns a colourized string representing the example tweet. Survey keyword
+  hits are underlined.  The function defaults to using the configured survey,
+  or SASSY if none is configured.)"
+  ([xmp]
+  ;;; TODO: Handle multiple surveys if we're going to support more than one
+  (etweet xmp (first (cfg/?? :senti :surveys [:sassy]))))
+
+
+  ([{:keys [tid
+            polarity
+            content
+            analysis]}
+    survey]
+  (let [snowball  (when survey
+                    (tw/make-stemmer))
+        colourize (fn [[word affect]]
+                    (eword word affect survey snowball))
         pn-code   (Polarity-Markers (Affect-Fragments polarity polarity))]
     ;; The analysis includes sentiment, emotion, and SCRs. The latter are ignored.
     (apply str (interpose \space
                           (conj (map colourize (zip content analysis))  ; Mark affect
-                                (log/<> tid pn-code))))))               ; Tag tweet
+                                (log/<> tid pn-code)))))))              ; Tag tweet
 
 
 
