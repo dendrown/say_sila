@@ -96,35 +96,42 @@
 ;;; --------------------------------------------------------------------------
 (defn print-tree
   "Prints a tree structure to show dependencies."
-  [{:keys [tid content]}]
+  [{:keys [etokens pos-tags tid]
+    :or   {etokens (repeat nil)}}]
 
-  (letfn [(strip [[ndx tok _ _ _ _ dep]]                        ; Lose the uneeded elements
-            [ndx tok dep])
+   (letfn [(combine [[etok pos [ndx tok _ _ _ _ dep]]]
+             ;; Take just the elements we need
+             [ndx dep pos (if etok
+                              etok
+                              tok)])
 
-          (child? [[_ _ dep] pix]                               ; Is the dependency the parent index (pix)?
-            (= dep pix))
+           (child? [[_ dep _ _] pix]
+             ;; Is the dependency the parent index (pix)?
+             (= dep pix))
 
-          (omit? [i]
-            (or (nil? i)
-                (child? i "-1")))
+           (omit? [i]
+             (or (nil? i)
+                 (child? i "-1")))
 
-          (root? [i]
-            (child? i "0"))
+           (root? [i]
+             (child? i "0"))
 
-          (proc [prefix [pix parent _] children]
-            (println prefix parent)
-            (run! #(if (child? % pix)
-                        (proc (str "  " prefix) % children))
-                  children))
+           (proc [prefix [pix _ pos parent] children]
+             (log/fmt! "~a ~a (~a)\n" prefix parent pos)
+             (run! #(if (child? % pix)
+                         (proc (str "  " prefix) % children))
+                   children))]
 
-            ]
     ;; Process the Tweebo parser output
-    (let [parsed (map strip (predict tid))
+    (let [parsed (map combine (zip etokens
+                                   pos-tags
+                                   (predict tid)))
           {roots    true
            children false} (group-by root? (remove omit? parsed))]
 
       (loop [roots roots]
         (when-let [root (first roots)]
-          (proc "+" root children)
+          (proc "•" root children)
           (println)
           (recur (rest roots)))))))
+
