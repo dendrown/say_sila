@@ -544,24 +544,31 @@
   or SASSY if none is configured.)"
   ([xmp]
   ;;; TODO: Handle multiple surveys if we're going to support more than one
-  (etweet xmp (first (cfg/?? :senti :surveys [:sassy]))))
+  (etweet xmp (six/which-survey) :tree))
 
 
   ([{:keys [tid
             polarity
             content
-            analysis]}
-    survey]
+            analysis]
+     :as xmp}
+    survey
+    & opts]
+  ;; The analysis includes sentiment, emotion, and SCRs. The latter are ignored.
   (let [snowball  (when survey
                     (tw/make-stemmer))
         colourize (fn [[word affect]]
                     (eword word affect survey snowball))
-        pn-code   (Polarity-Markers (Affect-Fragments polarity polarity))]
-    ;; The analysis includes sentiment, emotion, and SCRs. The latter are ignored.
-    (apply str (interpose \space
-                          (conj (map colourize (zip content analysis))  ; Mark affect
-                                (log/<> tid pn-code)))))))              ; Tag tweet
+        pn-code   (Polarity-Markers (Affect-Fragments polarity polarity))
+        etext     (apply str (interpose \space
+                               (conj (map colourize (zip content analysis)) ; Mark affect
+                               (log/<> tid pn-code))))]                     ; Tag tweet
 
+    ;; Are we printing or returning the colourized string?
+    (when (some #{:tree} opts)
+      (println etext)
+      (twbo/print-tree xmp))
+    etext)))
 
 
 ;;; --------------------------------------------------------------------------

@@ -26,7 +26,7 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const INIT-SURVEY    :six36)
+(def ^:const Init-Survey    :sassy)
 
 
 ;;; Six Americas Surveys:
@@ -227,6 +227,14 @@
                                                                     words))))))
 
 (defonce Stem-Counts    (agent (into {} (map #(vector % {}) (keys Stem-Words)))))
+
+
+;;; --------------------------------------------------------------------------
+(defn which-survey
+  "Returns the name of the active (configured) survey."
+  []
+  (cfg/?? :survey :survey Init-Survey))
+
 
 
 ;;; --------------------------------------------------------------------------
