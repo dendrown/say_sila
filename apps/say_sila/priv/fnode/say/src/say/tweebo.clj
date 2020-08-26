@@ -99,50 +99,59 @@
   [{:keys [etokens pos-tags tid]
     :or   {etokens (repeat nil)}}]
 
-   (letfn [(combine [[etok pos [ndx tok _ _ _ _ dep]]]
+   (letfn [; -----------------------------------------------------------------
+           (combine [[etok pos [ndx tok _ _ _ _ dep]]]
              ;; Take just the elements we need
              [ndx dep pos (if etok
                               etok
                               tok)])
 
+           ; -----------------------------------------------------------------
            (child? [[_ dep _ _] pix]
              ;; Is the dependency the parent index (pix)?
              (= dep pix))
 
+           ; -----------------------------------------------------------------
            (omit? [i]
              (or (nil? i)
                  (child? i "-1")))
 
+           ; -----------------------------------------------------------------
            (root? [i]
              (child? i "0"))
 
+           ; -----------------------------------------------------------------
            (proc [lvl finals? [pix _ pos parent] children]
              ;; With the short token lists, we always check all the children
-             (let [;[prevs
-                   ; curr
-                   branch (if (last finals?) "└" "├")
-                   indent (if (zero? lvl)
-                              ""
-                              (apply str (map #(if % "    "
-                                                     "│   ") (butlast finals?))))
-                   [kids
-                    runt] (butlast-last (filter #(child? % pix) children))]
-                   
+             (let [[fins?-a
+                    fin?-z] (butlast-last finals?)
+                   branch   (if fin?-z "└" "├")
+                   indent   (if (zero? lvl)
+                                ""
+                                (apply str (map #(if % "    "
+                                                       "│   ") fins?-a)))
+                   kids     (filter #(child? % pix) children)]
+               ;; Print the current node and recursively process its children
                (log/fmt! "~a~a── ~a (~a)\n" indent branch parent pos)
-               (when runt
-                 (run! #(proc (inc lvl) (conj finals? false) % children) kids)
-                 (proc (inc lvl) (conj finals? true) runt children))))]
+               (process (inc lvl) finals? kids children)))
+
+           ; -----------------------------------------------------------------
+           (process [lvl finals? parents-az children]
+             (let [[parents-a
+                    parent-z] (butlast-last parents-az)]
+             ;; If there's only one parent, it'll be the last parent
+             (when parent-z
+               (run! #(proc lvl (conj finals? false) % children) parents-a)
+               (proc lvl (conj finals? true) parent-z children))))]
 
     ;; Process the Tweebo parser output
     (let [parsed (map combine (zip etokens
                                    pos-tags
                                    (predict tid)))
-          {roots-az true
-           children false} (group-by root? (remove omit? parsed))
-          [roots-a root-z] (butlast-last roots-az)]
+          {roots    true
+           children false} (group-by root? (remove omit? parsed))]
 
       (println "•")
-      (run! #(proc 0 [false] % children) roots-a)
-      (proc 0 [true] root-z children)
+      (process 0 [] roots children)
       (println))))
 
