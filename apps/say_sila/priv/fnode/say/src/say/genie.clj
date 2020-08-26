@@ -66,8 +66,8 @@
   is the sequence minus the final item (as with butlast) and the second
   element is the final item (as with last)."
   [s]
-  (loop [acc []     ; Acc: but-last
-         it  nil    ; Previous item
+  (loop [acc []         ; Acc: but-last
+         it  (first s)  ; Previous item
          s   s]
     (if-let [nxt (next s)]
       (recur (conj acc (first s)) (first nxt) nxt)

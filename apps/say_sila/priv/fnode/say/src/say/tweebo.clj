@@ -116,22 +116,33 @@
            (root? [i]
              (child? i "0"))
 
-           (proc [prefix [pix _ pos parent] children]
-             (log/fmt! "~a ~a (~a)\n" prefix parent pos)
-             (run! #(if (child? % pix)
-                         (proc (str "  " prefix) % children))
-                   children))]
+           (proc [lvl finals? [pix _ pos parent] children]
+             ;; With the short token lists, we always check all the children
+             (let [;[prevs
+                   ; curr
+                   branch (if (last finals?) "└" "├")
+                   indent (if (zero? lvl)
+                              ""
+                              (apply str (map #(if % "    "
+                                                     "│   ") (butlast finals?))))
+                   [kids
+                    runt] (butlast-last (filter #(child? % pix) children))]
+                   
+               (log/fmt! "~a~a── ~a (~a)\n" indent branch parent pos)
+               (when runt
+                 (run! #(proc (inc lvl) (conj finals? false) % children) kids)
+                 (proc (inc lvl) (conj finals? true) runt children))))]
 
     ;; Process the Tweebo parser output
     (let [parsed (map combine (zip etokens
                                    pos-tags
                                    (predict tid)))
-          {roots    true
-           children false} (group-by root? (remove omit? parsed))]
+          {roots-az true
+           children false} (group-by root? (remove omit? parsed))
+          [roots-a root-z] (butlast-last roots-az)]
 
-      (loop [roots roots]
-        (when-let [root (first roots)]
-          (proc "•" root children)
-          (println)
-          (recur (rest roots)))))))
+      (println "•")
+      (run! #(proc 0 [false] % children) roots-a)
+      (proc 0 [true] root-z children)
+      (println))))
 

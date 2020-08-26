@@ -575,8 +575,7 @@
   "Prints a colourized representions of a tweet and its token dependency tree."
   [xmp]
   (let [exmp (etweet xmp (six/which-survey) :map)]
-
-    (println (:etext exmp) "\n")
+    (println (:etext exmp))
     (twbo/print-tree (merge xmp exmp))
     (println)))
 
