@@ -14,6 +14,7 @@
   (:require [say.genie          :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
+            [say.social         :as soc]
             [weka.tweet         :as tw]
             [clojure.set        :as set]
             [clojure.string     :as str]
@@ -28,6 +29,10 @@
 
 (def ^:const Init-Survey    :sassy)
 
+
+;;; Handle words that are usually run together without camelOrPascalCase (generally to make a hashtag)
+(defonce Word-Splits {"climatechange"   ["climate" "change"]
+                      "globalwarming"   ["global" "warming"]})
 
 ;;; Six Americas Surveys:
 ;;; Key-words do not (currently) include:
@@ -244,9 +249,15 @@
   (in-survey? survey word (tw/make-stemmer)))
 
 
-  ([survey word sball]
-  (let [stem (.stem ^SnowballStemmer sball word)
-        in?  (contains? (Stem-Words survey) stem)]
+  ([survey token sball]
+  (let [hits  (Stem-Words survey)
+        stem  #(.stem ^SnowballStemmer sball %)
+        check #(contains? hits (stem %))
+        word  (soc/unhashtag token)
+        in?   (or (check word)                          ; 1: General check
+                  (when-let [splits (Word-Splits word)] ; 2: Hashtag values (w/out #)
+                    (every? check splits))
+                  (every? check (soc/tokenize word)))]  ; 3: Hyphens, WeirdCase, etc.
     (when in?
       (send Stem-Counts #(update-in % [survey stem] (fnil inc 0))))
     in?)))
