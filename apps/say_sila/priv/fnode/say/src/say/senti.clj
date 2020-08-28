@@ -469,7 +469,7 @@
 (def     Emotion-Colours    {"Anger"        log/Red1
                              "Fear"         log/Green3
                              "Joy"          log/Gold1
-                             "Sadness"      log/Magenta
+                             "Sadness"      log/Dk-Violet
                              "Anticipation" log/Orange3
                              "Surprise"     log/Cyan1
                              "Trust"        log/SpringGreen1
