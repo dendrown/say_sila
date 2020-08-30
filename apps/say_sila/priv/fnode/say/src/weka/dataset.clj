@@ -47,7 +47,16 @@
   [attrs]
   (into {} (map vector attrs (range (count attrs)))))
 
+;;; Current dataset layouts; where for the X99 codes:
+;;; - X is the dataset content code, and
+;;; - the highest 99 value represents the latest version
+(defonce Datasets   {:s :s02                    ; [S]tatus text [s]entiment/emotion
+                     :t :t00                    ; [T]witter input (from Sila/erl)
+                     :u :u00})                  ; [U]ser information
+
+
 ;;; Column names generally correspond to Twitter's status (meta)data keys
+(defonce S02-cols   (col-map [:id :screen_name :text :green]))
 (defonce S01-cols   (col-map [:id :screen_name :text :sentiment]))
 (defonce S00-cols   (col-map [:id :text :sentiment]))
 
@@ -55,15 +64,11 @@
 (defonce U00-cols   (col-map [:screen_name :name :description :environmentalist]))
 
 ;;; Column/attribute lookup by dataset
-(defonce Columns    {:s01 S01-cols
+(defonce Columns    {:s02 S02-cols
+                     :s01 S01-cols
                      :s00 S00-cols
                      :t00 T00-cols
                      :u00 U00-cols})
-
-;;; Current dataset layouts
-(defonce Datasets   {:s :s01                    ; Sentiment/emotion
-                     :t :t00                    ; Twitter input
-                     :u :u00})                  ; User information
 
 
 ;;; --------------------------------------------------------------------------
@@ -180,9 +185,19 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- ^Instances t00->s02
+  "Converts the T00 tweet format to the S00 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «S02»."
+  [insts]
+  (-> (prep-dataset insts :t00 :s02)
+      (process-text :s02)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- ^Instances t00->s01
   "Converts the T00 tweet format to the S00 say-senti format.  The function
-  creates a copy of the specified dataset whose filename is tagged with «S00»."
+  creates a copy of the specified dataset whose filename is tagged with «S01»."
   [insts]
   (-> (prep-dataset insts :t00 :s01)
       (process-text :s01)))
