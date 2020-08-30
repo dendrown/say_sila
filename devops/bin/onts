@@ -20,7 +20,9 @@
 #; ---------------------------------------------------------------------------
 (chdir WEB-DIR
   (when *Tag
-    (mapc relink '(cmu-pos say-senti)))
+    (mapc relink '(cmu-pos
+                   say-senti
+                   say-sila)))
   (prinl)
   (call 'ls "-lh" "--color=always"))
 
