@@ -125,20 +125,20 @@
 (def-affect-info-obj "Trust")
 
 
-(defclass GreenToken
+(defclass SurveyKeyword
   :super    pos/Token
-  :label    "Green Token"
-  :comment  "A Token which may indicate a user's tendency towards environmentalism."
+  :label    "Survey Keyword"
+  :comment  "A Token which is considered to be a keyword in a Six America's survey."
   :equivalent (dl/and pos/Token
                       (dl/some dul/isComponentOf senti/Survey)))
 
-(defclass GreenInformationObject
+(defclass SurveyReference
   :super    dul/InformationObject
-  :label    "Green Information Object"
-  :comment  (str "An Information Object which has one or more components that may indicate a user's "
-                 "tendency towards environmentalism.")
+  :label    "Survey Reference"
+  :comment  (str "An Information Object which has one or more keywords from  a "
+                 "Six Americas survey.")
   :equivalent (dl/and dul/InformationObject
-                      (dl/some dul/hasComponent GreenToken)))
+                      (dl/some dul/hasComponent SurveyKeyword)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -571,13 +571,13 @@
   :comment  "An Online Account that represents someone who is concerned about the environment."
   :equivalent (dl/and
                 OnlineAccount
-                (dl/or
+                (dl/or ; [TODO] go beyond this initial SWAG
                   ;; Profile trigger
                   (dl/some dul/isReferenceOf (dl/and FearInformationObject
-                                                     GreenInformationObject))
+                                                     SurveyReference))
                   ;; Tweet trigger
                   (dl/and (dl/some publishes FearInformationObject)
-                          (dl/some publishes GreenInformationObject)))))
+                          (dl/some publishes SurveyReference)))))
 
 (defclass RogueAccount
   :super    OnlineAccount

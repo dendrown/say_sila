@@ -427,13 +427,25 @@
     :label   "Multi-word concept"
     :comment "A Collection of Tokens that together represent a single unit of meaning.")
 
-  ;; FIXME: dependsOn will need to be under associatedWith, depending on the hierarchy config setting
   (defoproperty dependsOn
     :domain  dul/Entity
     :range   dul/Entity
     :label   "depends on"
     :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
-    :characteristic :transitive))
+    :characteristic :transitive)
+
+  ;; dependsOn will need to be under associatedWith, depending on the DUL config setting
+  (when (not= :minimal (dul/which-mode))
+    (refine dependsOn
+      :super dul/associatedWith))
+
+  (defoproperty directlyDependsOn
+    :super   dependsOn
+    :domain  dul/Entity
+    :range   dul/Entity
+    :label   "directly depends on"
+    :comment (str "A relationship describing how one Entity's existence or correctness is"
+                  "immediately contingent on another.")))
 
 
 ;;; --------------------------------------------------------------------------
@@ -999,8 +1011,8 @@
                     [subject object] (map #(individual ont %) [subid objid])]   ; Tokens
 
               ;; Add dependency relation to ontology
-              ;(log/debug subid  "dependsOn" objid)
-              (refine ont subject :fact (is dependsOn object))
+              ;(log/debug subid  "directlyDependsOn" objid)
+              (refine ont subject :fact (is directlyDependsOn object))
 
               ;; Handle linguistic entities: Conjuncts, Coordinations and Multi-word expressions
               (when-let [entity (and (not= ling "_")

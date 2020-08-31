@@ -88,11 +88,20 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn which-mode
+  "Reports the configured foundational ontology access mode as one of
+  :import (default), :hierarchy or :minimal."
+  []
+  (cfg/?? :dolce :access :import))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn access
   "Sets up DOLCE+DnS Ultralite in the caller's ontology according to the
   access method specified in the configuration."
   []
-  (let [mode (cfg/?? :dolce :access)]
+  (let [mode (which-mode)]
 
     ;; The choice is basically import vs. rebuild
     (if (= mode :import)
