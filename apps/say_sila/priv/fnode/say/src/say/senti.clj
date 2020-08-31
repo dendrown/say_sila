@@ -178,6 +178,22 @@
       :comment "A Text which expresses sentiment of a positive polarity.")))
 
 
+(defclass OnlineAccount
+  :super    dul/SocialObject
+  :label    "Online Account"
+  :comment  "A user account for an online service.")
+
+;;; Help DL-Learner to not confuse our primary entities
+(as-disjoint OnlineAccount dul/InformationObject dul/Quality)
+
+
+(defoproperty publishes
+  :label    "publishes"
+  :domain   OnlineAccount
+  :range    dul/InformationObject
+  :comment  "The action of making an Information Object available to an online community.")
+
+
 ;;; --------------------------------------------------------------------------
 ;;; A Survey may be used to compare w/ analysis methods on social media
 ;;;
@@ -880,7 +896,7 @@
     ;; TODO: Handle access to say.sila namespace
     (when (and account                                              ; Test data may not have screen names
                (not entity))
-      (refine ont (individual ont account) :fact (is (object-property ont "publishes") text)))
+      (refine ont (individual ont account) :fact (is publishes text)))
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?

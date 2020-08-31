@@ -50,7 +50,7 @@
 ;;; Current dataset layouts; where for the X99 codes:
 ;;; - X is the dataset content code, and
 ;;; - the highest 99 value represents the latest version
-(defonce Datasets   {:s :s02                    ; [S]tatus text [s]entiment/emotion
+(defonce Datasets   {:s :s01    ; TODO :s02     ; [S]tatus text [s]entiment/emotion
                      :t :t00                    ; [T]witter input (from Sila/erl)
                      :u :u00})                  ; [U]ser information
 

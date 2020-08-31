@@ -145,24 +145,19 @@
 ;;; Demographics:
 ;;;
 ;;; TBox: building on dul:SocialObject
-(defclass OnlineAccount
-  :super    dul/SocialObject
-  :label    "Online Account"
-  :comment  "A user account for an online service.")
-
 (comment
 (defclass TwitterAccount
-  :super    OnlineAccount
+  :super    senti/OnlineAccount
   :label    "Twitter Account"
   :comment  "A user account on Twitter")
 
 (comment defclass Influencer
-  :super    OnlineAccount
+  :super    senti/OnlineAccount
   :label    "Influencer"
   :comment  "User (not necessarily active) who affects other users' behaviour during a Say-Sila tracking run")
 
 (defclass Player
-  :super    OnlineAccount
+  :super    senti/OnlineAccount
   :label    "Player"
   :comment  "Active participant during a Say-Sila tracking run")
 
@@ -176,9 +171,6 @@
     :label   "Regular Player"
     :comment "A Player (participant) who demonstrates normal activity during a tracking run"))
 );comment
-
-;;; Help DL-Learner to not confuse our primary entities
-(as-disjoint OnlineAccount dul/InformationObject dul/Quality)
 
 
 ;;; --------------------------------------------------------------------------
@@ -406,15 +398,6 @@
 
 
 ;;; TBox: building on dul:InformationObject==>senti:Text
-;;;
-;;; TODO: the publishes role will be skillfully merged with tweets
-(defoproperty publishes
-  :label    "publishes"
-  :domain   OnlineAccount
-  :range    dul/InformationObject
-  :comment  "The action of making an Information Object available to an online community.")
-
-
 (defclass PersonalProfile
   :super   dul/InformationObject
   :label   "Personal Profile"
@@ -441,7 +424,7 @@
     :comment    "A twitter communication, posted by its original author"))
 
 
-;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount
+;;; TBox: building on senti:OnlineAccount==>sila:TwitterAccount
 (as-subclasses TwitterAccount
   :cover                        ; but not disjoint
   (defclass Author
@@ -452,7 +435,7 @@
     :comment "A Twitter account, considered from the viewpoint of publishing tweets"))
 
 
-;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount==>sila:Author
+;;; TBox: building on senti:OnlineAccount==>sila:TwitterAccount==>sila:Author
 (as-subclasses Author
   :cover                        ; but not disjoint
   (defclass OriginalAuthor
@@ -467,7 +450,7 @@
 
 
 
-;;; TBox: building on sila:OnlineAccount==>sila:TwitterAccount==>sila:Tweeter
+;;; TBox: building on senti:OnlineAccount==>sila:TwitterAccount==>sila:Tweeter
 (as-subclasses Tweeter
   :cover                        ; but not disjoint
   (defclass   OriginalTweeter
@@ -561,28 +544,30 @@
                                                       (at-least 3 isMentionedIn))))
 );comment
 
+
 ;;; --------------------------------------------------------------------------
 ;;; Environmental clues at the Account level
 ;;;
 ;;; TBox: building on OnlineAccount ⊑ dul:SocialObject
 (defclass GreenAccount
-  :super    OnlineAccount
+  :super    senti/OnlineAccount
   :label    "Green Account"
   :comment  "An Online Account that represents someone who is concerned about the environment."
   :equivalent (dl/and
-                OnlineAccount
+                senti/OnlineAccount
                 (dl/or ; [TODO] go beyond this initial SWAG
                   ;; Profile trigger
                   (dl/some dul/isReferenceOf (dl/and FearInformationObject
                                                      SurveyReference))
                   ;; Tweet trigger
-                  (dl/and (dl/some publishes FearInformationObject)
-                          (dl/some publishes SurveyReference)))))
+                  (dl/and (dl/some senti/publishes FearInformationObject)
+                          (dl/some senti/publishes SurveyReference)))))
 
 (defclass RogueAccount
-  :super    OnlineAccount
+  :super    senti/OnlineAccount
   :label    "Rogue Account"
   :comment  "An Online Account which does not adhere to the rules of its associated online provider.")
+
 
 
 
@@ -601,7 +586,7 @@
 
   ;;; TBox: building on sioc:Post ⊑ foaf:Document
   (refine  dul/InformationObject :equivalent foaf/Document)
-  (refine  OnlineAccount         :equivalent foaf/OnlineAccount)
+  (refine  senti/OnlineAccount   :equivalent foaf/OnlineAccount)
   (refine  PersonalProfile       :equivalent foaf/PersonalProfileDocument)
 
   ;; We're using a dul/Quality-based modelling for Gender
@@ -788,9 +773,9 @@
               sname :screen_name
               descr :description                ; User profile text
               tid   :tid }]                     ; Text ID is the profile ID
-          (let [sconf (cfg/? :senti)                                ; Use senti/text config params
-                acct  (individual ont sname :type OnlineAccount)    ; Twitter user account
-                prof  (individual ont tid                           ; User profile
+          (let [sconf (cfg/? :senti)                                    ; Use senti/text config params
+                acct  (individual ont sname :type senti/OnlineAccount)  ; Twitter user account
+                prof  (individual ont tid                               ; User profile
                                   :type PersonalProfile
                                   :fact (is dul/isAbout acct))]
             ;; Add PoS/senti for the profile content
