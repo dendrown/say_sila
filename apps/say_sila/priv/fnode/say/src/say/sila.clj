@@ -87,7 +87,7 @@
      :label    (str ~aff " Token")
      :comment  (str "A Token which may indicate " ~aff ".")
      :equivalent (dl/and pos/Token
-                         (dl/some senti/denotesAffect (owl-class senti/say-senti ~aff)))));)
+                         (dl/some senti/denotesAffect (owl-class senti/say-senti ~aff)))))
 
 ;;; Create affect Token and Information Objects for all defined polarities and emotions
 ;(run! #(def-affect-token %) senti/Affect-Names)                ; FIXME
@@ -125,6 +125,29 @@
 (def-affect-info-obj "Trust")
 
 
+(defmacro def-affect-pos-token
+  "Creates an affect Part-of-Speech class for the given (String) sentiment polarity or emotion."
+  [aff pos]
+  `(defclass ~(symbol (str aff pos "Token"))
+     :super    (owl-class (str ~aff "Token"))
+     :label    (str ~aff " " ~pos "Token")
+     :comment  (str "A " ~pos " Token which may indicate " ~aff ".")
+     :equivalent (dl/and pos/Token
+                         (dl/some pos/isPartOfSpeech (owl-class pos/cmu-pos ~pos))
+                         (dl/some senti/denotesAffect (owl-class senti/say-senti ~aff)))))
+
+(defmacro define-affect-pos-tokens!
+  "Creates an affect Part-of-Speech classes for the say-sila ontology."
+  []
+  (conj (for [aff senti/Affect-Names
+              pos ["CommonNoun" "Verb"]]
+          `(def-affect-pos-token ~aff ~pos))
+        'do))
+
+(define-affect-pos-tokens!)
+
+
+;;; --------------------------------------------------------------------------
 (defclass SurveyKeyword
   :super    pos/Token
   :label    "Survey Keyword"
