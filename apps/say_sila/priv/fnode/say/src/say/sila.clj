@@ -131,12 +131,13 @@
 (defmacro def-affect-pos-element
   "Creates an affect Part-of-Speech Token class for the given (String) sentiment polarity or emotion."
   [aff pos base equiv]
-  `(let [base-lbl# ~(soc/tokenize base :str)]
+  `(let [pos-label#  ~(soc/tokenize pos  :str)
+         base-label# ~(soc/tokenize base :str)]
      ;; Put all the pieces together for the combo-class
      (defclass ~(symbol (str aff pos base))
        :super    (owl-class ~(str aff base))
-       :label    (str ~aff " " ~pos " " base-lbl#)
-       :comment  (str "A " ~pos " " base-lbl# " which may indicate " ~aff ".")
+       :label    (str ~aff " " pos-label# " " base-label#)
+       :comment  (str "A " pos-label# " " base-label# " which may indicate " ~aff ".")
        :equivalent ~equiv)))
 
 
