@@ -31,8 +31,11 @@
 
 
 ;;; Handle words that are usually run together without camelOrPascalCase (generally to make a hashtag)
-(defonce Word-Splits {"climatechange"   ["climate" "change"]
-                      "globalwarming"   ["global" "warming"]})
+(defonce Word-Splits {;; NOTE: We're not including the hashtags used for tweet collection
+                      ;.       as all the tweets will have those token sets
+                      ;"climatechange"   ["climate" "change"]
+                      ;"globalwarming"   ["global" "warming"]
+                     })
 
 ;;; Six Americas Surveys:
 ;;; Key-words do not (currently) include:
@@ -254,10 +257,10 @@
         stem  #(.stem ^SnowballStemmer sball %)
         check #(contains? hits (stem %))
         word  (soc/unhashtag token)
-        in?   (or (check word)                          ; 1: General check
-                  (when-let [splits (Word-Splits word)] ; 2: Hashtag values (w/out #)
+        in?   (or (check word)                                      ; 1: General check
+                  (when-let [splits (Word-Splits word)]             ; 2: Hashtag values (w/out #)
                     (every? check splits))
-                  (every? check (soc/tokenize word)))]  ; 3: Hyphens, WeirdCase, etc.
+                  (every? check (soc/tokenize word :lower-case)))]  ; 3: Hyphens, WeirdCase, etc.
     (when in?
       (send Stem-Counts #(update-in % [survey stem] (fnil inc 0))))
     in?)))
