@@ -20,6 +20,7 @@
             [say.foaf           :as foaf]
             [say.cmu-pos        :as pos]
             [say.senti          :as senti]
+            [say.social         :as soc]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
             [clojure.string     :as str]
@@ -125,26 +126,47 @@
 (def-affect-info-obj "Trust")
 
 
+;;; --------------------------------------------------------------------------
+;;; Combinations of Affect PLUS Part-of-Speech
+(defmacro def-affect-pos-element
+  "Creates an affect Part-of-Speech Token class for the given (String) sentiment polarity or emotion."
+  [aff pos base equiv]
+  `(let [base-lbl# ~(soc/tokenize base :str)]
+     ;; Put all the pieces together for the combo-class
+     (defclass ~(symbol (str aff pos base))
+       :super    (owl-class ~(str aff base))
+       :label    (str ~aff " " ~pos " " base-lbl#)
+       :comment  (str "A " ~pos " " base-lbl# " which may indicate " ~aff ".")
+       :equivalent ~equiv)))
+
+
 (defmacro def-affect-pos-token
-  "Creates an affect Part-of-Speech class for the given (String) sentiment polarity or emotion."
+  "Creates an affect Part-of-Speech Token class for the given (String) sentiment polarity or emotion."
   [aff pos]
-  `(defclass ~(symbol (str aff pos "Token"))
-     :super    (owl-class (str ~aff "Token"))
-     :label    (str ~aff " " ~pos "Token")
-     :comment  (str "A " ~pos " Token which may indicate " ~aff ".")
-     :equivalent (dl/and pos/Token
-                         (dl/some pos/isPartOfSpeech (owl-class pos/cmu-pos ~pos))
-                         (dl/some senti/denotesAffect (owl-class senti/say-senti ~aff)))))
+  `(def-affect-pos-element ~aff ~pos "Token"
+     (dl/and pos/Token
+             (dl/some pos/isPartOfSpeech (owl-class pos/cmu-pos ~pos))
+             (dl/some senti/denotesAffect (owl-class senti/say-senti ~aff)))))
 
-(defmacro define-affect-pos-tokens!
+
+(defmacro def-affect-pos-info-obj
+  "Creates an affect Information Object class for the given (String) sentiment polarity or emotion."
+  [aff pos]
+  `(def-affect-pos-element ~aff ~pos "InformationObject"
+     (dl/and dul/InformationObject
+             (dl/some dul/hasComponent ~(symbol (str aff pos "Token"))))))
+
+
+(defmacro def-affect-pos-classes
   "Creates an affect Part-of-Speech classes for the say-sila ontology."
-  []
-  (conj (for [aff senti/Affect-Names
-              pos ["CommonNoun" "Verb"]]
-          `(def-affect-pos-token ~aff ~pos))
-        'do))
+  [poss]
+  ;; Define a Token AND InformationObject for all Affect on the PoS elements
+  `(do ~@(for [aff senti/Affect-Names
+               pos (eval poss)]
+           `(do (def-affect-pos-token    ~aff ~pos)
+                (def-affect-pos-info-obj ~aff ~pos)))))
 
-(define-affect-pos-tokens!)
+(def-affect-pos-classes ["CommonNoun" "Verb"])
 
 
 ;;; --------------------------------------------------------------------------
@@ -576,15 +598,17 @@
   :super    senti/OnlineAccount
   :label    "Green Account"
   :comment  "An Online Account that represents someone who is concerned about the environment."
-  :equivalent (dl/and
-                senti/OnlineAccount
-                (dl/or ; [TODO] go beyond this initial SWAG
-                  ;; Profile trigger
-                  (dl/some dul/isReferenceOf (dl/and FearInformationObject
-                                                     SurveyReference))
-                  ;; Tweet trigger
-                  (dl/and (dl/some senti/publishes FearInformationObject)
-                          (dl/some senti/publishes SurveyReference)))))
+  ;TODO: Use DL-Learner to determine class equivalency
+  ;:equivalent (dl/and
+  ;              senti/OnlineAccount
+  ;              (dl/or ; [TODO] go beyond this initial SWAG
+  ;                ;; Profile trigger
+  ;                (dl/some dul/isReferenceOf (dl/and FearInformationObject
+  ;                                                   SurveyReference))
+  ;                ;; Tweet trigger
+  ;                (dl/and (dl/some senti/publishes FearInformationObject)
+  ;                        (dl/some senti/publishes SurveyReference))))
+  )
 
 (defclass RogueAccount
   :super    senti/OnlineAccount
