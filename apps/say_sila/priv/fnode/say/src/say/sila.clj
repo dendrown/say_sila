@@ -145,16 +145,15 @@
   "Creates an affect Part-of-Speech Token class for the given (String) sentiment polarity or emotion."
   [aff pos]
   `(def-affect-pos-element ~aff ~pos "Token"
-     (dl/and pos/Token
-             (dl/some pos/isPartOfSpeech (owl-class pos/cmu-pos ~pos))
-             (dl/some senti/denotesAffect (owl-class senti/say-senti ~aff)))))
+     (dl/and (owl-class ~(str aff "Token"))
+             (dl/some pos/isPartOfSpeech (owl-class pos/cmu-pos ~pos)))))
 
 
 (defmacro def-affect-pos-info-obj
   "Creates an affect Information Object class for the given (String) sentiment polarity or emotion."
   [aff pos]
   `(def-affect-pos-element ~aff ~pos "InformationObject"
-     (dl/and dul/InformationObject
+     (dl/and (owl-class ~(str aff "InformationObject"))
              (dl/some dul/hasComponent ~(symbol (str aff pos "Token"))))))
 
 
