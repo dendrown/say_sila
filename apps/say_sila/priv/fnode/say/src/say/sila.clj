@@ -114,6 +114,9 @@
                         (dl/some dul/hasComponent ~(symbol (str aff "Token"))))))
 
 ;(run! #(def-affect-info-obj %) senti/Affect-Names)         ; FIXME
+(comment
+;; FIXME: Looking into issues with DL-Learner never returning when it has too many
+;;        [Affect][PoS]InformationObjects to play with.
 (def-affect-info-obj "Positive")
 (def-affect-info-obj "Negative")
 (def-affect-info-obj "Anger")
@@ -124,7 +127,7 @@
 (def-affect-info-obj "Anticipation")
 (def-affect-info-obj "Disgust")
 (def-affect-info-obj "Trust")
-
+)
 
 ;;; --------------------------------------------------------------------------
 ;;; Combinations of Affect PLUS Part-of-Speech
@@ -164,9 +167,12 @@
   `(do ~@(for [aff senti/Affect-Names
                pos (eval poss)]
            `(do (def-affect-pos-token    ~aff ~pos)
-                (def-affect-pos-info-obj ~aff ~pos)))))
+                ;; FIXME: Looking into issues with DL-Learner never returning when it has too many
+                ;;        [Affect][PoS]InformationObjects to play with.
+                (comment def-affect-pos-info-obj ~aff ~pos)))))
 
 (def-affect-pos-classes ["CommonNoun" "Verb"])
+
 
 
 ;;; --------------------------------------------------------------------------
