@@ -939,6 +939,31 @@
       (log/fmt-info "USERS~a: ~a" tag us))))
 
 
+
+;;; --------------------------------------------------------------------------
+(defn eprint-user
+  "Pretty-prints a user's profile and tweets, highlighting the affect and
+  showing a token dependency tree if available."
+  [user]
+  ;; NOTE: we may want to redo our keying system so the data tag is the top level
+  (let [eprint (fn [xmps]
+                 (run! #(senti/eprint-tweet %)
+                       (filter #(= user (:screen_name %)) xmps)))]
+    ;; Run through the supported text-types
+    (run! (fn [ttype]
+            (run! (fn [[dtag elms]]
+                    (log/fmt! "~a'~a' ~a ~a~a\n" log/Bright
+                                                 (name dtag)
+                                                 (case ttype :users "Profile of"
+                                                             :texts "Tweets for")
+                                                 user
+                                                 log/Text)
+                    (eprint elms))
+                  (@World ttype)))
+          [:users :texts])))
+
+
+
 ;;; --------------------------------------------------------------------------
 (defn save-ontologies
   "Saves the say-sila ontology and all World ontologies in OWL format."
