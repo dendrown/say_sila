@@ -1338,14 +1338,14 @@
         rules   (map (:scr tools) terms)]            ; Set of match-term rules per term
 
     ;; Put all that together to build the example
-    {:account   sname
-     :tid       tid
-     :polarity  polarity
-     :content   terms
-     :rules     rules
-     :pos-tags  (map first pairs)
-     :surveys   (map (:surveys tools) terms)
-     :analysis  (map set/union affect rules)})))
+    {:screen_name sname
+     :tid         tid
+     :polarity    polarity
+     :content     terms
+     :rules       rules
+     :pos-tags    (map first pairs)
+     :surveys     (map (:surveys tools) terms)
+     :analysis    (map set/union affect rules)})))
 
 
 

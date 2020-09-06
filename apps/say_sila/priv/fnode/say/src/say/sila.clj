@@ -16,6 +16,7 @@
             [say.ontology       :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
+            [say.dllearner      :as dll]
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
             [say.cmu-pos        :as pos]
@@ -600,21 +601,30 @@
 ;;; Environmental clues at the Account level
 ;;;
 ;;; TBox: building on OnlineAccount ⊑ dul:SocialObject
-(defclass GreenAccount
-  :super    senti/OnlineAccount
-  :label    "Green Account"
-  :comment  "An Online Account that represents someone who is concerned about the environment."
-  ;TODO: Use DL-Learner to determine class equivalency
-  ;:equivalent (dl/and
-  ;              senti/OnlineAccount
-  ;              (dl/or ; [TODO] go beyond this initial SWAG
-  ;                ;; Profile trigger
-  ;                (dl/some dul/isReferenceOf (dl/and FearInformationObject
-  ;                                                   SurveyReference))
-  ;                ;; Tweet trigger
-  ;                (dl/and (dl/some senti/publishes FearInformationObject)
-  ;                        (dl/some senti/publishes SurveyReference))))
-  )
+(def ^:const DLL-Denier
+ "publishes some (hasComponent some (AngerToken and (FearToken or SadnessToken))) (pred. acc.: 76.67%, F-measure: 58.82%)")
+
+(as-disjoint
+  (defclass DenierAccount
+    :super    senti/OnlineAccount
+    :label    "Denier Account"
+    :comment  "An Online Account that represents someone who does not believe in anthropogenic climate change."
+    :equivalent (dl/and
+                  senti/OnlineAccount
+                  (tawny.english/some say.senti/publishes (tawny.english/some say.dolce/hasComponent
+                                                            (tawny.english/and AngerToken
+                                                                               (tawny.english/or FearToken
+                                                                                                 SadnessToken))))
+                  ;(dll/read-solution DLL-Green)
+                  ))
+
+  (defclass GreenAccount
+    :super    senti/OnlineAccount
+    :label    "Green Account"
+    :comment  "An Online Account that represents someone who is concerned about the environment."
+    :equivalent (dl/and
+                  senti/OnlineAccount
+                  (dl/not DenierAccount))))                 ; FIXME: It's more complicated than just ~Green
 
 (defclass RogueAccount
   :super    senti/OnlineAccount
