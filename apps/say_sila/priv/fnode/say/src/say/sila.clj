@@ -587,27 +587,21 @@
 (def ^:const DLL-Denier
  "publishes some (hasComponent some (AngerToken and (FearToken or SadnessToken))) (pred. acc.: 76.67%, F-measure: 58.82%)")
 
-(as-disjoint
-  (defclass DenierAccount
-    :super    senti/OnlineAccount
-    :label    "Denier Account"
-    :comment  "An Online Account that represents someone who does not believe in anthropogenic climate change."
-    :equivalent (dl/and
-                  senti/OnlineAccount
-                  (tawny.english/some say.senti/publishes (tawny.english/some say.dolce/hasComponent
-                                                            (tawny.english/and AngerToken
-                                                                               (tawny.english/or FearToken
-                                                                                                 SadnessToken))))
-                  ;(dll/read-solution DLL-Green)
-                  ))
+(defclass DenierAccount
+  :super    senti/OnlineAccount
+  :label    "Denier Account"
+  :comment  "An Online Account that represents someone who does not believe in anthropogenic climate change."
+  :equivalent (dl/and
+                senti/OnlineAccount
+                (tawny.english/some say.senti/publishes
+                    (tawny.english/some say.dolce/hasComponent
+                           (tawny.english/and AngerToken
+                           (tawny.english/or FearToken SadnessToken))))))
 
-  (defclass GreenAccount
-    :super    senti/OnlineAccount
-    :label    "Green Account"
-    :comment  "An Online Account that represents someone who is concerned about the environment."
-    :equivalent (dl/and
-                  senti/OnlineAccount
-                  (dl/not DenierAccount))))                 ; FIXME: It's more complicated than just ~Green
+(defclass GreenAccount
+  :super    senti/OnlineAccount
+  :label    "Green Account"
+  :comment  "An Online Account that represents someone who is concerned about the environment.")
 
 (defclass RogueAccount
   :super    senti/OnlineAccount

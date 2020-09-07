@@ -35,7 +35,6 @@
      :links?            true                    ; Include ordering of Tokens (must be on for full-links)
      :full-links?       false                   ; Create all links explicitly rather than depending on reasoner
      :oproperties?      false                   ; Include optional object (sub) properties (senti:denotesAffect)
-     :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
      :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
      :use-tweebo?       false                   ; Tweebo Parser dependency trees for tweets

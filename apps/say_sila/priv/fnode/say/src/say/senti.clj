@@ -132,8 +132,10 @@
                             ;                ; 2-grams: "be up" "build up" "come back"
                             ;                }
                             }
-                            ;; Disable all Rules
-                            {}))
+                            ;; FIXME: Just use survey expressions ( !SCR )
+                            {"CAUSE"        #{"cause"}
+                             "HUMAN"        #{"human"}
+                             "NATURE"       #{"nature"}}))
 
 
 
@@ -164,20 +166,6 @@
 ;;; Keep the actual tweet content as a development aid
 (defaproperty TextualContent)
 
-
-;; DL-Learner isn't handling Pos/Neg Text subclasses well
-(when (cfg/?? :senti :pos-neg?)
-  (as-subclasses Text
-    :disjoint
-    (defclass NegativeText
-      :label "Negative Text"
-      :comment "A Text which expresses sentiment of a negative polarity")
-
-    (defclass PositiveText
-      :label "Positive Text"
-      :comment "A Text which expresses sentiment of a positive polarity.")))
-
-
 (defclass OnlineAccount
   :super    dul/SocialObject
   :label    "Online Account"
@@ -195,51 +183,45 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; A Survey may be used to compare w/ analysis methods on social media
-;;;
-;;; TODO: Survey ontology elements should really be in say-sila, but
-;;;       the actual processing is happening in say-sent.
-(defclass Survey
-  :super   dul/InformationObject
-  :label   "Survey"
-  :comment "A series of questions intended to extract information from a group of people")
+;;; Support for TweeboParser dependency trees?
+(when (cfg/?? :senti :use-tweebo?)
 
-(defindividual sassy
-  :type  Survey
-  :label "SASSY"
-  :comment "Six Americas Short SurveY")
+  (defclass Coordination
+    :super   dul/Concept
+    :label   "Coordination"
+    :comment "A linguistic Concept that links one or more Conjuncts.")
 
-(defindividual six36
-  :type  Survey
-  :label "Six Americas 36-Question Survey"
-  :comment "Original Six Americas survey with 36 questions.")
+  (defclass Conjuncts
+    :super   dul/Collection
+    :label   "Conjuncts"
+    :comment "A Collection that contains the set of conjuncts conjoined with a conjunction or coordination.")
 
-(defclass SurveyKeyword
-  :super    pos/Token
-  :label    "Survey Keyword"
-  :comment  "A Token which is considered to be a keyword in a Six America's survey."
-  :equivalent (dl/and pos/Token
-                      (dl/some dul/isComponentOf Survey)))
+  (defclass MultiWordExpression
+    :super   dul/Collection
+    :label   "Multi-word concept"
+    :comment "A Collection of Tokens that together represent a single unit of meaning.")
 
-(comment defclass SurveyReference   ; TODO: Pending decision on info-objs
-  :super    dul/InformationObject
-  :label    "Survey Reference"
-  :comment  (str "An Information Object which has one or more keywords from  a "
-                 "Six Americas survey.")
-  :equivalent (dl/and dul/InformationObject
-                      (dl/some dul/hasComponent SurveyKeyword)))
+  (defoproperty dependsOn
+    :domain  dul/Entity
+    :range   dul/Entity
+    :label   "depends on"
+    :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
+    :characteristic :transitive)
 
-(defclass BeliefsQuestionKeyword
-  :super    SurveyKeyword
-  :label    "Beliefs Question Keyword"
-  :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
+  ;; dependsOn will need to be under associatedWith, depending on the DUL config setting
+  (when (not= :minimal (dul/which-mode))
+    (refine dependsOn
+      :super dul/associatedWith))
 
+  (defoproperty directlyDependsOn
+    :super   dependsOn
+    :domain  dul/Entity
+    :range   dul/Entity
+    :label   "directly depends on"
+    :comment (str "A relationship describing how one Entity's existence or correctness is"
+                  "immediately contingent on another.")))
 
 
-(defonce Surveys        (select-keys {:sassy sassy                  ; Only configured surveys
-                                      :six36 six36}
-                                     (cfg/?? :senti :surveys #{})))
-(defonce Survey-Names   (map name (keys Surveys)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -386,50 +368,39 @@
 
 
 ;;; --------------------------------------------------------------------------
-;;; Sentiment Composition Rules (SCR):
-;;; \ref{bing2015}
-;;;
-;;; Note that we will be creating individual say-senti-RULE ontologies which
-;;; include the individuals (Texts) from the training corpus which express
-;;; a given rule.  However, it is in this, the main say-senti ontology, that
-;;; all the SCRs are defined.
-(defclass SentimentCompositionRule
+(defclass SurveyReferenceRule
   :super   dul/Concept
-  :label   "Sentiment Composition Rule"
-  :comment (str "An abstraction describing a Text or portion of a Text according to its
-                 positive or negative contribution to the polarity of that Text."))
+  :label   "Survey Reference Rule"
+  :comment (str "An abstraction describing a Text or portion of a Text, "
+                 "indicating that it refers to a question from a Six Americas survey."))
 
 
 ;;; Are we using specialized object properties?
-(defoproperty-per (cfg/?? :senti :oproperties?)
-  indicatesRule :super   dul/expresses
-                :label   "indicates rule"
-                :domain  pos/Token
-                :range   SentimentCompositionRule
-                :comment "A relationship between a Token and the sentiment composition rule it expresses.")
+(defoproperty indicatesRule
+  :super   dul/expresses
+  :label   "indicates rule"
+  :domain  pos/Token
+  :range   SurveyReferenceRule
+  :comment "A relationship between a Token and the survey reference rule it expresses.")
 
 
-(defmacro defscr
+(defmacro defrule
   "Adds a Sentiment Composition Rule (component) subclass to the say-senti ontology"
   [tag descr]
   `(do (defclass ~tag
-         :super   SentimentCompositionRule
-         :label   (str "Sentiment Composition Rule - " (name '~tag))
+         :super   SurveyReferenceRule
+         :label   (str "Survey Reference Rule - " (name '~tag))
          :comment ~descr)
        (defpun ~tag)))
 
-;; FIXME Reclassify P/N and emotions if we're not going to use other Liu's SCRs
-(defscr P "An atomic, nonterminal sentiment composition expressing positive sentiment.")
-(defscr N "An atomic, nonterminal sentiment composition expressing negative sentiment.")
+(defrule CAUSE  "Expressions which indicate a causal relationship.")
+(defrule HUMAN  "Expressions which refer to humans or humanity.")
+(defrule NATURE "Expressions which refer to the natural world.")
 
+
+;;; TODO: Convert this Liu SCR to an Six-America's SRR
 (when (cfg/?? :senti :use-scr?)
-  ;; TODO: Verify in \liu2015 if P/N refer to a pos/neg modifier or a pos/neg aspect
-  (log/notice "Creating Sentiment Composition Rules")
-  ;(defscr DECREASE-N  "Expressions which decrease NPI and NE terms.")
-  ;(defscr DECREASE-P  "Expressions which decrease PPI and PO terms.")
-  ;(defscr INCREASE-N  "Expressions which increase NPI and NE terms.")
-  ;(defscr INCREASE-P  "Expressions which increase PPI and PO terms.")
-  (defscr NEGATION    "Expressions which negate other terms.")
+  (defrule NEGATION "Expressions which negate other terms.")
 
   (defclass AffectNegator
     :super    pos/Token
@@ -445,45 +416,74 @@
     :range    Affect))
 
 
-
 ;;; --------------------------------------------------------------------------
-;;; Support for TweeboParser dependency trees?
-(when (cfg/?? :senti :use-tweebo?)
+;;; A Survey may be used to compare w/ analysis methods on social media
+;;;
+;;; TODO: Survey ontology elements should really be in say-sila, but
+;;;       the actual processing is happening in say-sent.
+(defclass Survey
+  :super   dul/InformationObject
+  :label   "Survey"
+  :comment "A series of questions intended to extract information from a group of people")
 
-  (defclass Coordination
-    :super   dul/Concept
-    :label   "Coordination"
-    :comment "A linguistic Concept that links one or more Conjuncts.")
+(defindividual sassy
+  :type  Survey
+  :label "SASSY"
+  :comment "Six Americas Short SurveY")
 
-  (defclass Conjuncts
-    :super   dul/Collection
-    :label   "Conjuncts"
-    :comment "A Collection that contains the set of conjuncts conjoined with a conjunction or coordination.")
+(defindividual six36
+  :type  Survey
+  :label "Six Americas 36-Question Survey"
+  :comment "Original Six Americas survey with 36 questions.")
 
-  (defclass MultiWordExpression
-    :super   dul/Collection
-    :label   "Multi-word concept"
-    :comment "A Collection of Tokens that together represent a single unit of meaning.")
+(defclass SurveyKeyword
+  :super    pos/Token
+  :label    "Survey Keyword"
+  :comment  "A Token which is considered to be a keyword in a Six America's survey."
+  :equivalent (dl/and pos/Token
+                      (dl/some dul/isComponentOf Survey)))
 
-  (defoproperty dependsOn
-    :domain  dul/Entity
-    :range   dul/Entity
-    :label   "depends on"
-    :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
-    :characteristic :transitive)
+(comment defclass SurveyReference   ; TODO: Pending decision on info-objs
+  :super    dul/InformationObject
+  :label    "Survey Reference"
+  :comment  (str "An Information Object which has one or more keywords from  a "
+                 "Six Americas survey.")
+  :equivalent (dl/and dul/InformationObject
+                      (dl/some dul/hasComponent SurveyKeyword)))
 
-  ;; dependsOn will need to be under associatedWith, depending on the DUL config setting
-  (when (not= :minimal (dul/which-mode))
-    (refine dependsOn
-      :super dul/associatedWith))
+(comment defclass BeliefsQuestionKeyword    ; TODO: Tie questions in with keyword concepts
+  :super    SurveyKeyword
+  :label    "Beliefs Question Keyword"
+  :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
 
-  (defoproperty directlyDependsOn
-    :super   dependsOn
-    :domain  dul/Entity
-    :range   dul/Entity
-    :label   "directly depends on"
-    :comment (str "A relationship describing how one Entity's existence or correctness is"
-                  "immediately contingent on another.")))
+(defclass HumanCauseToken
+  :super pos/Token
+  :equivalent (dl/and pos/Token
+                      (dl/some indicatesRule HUMAN)
+                      (dl/some dependsOn (dl/some indicatesRule CAUSE))))
+
+(defclass NaturalCauseToken
+  :super pos/Token
+  :equivalent (dl/and pos/Token
+                      (dl/some indicatesRule NATURE)
+                      (dl/some dependsOn (dl/some indicatesRule CAUSE))))
+
+(defclass HumanCauseBelieverAccount
+  :super OnlineAccount
+  :equivalent (dl/and OnlineAccount
+                      (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))))
+
+(defclass NaturalCauseBelieverAccount
+  :super OnlineAccount
+  :equivalent (dl/and OnlineAccount
+                      (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))))
+
+
+(defonce Surveys        (select-keys {:sassy sassy                  ; Only configured surveys
+                                      :six36 six36}
+                                     (cfg/?? :senti :surveys #{})))
+(defonce Survey-Names   (map name (keys Surveys)))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -512,11 +512,11 @@
 
 
 ;;; --------------------------------------------------------------------------
-(def     Polarity-Markers   {"Negative" (str log/Lt-Blue   "--")
+(defonce Polarity-Markers   {"Negative" (str log/Lt-Blue   "--")
                              "Positive" (str log/Lt-Yellow "++")
                              :?         (str log/White     "??")})
 
-(def     Emotion-Colours    {"Anger"        log/Red1
+(defonce Emotion-Colours    {"Anger"        log/Red1
                              "Fear"         log/Green3
                              "Joy"          log/Gold1
                              "Sadness"      log/Dk-Violet
@@ -859,23 +859,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- text-type
-  "Determines the actual ontology class that should be assigned to a textual
-  individual."
-  [pos-neg? polarity]
-  ;; Do we want to explicitly represent positive/negative texts?
-  (if pos-neg?
-      ;; If the data has a polarity label, use the pos/neg Text subclass
-      (case polarity
-        :negative NegativeText
-        :positive PositiveText
-                  Text)
-      ;; No configured override
-      Text))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn- express
   "Asserts a role relation in the specified ontology of either dul:express
   or one of its sub-properties."
@@ -902,23 +885,23 @@
 
 
   ([ont entity
-    {:keys [account analysis content tid polarity pos-tags surveys]}            ; Text breakdown
+    {:keys [analysis content tid pos-tags screen_name surveys]}                 ; Text breakdown
     {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-params
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [msg   (apply str (interpose " " content))
           text  (or entity
                     (individual ont tid                             ; Entity representing the text
-                      :type (text-type pos-neg? polarity)))]        ; Determine textual type
+                      :type Text))]                                 ; Determine textual type
 
     ;; Annotate the actual text content as a development aid
     (refine ont text :annotation (annotation TextualContent msg))
 
     ;; If they didn't pass an entity, assume this is a tweet
     ;; TODO: Handle access to say.sila namespace
-    (when (and account                                              ; Test data may not have screen names
+    (when (and screen_name                                              ; Test data may not have screen names
                (not entity))
-      (refine ont (individual ont account) :fact (is publishes text)))
+      (refine ont (individual ont screen_name) :fact (is publishes text)))
 
      ;; Prepare for Tweebo Parsing if desired
      (when use-tweebo?
