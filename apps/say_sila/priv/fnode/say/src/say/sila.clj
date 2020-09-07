@@ -177,30 +177,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defclass SurveyKeyword
-  :super    pos/Token
-  :label    "Survey Keyword"
-  :comment  "A Token which is considered to be a keyword in a Six America's survey."
-  :equivalent (dl/and pos/Token
-                      (dl/some dul/isComponentOf senti/Survey)))
-
-(comment defclass SurveyReference   ; TODO: Pending decision on info-objs
-  :super    dul/InformationObject
-  :label    "Survey Reference"
-  :comment  (str "An Information Object which has one or more keywords from  a "
-                 "Six Americas survey.")
-  :equivalent (dl/and dul/InformationObject
-                      (dl/some dul/hasComponent SurveyKeyword)))
-
-
-(defclass BeliefsQuestionKeyword
-  :super    SurveyKeyword
-  :label    "Beliefs Question Keyword"
-  :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
-
-
-
-;;; --------------------------------------------------------------------------
 ;;; Demographics:
 ;;;
 ;;; TBox: building on dul:SocialObject
