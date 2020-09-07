@@ -45,8 +45,14 @@
 ;;; TODO:
 ;;; - Model Key-Words as #{general alarmed ... dismissive}
 ;;; - handle bigrams
+
+(defonce Question-Words     {:beliefs
+                             #{"caused" "human" "activities" "natural"              ; Table 5
+                               "changes" "environment" "happening"}})
+
+
 (defonce Key-Words  {:six36 (set/union
-                             #{"change" "mind" "global" "warming" "issues"          ; Table 2"
+                             #{"change" "mind" "global" "warming" "issues"          ; Table 2
                                "information" "opinion"}
 
                              #{"experts" "global" "warming" "really" "happening"    ; Table 3
@@ -54,8 +60,7 @@
 
                              #{"global" "warming" "conserving" "energy"}            ; Table 4
 
-                             #{"caused" "human" "activities" "natural"              ; Table 5
-                               "changes" "environment" "happening"}
+                             (Question-Words :beliefs)                              ; Table 5
 
                              #{"scientists" "global" "warming" "happening"
                                "disagreement"}

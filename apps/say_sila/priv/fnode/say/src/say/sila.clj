@@ -184,13 +184,20 @@
   :equivalent (dl/and pos/Token
                       (dl/some dul/isComponentOf senti/Survey)))
 
-(defclass SurveyReference
+(comment defclass SurveyReference   ; TODO: Pending decision on info-objs
   :super    dul/InformationObject
   :label    "Survey Reference"
   :comment  (str "An Information Object which has one or more keywords from  a "
                  "Six Americas survey.")
   :equivalent (dl/and dul/InformationObject
                       (dl/some dul/hasComponent SurveyKeyword)))
+
+
+(defclass BeliefsQuestionKeyword
+  :super    SurveyKeyword
+  :label    "Beliefs Question Keyword"
+  :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -951,6 +958,7 @@
                        (filter #(= user (:screen_name %)) xmps)))]
     ;; Run through the supported text-types
     (run! (fn [ttype]
+            ;; Group profile/tweet reports by the dataset
             (run! (fn [[dtag elms]]
                     (log/fmt! "~a'~a' ~a ~a~a\n" log/Bright
                                                  (name dtag)
