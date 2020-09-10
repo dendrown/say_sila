@@ -317,6 +317,20 @@
   (SnowballStemmer. lang)))
 
 
+
+;;; --------------------------------------------------------------------------
+(defn stem-all
+  "Returns a lazy sequence of the (English) grammatical stems of members of
+  the collection.  Specifying :set as an option will retrun the stems as a set."
+  [coll & opts]
+  (let [sball (make-stemmer)
+        stems (map #(.stem sball (str/lower-case %)) coll)]
+    ;; Set or sequence?
+    (if (some #{:set} opts)
+        stems)))
+
+
+
 ;;; --------------------------------------------------------------------------
 (defn ^Instances filter-instances
   "Applies a pre-defined filter to the specified data Instances.  The arity/3

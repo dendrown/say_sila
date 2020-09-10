@@ -15,6 +15,7 @@
             [say.config         :as cfg]
             [say.log            :as log]
             [say.social         :as soc]
+            [say.wordnet        :as word]
             [weka.tweet         :as tw]
             [clojure.set        :as set]
             [clojure.string     :as str]
@@ -38,13 +39,19 @@
                      })
 
 ;;; Six Americas Surveys:
-;;; Key-words do not (currently) include:
-;;; - personal pronouns
-;;; - think/know
 ;;;
-;;; TODO:
+;;; Word sets which invoke essential concepts
+(def ^:const Concept-Triggers  {"CAUSE"        #{"cause"}
+                                "HUMAN"        #{"human"}
+                                "NATURE"       #{"nature"}})
+
+(defonce Concept-Words          (word/synonym-values Concept-Triggers))     ; Concept expansion
+(defonce Concept-Stems          (update-values Concept-Words #(tw/stem-all % :set)))
+
+
+;;; TODO for keywords
 ;;; - Model Key-Words as #{general alarmed ... dismissive}
-;;; - handle bigrams
+;;; - handle bigrams & trigrams
 
 (defonce Question-Words     {:beliefs
                              #{"caused" "human" "activities" "natural"              ; Table 5
@@ -234,10 +241,7 @@
                               "important" "issue" "personally"
                               "worried"}})
 
-(defonce Stem-Words     (update-values Key-Words (fn [words]
-                                                   (let [sball (tw/make-stemmer)]
-                                                     (into #{} (map #(.stem sball (str/lower-case %))
-                                                                    words))))))
+(defonce Stem-Words     (update-values Key-Words #(tw/stem-all % :set)))
 
 (defonce Stem-Counts    (agent (into {} (map #(vector % {}) (keys Stem-Words)))))
 
@@ -251,30 +255,75 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn stem
+  "Uses the snowball stemmer to reduce a word to its grammatical stem."
+  ([word]
+  (stem (tw/make-stemmer) word))
+
+
+  ([^SnowballStemmer sball word]
+  (.stem sball word)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- in-stems?
+  "Returns true if the specified word is a keyword in the specified collection
+  of stem hits."
+  [hits token sball]
+  (let [check #(contains? hits (stem sball %))
+        word  (soc/unhashtag token)]
+
+    (or (check word)                                        ; 1: General check
+        (when-let [splits (Word-Splits word)]               ; 2: Hashtag values (w/out #)
+          (every? check splits))
+        (every? check (soc/tokenize word :lower-case)))))   ; 3: Hyphens, WeirdCase, etc.
+
+
+
+;;; --------------------------------------------------------------------------
 (defn in-survey?
   "Returns true if the specified word is a keyword in the indicated survey."
   ([survey word]
   (in-survey? survey word (tw/make-stemmer)))
 
 
-  ([survey token sball]
+  ([survey word sball]
   (let [hits  (Stem-Words survey)
-        stem  #(.stem ^SnowballStemmer sball %)
-        check #(contains? hits (stem %))
-        word  (soc/unhashtag token)
-        in?   (or (check word)                                      ; 1: General check
-                  (when-let [splits (Word-Splits word)]             ; 2: Hashtag values (w/out #)
-                    (every? check splits))
-                  (every? check (soc/tokenize word :lower-case)))]  ; 3: Hyphens, WeirdCase, etc.
+        in?   (in-stems? hits word sball)]
+
+    ;; Update our survey "hit" reporting
     (when in?
-      (send Stem-Counts #(update-in % [survey stem] (fnil inc 0))))
+      ;; The agent will create its own stemmer so it doesn't stomp ours!
+      (send Stem-Counts #(update-in % [survey (stem word)] (fnil inc 0))))
     in?)))
 
 
 
 ;;; --------------------------------------------------------------------------
+(defn conceptualize
+  "Returns a concept key if the word indicates a survey-defined concept;
+  otherwise, returns nil."
+  ([word]
+  (conceptualize word (tw/make-stemmer)))
+
+
+  ([word sball]
+  ;; TODO: Can we not tokenize the word multiple times (here and in-stems?)
+  (let [check    (fn [hits tok]
+                    (in-stems? hits tok sball))
+        conceive (fn [tok]
+                   ;; Grab the true keys from a converted map {concept true|false}
+                   (keys (filter second
+                                (update-values Concept-Stems #(check % tok)))))
+        tokens   (soc/tokenize word :lower-case)]
+    (into #{} (mapcat conceive tokens)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn report-survey
-  "Rerports word (stem) coverage for words checked against surveys associated
+  "Reports word (stem) coverage for words checked against surveys associated
   with this  namespace."
   ([]
   (run! report-survey (keys Stem-Words)))

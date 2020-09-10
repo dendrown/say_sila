@@ -9,7 +9,8 @@
                          :tracker   :all
                          :source    :tweets
                          :dir       "resources/emo-sa"}
-     :foaf?             false}                  ; Link to equivalent FOAF classes
+     :foaf?              false                  ; Link to equivalent FOAF classes
+     :wordnet-dir       "/opt/wordnet/dict/"}   ; Location of WordNet dictionary
 
   ;; -------------------------------------------------------------------------
   :emote

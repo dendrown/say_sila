@@ -20,6 +20,7 @@
             [say.dolce          :as dul]
             [say.survey         :as six]
             [say.tweebo         :as twbo]
+            [say.wordnet        :as word]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
             [weka.tweet         :as tw]
@@ -29,12 +30,12 @@
             [clojure.string     :as str]
             [clojure.pprint     :refer [pp pprint]]
             [defun.core         :refer [defun]]
+            [tawny.owl          :refer :all]
             [tawny.english      :as dl]
             [tawny.query        :as qry]
             [tawny.read         :as rd]
             [tawny.reasoner     :as rsn]
-            [tawny.repl         :as repl]                           ; <= DEBUG
-            [tawny.owl          :refer :all])
+            [tawny.repl         :as repl])                          ; <= DEBUG
   (:import  (java.util Random)
             (org.semanticweb.HermiT Configuration
                                     Configuration$TableauMonitorType
@@ -117,25 +118,11 @@
 (defonce SCR            (atom {:examples {}
                                :ontology {}}))
 
-(defonce Expressions    (if (cfg/?? :senti :use-scr?)
-                            ;; Word sets which invoke Sentiment Composition Rules
-                            {"NEGATION"     #{"not"}
-                            ;"DECREASE-N"   #{"alleviate" "avoid" "handle" "lessen" "mitigate" "relieve"
-                            ;                 "resolve" "soothe" "subside" "waive"}
+;;; Word sets which invoke Sentiment/Survey rules
+(defonce Rule-Triggers  (merge six/Concept-Triggers
+                               {"NEGATION"     #{"not"}}))          ; Syntactical adjusters
 
-                            ;"DECREASE-P"   #{"lack" "lose" "omit" "miss"}
-                            ;"INCREASE-N"   #{"burst" "climb" "escalate" "intensify"
-                            ;                ; 2-grams: "go up" "grow" "mark up" "pile up"
-                            ;                }
-                            ;"INCREASE-P"   #{"elevate" "enlarge" "expand" "extend" "increase" "progress"
-                            ;                 "raise" "return" "rise" "soar" "surge"
-                            ;                ; 2-grams: "be up" "build up" "come back"
-                            ;                }
-                            }
-                            ;; FIXME: Just use survey expressions ( !SCR )
-                            {"CAUSE"        #{"cause"}
-                             "HUMAN"        #{"human"}
-                             "NATURE"       #{"nature"}}))
+(defonce Rule-Words     (word/synonym-values Rule-Triggers))        ; Rule trigger expansion
 
 
 
@@ -393,27 +380,26 @@
          :comment ~descr)
        (defpun ~tag)))
 
+;;; Concept indictor rules
 (defrule CAUSE  "Expressions which indicate a causal relationship.")
 (defrule HUMAN  "Expressions which refer to humans or humanity.")
 (defrule NATURE "Expressions which refer to the natural world.")
 
 
-;;; TODO: Convert this Liu SCR to an Six-America's SRR
-(when (cfg/?? :senti :use-scr?)
-  (defrule NEGATION "Expressions which negate other terms.")
+(defrule NEGATION "Expressions which negate other terms.")
 
-  (defclass AffectNegator
-    :super    pos/Token
-    :label    "Affect Negator"
-    :equivalent (dl/and pos/Token
-                        (dl/some indicatesRule NEGATION)
-                        (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
+(defclass AffectNegator
+  :super    pos/Token
+  :label    "Affect Negator"
+  :equivalent (dl/and pos/Token
+                      (dl/some indicatesRule NEGATION)
+                      (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
 
-  (defoproperty negatesAffect
-    :super    dul/expresses
-    :label    "negates affect"
-    :domain   AffectNegator
-    :range    Affect))
+(defoproperty negatesAffect
+  :super    dul/expresses
+  :label    "negates affect"
+  :domain   AffectNegator
+  :range    Affect)
 
 
 ;;; --------------------------------------------------------------------------
@@ -1290,8 +1276,9 @@
         stem    (fn [w]
                   (.stem sball w))
 
-        exprs   (update-values Expressions                      ; Pre-stem Liu's SCR expressions
-                               #(into #{} (map stem %)))]
+        exprs   (update-values Rule-Words                       ; Pre-stem rule expressions
+                  #(into #{} (map stem %)))]
+
 
     ;; Bundle everything up
     (map->Toolbox
@@ -1417,7 +1404,7 @@
                        (update-values xmap xkeys #(conj % xmp))]))))
 
             [(zero-pn-counter dset)                                 ; ACC: total/pos/neg counts
-             (reduce #(assoc %1 %2 #{}) {} (keys Expressions))]     ;      Examples keyed by rule
+             (reduce #(assoc %1 %2 #{}) {} (keys Rule-Words))]      ;      Examples keyed by rule
 
             (enumeration-seq (.enumerateInstances insts)))))))      ; SEQ: Weka instances
 
