@@ -51,6 +51,20 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn at-least? [n coll]
+  "Returns true if the collection contains at least n elements."
+  (>= (bounded-count n coll) n))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn at-most? [n coll]
+  "Returns true if the collection contains no more than n elements."
+  (<= (bounded-count (inc n) coll) n))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn reflect!
   "Turns on|off compilation warnings for reflection for the specified form."
   [yn]

@@ -271,13 +271,15 @@
   "Returns true if the specified word is a keyword in the specified collection
   of stem hits."
   [hits token sball]
-  (let [check #(contains? hits (stem sball %))
-        word  (soc/unhashtag token)]
+  (let [word    (soc/unhashtag token)
+        check   #(some #{(stem sball %)} hits)
+        recheck #(and %                         ; Make sure the lookup succeeded
+                      (at-least? 2 %)           ; One means the original word
+                      (every? check %))]        ; All parts must be hits
 
-    (or (check word)                                        ; 1: General check
-        (when-let [splits (Word-Splits word)]               ; 2: Hashtag values (w/out #)
-          (every? check splits))
-        (every? check (soc/tokenize word :lower-case)))))   ; 3: Hyphens, WeirdCase, etc.
+    (boolean (or (check word)                                    ; 1: Basic token check
+                 (recheck (Word-Splits word))                    ; 2: Hashtag values (w/out #)
+                 (recheck (soc/tokenize word :lower-case))))))   ; 3: Hyphens, WeirdCase, etc.
 
 
 
@@ -309,7 +311,6 @@
 
 
   ([word sball]
-  ;; TODO: Can we not tokenize the word multiple times (here and in-stems?)
   (let [check    (fn [hits tok]
                     (in-stems? hits tok sball))
         conceive (fn [tok]
