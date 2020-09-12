@@ -267,19 +267,25 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- in-stems?
-  "Returns true if the specified word is a keyword in the specified collection
-  of stem hits."
-  [hits token sball]
+(defn in-stems?
+  "Returns true if the token is a keyword in the specified collection of stem
+  hits.  The function allows the specification of an aggregation check to
+  require that all word parts (every? [default]) be hits or if only some of
+  them need to be."
+  ([hits token sball]
+  (in-stems? hits token sball every?))
+
+
+  ([hits token sball aggfn]
   (let [word    (soc/unhashtag token)
-        check   #(some #{(stem sball %)} hits)
+        check   #(aggfn #{(stem sball %)} hits)
         recheck #(and %                         ; Make sure the lookup succeeded
                       (at-least? 2 %)           ; One means the original word
-                      (every? check %))]        ; All parts must be hits
+                      (aggfn check %))]         ; All (or some) parts must be hits
 
     (boolean (or (check word)                                    ; 1: Basic token check
                  (recheck (Word-Splits word))                    ; 2: Hashtag values (w/out #)
-                 (recheck (soc/tokenize word :lower-case))))))   ; 3: Hyphens, WeirdCase, etc.
+                 (recheck (soc/tokenize word :lower-case)))))))  ; 3: Hyphens, WeirdCase, etc.
 
 
 

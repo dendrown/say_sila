@@ -123,6 +123,7 @@
                                {"NEGATION"     #{"not"}}))          ; Syntactical adjusters
 
 (defonce Rule-Words     (word/synonym-values Rule-Triggers))        ; Rule trigger expansion
+(defonce Rule-Stems     (update-values Rule-Words #(tw/stem-all % :set)))
 
 
 
@@ -445,14 +446,24 @@
 (defclass HumanCauseToken
   :super pos/Token
   :equivalent (dl/and pos/Token
-                      (dl/some indicatesRule HUMAN)
-                      (dl/some dependsOn (dl/some indicatesRule CAUSE))))
+                      (dl/or
+                        (dl/and
+                          (dl/some indicatesRule HUMAN)
+                          (dl/some indicatesRule CAUSE))
+                        (dl/and
+                          (dl/some indicatesRule HUMAN)
+                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
 (defclass NaturalCauseToken
   :super pos/Token
   :equivalent (dl/and pos/Token
-                      (dl/some indicatesRule NATURE)
-                      (dl/some dependsOn (dl/some indicatesRule CAUSE))))
+                      (dl/or
+                        (dl/and
+                          (dl/some indicatesRule NATURE)
+                          (dl/some indicatesRule CAUSE))
+                        (dl/and
+                          (dl/some indicatesRule NATURE)
+                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
 (defclass HumanCauseBelieverAccount
   :super OnlineAccount
@@ -1274,11 +1285,7 @@
         lex     (tw/make-lexicon (cfg/?? :senti :lexicon :liu)) ; TODO: Capture lex change on config update
         sball   (tw/make-stemmer)                               ; Weka Affective Tweets plus Snowball stemmer
         stem    (fn [w]
-                  (.stem sball w))
-
-        exprs   (update-values Rule-Words                       ; Pre-stem rule expressions
-                  #(into #{} (map stem %)))]
-
+                  (.stem sball w))]
 
     ;; Bundle everything up
     (map->Toolbox
@@ -1291,13 +1298,12 @@
 
       :sense    #(tw/analyze-token+- lex % Affect-Fragments)    ; Lexicon lookup for P/N rules
 
-      :scr      #(let [term (stem %)]                           ; Match terms for Sentiment Composite Rules
-                   (reduce (fn [acc [scr terms]]
-                             (if (contains? terms term)
+      :scr      #(reduce (fn [acc [scr terms]]                  ; Match terms for Sentiment Composite Rules
+                             (if (six/in-stems? terms % sball some)
                                  (conj acc scr)
                                  acc))
                            #{}
-                           exprs))
+                           Rule-Stems)
 
       :surveys  #(reduce (fn [acc s]                            ; Link Six Americas surveys
                            (if (six/in-survey? s % sball)
