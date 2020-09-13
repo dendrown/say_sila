@@ -468,16 +468,15 @@
                       (dl/or
                         (dl/and
                           (dl/some indicatesRule HUMAN)
-                          (dl/some indicatesRule CAUSE)
-                          (dl/not (dl/some hasDependent (dl/some indicatesRule NEGATION))))
+                          (dl/some indicatesRule CAUSE))
                         (dl/and
                           (dl/some indicatesRule HUMAN)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))
-                          (dl/not (dl/some hasDependent (dl/some indicatesRule NEGATION))))
-                        (dl/and
-                          (dl/some hasDependent (dl/some indicatesRule NEGATION))
-                          (dl/some indicatesRule NATURE)
-                          (dl/some indicatesRule CAUSE)))))
+                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+
+(defclass NegatedHumanCauseToken
+  :super HumanCauseToken
+  :equivalent (dl/and HumanCauseToken
+                      (dl/some hasDependent (dl/some indicatesRule NEGATION))))
 
 (defclass NaturalCauseToken
   :super pos/Token
@@ -485,26 +484,33 @@
                       (dl/or
                         (dl/and
                           (dl/some indicatesRule NATURE)
-                          (dl/some indicatesRule CAUSE)
-                          (dl/not (dl/some hasDependent (dl/some indicatesRule NEGATION))))
+                          (dl/some indicatesRule CAUSE))
                         (dl/and
                           (dl/some indicatesRule NATURE)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))
-                          (dl/not (dl/some hasDependent (dl/some indicatesRule NEGATION))))
+                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+
+(defclass NegatedNaturalCauseToken
+  :super NaturalCauseToken
+  :equivalent (dl/and NaturalCauseToken
+                      (dl/some hasDependent (dl/some indicatesRule NEGATION))))
+
+(comment defclass HumanCauseBelieverAccount
+  :super OnlineAccount
+  :equivalent (dl/and OnlineAccount
+                      (dl/or
                         (dl/and
-                          (dl/some hasDependent (dl/some indicatesRule NEGATION))
-                          (dl/some indicatesRule HUMAN)
-                          (dl/some indicatesRule CAUSE)))))
+                          (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))
+                          (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))
+                        (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
 
-(defclass HumanCauseBelieverAccount
+(comment defclass NaturalCauseBelieverAccount
   :super OnlineAccount
   :equivalent (dl/and OnlineAccount
-                      (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))))
-
-(defclass NaturalCauseBelieverAccount
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))))
+                      (dl/or
+                        (dl/and
+                          (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))
+                          (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken))))
+                        (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken)))))
 
 
 (defonce Surveys        (select-keys {:sassy sassy                  ; Only configured surveys
