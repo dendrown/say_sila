@@ -189,25 +189,44 @@
     :label   "Multi-word concept"
     :comment "A Collection of Tokens that together represent a single unit of meaning.")
 
-  (defoproperty dependsOn
-    :domain  dul/Entity
-    :range   dul/Entity
-    :label   "depends on"
-    :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
-    :characteristic :transitive)
+   (as-inverse
+    (defoproperty dependsOn
+      :domain  dul/Entity
+      :range   dul/Entity
+      :label   "depends on"
+      :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
+      :characteristic :transitive)
+
+    (defoproperty hasDependent
+      :domain  dul/Entity
+      :range   dul/Entity
+      :label   "has dependent"
+      :comment "A relationship describing how another Entity's existence or correctness is contingent on this Entity."
+      :characteristic :transitive))
 
   ;; dependsOn will need to be under associatedWith, depending on the DUL config setting
   (when (not= :minimal (dul/which-mode))
-    (refine dependsOn
-      :super dul/associatedWith))
+    (doseq [oprop [dependsOn
+                   hasDependent]]
+      (refine oprop
+        :super dul/associatedWith)))
 
-  (defoproperty directlyDependsOn
-    :super   dependsOn
-    :domain  dul/Entity
-    :range   dul/Entity
-    :label   "directly depends on"
-    :comment (str "A relationship describing how one Entity's existence or correctness is"
-                  "immediately contingent on another.")))
+  (as-inverse
+    (defoproperty directlyDependsOn
+      :super   dependsOn
+      :domain  dul/Entity
+      :range   dul/Entity
+      :label   "directly depends on"
+      :comment (str "A relationship describing how an Entity's existence or correctness is"
+                    "immediately contingent on another."))
+
+    (defoproperty hasDirectDependent
+      :super   hasDependent
+      :domain  dul/Entity
+      :range   dul/Entity
+      :label   "hass direct dependent"
+      :comment (str "A relationship describing how another Entity's existence or correctness is"
+                    "immediately contingent on this one."))))
 
 
 
@@ -449,10 +468,16 @@
                       (dl/or
                         (dl/and
                           (dl/some indicatesRule HUMAN)
-                          (dl/some indicatesRule CAUSE))
+                          (dl/some indicatesRule CAUSE)
+                          (dl/not (dl/some hasDependent (dl/some indicatesRule NEGATION))))
                         (dl/and
                           (dl/some indicatesRule HUMAN)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+                          (dl/some dependsOn (dl/some indicatesRule CAUSE))
+                          (dl/not (dl/some hasDependent (dl/some indicatesRule NEGATION))))
+                        (dl/and
+                          (dl/some hasDependent (dl/some indicatesRule NEGATION))
+                          (dl/some indicatesRule NATURE)
+                          (dl/some indicatesRule CAUSE)))))
 
 (defclass NaturalCauseToken
   :super pos/Token
@@ -460,10 +485,16 @@
                       (dl/or
                         (dl/and
                           (dl/some indicatesRule NATURE)
-                          (dl/some indicatesRule CAUSE))
+                          (dl/some indicatesRule CAUSE)
+                          (dl/not (dl/some hasDependent (dl/some indicatesRule NEGATION))))
                         (dl/and
                           (dl/some indicatesRule NATURE)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+                          (dl/some dependsOn (dl/some indicatesRule CAUSE))
+                          (dl/not (dl/some hasDependent (dl/some indicatesRule NEGATION))))
+                        (dl/and
+                          (dl/some hasDependent (dl/some indicatesRule NEGATION))
+                          (dl/some indicatesRule HUMAN)
+                          (dl/some indicatesRule CAUSE)))))
 
 (defclass HumanCauseBelieverAccount
   :super OnlineAccount
