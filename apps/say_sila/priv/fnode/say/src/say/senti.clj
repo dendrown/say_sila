@@ -408,18 +408,6 @@
 
 (defrule NEGATION "Expressions which negate other terms.")
 
-(defclass AffectNegator
-  :super    pos/Token
-  :label    "Affect Negator"
-  :equivalent (dl/and pos/Token
-                      (dl/some indicatesRule NEGATION)
-                      (dl/some dul/directlyPrecedes (dl/some denotesAffect Affect))))
-
-(defoproperty negatesAffect
-  :super    dul/expresses
-  :label    "negates affect"
-  :domain   AffectNegator
-  :range    Affect)
 
 
 ;;; --------------------------------------------------------------------------
@@ -634,16 +622,16 @@
   ([{:keys [tid
             polarity
             content
-            analysis]}
+            affect]}
     survey
     & opts]
-  ;; The analysis includes sentiment, emotion, and SCRs. The latter are ignored.
+  ;; Match up sentiment/emotion colours with the associated words.
   (let [snowball  (when survey
                     (tw/make-stemmer))
-        colourize (fn [[word affect]]
-                    (eword word affect survey snowball))
+        colourize (fn [[word aff]]
+                    (eword word aff survey snowball))
         pn-code   (Polarity-Markers (Affect-Fragments polarity polarity))
-        etokens   (map colourize (zip content analysis))                ; Mark affect
+        etokens   (map colourize (zip content affect))                  ; Mark affect
         etext     (apply str (interpose \space (conj etokens            ; Tag tweet
                                                      (log/<> tid pn-code))))]
     ;; The default return is a string tagged with the ID, but they may want the tokens
@@ -893,19 +881,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- express
-  "Asserts a role relation in the specified ontology of either dul:express
-  or one of its sub-properties."
-  [ont ttid token concept]
-  (let [prop (if (affect? concept)  ; NOTE: depending on the oproperties? config setting,
-                 denotesAffect      ;       both properties may collapse to dul/express,
-                 indicatesRule)]    ;       but this will not hurt functionality.
-
-    (refine ont token :fact (is prop (individual say-senti concept)))))
-
-
-
-;;; --------------------------------------------------------------------------
 (defn add-text
   "Adds a textual individual to the specified ontology.  The default behaviour
   is to create a new individual of type Text, but the arity-4 clause allows
@@ -919,7 +894,7 @@
 
 
   ([ont entity
-    {:keys [analysis content tid pos-tags screen_name surveys]}                 ; Text breakdown
+    {:keys [affect content tid pos-tags screen_name surveys]}                 ; Text breakdown
     {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-params
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
@@ -944,7 +919,7 @@
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
         (fn [[cnt tokens :as info]
-             [checks tag word svys]]
+             [aff tag word svys]]
           ;; Get the Part of Speech for the tag reported by Weka
           (if-let [pos (pos/lookup# tag)]
 
@@ -972,25 +947,17 @@
                   (run! (fn [tok]
                           (refine ont curr :fact (is dul/follows tok))
                           (refine ont tok  :fact (is dul/precedes curr)))
-                        tokens)))
+                        tokens))))
 
-              ;; TODO: This is SCR prototypical code.  Integrate it into the module if it's successful.
-              (when use-scr?
-                (binding [*ns* (find-ns 'say.senti)]
-                  (when (= 'NEGATION (check-fact prev indicatesRule))
-                    (doseq [aff (filter affect? checks)]
-                      (log/debug "Token" (rd/label-transform ont prev) "negates" aff)
-                      (refine ont prev :fact (is negatesAffect (individual say-senti aff))))))))
-
-            ;; Express sentiment composition rules
-            (doseq [rule checks]
-              (express ont ttid curr rule))
+            ;; Express sentiment/emotion
+            (doseq [a aff]
+                (refine ont curr :fact (is denotesAffect (individual say-senti a))))
 
             ;; TODO: This is prototypical code for secondary emotions
             (when secondaries?
-              (doseq [sec (primaries->secondaries checks)]
+              (doseq [sec (primaries->secondaries aff)]
                 ;(log/debug "Token" ttid "expresses dyad:" sec)
-                (express ont ttid curr sec)))
+                (refine ont curr :fact (is denotesAffect (individual say-senti sec)))))
 
             ;; TODO: Prototypical code for Six Americas experimental surveys
             (doseq [s svys]
@@ -1005,7 +972,7 @@
                 info)))
 
         [1 nil]                             ; Acc: Token counter, reverse seq of tokens
-        (zip analysis pos-tags content surveys))))))
+        (zip affect pos-tags content surveys))))))
 
 
 
@@ -1366,21 +1333,19 @@
 
         terms   (map #(-> % (second)                            ; FIXME: Get terms using
                             (str/lower-case)                    ;  affective.core.Utils/tokenize
-                            (.replaceAll "([a-z])\\1+" "$1$1")) ;  repeated letters
-                      pairs)
+                            (.replaceAll "([a-z])\\1+" "$1$1")) ; Reduce repeated letters
+                      pairs)]
 
-        affect  (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
-        rules   (map (:scr tools) terms)]            ; Set of match-term rules per term
 
     ;; Put all that together to build the example
     {:screen_name sname
      :tid         tid
      :polarity    polarity
      :content     terms
-     :rules       rules
      :pos-tags    (map first pairs)
      :surveys     (map (:surveys tools) terms)
-     :analysis    (map set/union affect rules)})))
+     :affect      (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
+     :rules       (map (:scr tools) terms)})))         ; Set of match-term rules per term
 
 
 
@@ -1466,7 +1431,7 @@
 
   ([dtag xmps]
   (let [;; Statistics on text polarity and presence of affect
-        stats   (reduce #(let [ss (if (every? empty? (:analysis %2))
+        stats   (reduce #(let [ss (if (every? empty? (:affect %2))
                                       :stoic
                                       :senti)]
                            (update-values %1 [:count (:polarity %2) ss] inc))
@@ -1494,7 +1459,7 @@
 
         ;; We'll need a sequence of affect (rule) sets for the Texts
         [aff-rules                                              ; Affect sets from Texts
-         aff-zeros] (init :analysis Affect-Names)               ; Acc init: affect counts
+         aff-zeros] (init :affect Affect-Names)                 ; Acc init: affect counts
 
         aff-toks    (count-tokens aff-zeros aff-rules)
         aff-texts   (count-texts  aff-zeros aff-rules)
@@ -1582,7 +1547,7 @@
              :polarity :positive
              :pos-tags («,» «N» «V»             «,»  «V»   «^» «P» «A» «N» «N»)
              :rules    (#{} #{} #{«DECREASE-N»} #{} #{}    #{} #{} #{} #{} #{})}
-             :analysis (#{} #{} #{«DECREASE-N»} #{} #{«P»} #{} #{} #{} #{} #{})}"
+             :affect   (#{} #{} #{}             #{} #{«P»} #{} #{} #{} #{} #{})}"
   [dset arff]
   ;; Create the official set of Text examples
   (log/fmt-debug "Loading dataset~a: ~a" dset arff)
