@@ -278,7 +278,7 @@
 
   ([hits token sball aggfn]
   (let [word    (soc/unhashtag token)
-        check   #(aggfn #{(stem sball %)} hits)
+        check   #(some #{(stem sball %)} hits)
         recheck #(and %                         ; Make sure the lookup succeeded
                       (at-least? 2 %)           ; One means the original word
                       (aggfn check %))]         ; All (or some) parts must be hits
