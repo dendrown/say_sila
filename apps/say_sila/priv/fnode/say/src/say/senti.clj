@@ -123,8 +123,10 @@
                                {"NEGATION"     #{"not"}}))          ; Syntactical adjusters
 
 (defonce Rule-Words     (word/synonym-values Rule-Triggers))        ; Rule trigger expansion
-(defonce Rule-Stems     (update-values Rule-Words #(tw/stem-all % :set)))
+(defonce Rule-Stems     (update-values Rule-Words
+                                       #(tw/stem-all % :set)))
 
+(defonce Rule-Tokens    (agent {}))                                 ; Individuals indicating rules
 
 
 ;;; --------------------------------------------------------------------------
@@ -405,7 +407,6 @@
 (defrule HUMAN  "Expressions which refer to humans or humanity.")
 (defrule NATURE "Expressions which refer to the natural world.")
 
-
 (defrule NEGATION "Expressions which negate other terms.")
 
 
@@ -461,11 +462,6 @@
                           (dl/some indicatesRule HUMAN)
                           (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
-(defclass NegatedHumanCauseToken
-  :super HumanCauseToken
-  :equivalent (dl/and HumanCauseToken
-                      (dl/some hasDependent (dl/some indicatesRule NEGATION))))
-
 (defclass NaturalCauseToken
   :super pos/Token
   :equivalent (dl/and pos/Token
@@ -476,11 +472,6 @@
                         (dl/and
                           (dl/some indicatesRule NATURE)
                           (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
-
-(defclass NegatedNaturalCauseToken
-  :super NaturalCauseToken
-  :equivalent (dl/and NaturalCauseToken
-                      (dl/some hasDependent (dl/some indicatesRule NEGATION))))
 
 (comment defclass HumanCauseBelieverAccount
   :super OnlineAccount
@@ -894,7 +885,7 @@
 
 
   ([ont entity
-    {:keys [affect content tid pos-tags screen_name surveys]}                 ; Text breakdown
+    {:keys [affect content tid pos-tags rules screen_name surveys]}             ; Text breakdown
     {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-params
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
@@ -919,15 +910,21 @@
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
         (fn [[cnt tokens :as info]
-             [aff tag word svys]]
+             [aff scr tag word svys]]
           ;; Get the Part of Speech for the tag reported by Weka
           (if-let [pos (pos/lookup# tag)]
 
-            ;; Set up an individual for this Token
-            (let [ttid (str tid "-" cnt)
-                  curr (individual ont ttid
-                                   :type  pos/Token
-                                   :label (str ttid " (" tag ")"))]
+            ;; Set up an individual for this Token.
+            ;;
+            ;; NOTE: We have to declare the individual using its Token subclass type
+            ;;       (Negated or Affirmed), but these subclasses are declared later.
+            (let [ttid  (str tid "-" cnt)
+                  ttype (if (some #{"NEGATION"} scr)
+                            "NegationToken"
+                            "StandardToken")
+                  curr  (individual ont ttid
+                                    :type  (owl-class ont ttype)
+                                    :label (str ttid " ( " tag " / " word " )"))]
 
               ;; Link Token to the original Text and set POS Quality
               (refine ont text :fact (is dul/hasComponent curr))
@@ -951,7 +948,13 @@
 
             ;; Express sentiment/emotion
             (doseq [a aff]
-                (refine ont curr :fact (is denotesAffect (individual say-senti a))))
+              (refine ont curr :fact (is denotesAffect (individual say-senti a))))
+
+            ;; Express sentiment composition rules  (TODO: rename these rules)
+            (doseq [r scr]
+              ;; Save the individual for possible OWL one-of" extensional class declarations
+              (send Rule-Tokens update-in [r] (fnil conj #{}) curr)
+              (refine ont curr :fact (is indicatesRule (individual say-senti r))))
 
             ;; TODO: This is prototypical code for secondary emotions
             (when secondaries?
@@ -972,7 +975,7 @@
                 info)))
 
         [1 nil]                             ; Acc: Token counter, reverse seq of tokens
-        (zip affect pos-tags content surveys))))))
+        (zip affect rules pos-tags content surveys))))))
 
 
 
@@ -1139,7 +1142,33 @@
     ;; Add Tweebo dependencies
     (when (cfg/?? :senti :use-tweebo?)
       (twbo/wait)
-      (run! #(add-dependencies ont %) xmps))
+      (run! #(add-dependencies ont %) xmps)
+
+      ;; Set up for negated dependencies
+      (await Rule-Tokens)
+      (let [negtoks (get @Rule-Tokens "NEGATION")
+            negator (owl-class ont "NegationToken"
+                      :label "Negative Token"
+                      :super pos/Token
+                      (apply oneof negtoks))
+            stdtok  (owl-class ont "StandardToken"
+                      :label "Standard Token"
+                      :super pos/Token
+                      :comment "A Token that has no special effect on other tokens (e.g., negation).")]
+
+      ;; HermiT gives us all kinds of problems at inference-time if we don't
+      ;; specifically identify megated and non-negated (affirmed) Token types.
+      (as-disjoint negator stdtok)
+
+      (owl-class ont "NegatedNaturalCauseToken"
+        :super NaturalCauseToken
+        :equivalent (dl/and NaturalCauseToken
+                            (dl/some hasDependent negator)))
+
+      (owl-class ont "AffirmedNaturalCauseToken"
+        :super NaturalCauseToken
+        :equivalent (dl/and NaturalCauseToken
+                            (only hasDependent stdtok)))))
 
     ;; Remember that ontologies are mutable
     ont))
@@ -1287,9 +1316,7 @@
   ;; Create a closure for a configuration-based analysis
   (let [all-pn? (cfg/?? :senti :skip-neutrals?)
         lex     (tw/make-lexicon (cfg/?? :senti :lexicon :liu)) ; TODO: Capture lex change on config update
-        sball   (tw/make-stemmer)                               ; Weka Affective Tweets plus Snowball stemmer
-        stem    (fn [w]
-                  (.stem sball w))]
+        sball   (tw/make-stemmer)]                              ; Weka Affective Tweets plus Snowball stemmer
 
     ;; Bundle everything up
     (map->Toolbox
@@ -1298,7 +1325,8 @@
       :stoic?   (fn [{:keys [affect]}]                          ; Check that we're not including neutral Texts
                   (and all-pn? (every? empty? affect)))         ; ..and that no sentiment (rule) is expressed
 
-      :stem     stem
+      :stem     (fn [w]
+                  (.stem sball w))
 
       :sense    #(tw/analyze-token+- lex % Affect-Fragments)    ; Lexicon lookup for P/N rules
 
@@ -1344,8 +1372,8 @@
      :content     terms
      :pos-tags    (map first pairs)
      :surveys     (map (:surveys tools) terms)
-     :affect      (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
-     :rules       (map (:scr tools) terms)})))         ; Set of match-term rules per term
+     :affect      (map (:sense tools) terms)            ; Affect: pos|neg|emo or nil per term
+     :rules       (map (:scr tools) terms)})))          ; Set of match-term rules per term
 
 
 
