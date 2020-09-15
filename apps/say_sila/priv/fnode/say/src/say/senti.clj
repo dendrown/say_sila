@@ -1295,8 +1295,8 @@
     (map->Toolbox
      {:all-pn?  (fn [] all-pn?)
 
-      :stoic?   (fn [{:keys [analysis]}]                        ; Check that we're not including neutral Texts
-                  (and all-pn? (every? empty? analysis)))       ; ..and that no sentiment (rule) is expressed
+      :stoic?   (fn [{:keys [affect]}]                          ; Check that we're not including neutral Texts
+                  (and all-pn? (every? empty? affect)))         ; ..and that no sentiment (rule) is expressed
 
       :stem     stem
 
