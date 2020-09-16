@@ -1148,7 +1148,7 @@
       (await Rule-Tokens)
       (let [negtoks (get @Rule-Tokens "NEGATION")
             negator (owl-class ont "NegationToken"
-                      :label "Negative Token"
+                      :label "Negation Token"
                       :super pos/Token
                       (apply oneof negtoks))
             stdtok  (owl-class ont "StandardToken"
@@ -1159,6 +1159,16 @@
       ;; HermiT gives us all kinds of problems at inference-time if we don't
       ;; specifically identify megated and non-negated (affirmed) Token types.
       (as-disjoint negator stdtok)
+
+      (owl-class ont "NegatedHumanCauseToken"
+        :super HumanCauseToken
+        :equivalent (dl/and HumanCauseToken
+                            (dl/some hasDependent negator)))
+
+      (owl-class ont "AffirmedHumanCauseToken"
+        :super HumanCauseToken
+        :equivalent (dl/and HumanCauseToken
+                            (only hasDependent stdtok)))
 
       (owl-class ont "NegatedNaturalCauseToken"
         :super NaturalCauseToken
