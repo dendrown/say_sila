@@ -213,6 +213,7 @@
       (refine oprop
         :super dul/associatedWith)))
 
+  (as-inverse dependsOn hasDependent)
   (as-inverse
     (defoproperty directlyDependsOn
       :super   dependsOn
