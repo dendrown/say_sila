@@ -193,15 +193,15 @@
 
    (as-inverse
     (defoproperty dependsOn
-      :domain  dul/Entity
-      :range   dul/Entity
+      :domain  pos/Token
+      :range   pos/Token
       :label   "depends on"
       :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
       :characteristic :transitive)
 
     (defoproperty hasDependent
-      :domain  dul/Entity
-      :range   dul/Entity
+      :domain  pos/Token
+      :range   pos/Token
       :label   "has dependent"
       :comment "A relationship describing how another Entity's existence or correctness is contingent on this Entity."
       :characteristic :transitive))
@@ -217,16 +217,16 @@
   (as-inverse
     (defoproperty directlyDependsOn
       :super   dependsOn
-      :domain  dul/Entity
-      :range   dul/Entity
+      :domain  pos/Token
+      :range   pos/Token
       :label   "directly depends on"
       :comment (str "A relationship describing how an Entity's existence or correctness is"
                     "immediately contingent on another."))
 
     (defoproperty hasDirectDependent
       :super   hasDependent
-      :domain  dul/Entity
-      :range   dul/Entity
+      :domain  pos/Token
+      :range   pos/Token
       :label   "hass direct dependent"
       :comment (str "A relationship describing how another Entity's existence or correctness is"
                     "immediately contingent on this one."))))
@@ -1159,7 +1159,7 @@
 
       ;; HermiT gives us all kinds of problems at inference-time if we don't
       ;; specifically identify megated and non-negated (affirmed) Token types.
-      (as-disjoint negator stdtok)
+      (as-subclasses pos/Token :disjoint :cover negator stdtok)
 
       (owl-class ont "NegatedHumanCauseToken"
         :super HumanCauseToken
