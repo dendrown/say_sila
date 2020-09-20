@@ -126,7 +126,8 @@
 (defonce Rule-Stems     (update-values Rule-Words
                                        #(tw/stem-all % :set)))
 
-(defonce Rule-Tokens    (agent {}))                                 ; Individuals indicating rules
+(defonce Std-Neg-Tokens (agent {"STANDARD" #{}                      ; We collect token types
+                                "NEGATION" #{}}))
 
 
 ;;; --------------------------------------------------------------------------
@@ -951,10 +952,12 @@
             (doseq [a aff]
               (refine ont curr :fact (is denotesAffect (individual say-senti a))))
 
+            ;; We need to note which tokens invoke negation and which do not in order
+            ;; to save the individual for OWL one-of" extensional class declarations.
+            (send Std-Neg-Tokens update-in [(get scr "NEGATION" "STANDARD")] conj curr)
+
             ;; Express sentiment composition rules  (TODO: rename these rules)
             (doseq [r scr]
-              ;; Save the individual for possible OWL one-of" extensional class declarations
-              (send Rule-Tokens update-in [r] (fnil conj #{}) curr)
               (refine ont curr :fact (is indicatesRule (individual say-senti r))))
 
             ;; TODO: This is prototypical code for secondary emotions
@@ -1146,16 +1149,18 @@
       (run! #(add-dependencies ont %) xmps)
 
       ;; Set up for negated dependencies
-      (await Rule-Tokens)
-      (let [negtoks (get @Rule-Tokens "NEGATION")
+      (await Std-Neg-Tokens)
+      (let [std-neg @Std-Neg-Tokens
             negator (owl-class ont "NegationToken"
                       :label "Negation Token"
+                      :comment "A Token that negates one or more (other) Tokens in its Information Object."
                       :super pos/Token
-                      (apply oneof negtoks))
+                      (apply oneof (std-neg "NEGATION")))
             stdtok  (owl-class ont "StandardToken"
                       :label "Standard Token"
+                      :comment "A Token that has no special effect on other tokens (e.g., negation)."
                       :super pos/Token
-                      :comment "A Token that has no special effect on other tokens (e.g., negation).")]
+                      (apply oneof (std-neg "STANDARD")))]
 
       ;; HermiT gives us all kinds of problems at inference-time if we don't
       ;; specifically identify megated and non-negated (affirmed) Token types.
