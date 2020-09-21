@@ -227,7 +227,7 @@
       :super   hasDependent
       :domain  pos/Token
       :range   pos/Token
-      :label   "hass direct dependent"
+      :label   "has direct dependent"
       :comment (str "A relationship describing how another Entity's existence or correctness is"
                     "immediately contingent on this one."))))
 
@@ -991,7 +991,8 @@
 
 
   ([ont
-    {:keys [tid content pos-tags]}
+    {:keys [tid content pos-tags]
+     :as   xmp}
     tweebo]
   (let [include #(refine ont %1 :fact (is dul/hasComponent %2))
         equiv?  #(or (= %1 %2)
@@ -1019,38 +1020,100 @@
     ;; Run through our example and the Tweebo parse, token by token
     (loop [[tok1                              & content*]   content     ; Tweet tokens
            [pos1                              & pos-tags*]  pos-tags    ; Parts of Speech
-           [[sub tok2 _ pos2 pos3 _ obj ling] & tweebo*]    tweebo]     ; Tweebo output
+           [[sub tok2 _ pos2 pos3 _ obj ling] & tweebo*]    tweebo      ; Tweebo output
+           deps                                             []]         ; Multi-root tree
       ;; All three arguments should be in alignment, except tweebo may have a final [""]
-      (when pos1
-        ;; Complain if the POS analysis doesn't match up (uncommon)
-        (when (not= pos1 pos2 pos3)
-            (log/fmt-warn "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
+      (if pos1
+        ;; Process the next Tweebo line
+        (let [obj-num (Long/parseLong obj)
+              dep?    (pos? obj-num)
+              build   #(conj % (if dep? obj-num nil))]
+          ;; Complain if the POS analysis doesn't match up (uncommon)
+          (when (not= pos1 pos2 pos3)
+              (log/fmt-warn "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
                           tid tok1 tok2 pos1 pos2 pos3))
-        (if (equiv? tok1 tok2)
-          (do
-            ;; We're looking from the leaf (subject) up to the parent node (object).
-            ;; -1 : subjet token is uninteresting per Tweebo
-            ;;  0 : subjet token is a root node
-            ;;  N : subjet token depends on the Nth token (object)
-            (when (pos? (Long/parseLong obj))
-              (let [[subid   objid]  (map #(label-text-token tid %) [sub obj])  ; t99-9
-                    [subject object] (map #(individual ont %) [subid objid])]   ; Tokens
+          (if (equiv? tok1 tok2)
+            (do
+              ;; We're looking from the leaf (subject) up to the parent node (object).
+              ;; -1 : subjet token is uninteresting per Tweebo
+              ;;  0 : subjet token is a root node
+              ;;  N : subjet token depends on the Nth token (object)
+              (when dep?
+                (let [[subid   objid]  (map #(label-text-token tid %) [sub obj])  ; t99-9
+                      [subject object] (map #(individual ont %) [subid objid])]   ; Tokens
 
-              ;; Add dependency relation to ontology
-              ;(log/debug subid  "directlyDependsOn" objid)
-              (refine ont subject :fact (is directlyDependsOn object))
+                ;; Add dependency relation to ontology
+                ;(log/debug subid  "directlyDependsOn" objid)
+                (refine ont subject :fact (is directlyDependsOn object))
 
-              ;; Handle linguistic entities: Conjuncts, Coordinations and Multi-word expressions
-              (when-let [entity (and (not= ling "_")
-                                     (make ling obj))]
-                (include entity subject))))
+                ;; Handle linguistic entities: Conjuncts, Coordinations and Multi-word expressions
+                (when-let [entity (and (not= ling "_")
+                                       (make ling obj))]
+                  (include entity subject))))
 
               ;; Move on to the next token
-              (recur content* pos-tags* tweebo*))
+              (recur content* pos-tags* tweebo* (build deps)))
 
             ;; Abort!  The parsers disagree wrt tokenization.
             (log/fmt-error "Text/tweebo mismatch on ~a: token[~a/~a] pos[~a~a~a]"
-                           tid tok1 tok2 pos1 pos2 pos3)))))))
+                           tid tok1 tok2 pos1 pos2 pos3)))
+
+        ;; No more data to process. Return the dependency tree!
+        (assoc xmp :deps (seq deps)))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn add-negations
+  "Incorporates a tweet's output from the TweeboParser into the specified
+  ontology."
+  [ont
+  {:keys [tid rules deps]
+   :as   xmp}]
+
+  (log/info "Finding negations for" tid)
+  (let [;; Create a vector with [index dep concepts] for each token
+        xdeps   (into [] (cons [0 nil nil]                      ; Add an ununsed zeroth token
+                               (zip (rest (range)) deps rules)))
+
+        ;; Identify the negation and concept tokens
+        {negs  true
+         ctoks false} (group-by (fn [[_ _ cs]]                  ; Negation vs. [c]oncept tokens
+                                  (contains? cs "NEGATION"))
+                                (remove (fn [[_ _ cs]]          ; Check anything with concept(s)
+                                          (empty? cs))
+                                        xdeps))]
+
+    (letfn [;; ---------------------------------------------------------------
+            (affirm [[i _ _]]
+              ;; Mark the token as non-negated
+              (log/info "Affirming token" i)
+              (refine ont (individual ont (label-text-token tid i))
+                          (exactly 0 hasDependent (owl-class ont "NegationToken"))))
+
+            ;; ---------------------------------------------------------------
+            (chain
+              ([[i _ _]]
+                (chain i '()))
+
+              ([i deps]
+                (let [[_ d _ :as node]  (xdeps i)
+                      deps*             (conj deps node)]
+                  ;; Keep chaining while we have a dependency
+                  (if d (recur d deps*) deps*))))
+
+            ;; ---------------------------------------------------------------
+            (negate [negs ctoks]
+              (if (empty? negs)
+                  (run! affirm ctoks)       ; Remaining concept tokens are not negated
+                  (recur (rest negs)
+                         (reduce #(disj %1 %2)      ; Remove negated concepts in chain
+                                 ctoks negs))))]
+
+      ;; FIXME: Error log message is just to catch the eye during debugging
+      (log/error "CTOKS:" ctoks)
+      (log/info "NEGS:" (map chain negs))
+      (negate negs (into #{} ctoks)))))
 
 
 
@@ -1140,22 +1203,25 @@
   ;; Add positivity tokens if we're guiding learning (or testing the system)
   (run! #(add-text ont % sconf) xmps)
 
-    ;; Add Tweebo dependencies
-    (when (cfg/?? :senti :use-tweebo?)
-      (twbo/wait)
-      (run! #(add-dependencies ont %) xmps)
+  ;; Add Tweebo dependencies
+  (when (cfg/?? :senti :use-tweebo?)
+    ;; add-dependencies will update the ontology, but we need to do a bit  more processing
+    (twbo/wait)
+    (let [xdeps (map #(add-dependencies ont %) xmps)]
+      (run! #(add-negations ont %) xdeps)
 
       ;; Set up for negated dependencies
       (await Rule-Tokens)
       (let [negtoks (get @Rule-Tokens "NEGATION")
             negator (owl-class ont "NegationToken"
                       :label "Negation Token"
+                      :comment "A Token that negates one or more (other) Tokens in its Information Object."
                       :super pos/Token
                       (apply oneof negtoks))
-            stdtok  (owl-class ont "StandardToken"
+              stdtok  (owl-class ont "StandardToken"
                       :label "Standard Token"
-                      :super pos/Token
-                      :comment "A Token that has no special effect on other tokens (e.g., negation).")]
+                      :comment "A Token that has no special effect on other tokens (e.g., negation)."
+                      :super pos/Token)]
 
       ;; HermiT gives us all kinds of problems at inference-time if we don't
       ;; specifically identify megated and non-negated (affirmed) Token types.
@@ -1169,7 +1235,7 @@
       (owl-class ont "AffirmedHumanCauseToken"
         :super HumanCauseToken
         :equivalent (dl/and HumanCauseToken
-                            (only hasDependent stdtok)))
+                            (dl/not (dl/some hasDependent negator))))
 
       (owl-class ont "NegatedNaturalCauseToken"
         :super NaturalCauseToken
@@ -1179,10 +1245,13 @@
       (owl-class ont "AffirmedNaturalCauseToken"
         :super NaturalCauseToken
         :equivalent (dl/and NaturalCauseToken
-                            (only hasDependent stdtok)))))
+                            (dl/not (dl/some hasDependent stdtok))))
 
-    ;; Remember that ontologies are mutable
-    ont))
+      (as-disjoint (owl-class ont "AffirmedHumanCauseToken")
+                   (owl-class ont "NegatedHumanCauseToken")))))
+
+  ;; Remember that ontologies are mutable
+  ont))
 
 
 
