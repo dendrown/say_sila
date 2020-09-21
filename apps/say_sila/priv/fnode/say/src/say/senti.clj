@@ -1205,9 +1205,11 @@
 
   ;; Add Tweebo dependencies
   (when (cfg/?? :senti :use-tweebo?)
-    ;; add-dependencies will update the ontology, but we need to do a bit  more processing
+    ;; add-dependencies will update the ontology, but we need to do a bit more processing
     (twbo/wait)
     (let [xdeps (map #(add-dependencies ont %) xmps)]
+
+      ;; Determine which tokens were negater and which were not
       (run! #(add-negations ont %) xdeps)
 
       ;; Set up for negated dependencies
@@ -1225,7 +1227,7 @@
 
       ;; HermiT gives us all kinds of problems at inference-time if we don't
       ;; specifically identify megated and non-negated (affirmed) Token types.
-      (as-subclasses pos/Token :disjoint :cover negator stdtok)
+      (as-subclasses ont pos/Token :disjoint :cover negator stdtok)
 
       (owl-class ont "NegatedHumanCauseToken"
         :super HumanCauseToken
@@ -1247,8 +1249,8 @@
         :equivalent (dl/and NaturalCauseToken
                             (dl/not (dl/some hasDependent stdtok))))
 
-      (as-disjoint (owl-class ont "AffirmedHumanCauseToken")
-                   (owl-class ont "NegatedHumanCauseToken")))))
+      (as-disjoint ont (owl-class ont "AffirmedHumanCauseToken")
+                       (owl-class ont "NegatedHumanCauseToken")))))
 
   ;; Remember that ontologies are mutable
   ont))
