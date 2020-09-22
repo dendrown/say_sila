@@ -920,11 +920,10 @@
             ;; NOTE: We have to declare the individual using its Token subclass type
             ;;       (Negated or Affirmed), but these subclasses are declared later.
             (let [ttid  (str tid "-" cnt)
-                  ttype (if (some #{"NEGATION"} scr)
-                            "NegationToken"
-                            "StandardToken")
                   curr  (individual ont ttid
-                                    :type  (owl-class ont ttype)
+                                    :type  (if (some #{"NEGATION"} scr)
+                                               (owl-class ont "NegationToken")
+                                               pos/Token)
                                     :label (str ttid " ( " tag " / " word " )"))]
 
               ;; Link Token to the original Text and set POS Quality
@@ -1089,7 +1088,10 @@
               ;; Mark the token as non-negated
               (log/info "Affirming token" i)
               (refine ont (individual ont (label-text-token tid i))
-                          (exactly 0 hasDependent (owl-class ont "NegationToken"))))
+                         ;:fact (fact-not hasDependent (owl-class ont "NegationToken"))))
+                         ;:type (exactly 0 hasDependent (owl-class ont "NegationToken"))))
+                          :type (owl-class ont "AffirmedToken")))
+                         ;:fact (is hasDependent (individual ont "AffirmedToken"))))
 
             ;; ---------------------------------------------------------------
             (chain
@@ -1220,14 +1222,21 @@
                       :comment "A Token that negates one or more (other) Tokens in its Information Object."
                       :super pos/Token
                       (apply oneof negtoks))
-              stdtok  (owl-class ont "StandardToken"
-                      :label "Standard Token"
-                      :comment "A Token that has no special effect on other tokens (e.g., negation)."
-                      :super pos/Token)]
+            ;stdtok (owl-class ont "StandardToken"
+            ;         :label "Standard Token"
+            ;         :comment "A Token that has no special effect on other tokens (e.g., negation)."
+            ;         :super pos/Token)
+            affirm  (owl-class ont "AffirmedToken"
+                      :label "Affirmed Token"
+                      :super pos/Token)
+                    ]
 
       ;; HermiT gives us all kinds of problems at inference-time if we don't
       ;; specifically identify megated and non-negated (affirmed) Token types.
-      (as-subclasses ont pos/Token :disjoint :cover negator stdtok)
+;     (as-subclasses ont pos/Token :disjoint :cover negator stdtok)
+      (as-subclasses ont pos/Token :disjoint :cover negator affirm)
+
+;     (individual ont "AffirmedToken" :type affirm)
 
       (owl-class ont "NegatedHumanCauseToken"
         :super HumanCauseToken
@@ -1237,7 +1246,8 @@
       (owl-class ont "AffirmedHumanCauseToken"
         :super HumanCauseToken
         :equivalent (dl/and HumanCauseToken
-                            (dl/not (dl/some hasDependent negator))))
+                            (dl/some hasDependent affirm)))
+                           ;(dl/not (dl/some hasDependent negator))))
 
       (owl-class ont "NegatedNaturalCauseToken"
         :super NaturalCauseToken
@@ -1247,7 +1257,8 @@
       (owl-class ont "AffirmedNaturalCauseToken"
         :super NaturalCauseToken
         :equivalent (dl/and NaturalCauseToken
-                            (dl/not (dl/some hasDependent stdtok))))
+                            (dl/some hasDependent affirm)))
+                           ;(dl/not (dl/some hasDependent stdtok))))
 
       (as-disjoint ont (owl-class ont "AffirmedHumanCauseToken")
                        (owl-class ont "NegatedHumanCauseToken")))))
