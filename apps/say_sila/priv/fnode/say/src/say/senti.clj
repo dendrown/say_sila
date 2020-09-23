@@ -409,6 +409,10 @@
 
 (defrule NEGATION "Expressions which negate other terms.")
 
+;;; When building a final Tweet-data ontology, we may be applying negation
+;;; and not-negated elements before they are formally defined in the ontology.
+(def ^:const Negation-Token     "NegationToken")
+(def ^:const Not-Negated-Check  "NotegatedCheck")
 
 
 ;;; --------------------------------------------------------------------------
@@ -921,7 +925,7 @@
             (let [ttid  (str tid "-" cnt)
                   curr  (individual ont ttid
                                     :type  (if (some #{"NEGATION"} scr)
-                                               (owl-class ont "NegationToken")
+                                               (owl-class ont Negation-Token)
                                                pos/Token)
                                     :label (str ttid " ( " tag " / " word " )"))]
 
@@ -1062,7 +1066,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn add-negations
+(defn add-affirmations
   "Incorporates a tweet's output from the TweeboParser into the specified
   ontology."
   [ont
@@ -1070,7 +1074,10 @@
    :as   xmp}]
 
   (log/info "Finding negations for" tid)
-  (let [;; Create a vector with [index dep concepts] for each token
+  (let [;; Non-negated concept tokens will depend on the check we are performing here
+        not-neg (individual ont Not-Negated-Check)
+
+        ;; Create a vector with [index dep concepts] for each token
         xdeps   (into [] (cons [0 nil nil]                      ; Add an ununsed zeroth token
                                (zip (rest (range)) deps rules)))
 
@@ -1085,13 +1092,10 @@
     (letfn [;; ---------------------------------------------------------------
             (affirm [[i _ _]]
               ;; Mark the token as non-negated
-              (log/info "Affirming token" i)
+              (log/debug "Affirming token" i)
               (refine ont (individual ont (label-text-token tid i))
-                         ;:fact (fact-not hasDependent (owl-class ont "NegationToken"))))
-                         ;:type (exactly 0 hasDependent (owl-class ont "NegationToken"))))
-                         ;:type (owl-class ont "AffirmedToken")))
-                         ;:fact (is hasDependent (individual ont "AffirmedToken"))))
-                          :fact (is directlyDependsOn (individual ont "NotNegatedCheck"))))
+                          :fact (is directlyDependsOn not-neg
+                          )))
 
             ;; ---------------------------------------------------------------
             (chain
@@ -1105,17 +1109,20 @@
                   (if d (recur d deps*) deps*))))
 
             ;; ---------------------------------------------------------------
-            (negate [negs ctoks]
-              (if (empty? negs)
-                  (run! affirm ctoks)       ; Remaining concept tokens are not negated
-                  (recur (rest negs)
-                         (reduce #(disj %1 %2)      ; Remove negated concepts in chain
-                                 ctoks negs))))]
+            (negate [ctoks negs]
+              ;; The last token in the chain is the negator. We don't need to process it.
+              (if (empty? (next negs))
+                  ctoks                         ; Remaining concept tokens are not negated
+                  (recur (reduce #(disj %1 %2)  ; Remove negated concepts in chain
+                                 ctoks negs)
+                         (rest negs))))]        ; Ready next chain
 
-      ;; FIXME: Error log message is just to catch the eye during debugging
-      (log/error "CTOKS:" ctoks)
-      (log/info "NEGS:" (map chain negs))
-      (negate negs (into #{} ctoks)))))
+      ;; All non-negated concept tokens must depend on a "non-negated" affirmation.
+      ;; Here, negating a token implies taking it out of the set of concept tokens.
+      (log/debug "CONCEPTS:" ctoks)
+      (run! affirm (reduce negate
+                           (into #{} ctoks)
+                           (map chain negs))))))
 
 
 
@@ -1211,36 +1218,25 @@
     (twbo/wait)
     (let [xdeps (map #(add-dependencies ont %) xmps)]
 
-      ;; Determine which tokens were negater and which were not
-      (run! #(add-negations ont %) xdeps)
+      ;; Indicate which tokens were NOT negated
+      (run! #(add-affirmations ont %) xdeps)
 
-      ;; Set up for negated dependencies
+      ;; Make sure dependency processing is done before handling (non)negated dependencies
       (await Rule-Tokens)
       (let [negtoks (get @Rule-Tokens "NEGATION")
-            negator (owl-class ont "NegationToken"
+            negator (owl-class ont Negation-Token
                       :label "Negation Token"
                       :comment "A Token that negates one or more (other) Tokens in its Information Object."
                       :super pos/Token
                       (apply oneof negtoks))
-           ;stdtok  (owl-class ont "StandardToken"
-           ;          :label "Standard Token"
-           ;          :comment "A Token that has no special effect on other tokens (e.g., negation)."
-           ;          :super pos/Token)
-           ;affirm  (owl-class ont "AffirmedToken"
-           ;          :label "Affirmed Token"
-           ;          :super pos/Token)
-            not-neg (owl-class ont "NotNegatedCheck"
+            not-neg (owl-class ont Not-Negated-Check
                       :label "Not Negated Check"
-                      :super dul/Concept)
-                    ]
+                      :comment "A test affirming that a Tokens has not been negated."
+                      :super dul/Concept)]
 
       ;; HermiT gives us all kinds of problems at inference-time if we don't
-      ;; specifically identify megated and non-negated (affirmed) Token types.
-;     (as-subclasses ont pos/Token :disjoint :cover negator stdtok)
-;     (as-subclasses ont pos/Token :disjoint :cover negator affirm)
-
-;     (individual ont "AffirmedToken" :type affirm)
-      (individual ont "NotNegatedCheck" :type not-neg)
+      ;; specifically identify negated and non-negated (affirmed) Token types.
+      (individual ont Not-Negated-Check :type not-neg)
 
       (owl-class ont "NegatedHumanCauseToken"
         :super HumanCauseToken
@@ -1251,9 +1247,11 @@
         :super HumanCauseToken
         :equivalent (dl/and HumanCauseToken
                             (dl/some directlyDependsOn not-neg)))
-                           ;(dl/some hasDependent affirm)))
-                           ;(dl/not (dl/some hasDependent negator))))
 
+      (as-disjoint ont (owl-class ont "AffirmedHumanCauseToken")
+                       (owl-class ont "NegatedHumanCauseToken"))
+
+      ;; Natural-cause indicators follow the same pattern
       (owl-class ont "NegatedNaturalCauseToken"
         :super NaturalCauseToken
         :equivalent (dl/and NaturalCauseToken
@@ -1263,12 +1261,9 @@
         :super NaturalCauseToken
         :equivalent (dl/and NaturalCauseToken
                             (dl/some directlyDependsOn not-neg)))
-                           ;(dl/some hasDependent affirm)))
-                           ;(dl/not (dl/some hasDependent stdtok))))
 
-      (comment
-       as-disjoint ont (owl-class ont "AffirmedHumanCauseToken")
-                       (owl-class ont "NegatedHumanCauseToken")))))
+      (as-disjoint ont (owl-class ont "AffirmedNaturalCauseToken")
+                       (owl-class ont "NegatedNaturalCauseToken")))))
 
   ;; Remember that ontologies are mutable
   ont))
