@@ -193,15 +193,15 @@
 
    (as-inverse
     (defoproperty dependsOn
-      :domain  pos/Token
-      :range   pos/Token
+      :domain  dul/Entity
+      :range   dul/Entity
       :label   "depends on"
       :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
       :characteristic :transitive)
 
     (defoproperty hasDependent
-      :domain  pos/Token
-      :range   pos/Token
+      :domain  dul/Entity
+      :range   dul/Entity
       :label   "has dependent"
       :comment "A relationship describing how another Entity's existence or correctness is contingent on this Entity."
       :characteristic :transitive))
@@ -217,20 +217,19 @@
   (as-inverse
     (defoproperty directlyDependsOn
       :super   dependsOn
-      :domain  pos/Token
-      :range   pos/Token
+      :domain  dul/Entity
+      :range   dul/Entity
       :label   "directly depends on"
       :comment (str "A relationship describing how an Entity's existence or correctness is"
                     "immediately contingent on another."))
 
     (defoproperty hasDirectDependent
       :super   hasDependent
-      :domain  pos/Token
-      :range   pos/Token
+      :domain  dul/Entity
+      :range   dul/Entity
       :label   "has direct dependent"
       :comment (str "A relationship describing how another Entity's existence or correctness is"
                     "immediately contingent on this one."))))
-
 
 
 
@@ -1090,8 +1089,9 @@
               (refine ont (individual ont (label-text-token tid i))
                          ;:fact (fact-not hasDependent (owl-class ont "NegationToken"))))
                          ;:type (exactly 0 hasDependent (owl-class ont "NegationToken"))))
-                          :type (owl-class ont "AffirmedToken")))
+                         ;:type (owl-class ont "AffirmedToken")))
                          ;:fact (is hasDependent (individual ont "AffirmedToken"))))
+                          :fact (is directlyDependsOn (individual ont "NotNegatedCheck"))))
 
             ;; ---------------------------------------------------------------
             (chain
@@ -1222,21 +1222,25 @@
                       :comment "A Token that negates one or more (other) Tokens in its Information Object."
                       :super pos/Token
                       (apply oneof negtoks))
-            ;stdtok (owl-class ont "StandardToken"
-            ;         :label "Standard Token"
-            ;         :comment "A Token that has no special effect on other tokens (e.g., negation)."
-            ;         :super pos/Token)
-            affirm  (owl-class ont "AffirmedToken"
-                      :label "Affirmed Token"
-                      :super pos/Token)
+           ;stdtok  (owl-class ont "StandardToken"
+           ;          :label "Standard Token"
+           ;          :comment "A Token that has no special effect on other tokens (e.g., negation)."
+           ;          :super pos/Token)
+           ;affirm  (owl-class ont "AffirmedToken"
+           ;          :label "Affirmed Token"
+           ;          :super pos/Token)
+            not-neg (owl-class ont "NotNegatedCheck"
+                      :label "Not Negated Check"
+                      :super dul/Concept)
                     ]
 
       ;; HermiT gives us all kinds of problems at inference-time if we don't
       ;; specifically identify megated and non-negated (affirmed) Token types.
 ;     (as-subclasses ont pos/Token :disjoint :cover negator stdtok)
-      (as-subclasses ont pos/Token :disjoint :cover negator affirm)
+;     (as-subclasses ont pos/Token :disjoint :cover negator affirm)
 
 ;     (individual ont "AffirmedToken" :type affirm)
+      (individual ont "NotNegatedCheck" :type not-neg)
 
       (owl-class ont "NegatedHumanCauseToken"
         :super HumanCauseToken
@@ -1246,7 +1250,8 @@
       (owl-class ont "AffirmedHumanCauseToken"
         :super HumanCauseToken
         :equivalent (dl/and HumanCauseToken
-                            (dl/some hasDependent affirm)))
+                            (dl/some directlyDependsOn not-neg)))
+                           ;(dl/some hasDependent affirm)))
                            ;(dl/not (dl/some hasDependent negator))))
 
       (owl-class ont "NegatedNaturalCauseToken"
@@ -1257,10 +1262,12 @@
       (owl-class ont "AffirmedNaturalCauseToken"
         :super NaturalCauseToken
         :equivalent (dl/and NaturalCauseToken
-                            (dl/some hasDependent affirm)))
+                            (dl/some directlyDependsOn not-neg)))
+                           ;(dl/some hasDependent affirm)))
                            ;(dl/not (dl/some hasDependent stdtok))))
 
-      (as-disjoint ont (owl-class ont "AffirmedHumanCauseToken")
+      (comment
+       as-disjoint ont (owl-class ont "AffirmedHumanCauseToken")
                        (owl-class ont "NegatedHumanCauseToken")))))
 
   ;; Remember that ontologies are mutable
