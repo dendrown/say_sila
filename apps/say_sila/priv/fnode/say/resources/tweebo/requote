@@ -33,7 +33,13 @@
 
 
 #; ---------------------------------------------------------------------------
+# Handle files from command line
 (mapc requote (argv))
+
+# Handle files piped to us
+(in NIL
+  (until (eof)
+    (requote (trim (line T)))))
 
 (bye)
 #; vim: syntax=picolisp:
