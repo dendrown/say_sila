@@ -281,3 +281,26 @@
     (map #(% arff (Instances. insts)) [t->s             ; TODO: pmap
                                        t->u])))
 
+
+;;; --------------------------------------------------------------------------
+(defn count-user-tweets
+  "Lists user tweet counts in descending order for the specified dataset.
+  The caller may give a minimum tweet count for a user to be included in
+  the report."
+  ([dset data]
+  (count-user-tweets dset data 1))
+
+
+  ([dset data mincnt]
+  (let [insts (weka/load-dataset data)
+        col   (col-index (Datasets :t) :screen_name)
+        users (reduce #(update %1 (.stringValue %2 col)     ; Key: screen name
+                                  (fnil inc 0))             ; Val: tweet count
+                      {}
+                      (weka/instance-seq insts))]
+
+    ;; Print out a simple report listing, the user screen names and counts
+    (doseq [[usr cnt] (take-while #(>= (second %) mincnt)                       ; Use requested count
+                                  (sort-by second #(compare %2  %1) users))]    ; Count order:  Z..A
+      (log/fmt-info "~24a: ~a" usr cnt)))))
+
