@@ -1,3 +1,5 @@
 #!/bin/bash
 
-/bin/grep -l '.\s\"\s' *.predict | ./requote.l
+# We've got too many parsed files now, so separate in two batches:
+/bin/grep -l '.\s\"\s' P*.predict | ./requote.l     # Profiles
+/bin/grep -l '.\s\"\s' t*.predict | ./requote.l     # Tweets
