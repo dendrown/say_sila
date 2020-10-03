@@ -21,7 +21,7 @@
   :repositories [["maven.aksw.internal"  {:url "https://maven.aksw.org/repository/internal/"}]
                  ["maven.aksw.snapshots" {:url "https://maven.aksw.org/repository/snapshots/"}]]
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [org.erlang.otp/jinterface "1.9.1"]
+                 [org.erlang.otp/jinterface "1.11.0"]
                  [org.clojure/core.async "1.0.567"]
                  [org.clojure/core.logic "0.8.11"]
                  [org.clojure/data.csv "0.1.4"]
@@ -38,7 +38,7 @@
                  [nz.ac.waikato.cms.weka/weka-stable "3.8.3"]
                  [edu.cmu.cs/ark-tweet-nlp "0.3.2"]
                  [it.unimi.dsi/fastutil "7.0.13"]
-                 [uk.ac.wlv/sentistrength "0.1.0"]
+                ;[uk.ac.wlv/sentistrength "0.1.0"]
                  [affective/affectivetweets "1.0.2"]
                  [org.tartarus/snowball "1.0.0"]
                  ; Ontologies
