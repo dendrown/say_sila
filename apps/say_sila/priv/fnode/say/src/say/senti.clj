@@ -1500,7 +1500,8 @@
          col-text]  (map Columns [:id :screen_name :text])
         tools       (toolbox)
         stoic?      (:stoic? tools)
-        goal        (create-pn-goal dset cnt)]
+        goal        (create-pn-goal dset cnt)
+        sconf       (cfg/? :sconf {})]
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (describe-creation goal)
@@ -1508,7 +1509,8 @@
               (if ((:all-pn? tools)) "(emotive)" "(includes stoic)"))
 
     ;; Shall we (pseudo)randomize the instances?
-    (when-let [seed (cfg/?? :senti :rand-seed)]
+    (when-let [seed (and (sconf :shuffle-data?)
+                         (sconf :rand-seed))]
       (log/fmt-info "Shuffling ~a input instances: seed[~a]" (.numInstances insts) seed)
       (.randomize insts (Random. seed)))
 

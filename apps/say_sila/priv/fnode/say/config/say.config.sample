@@ -39,7 +39,8 @@
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
      :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
      :use-tweebo?       false                   ; Tweebo Parser dependency trees for tweets
-     :rand-seed         12345                   ; Seed an RNG to take shuffle input instances
+     :rand-seed         12345                   ; Seed an RNG for Weka dataset handling
+     :shuffle-data?     true                    ; Randomize Weka input data instances
      :learn-cap         1                       ; Number of top learned rules to retain (per iteration)
      :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
      :system            :plutchik               ; Base emotion system: plutchik|Ekman|nil
