@@ -455,45 +455,47 @@
   :label    "Beliefs Question Keyword"
   :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
 
-(defclass HumanCauseToken
-  :super pos/Token
-  :equivalent (dl/and pos/Token
-                      (dl/or
-                        (dl/and
-                          (dl/some indicatesRule HUMAN)
-                          (dl/some indicatesRule CAUSE))
-                        (dl/and
-                          (dl/some indicatesRule HUMAN)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+;;; The current green-detection strategy requires TweeboParser dependency trees
+(when (cfg/?? :senti :use-tweebo?)
+  (defclass HumanCauseToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
-(defclass NaturalCauseToken
-  :super pos/Token
-  :equivalent (dl/and pos/Token
-                      (dl/or
-                        (dl/and
-                          (dl/some indicatesRule NATURE)
-                          (dl/some indicatesRule CAUSE))
-                        (dl/and
-                          (dl/some indicatesRule NATURE)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+  (defclass NaturalCauseToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
-(comment defclass HumanCauseBelieverAccount
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/or
-                        (dl/and
-                          (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))
-                          (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))
-                        (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
+  (comment defclass HumanCauseBelieverAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/or
+                          (dl/and
+                            (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))
+                            (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
 
-(comment defclass NaturalCauseBelieverAccount
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/or
-                        (dl/and
-                          (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))
-                          (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken))))
-                        (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken)))))
+  (comment defclass NaturalCauseBelieverAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/or
+                          (dl/and
+                            (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))
+                            (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))))
 
 
 (defonce Surveys        (select-keys {:sassy sassy                  ; Only configured surveys
