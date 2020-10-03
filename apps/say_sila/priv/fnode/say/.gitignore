@@ -29,7 +29,8 @@ resources/dllearner/say-senti-*.conf
 resources/gender/*.csv
 resources/gender/*.zip
 resources/gender/pan/
-resources/KB/*.owl
+resources/KB/cmu-pos.owl
+resources/KB/say-*.owl
 resources/KB/catalog-*.xml
 resources/political/*.tsv
 resources/test/test.A??.Sentiment140.arff
