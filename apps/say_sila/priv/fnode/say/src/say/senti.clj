@@ -876,6 +876,16 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn meaningful?
+  "Returns true if a token is 'meaningful' as per the given :senti
+  (sub)configuration map and the specified concept sequences."
+  [sconf & concepts]
+  (or (:all-tokens? sconf)
+      (not-every? empty? concepts)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn add-text
   "Adds a textual individual to the specified ontology.  The default behaviour
   is to create a new individual of type Text, but the arity-4 clause allows
@@ -889,8 +899,9 @@
 
 
   ([ont entity
-    {:keys [affect content tid pos-tags rules screen_name surveys]}             ; Text breakdown
-    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-params
+    {:keys [affect content tid pos-tags rules screen_name surveys]}         ; Text breakdown
+    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]  ; Senti-params
+     :as   sconf}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [msg   (apply str (interpose " " content))
@@ -916,7 +927,8 @@
         (fn [[cnt tokens :as info]
              [aff scr tag word svys]]
           ;; Get the Part of Speech for the tag reported by Weka
-          (if-let [pos (pos/lookup# tag)]
+          (if-let [pos (and (meaningful? sconf aff scr svys)
+                            (pos/lookup# tag))]
 
             ;; Set up an individual for this Token.
             ;;
@@ -1073,7 +1085,7 @@
   {:keys [tid rules deps]
    :as   xmp}]
 
-  (log/info "Finding negations for" tid)
+  ;(log/info "Finding negations for" tid)
   (let [;; Non-negated concept tokens will depend on the check we are performing here
         not-neg (individual ont Not-Negated-Check)
 
@@ -1092,7 +1104,7 @@
     (letfn [;; ---------------------------------------------------------------
             (affirm [[i _ _]]
               ;; Mark the token as non-negated
-              (log/debug "Affirming token" i)
+              ;(log/debug "Affirming token" i)
               (refine ont (individual ont (label-text-token tid i))
                           :fact (is directlyDependsOn not-neg
                           )))
@@ -1119,7 +1131,7 @@
 
       ;; All non-negated concept tokens must depend on a "non-negated" affirmation.
       ;; Here, negating a token implies taking it out of the set of concept tokens.
-      (log/debug "CONCEPTS:" ctoks)
+      ;(log/debug "CONCEPTS:" ctoks)
       (run! affirm (reduce negate
                            (into #{} ctoks)
                            (map chain negs))))))

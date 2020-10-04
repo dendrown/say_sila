@@ -32,6 +32,7 @@
 
   :senti
     {:all-data?         true                    ; Use complete dataset (vs. a manageable subset)
+     :all-tokens?       true                    ; Use all text tokens, even if they seem devoid of value
      :balance?          false                   ; Equal representation for pos/neg classes
      :links?            true                    ; Include ordering of Tokens (must be on for full-links)
      :full-links?       false                   ; Create all links explicitly rather than depending on reasoner
