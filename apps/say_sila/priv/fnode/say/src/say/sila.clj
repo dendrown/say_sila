@@ -24,8 +24,9 @@
             [say.social         :as soc]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
-            [clojure.string     :as str]
+            [clojure.edn        :as edn]
             [clojure.java.io    :as io]
+            [clojure.string     :as str]
             [clojure.pprint     :refer [pp]]
             [defun.core         :refer [defun]]
             [tawny.english      :as dl]
@@ -43,12 +44,15 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const ONT-ISTUB  "http://www.dendrown.net/uqam/say-sila")
-(def ^:const ONT-IRI    "http://www.dendrown.net/uqam/say-sila.owl#")
-(def ^:const ONT-FPATH  "resources/KB/say-sila.owl")
-(def ^:const ONT-FSTUB  "resources/KB/say-sila")
+(def ^:const Ont-IStub      "http://www.dendrown.net/uqam/say-sila")
+(def ^:const Ont-IRI        "http://www.dendrown.net/uqam/say-sila.owl#")
+(def ^:const Ont-FPath      "resources/KB/say-sila.owl")
+(def ^:const Ont-FStub      "resources/KB/say-sila")
+(def ^:const Emotion-FStub  "resources/world")
+(def ^:const World-FStub    "resources/world")
 
-(def ^:const INIT-DATA  {:tag :env, :tracker :all, :source :tweets, :dir "resources/emo-sa"})
+(def ^:const INIT-DATA      {:tag :env, :tracker :all, :source :tweets, :dir Emotion-FStub})
+
 
 (defonce World          (atom {:users {}
                                :texts {}
@@ -57,7 +61,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defontology say-sila
-  :iri    ONT-IRI
+  :iri    Ont-IRI
   :prefix "sila")
 
 (rsn/reasoner-factory :hermit)
@@ -762,21 +766,11 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn save
-  "Saves the say-sila ontology to disk in OWL format."
-  ([] (save ONT-FPATH))
-
-  ([^String fpath]
-  (log/info "Saving ontology:" fpath)
-  (save-ontology say-sila fpath :owl)))
-
-
-;;; --------------------------------------------------------------------------
 (defn ont-iri
   "Creates a (String) IRI to indentify a related say-sila. ontology with
   individuals from social media."
   [otag]
-  (str ONT-ISTUB "-" (name otag) ".owl#"))
+  (str Ont-IStub "-" (name otag) ".owl#"))
 
 
 
@@ -827,6 +821,13 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn which-examples-edn
+  "Returns the filepath for a user/text examples file."
+  [dtag]
+  (strfmt "~a/examples-~a.edn" World-FStub (name dtag)))
+
+
+;;; --------------------------------------------------------------------------
 (defn instances->examples
   "Converts Weka maps corresponding to the specified instances."
   ([data]
@@ -868,28 +869,46 @@
          track  :tracker
          src    :source
          dir    :dir}   (cfg/?? :sila :data INIT-DATA)
-         [users texts]  (map #(apply strfmt "~a/~a.~a.~a.~a.arff"
+
+        ;; Pull [a]rff users and texts
+        [ausers atexts] (map #(apply strfmt "~a/~a.~a.~a.~a.arff"
                                             (map name [dir src track dtag (dset/code %)]))
-                             [:user :senti])]
-    (create-world! dtag users texts)))
+                              [:user :senti])]
+    ;; Now we've got ARFF datasets, load % process them
+    (create-world! dtag ausers atexts)))
+
+
+  ([dtag]
+  ;; Reuse a saved set of examples (rather than constructing news ones per the configuration)
+  (let [fpath (which-examples-edn dtag)]
+    (when (.exists (io/file fpath))
+      (log/fmt-info "User/text examples~a: ~a" dtag fpath)
+      (create-world! dtag (edn/read-string (slurp fpath))))))
+
+
+  ([dtag {:keys [users texts]
+          :as   xmps}]
+  ;; This middle arity clause is where we wrap everything up.
+  ;; Make an ontology out of the passed e[x]ample hashmap.
+  (let [world  (-> (populate-ontology dtag (users dtag))
+                   (senti/populate-ontology (texts dtag)))]
+
+    ;; Set our top-level state. Each element holds a tagged map of the appropriate data
+    (reset! World (assoc xmps :ontology {dtag world}))
+    dtag))
 
 
   ([dtag ausers atexts]
-  ;; The tweet texts are handled in say.senti
-  (log/fmt-info "Dataset user~a: ~a" dtag ausers)
-  (log/fmt-info "Dataset text~a: ~a" dtag atexts)
+  ;; Create e[x]amples from the source [a]arff files
+  (let [xusers (instances->examples dtag ausers)            ; Handle user profiles here
+        xtexts (senti/instances->examples dtag atexts)]     ; Handle tweet texts in say-senti
 
-  (let [xusers (instances->examples dtag ausers)
-        xtexts (senti/instances->examples dtag atexts)
-        world  (-> (populate-ontology dtag (xusers dtag))
-                   (senti/populate-ontology (xtexts dtag))) ]
+    ;; Now we've got ARFF datasets, load % process them
+    (log/fmt-info "Dataset user~a: ~a" dtag ausers)
+    (log/fmt-info "Dataset text~a: ~a" dtag atexts)
 
-    ;; Set our top-level state. Each element holds a tagged map of the appropriate data
-    (reset! World {:users    xusers
-                   :texts    xtexts
-                   :ontology {dtag world}})
-
-    (keys xusers))))
+    (create-world! dtag {:users xusers
+                         :texts xtexts}))))
 
 
 
@@ -945,8 +964,31 @@
 ;;; --------------------------------------------------------------------------
 (defn save-ontologies
   "Saves the say-sila ontology and all World ontologies in OWL format."
-  []
-  (save-ontology say-sila ONT-FPATH :owl)
-  (merge {:say-sila ONT-FPATH}
-         (save-ontology-map (:ontology @World) ONT-FSTUB)))
+  ([]
+  (save-ontologies @World))
+
+
+  ([world]
+  (save-ontology say-sila Ont-FPath :owl)
+  (merge {:say-sila Ont-FPath}
+         (save-ontology-map (:ontology world) Ont-FStub))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn save-world
+  "Saves the World example information.  Note that you must specify the :ont
+  option to also save the associated ontologies."
+  [& opts]
+  (let [world @World
+        wtag  (apply hyphenize (keys (:users world)))   ; Multi-dtag support
+        fpath (which-examples-edn wtag)]
+
+    (spit fpath (pr-str (select-keys world [:users :texts])))
+
+    ;; Return a map of the files saved
+    (merge {:examples fpath}
+           (when (some #{:ont} opts)
+             (save-ontologies world))))) 
+
 
