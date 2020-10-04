@@ -29,6 +29,7 @@
             [clojure.string  :as str]
             [clojure.pprint  :refer [pp]])
   (:import  (weka.core  Attribute
+                        Instance
                         Instances)
             (weka.filters.unsupervised.instance RemoveDuplicates
                                                 SubsetByExpression)))
@@ -294,13 +295,13 @@
   ([dset data mincnt]
   (let [insts (weka/load-dataset data)
         col   (col-index (Datasets :t) :screen_name)
-        users (reduce #(update %1 (.stringValue %2 col)     ; Key: screen name
-                                  (fnil inc 0))             ; Val: tweet count
+        users (reduce #(update %1 (.stringValue ^Instance %2 (int col)) ; Key: screen name
+                                  (fnil inc 0))                         ; Val: tweet count
                       {}
                       (weka/instance-seq insts))]
 
     ;; Print out a simple report listing, the user screen names and counts
     (doseq [[usr cnt] (take-while #(>= (second %) mincnt)                       ; Use requested count
-                                  (sort-by second #(compare %2  %1) users))]    ; Count order:  Z..A
+                                  (sort-by second #(compare %2 %1) users))]     ; Count order:  Z..A
       (log/fmt-info "~24a: ~a" usr cnt)))))
 
