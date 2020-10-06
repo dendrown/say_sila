@@ -22,7 +22,8 @@
 (def ^:const CONFIG-FPATHS  {:stub   "config/say."
                              :extn   ".config"
                              :base   "config/say.config"
-                             :sample "config/say.config.sample"})
+                             :sample "config/say.config.sample"
+                             :senti  "config/senti.config.sample"})
 
 (defonce Config         (atom {}))
 (defonce RNG-Seed       (atom 1248))

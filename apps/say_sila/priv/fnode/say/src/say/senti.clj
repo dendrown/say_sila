@@ -8,6 +8,16 @@
 ;;;;
 ;;;; Emotion and sentiment analysis Ontology
 ;;;;
+;;;; NOTE: This namespace is DEPRECATED and will be removed from the project
+;;;;       at some future date.
+;;;;
+;;;;       Much of the functionality and ontological definitions in this
+;;;;       namespace have been recreated in say.sila so that neither that
+;;;;       ontology nor the the associated Clojure code is dependent on
+;;;;       this namespace.  The say.senti code and ontology represent a
+;;;;       research effort to determine sentiment polarity in tweets using
+;;;;       the Sentiment140 and Kaggle datasets.
+;;;;
 ;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.senti
@@ -455,45 +465,46 @@
   :label    "Beliefs Question Keyword"
   :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
 
-(defclass HumanCauseToken
-  :super pos/Token
-  :equivalent (dl/and pos/Token
-                      (dl/or
-                        (dl/and
-                          (dl/some indicatesRule HUMAN)
-                          (dl/some indicatesRule CAUSE))
-                        (dl/and
-                          (dl/some indicatesRule HUMAN)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+(when (cfg/?? :senti :use-tweebo?)
+  (defclass HumanCauseToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
-(defclass NaturalCauseToken
-  :super pos/Token
-  :equivalent (dl/and pos/Token
-                      (dl/or
-                        (dl/and
-                          (dl/some indicatesRule NATURE)
-                          (dl/some indicatesRule CAUSE))
-                        (dl/and
-                          (dl/some indicatesRule NATURE)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+  (defclass NaturalCauseToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
-(comment defclass HumanCauseBelieverAccount
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/or
-                        (dl/and
-                          (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))
-                          (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))
-                        (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
+  (comment defclass HumanCauseBelieverAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/or
+                          (dl/and
+                            (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))
+                            (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
 
-(comment defclass NaturalCauseBelieverAccount
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/or
-                        (dl/and
-                          (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))
-                          (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken))))
-                        (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken)))))
+  (comment defclass NaturalCauseBelieverAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/or
+                          (dl/and
+                            (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))
+                            (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))))
 
 
 (defonce Surveys        (select-keys {:sassy sassy                  ; Only configured surveys

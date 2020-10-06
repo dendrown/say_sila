@@ -1,3 +1,4 @@
+;;; NOTE: This is a deprecated configuration associated with the say.senti research
 {
   :erlang
     {:cookie        "say_cookie"
@@ -9,15 +10,7 @@
                          :tracker   :all
                          :source    :tweets
                          :dir       "resources/emo-sa"}
-     :community?        false                   ; Use individual user ontologies
-     :foaf?             false                   ; Link to equivalent FOAF classes
-     :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
-     :surveys           #{}                     ; DEPRECATED: Look for links in the specified survey(s)
-     :emo-system        :plutchik               ; Base emotion system: plutchik|Ekman|nil
-     :use-tweebo?       false                   ; Tweebo Parser dependency trees for tweets
-     :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
-     :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
-     :wordnet-dir       "/opt/wordnet/dict/"}   ; Location of WordNet dictionary
+     :foaf?             false}                  ; Link to equivalent FOAF classes
 
   ;; -------------------------------------------------------------------------
   :emote
@@ -39,23 +32,20 @@
 
   :senti
     {:all-data?         true                    ; Use complete dataset (vs. a manageable subset)
-     :all-tokens?       true                    ; Use all text tokens, even if they seem devoid of value
      :balance?          false                   ; Equal representation for pos/neg classes
      :links?            true                    ; Include ordering of Tokens (must be on for full-links)
      :full-links?       false                   ; Create all links explicitly rather than depending on reasoner
      :oproperties?      false                   ; Include optional object (sub) properties (senti:denotesAffect)
-<<<<<<< Updated upstream
+     :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
      :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
      :use-tweebo?       false                   ; Tweebo Parser dependency trees for tweets
-     :rand-seed         12345                   ; Seed an RNG for Weka dataset handling
-     :shuffle-data?     true                    ; Randomize Weka input data instances
-=======
-     :use-scr?          false                   ; Model Bing Liu's Sentiment Composition Rules
      :rand-seed         12345                   ; Seed an RNG to take shuffle input instances
->>>>>>> Stashed changes
      :learn-cap         1                       ; Number of top learned rules to retain (per iteration)
+     :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
+     :system            :plutchik               ; Base emotion system: plutchik|Ekman|nil
      :secondaries?      false                   ; Construct secondary emotions from primary (for Plutchik's theory)
+     :surveys           #{}                     ; DEPRECATED: Look for links in the specified survey(s)
      :data-split        {:iterate?      true    ; Learn in steps through subset of the data
                          :datasets      10
                          :train         1000
