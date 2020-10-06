@@ -1000,7 +1000,7 @@
   ontology."
   ([ont {:keys [tid]
          :as   xmp}]
-  (log/info "Finding dependencies for" tid)
+  ;(log/info "Finding dependencies for" tid)
   (add-dependencies ont xmp (twbo/predict tid)))
 
 
@@ -1021,7 +1021,7 @@
                                                              "MWE"  MultiWordExpression))]
                               ;; Add the relation for token-->entity to the ontology.
                               ;; The Tweebo map entry for Token N does not reference the entity.
-                              (log/debug "Adding" ling entid)
+                              ;(log/debug "Adding" ling entid)
                               (refine ont token :fact (is dul/expresses entity))
 
                               ;; Multi-word expression roots (n) don't have the MWE code

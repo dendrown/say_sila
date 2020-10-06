@@ -16,6 +16,7 @@
             [say.ontology       :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
+            [say.community      :as comm]
             [say.dllearner      :as dll]
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
@@ -792,31 +793,61 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defprotocol OntologyFactory
+  "Functionality to create individual ontologies."
+  (make-ontology-maker [o]  "Returns a factory function which, depending on
+                             the :sila :community configuration setting, either
+                             returns a single ontology or a new one for each user."))
+
+(extend-protocol OntologyFactory
+  OWLOntology
+  (make-ontology-maker [ont]
+    ;; Simple function to always return the same "all users" ontology
+    (fn [& _ ]
+      ont))
+
+
+  clojure.lang.Keyword
+  (make-ontology-maker [otag]
+    (make-ontology-maker (name otag)))
+
+
+  String
+  (make-ontology-maker [otag]
+  (let [ont (when-not (cfg/?? :sila :community?)
+              (make-ontology otag))]
+  (if ont
+      (make-ontology-maker ont)             ; Always return same ontology
+      (fn [& sname]                         ; Create a new ontology for each call
+        (comm/add! sname
+                   (make-ontology (apply hyphenize otag sname))))))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defun ^OWLOntology populate-ontology
   "Populates an ontology using examples extracted from an ARFF with user data."
   ([xmps :guard map?]
   (update-kv-values xmps #(populate-ontology %1 %2)))
 
 
-  ([dtag :guard keyword? xmps]
-  (populate-ontology (make-ontology dtag) xmps))
-
-
-  ([ont xmps]
-  (run! (fn [{:as xmp
-              sname :screen_name
-              descr :description                ; User profile text
-              tid   :tid }]                     ; Text ID is the profile ID
-          (let [sconf (cfg/? :senti)                                    ; Use senti/text config params
-                acct  (individual ont sname :type senti/OnlineAccount)  ; Twitter user account
-                prof  (individual ont tid                               ; User profile
-                                  :type PersonalProfile
-                                  :fact (is dul/isAbout acct))]
-            ;; Add PoS/senti for the profile content
-            (senti/add-text ont prof xmp sconf)))
-        xmps)
+  ([o xmps]
+  (let [sconf (cfg/? :senti)                    ; Use senti/text config params
+        onter (make-ontology-maker o)]          ; Tag|ontology to factory function
+    (run! (fn [{:as xmp
+                sname :screen_name
+                descr :description              ; User profile text
+                tid   :tid}]                    ; Text ID is the profile ID
+            (let [ont   (onter sname)
+                  acct  (individual ont sname :type senti/OnlineAccount)    ; Twitter user account
+                  prof  (individual ont tid                                 ; User profile
+                                    :type PersonalProfile
+                                    :fact (is dul/isAbout acct))]
+              ;; Add PoS/senti for the profile content
+              (senti/add-text ont prof xmp sconf)))
+          xmps)
     ;; The (Java) ontology is mutable, return the updated version
-    ont))
+    o)))
 
 
 
@@ -888,10 +919,10 @@
 
   ([dtag {:keys [users texts]
           :as   xmps}]
-  ;; This middle arity clause is where we wrap everything up.
+  ;; This middle arity clause is where we wrap everything up!
   ;; Make an ontology out of the passed e[x]ample hashmap.
   (let [world  (-> (populate-ontology dtag (users dtag))
-                   (senti/populate-ontology (texts dtag)))]
+                   (senti/populate-ontology (texts dtag)))] ; FIXME: say.senti needs community service!!
 
     ;; Set our top-level state. Each element holds a tagged map of the appropriate data
     (reset! World (assoc xmps :ontology {dtag world}))
@@ -989,6 +1020,6 @@
     ;; Return a map of the files saved
     (merge {:examples fpath}
            (when (some #{:ont} opts)
-             (save-ontologies world))))) 
+             (save-ontologies world)))))
 
 
