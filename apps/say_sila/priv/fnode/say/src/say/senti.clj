@@ -910,8 +910,8 @@
 
 
   ([ont entity
-    {:keys [affect content tid pos-tags rules screen_name surveys]}         ; Text breakdown
-    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]  ; Senti-params
+    {:keys [affect content tid pos-tags rules screen_name surveys]}     ; Text breakdown
+    {:keys [full-links? links? secondaries? use-scr? use-tweebo?]       ; Senti-params
      :as   sconf}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)

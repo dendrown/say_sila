@@ -16,11 +16,12 @@
             [say.ontology       :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
+            [say.cmu-pos        :as pos]
             [say.community      :as comm]
             [say.dllearner      :as dll]
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
-            [say.cmu-pos        :as pos]
+            [say.label          :as lbl]
             [say.senti          :as senti]                  ; FIXME: deprecated
             [say.social         :as soc]
             [say.survey         :as six]
@@ -64,9 +65,8 @@
 
 ;;; Expressions for Liu's sentiment composition rules (SCR)
 (defonce Expressions    {})                                     ; Currently unused
+(defonce Rule-Tokens    (agent {}))                             ; K=ont V={K=rule V=individuals}
 
-
-;;; --------------------------------------------------------------------------
 (defonce World          (atom {:users {}
                                :texts {}
                                :ontology {}}))
@@ -122,6 +122,66 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; Support for TweeboParser dependency trees?
+(when (cfg/?? :sila :use-tweebo?)
+
+  (defclass Coordination
+    :super   dul/Concept
+    :label   "Coordination"
+    :comment "A linguistic Concept that links one or more Conjuncts.")
+
+  (defclass Conjuncts
+    :super   dul/Collection
+    :label   "Conjuncts"
+    :comment "A Collection that contains the set of conjuncts conjoined with a conjunction or coordination.")
+
+  (defclass MultiWordExpression
+    :super   dul/Collection
+    :label   "Multi-word concept"
+    :comment "A Collection of Tokens that together represent a single unit of meaning.")
+
+   (as-inverse
+    (defoproperty dependsOn
+      :domain  dul/Entity
+      :range   dul/Entity
+      :label   "depends on"
+      :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
+      :characteristic :transitive)
+
+    (defoproperty hasDependent
+      :domain  dul/Entity
+      :range   dul/Entity
+      :label   "has dependent"
+      :comment "A relationship describing how another Entity's existence or correctness is contingent on this Entity."
+      :characteristic :transitive))
+
+  ;; dependsOn will need to be under associatedWith, depending on the DUL config setting
+  (when (not= :minimal (dul/which-mode))
+    (doseq [oprop [dependsOn
+                   hasDependent]]
+      (refine oprop
+        :super dul/associatedWith)))
+
+  (as-inverse dependsOn hasDependent)
+  (as-inverse
+    (defoproperty directlyDependsOn
+      :super   dependsOn
+      :domain  dul/Entity
+      :range   dul/Entity
+      :label   "directly depends on"
+      :comment (str "A relationship describing how an Entity's existence or correctness is"
+                    "immediately contingent on another."))
+
+    (defoproperty hasDirectDependent
+      :super   hasDependent
+      :domain  dul/Entity
+      :range   dul/Entity
+      :label   "has direct dependent"
+      :comment (str "A relationship describing how another Entity's existence or correctness is"
+                    "immediately contingent on this one."))))
+
+
+;;; --------------------------------------------------------------------------
 ;;; A Survey may be used to compare w/ analysis methods on social media
 (defclass Survey
   :super   dul/InformationObject
@@ -171,7 +231,7 @@
 
 
 (defmacro defemotion
-  "Adds a Concept reprenting an emotion to the say-senti ontology"
+  "Adds a Concept reprenting an emotion to the say-sila ontology"
   [emo sys & combos]
   (let [ename   `(name '~emo)
         descr   `(str "A concept which expresses the class of human affect generally known as "
@@ -187,7 +247,7 @@
 
 
 (defmacro defemotions
-  "Adds all the emotions handled by a lexicon into the say-senti ontology."
+  "Adds all the emotions handled by a lexicon into the say-sila ontology."
   [sys]
   (let [esys  (eval sys)
         emote (fn [e] `(defemotion ~e ~esys))]
@@ -213,8 +273,6 @@
 
 ;;; We must declare the different types of Aspect to be disjoint for the reasoner
 ;;; to handle equivalency classes based on the complement of a given Aspect.
-;;;
-;;; TODO: How do we want to handle secondaries wrt disjointness?
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
 
@@ -317,6 +375,44 @@
 (def-affect-pos-classes ["CommonNoun" "Verb"])
 
 
+;;; --------------------------------------------------------------------------
+(defclass SurveyReferenceRule
+  :super   dul/Concept
+  :label   "Survey Reference Rule"
+  :comment (str "An abstraction describing a Text or portion of a Text, "
+                 "indicating that it refers to a question from a Six Americas survey."))
+
+
+;;; Are we using specialized object properties?
+(defoproperty indicatesRule
+  :super   dul/expresses
+  :label   "indicates rule"
+  :domain  pos/Token
+  :range   SurveyReferenceRule
+  :comment "A relationship between a Token and the survey reference rule it expresses.")
+
+
+(defmacro defrule
+  "Adds a Sentiment Composition Rule (component) subclass to the say-sila ontology"
+  [tag descr]
+  `(do (defclass ~tag
+         :super   SurveyReferenceRule
+         :label   (str "Survey Reference Rule - " (name '~tag))
+         :comment ~descr)
+       (defpun ~tag)))
+
+;;; Concept indictor rules
+(defrule CAUSE  "Expressions which indicate a causal relationship.")
+(defrule HUMAN  "Expressions which refer to humans or humanity.")
+(defrule NATURE "Expressions which refer to the natural world.")
+
+(defrule NEGATION "Expressions which negate other terms.")
+
+;;; When building a final Tweet-data ontology, we may be applying negation
+;;; and not-negated elements before they are formally defined in the ontology.
+(def ^:const Negation-Token     "NegationToken")
+(def ^:const Not-Negated-Check  "NotegatedCheck")
+
 
 ;;; --------------------------------------------------------------------------
 (defclass SurveyKeyword
@@ -341,64 +437,28 @@
   :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
 
 
-;;; --------------------------------------------------------------------------
-;;; Support for TweeboParser dependency trees?
-(when (cfg/?? :sila :use-tweebo?)
+(when (cfg/?? :senti :use-tweebo?)
+  (defclass HumanCauseToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
-  (defclass Coordination
-    :super   dul/Concept
-    :label   "Coordination"
-    :comment "A linguistic Concept that links one or more Conjuncts.")
-
-  (defclass Conjuncts
-    :super   dul/Collection
-    :label   "Conjuncts"
-    :comment "A Collection that contains the set of conjuncts conjoined with a conjunction or coordination.")
-
-  (defclass MultiWordExpression
-    :super   dul/Collection
-    :label   "Multi-word concept"
-    :comment "A Collection of Tokens that together represent a single unit of meaning.")
-
-   (as-inverse
-    (defoproperty dependsOn
-      :domain  dul/Entity
-      :range   dul/Entity
-      :label   "depends on"
-      :comment "A relationship describing how one Entity's existence or correctness is contingent on another."
-      :characteristic :transitive)
-
-    (defoproperty hasDependent
-      :domain  dul/Entity
-      :range   dul/Entity
-      :label   "has dependent"
-      :comment "A relationship describing how another Entity's existence or correctness is contingent on this Entity."
-      :characteristic :transitive))
-
-  ;; dependsOn will need to be under associatedWith, depending on the DUL config setting
-  (when (not= :minimal (dul/which-mode))
-    (doseq [oprop [dependsOn
-                   hasDependent]]
-      (refine oprop
-        :super dul/associatedWith)))
-
-  (as-inverse dependsOn hasDependent)
-  (as-inverse
-    (defoproperty directlyDependsOn
-      :super   dependsOn
-      :domain  dul/Entity
-      :range   dul/Entity
-      :label   "directly depends on"
-      :comment (str "A relationship describing how an Entity's existence or correctness is"
-                    "immediately contingent on another."))
-
-    (defoproperty hasDirectDependent
-      :super   hasDependent
-      :domain  dul/Entity
-      :range   dul/Entity
-      :label   "has direct dependent"
-      :comment (str "A relationship describing how another Entity's existence or correctness is"
-                    "immediately contingent on this one."))))
+  (defclass NaturalCauseToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE)))))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -1150,6 +1210,12 @@
       ont))
 
 
+  clojure.lang.IFn
+  (make-ontology-maker [onter]
+    ;; Assume the function is already an ontology factory
+    onter)
+
+
   clojure.lang.Keyword
   (make-ontology-maker [otag]
     (make-ontology-maker (name otag)))
@@ -1168,14 +1234,131 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defun ^OWLOntology populate-ontology
+(defn meaningful?
+  "Returns true if a token is 'meaningful' as per the given :senti
+  (sub)configuration map and the specified concept sequences."
+  [sconf & concepts]
+  (or (:all-tokens? sconf)
+      (not-every? empty? concepts)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn add-text
+  "Adds a textual individual to the specified ontology.  The default behaviour
+  is to create a new individual of type Text, but the arity-4 clause allows
+  the caller to specify any entity needing to represent a series of Tokens."
+  ([onter tinfo]
+  (add-text onter tinfo (cfg/? :sila)))
+
+
+  ([onter tinfo sconf]
+  (add-text onter nil tinfo sconf))
+
+
+  ([onter entity
+    {:keys [affect content tid pos-tags rules screen_name surveys]}     ; Text breakdown
+    {:keys [full-links? links? use-tweebo?]                             ; Senti-params
+     :as   sconf}]
+  ;; The code will assume there's at least one token, so make sure!
+  (when (seq pos-tags)
+    (let [ont   (onter screen_name)                                 ; Combined|individual ontology
+          msg   (apply str (interpose " " content))
+          text  (or entity
+                    (individual ont tid                             ; Entity representing the text
+                      :type Text))]                                 ; Determine textual type
+
+    ;; Annotate the actual text content as a development aid
+    (refine ont text :annotation (annotation TextualContent msg))
+
+    ;; If they didn't pass an entity, assume this is a tweet
+    ;; TODO: Handle access to say.sila namespace
+    (when (and screen_name                                              ; Test data may not have screen names
+               (not entity))
+      (refine ont (individual ont screen_name) :fact (is publishes text)))
+
+     ;; Prepare for Tweebo Parsing if desired
+     (when use-tweebo?
+       (twbo/prepare tid msg))
+
+      ;; And entities for each of the terms, linking them together and to the text
+      (reduce
+        (fn [[cnt tokens :as info]
+             [aff scr tag word svys]]
+          ;; Get the Part of Speech for the tag reported by Weka
+          (if-let [pos (and (meaningful? sconf aff scr svys)
+                            (pos/lookup# tag))]
+
+            ;; Set up an individual for this Token.
+            ;;
+            ;; NOTE: We have to declare the individual using its Token subclass type
+            ;;       (Negated or Affirmed), but these subclasses are declared later.
+            (let [ttid  (str tid "-" cnt)
+                  curr  (individual ont ttid
+                                    :type  (if (some #{"NEGATION"} scr)
+                                               (owl-class ont Negation-Token)
+                                               pos/Token)
+                                    :label (str ttid " ( " tag " / " word " )"))]
+
+              ;; Link Token to the original Text and set POS Quality
+              (refine ont text :fact (is dul/hasComponent curr))
+              (refine ont curr :fact (is pos/isPartOfSpeech pos))
+
+            ;; Link tokens to each other
+            (when-let [prev (first tokens)]
+
+              ;; Are we including the Token ordering?
+              (when links?
+                (refine ont curr :fact (is dul/directlyFollows prev))
+
+                ;; The reasoner can figure out the rest, but being explicit may be faster
+                (when full-links?
+                  ;; The current Token comes after all the tokens we've seen so far
+                  (refine ont prev :fact (is dul/directlyPrecedes curr))
+                  (run! (fn [tok]
+                          (refine ont curr :fact (is dul/follows tok))
+                          (refine ont tok  :fact (is dul/precedes curr)))
+                        tokens))))
+
+            ;; Express sentiment/emotion
+            (doseq [a aff]
+              (refine ont curr :fact (is denotesAffect (individual say-sila a))))
+
+            ;; Express sentiment composition rules  (TODO: rename these rules)
+            (doseq [r scr]
+              ;; Save the individual for possible OWL one-of" extensional class declarations
+              (send Rule-Tokens update-in [ont r] (fnil conj #{}) curr)
+              (refine ont curr :fact (is indicatesRule (individual say-sila r))))
+
+            ;; TODO: Prototypical code for Six Americas experimental surveys
+            (doseq [s svys]
+                (refine ont curr :fact (is dul/isComponentOf (Surveys s))))
+
+            ;; Continue the reduction
+            [(inc cnt)
+             (conj tokens curr)])
+
+            ;; Ignored/invalid Part of Speech tag
+            (do ;(log/fmt-debug "Ignoring POS tag '~a'" tag)
+                info)))
+
+        [1 nil]                             ; Acc: Token counter, reverse seq of tokens
+        (zip affect rules pos-tags content surveys))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defun ^OWLOntology populate-profiles
   "Populates an ontology using examples extracted from an ARFF with user data."
   ([xmps :guard map?]
-  (update-kv-values xmps #(populate-ontology %1 %2)))
+  (update-kv-values xmps #(populate-profiles %1 %2)))
 
 
   ([o xmps]
-  (let [sconf (cfg/? :sila)                     ; Cache config params
+  (log/debug "Populating ontology:" o)
+  (let [sconf (merge (cfg/? :senti) ;;; FIXME ;;;
+                     (cfg/? :sila)                     ; Cache config params
+                     )              ;;; FIXME ;;;
         onter (make-ontology-maker o)]          ; Tag|ontology to factory function
     (run! (fn [{:as xmp
                 sname :screen_name
@@ -1187,11 +1370,239 @@
                                     :type PersonalProfile
                                     :fact (is dul/isAbout acct))]
               ;; Add PoS/senti for the profile content
-              (senti/add-text ont prof xmp sconf)))
+              (add-text ont prof xmp sconf)))
           xmps)
-    ;; The (Java) ontology is mutable, return the updated version
-    o)))
+    ;; Return the ontology maker
+    onter)))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn- add-dependencies
+  "Incorporates a tweet's output from the TweeboParser into the specified
+  ontology."
+  ([onter {:keys [tid]
+           :as   xmp}]
+  ;(log/info "Finding dependencies for" tid)
+  (add-dependencies onter xmp (twbo/predict tid)))
+
+
+  ([onter
+    {:keys [screen_name tid content pos-tags]
+     :as   xmp}
+    tweebo]
+  (let [ont     (onter screen_name)
+        include #(refine ont %1 :fact (is dul/hasComponent %2))
+        equiv?  #(or (= %1 %2)
+                     (every? #{"\"" "QUOTE"} [%1 %2]))
+        make    (memoize (fn [ling n]
+                            (let [tokid  (lbl/label-text-token tid n)
+                                  token  (individual ont tokid)
+                                  entid  (lbl/label-text-token tid n ling)
+                                  entity (individual ont entid
+                                           :type (case ling "CONJ"  Conjuncts
+                                                            "COORD" Coordination
+                                                             "MWE"  MultiWordExpression))]
+                              ;; Add the relation for token-->entity to the ontology.
+                              ;; The Tweebo map entry for Token N does not reference the entity.
+                              ;(log/debug "Adding" ling entid)
+                              (refine ont token :fact (is dul/expresses entity))
+
+                              ;; Multi-word expression roots (n) don't have the MWE code
+                              (when (= ling "MWE")
+                                (include entity token))
+
+                              ;; We will only touch the ontology once as we are memoized
+                              entity)))]
+
+    ;; Run through our example and the Tweebo parse, token by token
+    (loop [[tok1                              & content*]   content     ; Tweet tokens
+           [pos1                              & pos-tags*]  pos-tags    ; Parts of Speech
+           [[sub tok2 _ pos2 pos3 _ obj ling] & tweebo*]    tweebo      ; Tweebo output
+           deps                                             []]         ; Multi-root tree
+      ;; All three arguments should be in alignment, except tweebo may have a final [""]
+      (if pos1
+        ;; Process the next Tweebo line
+        (let [obj-num (Long/parseLong obj)
+              dep?    (pos? obj-num)
+              build   #(conj % (if dep? obj-num nil))]
+          ;; Complain if the POS analysis doesn't match up (uncommon)
+          (when (not= pos1 pos2 pos3)
+              (log/fmt-warn "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
+                          tid tok1 tok2 pos1 pos2 pos3))
+          (if (equiv? tok1 tok2)
+            (do
+              ;; We're looking from the leaf (subject) up to the parent node (object).
+              ;; -1 : subjet token is uninteresting per Tweebo
+              ;;  0 : subjet token is a root node
+              ;;  N : subjet token depends on the Nth token (object)
+              (when dep?
+                (let [[subid   objid]  (map #(lbl/label-text-token tid %) [sub obj])  ; t99-9
+                      [subject object] (map #(individual ont %) [subid objid])]   ; Tokens
+
+                ;; Add dependency relation to ontology
+                ;(log/debug subid  "directlyDependsOn" objid)
+                (refine ont subject :fact (is directlyDependsOn object))
+
+                ;; Handle linguistic entities: Conjuncts, Coordinations and Multi-word expressions
+                (when-let [entity (and (not= ling "_")
+                                       (make ling obj))]
+                  (include entity subject))))
+
+              ;; Move on to the next token
+              (recur content* pos-tags* tweebo* (build deps)))
+
+            ;; Abort!  The parsers disagree wrt tokenization.
+            (log/fmt-error "Text/tweebo mismatch on ~a: token[~a/~a] pos[~a~a~a]"
+                           tid tok1 tok2 pos1 pos2 pos3)))
+
+        ;; No more data to process. Return the dependency tree!
+        (assoc xmp :deps (seq deps)))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- add-affirmations
+  "Incorporates a tweet's output from the TweeboParser into the specified
+  ontology."
+  [onter
+  {:keys [screen_name tid rules deps]
+   :as   xmp}]
+
+  ;(log/info "Finding negations for" tid)
+  (let [;; Non-negated concept tokens will depend on the check we are performing here
+        ont     (onter screen_name)                             ; Combined|individual ontology
+        not-neg (individual ont Not-Negated-Check)
+
+        ;; Create a vector with [index dep concepts] for each token
+        xdeps   (into [] (cons [0 nil nil]                      ; Add an ununsed zeroth token
+                               (zip (rest (range)) deps rules)))
+
+        ;; Identify the negation and concept tokens
+        {negs  true
+         ctoks false} (group-by (fn [[_ _ cs]]                  ; Negation vs. [c]oncept tokens
+                                  (contains? cs "NEGATION"))
+                                (remove (fn [[_ _ cs]]          ; Check anything with concept(s)
+                                          (empty? cs))
+                                        xdeps))]
+
+    (letfn [;; ---------------------------------------------------------------
+            (affirm [[i _ _]]
+              ;; Mark the token as non-negated
+              ;(log/debug "Affirming token" i)
+              (refine ont (individual ont (lbl/label-text-token tid i))
+                          :fact (is directlyDependsOn not-neg
+                          )))
+
+            ;; ---------------------------------------------------------------
+            (chain
+              ([[i _ _]]
+                (chain i '()))
+
+              ([i deps]
+                (let [[_ d _ :as node]  (xdeps i)
+                      deps*             (conj deps node)]
+                  ;; Keep chaining while we have a dependency
+                  (if d (recur d deps*) deps*))))
+
+            ;; ---------------------------------------------------------------
+            (negate [ctoks negs]
+              ;; The last token in the chain is the negator. We don't need to process it.
+              (if (empty? (next negs))
+                  ctoks                         ; Remaining concept tokens are not negated
+                  (recur (reduce #(disj %1 %2)  ; Remove negated concepts in chain
+                                 ctoks negs)
+                         (rest negs))))]        ; Ready next chain
+
+      ;; All non-negated concept tokens must depend on a "non-negated" affirmation.
+      ;; Here, negating a token implies taking it out of the set of concept tokens.
+      ;(log/debug "CONCEPTS:" ctoks)
+      (run! affirm (reduce negate
+                           (into #{} ctoks)
+                           (map chain negs))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- affirm-tokens
+  "Defines 'Negation Token' as an enumeration of negation individuals in the
+  specified ontology."
+  [[ont rules]]
+  ;; We do this once per (combiner|individual) ontology
+  ;; TODO: We should be able to move most of this to the base say-sila ontology.
+  (let [negtoks (get rules "NEGATION")
+        negator (owl-class ont Negation-Token
+                  :label "Negation Token"
+                  :comment "A Token that negates one or more (other) Tokens in its Information Object."
+                  :super pos/Token
+                  (apply oneof negtoks))
+        not-neg (owl-class ont Not-Negated-Check
+                  :label "Not Negated Check"
+                  :comment "A test affirming that a Tokens has not been negated."
+                  :super dul/Concept)]
+
+    ;; HermiT gives us all kinds of problems at inference-time if we don't
+    ;; specifically identify negated and non-negated (affirmed) Token types.
+    (individual ont Not-Negated-Check :type not-neg)
+
+    (owl-class ont "NegatedHumanCauseToken"
+      :super HumanCauseToken
+      :equivalent (dl/and HumanCauseToken
+                          (dl/some hasDependent negator)))
+
+    (owl-class ont "AffirmedHumanCauseToken"
+      :super HumanCauseToken
+      :equivalent (dl/and HumanCauseToken
+                          (dl/some directlyDependsOn not-neg)))
+
+    (as-disjoint ont (owl-class ont "AffirmedHumanCauseToken")
+                     (owl-class ont "NegatedHumanCauseToken"))
+
+    ;; Natural-cause indicators follow the same pattern
+    (owl-class ont "NegatedNaturalCauseToken"
+      :super NaturalCauseToken
+      :equivalent (dl/and NaturalCauseToken
+                          (dl/some hasDependent negator)))
+
+    (owl-class ont "AffirmedNaturalCauseToken"
+      :super NaturalCauseToken
+      :equivalent (dl/and NaturalCauseToken
+                          (dl/some directlyDependsOn not-neg)))
+
+    (as-disjoint ont (owl-class ont "AffirmedNaturalCauseToken")
+                     (owl-class ont "NegatedNaturalCauseToken"))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn populate-statuses
+  "Populates the senti ontology with statuses (tweets) using examples from
+  ARFFs.  The caller may specify o as a keyword, and ontology or an ontology
+  factory function.  However, in all cases, the function returns an ontology
+  factory function."
+  ([o xmps]
+  (populate-statuses o xmps (cfg/? :sila)))
+
+
+  ([o xmps sconf]
+  (let [onter   (make-ontology-maker o)]
+    ;; Populate combined|community ontology with the tweet statuses
+    (run! #(add-text onter % sconf) xmps)
+
+    ;; Add Tweebo dependencies
+    (when (get sconf :use-tweebo?)
+      ;; add-dependencies will update the ontology, but we need to do a bit more processing
+      (twbo/wait)
+      (let [xdeps (map #(add-dependencies onter %) xmps)]
+
+        ;; Indicate which tokens were NOT negated
+        (run! #(add-affirmations onter %) xdeps)
+
+        ;; Make sure dependency processing is done before handling (non)negated dependencies
+        (await Rule-Tokens)
+        (run! #(affirm-tokens %) Rule-Tokens)))
+
+    onter)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -1462,9 +1873,9 @@
                 (if (creation-done? cnts goal)
                   (do (log/info "Examples:" cnts)
                       (reduced info))
-                  (let [tid    (senti/label-text (.stringValue inst (int col-id)))  ; FIXME: deprecated
+                  (let [tid    (lbl/label-text (.stringValue inst (int col-id)))
                         sname  (.stringValue inst (int col-sname))
-                        pole   (senti/polarize inst)                                ; FIXME: deprecated
+                        pole   (lbl/polarize inst)
                         elms   (.stringValue inst (int col-text))       ; Text elements are "pos_term"
                         xmp    (make-example tools tid sname elms pole) ; Example as a hashmap
                         xkeys  (apply set/union #{dset} (xmp :rules))]  ; Full dataset & all SCRs
@@ -1512,8 +1923,9 @@
           :as   xmps}]
   ;; This middle arity clause is where we wrap everything up!
   ;; Make an ontology out of the passed e[x]ample hashmap.
-  (let [world  (-> (populate-ontology dtag (users dtag))
-                   (senti/populate-ontology (texts dtag)))] ; FIXME
+  (let [sconf  (cfg/? :sila {})
+        world  (-> (populate-profiles dtag (users dtag))
+                   (populate-statuses (texts dtag) sconf))]
 
     ;; Set our top-level state. Each element holds a tagged map of the appropriate data
     (reset! World (assoc xmps :ontology {dtag world}))

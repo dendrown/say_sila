@@ -29,7 +29,8 @@
   "
   [who ont]
   ;; Add a new member, but remember that the ontology is mutable!
-  (send Community conj [who ont])
-  ont)
+  (when who
+    (send Community conj [who ont])
+     ont))
 
 
