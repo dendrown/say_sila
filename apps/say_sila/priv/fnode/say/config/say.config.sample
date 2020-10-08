@@ -9,6 +9,7 @@
                          :tracker   :all
                          :source    :tweets
                          :dir       "resources/emo-sa"}
+     :all-tokens?       true                    ; Use all text tokens, even if they seem devoid of value
      :community?        false                   ; Use individual user ontologies
      :foaf?             false                   ; Link to equivalent FOAF classes
      :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
@@ -39,7 +40,6 @@
 
   :senti
     {:all-data?         true                    ; Use complete dataset (vs. a manageable subset)
-     :all-tokens?       true                    ; Use all text tokens, even if they seem devoid of value
      :balance?          false                   ; Equal representation for pos/neg classes
      :oproperties?      false                   ; Include optional object (sub) properties (senti:denotesAffect)
      :rand-seed         12345                   ; Seed an RNG for Weka dataset handling

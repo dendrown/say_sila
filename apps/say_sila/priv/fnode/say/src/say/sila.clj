@@ -1283,7 +1283,7 @@
 
       ;; And entities for each of the terms, linking them together and to the text
       (reduce
-        (fn [[cnt tokens :as info]
+        (fn [[cnt tokens]
              [aff scr tag word svys]]
           ;; Get the Part of Speech for the tag reported by Weka
           (if-let [pos (and (meaningful? sconf aff scr svys)
@@ -1340,7 +1340,7 @@
 
             ;; Ignored/invalid Part of Speech tag
             (do ;(log/fmt-debug "Ignoring POS tag '~a'" tag)
-                info)))
+                [(inc cnt) tokens])))
 
         [1 nil]                             ; Acc: Token counter, reverse seq of tokens
         (zip affect rules pos-tags content surveys))))))
