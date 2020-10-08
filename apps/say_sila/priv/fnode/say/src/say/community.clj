@@ -20,17 +20,33 @@
 (set! *warn-on-reflection* true)
 
 
-(defonce Community  (agent {}))                     ; An agent of agents
+(defonce Community  (atom {}))                      ; TODO: an atom of agents...
 
 
 ;;; --------------------------------------------------------------------------
 (defn add!
-  "
-  "
+  "Adds an ontology to the community for the user specified by who."
   [who ont]
   ;; Add a new member, but remember that the ontology is mutable!
   (when who
-    (send Community conj [who ont])
+    (swap! Community conj [who ont])
      ont))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn fetch
+  "Retrieves the onntology for the specified user."
+  ([who]
+  ;; Here the ontology should already be in the community (otherwise, nil)
+  (get @Community who))
+
+
+  ([who onter]
+  ;; Here we create the ontology if it doesn't already exist
+  (get (swap! Community
+              #(if (get % who)
+                   %                                ; Ontology already there!
+                   (conj % [who (onter who)])))     ; New individual ontology
+       who)))
 

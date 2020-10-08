@@ -1223,13 +1223,17 @@
 
   String
   (make-ontology-maker [otag]
-  (let [ont (when-not (cfg/?? :sila :community?)
-              (make-ontology otag))]
-  (if ont
-      (make-ontology-maker ont)             ; Always return same ontology
-      (fn [& sname]                         ; Create a new ontology for each call
-        (comm/add! sname
-                   (make-ontology (apply hyphenize otag sname))))))))
+    (if (cfg/?? :sila :community?)
+      ;; Each user has an individual ontology
+      (let [onter (fn [sname]
+                    (make-ontology (apply hyphenize otag sname)))]
+
+        ;; Function to retrieve/create user ontologies in the community
+        (fn [& sname]
+          (comm/fetch sname onter)))
+
+      ;; All users share a single ontology
+      (make-ontology-maker (make-ontology otag)))))
 
 
 
@@ -1491,8 +1495,7 @@
               ;; Mark the token as non-negated
               ;(log/debug "Affirming token" i)
               (refine ont (individual ont (lbl/label-text-token tid i))
-                          :fact (is directlyDependsOn not-neg
-                          )))
+                          :fact (is directlyDependsOn not-neg)))
 
             ;; ---------------------------------------------------------------
             (chain
@@ -1535,7 +1538,8 @@
                   :label "Negation Token"
                   :comment "A Token that negates one or more (other) Tokens in its Information Object."
                   :super pos/Token
-                  (apply oneof negtoks))
+                  ;(apply oneof negtoks)            ;; FIXME: only needed for OWA not
+                  )
         not-neg (owl-class ont Not-Negated-Check
                   :label "Not Negated Check"
                   :comment "A test affirming that a Tokens has not been negated."
