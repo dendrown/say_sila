@@ -437,7 +437,7 @@
   :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
 
 
-(when (cfg/?? :senti :use-tweebo?)
+(when (cfg/?? :sila :use-tweebo?)
   (defclass HumanCauseToken
     :super pos/Token
     :equivalent (dl/and pos/Token
@@ -1235,7 +1235,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn meaningful?
-  "Returns true if a token is 'meaningful' as per the given :senti
+  "Returns true if a token is 'meaningful' as per the given :sila
   (sub)configuration map and the specified concept sequences."
   [sconf & concepts]
   (or (:all-tokens? sconf)
@@ -1370,7 +1370,7 @@
                                     :type PersonalProfile
                                     :fact (is dul/isAbout acct))]
               ;; Add PoS/senti for the profile content
-              (add-text ont prof xmp sconf)))
+              (add-text onter prof xmp sconf)))
           xmps)
     ;; Return the ontology maker
     onter)))
@@ -1600,7 +1600,7 @@
 
         ;; Make sure dependency processing is done before handling (non)negated dependencies
         (await Rule-Tokens)
-        (run! #(affirm-tokens %) Rule-Tokens)))
+        (run! #(affirm-tokens %) @Rule-Tokens)))
 
     onter)))
 
@@ -1997,7 +1997,15 @@
 
 ;;; --------------------------------------------------------------------------
 (defn save-ontologies
-  "Saves the say-sila ontology and all World ontologies in OWL format."
+  "Saves the say-sila ontology and all World ontologies in OWL format.
+
+  FIXME: save-ontology-map is expecting ontologies, but we now have
+         ontology-maker functions.  We're leaving this broken until we
+         have a working onto-community architecture.  Until then, use
+
+            (save-ontology ((-> @World :ontology :cause))
+
+         in the REPL."
   ([]
   (save-ontologies @World))
 
