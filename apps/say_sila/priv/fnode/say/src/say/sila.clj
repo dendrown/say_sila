@@ -22,6 +22,7 @@
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
             [say.label          :as lbl]
+            [say.jvm            :as jvm]
             [say.senti          :as senti]                  ; FIXME: deprecated
             [say.social         :as soc]
             [say.survey         :as six]
@@ -65,6 +66,7 @@
 
 ;;; Expressions for Liu's sentiment composition rules (SCR)
 (defonce Expressions    {})                                     ; Currently unused
+(defonce Memory         (agent {:start (jvm/memory-used :MB)})) ; Memory used in megabytes
 (defonce Rule-Tokens    (agent {}))                             ; K=ont V={K=rule V=individuals}
 
 (defonce World          (atom {:users {}
@@ -1923,6 +1925,7 @@
       (log/fmt-info "User/text examples~a: ~a" dtag fpath)
       (create-world! dtag (edn/read-string (slurp fpath))))))
 
+
   ([dtag {:keys [users texts]
           :as   xmps}]
   ;; This middle arity clause is where we wrap everything up!
@@ -1933,6 +1936,7 @@
 
     ;; Set our top-level state. Each element holds a tagged map of the appropriate data
     (reset! World (assoc xmps :ontology {dtag world}))
+    (send Memory conj [:world (jvm/memory-used :MB)])
     dtag))
 
 
