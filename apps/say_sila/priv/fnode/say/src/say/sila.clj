@@ -67,7 +67,6 @@
 ;;; Expressions for Liu's sentiment composition rules (SCR)
 (defonce Expressions    {})                                     ; Currently unused
 (defonce Memory         (agent {:start (jvm/memory-used :MB)})) ; Memory used in megabytes
-(defonce Rule-Tokens    (agent {}))                             ; K=ont V={K=rule V=individuals}
 
 (defonce World          (atom {:users {}
                                :texts {}
@@ -410,10 +409,18 @@
 
 (defrule NEGATION "Expressions which negate other terms.")
 
-;;; When building a final Tweet-data ontology, we may be applying negation
-;;; and not-negated elements before they are formally defined in the ontology.
-(def ^:const Negation-Token     "NegationToken")
-(def ^:const Not-Negated-Check  "NotegatedCheck")
+;; HermiT gives us all kinds of problems at inference-time if we don't
+;; specifically identify negated and non-negated (affirmed) Token types.
+(defclass NegationToken
+  :label "Negation Token"
+  :comment "A Token that negates one or more (other) Tokens in its Information Object."
+  :super pos/Token)
+
+(defclass NotNegatedCheck
+  :label "Not Negated Check"
+  :comment "A syntactic dependency test affirming that a Tokens has not been negated."
+  :super dul/Concept)
+(defpun NotNegatedCheck)
 
 
 ;;; --------------------------------------------------------------------------
@@ -460,7 +467,31 @@
                             (dl/some indicatesRule CAUSE))
                           (dl/and
                             (dl/some indicatesRule NATURE)
-                            (dl/some dependsOn (dl/some indicatesRule CAUSE)))))))
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+
+  ;; Dependency analysis allows us to know whether or not human-cause tokens are negated
+  (as-disjoint
+    (defclass NegatedHumanCauseToken
+      :super HumanCauseToken
+      :equivalent (dl/and HumanCauseToken
+                          (dl/some hasDependent NegationToken)))
+
+    (defclass AffirmedHumanCauseToken
+      :super HumanCauseToken
+      :equivalent (dl/and HumanCauseToken
+                          (dl/some directlyDependsOn NotNegatedCheck))))
+
+  ;; Natural-cause indicators follow the same pattern
+  (as-disjoint
+    (defclass NegatedNaturalCauseToken
+      :super NaturalCauseToken
+      :equivalent (dl/and NaturalCauseToken
+                          (dl/some hasDependent NegationToken)))
+
+    (defclass AffirmedNaturalCauseToken
+      :super NaturalCauseToken
+      :equivalent (dl/and NaturalCauseToken
+                          (dl/some directlyDependsOn NotNegatedCheck)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -1302,7 +1333,7 @@
             (let [ttid  (str tid "-" cnt)
                   curr  (individual ont ttid
                                     :type  (if (some #{"NEGATION"} scr)
-                                               (owl-class ont Negation-Token)
+                                               NegationToken
                                                pos/Token)
                                     :label (str ttid " ( " tag " / " word " )"))]
 
@@ -1332,8 +1363,6 @@
 
             ;; Express sentiment composition rules  (TODO: rename these rules)
             (doseq [r scr]
-              ;; Save the individual for possible OWL one-of" extensional class declarations
-              (send Rule-Tokens update-in [ont r] (fnil conj #{}) curr)
               (refine ont curr :fact (is indicatesRule (individual say-sila r))))
 
             ;; TODO: Prototypical code for Six Americas experimental surveys
@@ -1476,9 +1505,8 @@
    :as   xmp}]
 
   ;(log/info "Finding negations for" tid)
-  (let [;; Non-negated concept tokens will depend on the check we are performing here
-        ont     (onter screen_name)                             ; Combined|individual ontology
-        not-neg (individual ont Not-Negated-Check)
+  ;; Non-negated concept tokens will depend on the check we are performing here
+  (let [ont (onter screen_name)                                 ; Combined|individual ontology
 
         ;; Create a vector with [index dep concepts] for each token
         xdeps   (into [] (cons [0 nil nil]                      ; Add an ununsed zeroth token
@@ -1497,7 +1525,7 @@
               ;; Mark the token as non-negated
               ;(log/debug "Affirming token" i)
               (refine ont (individual ont (lbl/label-text-token tid i))
-                          :fact (is directlyDependsOn not-neg)))
+                          :fact (is directlyDependsOn theNotNegatedCheck)))
 
             ;; ---------------------------------------------------------------
             (chain
@@ -1528,57 +1556,6 @@
 
 
 
-;;; --------------------------------------------------------------------------
-(defn- affirm-tokens
-  "Defines 'Negation Token' as an enumeration of negation individuals in the
-  specified ontology."
-  [[ont rules]]
-  ;; We do this once per (combiner|individual) ontology
-  ;; TODO: We should be able to move most of this to the base say-sila ontology.
-  (let [negtoks (get rules "NEGATION")
-        negator (owl-class ont Negation-Token
-                  :label "Negation Token"
-                  :comment "A Token that negates one or more (other) Tokens in its Information Object."
-                  :super pos/Token
-                  ;(apply oneof negtoks)            ;; FIXME: only needed for OWA not
-                  )
-        not-neg (owl-class ont Not-Negated-Check
-                  :label "Not Negated Check"
-                  :comment "A test affirming that a Tokens has not been negated."
-                  :super dul/Concept)]
-
-    ;; HermiT gives us all kinds of problems at inference-time if we don't
-    ;; specifically identify negated and non-negated (affirmed) Token types.
-    (individual ont Not-Negated-Check :type not-neg)
-
-    (owl-class ont "NegatedHumanCauseToken"
-      :super HumanCauseToken
-      :equivalent (dl/and HumanCauseToken
-                          (dl/some hasDependent negator)))
-
-    (owl-class ont "AffirmedHumanCauseToken"
-      :super HumanCauseToken
-      :equivalent (dl/and HumanCauseToken
-                          (dl/some directlyDependsOn not-neg)))
-
-    (as-disjoint ont (owl-class ont "AffirmedHumanCauseToken")
-                     (owl-class ont "NegatedHumanCauseToken"))
-
-    ;; Natural-cause indicators follow the same pattern
-    (owl-class ont "NegatedNaturalCauseToken"
-      :super NaturalCauseToken
-      :equivalent (dl/and NaturalCauseToken
-                          (dl/some hasDependent negator)))
-
-    (owl-class ont "AffirmedNaturalCauseToken"
-      :super NaturalCauseToken
-      :equivalent (dl/and NaturalCauseToken
-                          (dl/some directlyDependsOn not-neg)))
-
-    (as-disjoint ont (owl-class ont "AffirmedNaturalCauseToken")
-                     (owl-class ont "NegatedNaturalCauseToken"))))
-
-
 
 ;;; --------------------------------------------------------------------------
 (defn populate-statuses
@@ -1602,11 +1579,7 @@
       (let [xdeps (map #(add-dependencies onter %) xmps)]
 
         ;; Indicate which tokens were NOT negated
-        (run! #(add-affirmations onter %) xdeps)
-
-        ;; Make sure dependency processing is done before handling (non)negated dependencies
-        (await Rule-Tokens)
-        (run! #(affirm-tokens %) @Rule-Tokens)))
+        (run! #(add-affirmations onter %) xdeps)))
 
     onter)))
 
