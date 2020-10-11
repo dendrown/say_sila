@@ -491,7 +491,21 @@
     (defclass AffirmedNaturalCauseToken
       :super NaturalCauseToken
       :equivalent (dl/and NaturalCauseToken
-                          (dl/some directlyDependsOn NotNegatedCheck)))))
+                          (dl/some directlyDependsOn NotNegatedCheck))))
+
+  (defclass HumanCauseBelieverAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/or
+                          (dl/some publishes (dl/some dul/hasComponent AffirmedHumanCauseToken))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
+
+  (defclass NaturalCauseBelieverAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/or
+                          (dl/some publishes (dl/some dul/hasComponent AffirmedNaturalCauseToken))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -1928,6 +1942,102 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn report-examples
+  "Give positive/negative coverage and sentiment statistics for sets of
+  intermediate-format examples or a hashmap with multiple sets of examples
+  as values."
+  ([xmps]
+  (if (map? xmps)
+      (run! #(apply report-examples %)                          ; Report keyed example sets
+            (select-keys xmps (filter keyword? (keys xmps))))   ; ..ignoring s"CONCEPT" submaps
+      (report-examples :examples xmps)))                        ; Single set of examples
+
+
+  ([dtag xmps]
+  (let [;; Statistics on text polarity and presence of affect
+        stats   (reduce #(let [ss (if (every? empty? (:affect %2))
+                                      :stoic
+                                      :senti)]
+                           (update-values %1 [:count (:polarity %2) ss] inc))
+                        (zero-hashmap :count :positive :negative :? :senti :stoic)
+                        xmps)
+
+        ;; Generalized roll-up functionality
+        p100    #(* 100. (/ (stats %)
+                            (stats :count)))
+
+        zero    #(apply zero-hashmap %)
+        init    #(vector (map %1 xmps)                          ; [elements, initial count-map]
+                         (zero %2))
+        kount   #(update-values %1 %2 inc)                      ; Accumulate hits from seq %2
+
+        count-tokens    (fn [zeros elements]
+                          (reduce kount
+                                  zeros
+                                  (flatten (map #(remove empty? %) elements))))
+
+        count-texts     (fn [zeros elements]
+                          (reduce #(update-values %1 (apply set/union %2) inc)
+                                  zeros
+                                  elements))
+
+        ;; We'll need a sequence of affect (rule) sets for the Texts
+        [aff-rules                                              ; Affect sets from Texts
+         aff-zeros] (init :affect Affect-Names)                 ; Acc init: affect counts
+
+        aff-toks    (count-tokens aff-zeros aff-rules)
+        aff-texts   (count-texts  aff-zeros aff-rules)
+
+        ;; Six Americas surveys
+        [svy-hits                                               ; Keyword hits from surveys
+         svy-zeros] (init :surveys (keys Surveys))              ; Acc init: survey counts
+
+        svy-toks    (count-tokens svy-zeros svy-hits)
+        svy-texts   (count-texts  svy-zeros svy-hits)
+
+        ;; Now get a sequence of part-of-speech tags for the Texts.
+        [pos-tags                                               ; POS tags for all Texts
+         pos-zeros] (init :pos-tags pos/POS-Codes)              ; Acc init: POS tag counts
+
+        pos-toks  (reduce kount pos-zeros pos-tags)
+        pos-texts (reduce (fn [cnts pos]
+                            (update-values cnts (into #{} pos) inc))
+                          pos-zeros
+                          pos-tags)]
+
+  ;; Report the basic statistics
+  (log/fmt-info "SCR~a: p[~1$%] s[~1$%] xmps~a"
+                dtag (p100 :positive) (p100 :senti) stats)
+
+  ;; Report pos/neg first, then the emotions
+  (doseq [aff (conj (sort (keys (dissoc aff-texts "Positive" "Negative")))  ; ABCize emotions
+                    "Negative"                                              ; Add onto head
+                    "Positive")]                                            ; ..of the list
+    (log/fmt-debug "Affect~a ~12a [~4d Tokens in ~4d Texts]"
+                   dtag aff
+                   (get aff-toks  aff)
+                   (get aff-texts aff)))
+
+  ;; Six Americas surveys
+  (log/debug)
+  (doseq [svy (sort (keys svy-texts))]
+    (log/fmt-debug "Survey~a ~12a [~4d Tokens in ~4d Texts]"
+                    dtag (name svy)
+                    (get svy-toks svy)
+                    (get svy-texts svy)))
+
+  ;; Report part-of-speech tags
+  (log/debug)
+  (doseq [pos (sort-by pos/POS-Fragments
+                      (keys pos-texts))]
+    (log/fmt-debug "Speech~a ~24a [~4d Tokens in ~4d Texts]"
+                   dtag
+                   (pos/POS-Fragments pos)
+                   (get pos-toks  pos)
+                   (get pos-texts pos))))))
+
+
+;;; --------------------------------------------------------------------------
 (defn report-world
   "Give positive/negative/emotion/survey/part-of-speech coverage for the
   Say-Sila World data. Passing a :users option will list the users for
@@ -1940,7 +2050,7 @@
     ;; Report affect and PoS in profiles and tweets
     (run! (fn [[elm title]]
             (log/info title)
-            (senti/report-examples (world elm))
+            (report-examples (world elm))
             (log/debug))
           [[:users "User Profiles:"]
            [:texts "User Tweets:"]])
