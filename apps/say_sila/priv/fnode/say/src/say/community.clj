@@ -36,7 +36,14 @@
 
 ;;; --------------------------------------------------------------------------
 (defn fetch
-  "Retrieves the onntology for the specified user."
+  "Retrieves the onntology for a user, optionally creating one if an ontology
+  maker function (onter) is specified.  If no user  is given, the function
+  returns a sequence of all ontologies in the community."
+  ([]
+  ;; No user specified, so return them all!
+  (vals @Community))
+
+
   ([who]
   ;; Here the ontology should already be in the community (otherwise, nil)
   (get @Community who))

@@ -2038,6 +2038,36 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn report-accounts
+  "Gives instance coverage of specific online account classes."
+  ([]
+  (report-accounts @World))
+
+
+  ([world]
+  ;; NOTE: The newer community way is subtly different from the original say-sila world
+  (if (cfg/?? :sila :community?)
+    ;; The community approach currently supports (just) a single set of ontologies
+    (report-accounts (first (keys (:ontology world)))       ; The single data tag
+                     (comm/fetch))
+    ;; The base say-sila approach has multiple (big) ontologies, keyed by data tags
+    (run! (fn [[dtag onter]]
+            (report-accounts dtag (onters)))
+            (:ontology world))))
+
+
+  ([dtag onts]
+  (let [search (fn [clazz]
+                 (into #{} (apply concat (pmap #(rsn/instances % clazz) onts))))
+        report (fn [sym]
+                 (let [accts (search (eval sym))]
+                   (log/info (str sym dtag ":") (count accts))
+                   (run! #(log/debug "  -" (iri-fragment %)) accts)))]
+    (run! report '[HumanCauseBelieverAccount
+                   NaturalCauseBelieverAccount]))))
+
+
+;;; --------------------------------------------------------------------------
 (defn report-world
   "Give positive/negative/emotion/survey/part-of-speech coverage for the
   Say-Sila World data. Passing a :users option will list the users for
