@@ -2052,7 +2052,7 @@
                      (comm/fetch))
     ;; The base say-sila approach has multiple (big) ontologies, keyed by data tags
     (run! (fn [[dtag onter]]
-            (report-accounts dtag (onters)))
+            (report-accounts dtag [(onter)]))
             (:ontology world))))
 
 
@@ -2063,8 +2063,12 @@
                  (let [accts (search (eval sym))]
                    (log/info (str sym dtag ":") (count accts))
                    (run! #(log/debug "  -" (iri-fragment %)) accts)))]
-    (run! report '[HumanCauseBelieverAccount
-                   NaturalCauseBelieverAccount]))))
+
+    ;; Don't spew progress numbers all over the console
+    (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-silent)]
+      (run! report '[HumanCauseBelieverAccount
+                     NaturalCauseBelieverAccount])))))
+
 
 
 ;;; --------------------------------------------------------------------------
