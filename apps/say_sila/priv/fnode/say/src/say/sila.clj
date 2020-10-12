@@ -21,8 +21,9 @@
             [say.dllearner      :as dll]
             [say.dolce          :as dul]
             [say.foaf           :as foaf]
-            [say.label          :as lbl]
+            [say.infer          :as inf]
             [say.jvm            :as jvm]
+            [say.label          :as lbl]
             [say.senti          :as senti]                  ; FIXME: deprecated
             [say.social         :as soc]
             [say.survey         :as six]
@@ -2057,17 +2058,28 @@
 
 
   ([dtag onts]
-  (let [search (fn [clazz]
-                 (into #{} (apply concat (pmap #(rsn/instances % clazz) onts))))
-        report (fn [sym]
-                 (let [accts (search (eval sym))]
-                   (log/info (str sym dtag ":") (count accts))
-                   (run! #(log/debug "  -" (iri-fragment %)) accts)))]
+  (let [targets '[HumanCauseBelieverAccount
+                  NaturalCauseBelieverAccount]
 
-    ;; Don't spew progress numbers all over the console
-    (binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-silent)]
-      (run! report '[HumanCauseBelieverAccount
-                     NaturalCauseBelieverAccount])))))
+        search  (fn [ont]
+                  ;; Find all instances for the search classes
+                  (let [hits (reduce #(conj %1 [%2 (rsn/instances ont (eval %2))])
+                                     {}
+                                     targets)]
+                    ;; Reclaim memory from reasoner
+                    (inf/unreason ont)
+                    hits))
+
+        needles (inf/with-silence
+                  (reduce #(merge-with set/union %1 %2) {} (pmap search onts)))
+
+        report  (fn [sym]
+                  (let [accts (get needles sym)]
+                    (log/info (str sym dtag ":") (count accts))
+                    (comment run! #(log/debug "  -" (iri-fragment %)) accts)))]
+
+    ;; Log report to the console for all targets
+    (run! report targets))))
 
 
 

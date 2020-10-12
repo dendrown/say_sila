@@ -28,6 +28,7 @@
             [say.cmu-pos        :as pos]
             [say.dllearner      :as dll]
             [say.dolce          :as dul]
+            [say.infer          :as inf]
             [say.survey         :as six]
             [say.tweebo         :as twbo]
             [say.wordnet        :as word]
@@ -797,12 +798,7 @@
           ptexts  (rsn/instances ont learned)]                    ; Predicted positive texts
 
       (log/debug "Learned:" (map qry/tawny-name (rsn/isubclasses ont learned)))
-
-      ;; Make sure HermiT doesn't hoard memory.  Tawny-OWL (as of version 2.0.3) is
-      ;; not calling dispose on the HermiT reasoner due to crashiness they've seen.
-      (.dispose rsnr)
-      (rsn/discard-reasoner ont)
-
+      (inf/unreason ont rsnr)
       ptexts)))
 
 
