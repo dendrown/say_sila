@@ -74,16 +74,10 @@
                           q3_2019 => <<"tbl_statuses_2019_q3">>,
                           q4_2019 => <<"tbl_statuses_2019_q4">>,
                           %-------------------------------------------
-                          q1_2020 => <<"tbl_statuses_2020_q1">>}).
+                          q1_2020 => <<"tbl_statuses_2020_q1">>,
+                          q2_2020 => <<"tbl_statuses_2020_q2">>,
+                          q3_2020 => <<"tbl_statuses_2020_q3">>}).
 -define(status_table(X), maps:get(X, ?STATUS_TABLES, ?STATUS_TABLE)).
-
-
-%%====================================================================
-%% TODO:
-%%  * Decide about retweets
-%%  * Check tweet language
-%%  * Handle extended tweets
-%%====================================================================
 
 -define(TWITTER_API_URL,         "https://api.twitter.com/1.1/").
 -define(twitter_api_url(Cmd),    ?TWITTER_API_URL ++ Cmd).
