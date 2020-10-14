@@ -3,12 +3,14 @@
 - **Tweets**: 57378
 - **Users**:  25524
 
+
 |Run| Size  | Axioms | Strategy              |
-|:-:|.-----:|:------:|----------------------:|
+|---| -----:| ------:|:--------------------- |
 | 00| 3.6GB |        | Base                  |
 | 01| 3.1GB |        | No links              |
 | 02| 1.4GB |   6.7M | Only meaninful tokens |
 | 03| ≈50KB | ≈1000  | Individual ontologies |
+
 
 ```clojure
 ;; Initial run with HermiT [JVM using 6.7GB before reasoning]
