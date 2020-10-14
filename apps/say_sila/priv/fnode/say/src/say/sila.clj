@@ -1277,7 +1277,7 @@
                     (make-ontology (apply hyphenize otag sname)))]
 
         ;; Function to retrieve/create user ontologies in the community
-        (fn [& sname]
+        (fn [& [sname]]
           (comm/fetch sname onter)))
 
       ;; All users share a single ontology
@@ -1477,9 +1477,12 @@
               dep?    (pos? obj-num)
               build   #(conj % (if dep? obj-num nil))]
           ;; Complain if the POS analysis doesn't match up (uncommon)
-          (when (not= pos1 pos2 pos3)
+          ;; TODO: This actually is more common than we'd like for large batches of tweets.
+          ;;       We're not currently doing anything about it, and multiple warnings can hide
+          ;;       the more serious tokenization error (below).  Therefore, it's currently OFF.
+          (comment when (not= pos1 pos2 pos3)
               (log/fmt-warn "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
-                          tid tok1 tok2 pos1 pos2 pos3))
+                            tid tok1 tok2 pos1 pos2 pos3))
           (if (equiv? tok1 tok2)
             (do
               ;; We're looking from the leaf (subject) up to the parent node (object).
@@ -1600,10 +1603,23 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn which-examples-edn
+(defn which-data
   "Returns the filepath for a user/text examples file."
-  [dtag]
-  (strfmt "~a/examples-~a.edn" World-FStub (name dtag)))
+  ([]
+  (which-data @World))
+
+
+  ([world]
+  (apply keyize :- (keys (:users world)))))         ; Multi-dtag support
+
+
+
+;;; --------------------------------------------------------------------------
+(defn which-edn
+  "Returns the filepath for a user/text examples file."
+  [dtag rsrc]
+  (strfmt "~a/~a-~a.edn" World-FStub (name rsrc) (name dtag)))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -1908,7 +1924,7 @@
 
   ([dtag]
   ;; Reuse a saved set of examples (rather than constructing news ones per the configuration)
-  (let [fpath (which-examples-edn dtag)]
+  (let [fpath (which-edn dtag :examples)]
     (when (.exists (io/file fpath))
       (log/fmt-info "User/text examples~a: ~a" dtag fpath)
       (create-world! dtag (edn/read-string (slurp fpath))))))
@@ -2148,9 +2164,15 @@
 
 
   ([world]
+  (save-ontologies world (which-data world)))
+
+
+  ([world dtag]
   (save-ontology say-sila Ont-FPath :owl)
-  (merge {:say-sila Ont-FPath}
-         (save-ontology-map (:ontology world) Ont-FStub))))
+  (if (cfg/?? :sila :community?)
+      (comm/save dtag)
+      (merge {:say-sila Ont-FPath}
+             (save-ontology-map (:ontology world) Ont-FStub)))))
 
 
 
@@ -2160,14 +2182,14 @@
   option to also save the associated ontologies."
   [& opts]
   (let [world @World
-        wtag  (apply hyphenize (keys (:users world)))   ; Multi-dtag support
-        fpath (which-examples-edn wtag)]
+        dtag  (which-data)
+        fpath (which-edn dtag :examples)]
 
     (spit fpath (pr-str (select-keys world [:users :texts])))
 
     ;; Return a map of the files saved
     (merge {:examples fpath}
            (when (some #{:ont} opts)
-             (save-ontologies world)))))
+             (save-ontologies world dtag)))))
 
 
