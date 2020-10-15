@@ -55,7 +55,6 @@
 
   ([who onter]
   ;; Here we create the ontology if it doesn't already exist
-  (log/debug "Accessing:" who)
   (get (swap! Community
               #(if (get % who)
                    %                                ; Ontology already there!
