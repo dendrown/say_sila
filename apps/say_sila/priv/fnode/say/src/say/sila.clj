@@ -77,6 +77,7 @@
 (defonce Rule-Stems     (update-values Rule-Words
                                        #(tw/stem-all % :set)))
 
+(defonce Status-Counts  (agent {}))                                 ; Tweet counts for users
 (defonce World          (atom {:users {}
                                :texts {}
                                :ontology {}}))
@@ -1317,7 +1318,8 @@
 
 
   ([onter entity
-    {:keys [affect content tid pos-tags rules screen_name surveys]}     ; Text breakdown
+    {:keys [affect content tid pos-tags rules screen_name surveys]      ; Text breakdown
+     :as   xmp}
     {:keys [full-links? links? use-tweebo?]                             ; Senti-params
      :as   sconf}]
   ;; The code will assume there's at least one token, so make sure!
@@ -1592,7 +1594,7 @@
 
 
   ([o xmps sconf]
-  (let [onter   (make-ontology-maker o)]
+  (let [onter (make-ontology-maker o)]
     ;; Populate combined|community ontology with the tweet statuses
     (run! #(add-text onter % sconf) xmps)
 
@@ -1883,13 +1885,36 @@
                     (if (or (stoic? xmp)                                ; Is it void of pos/neg/emotion?
                             (creation-full? cnts pole goal))            ; Still collecting for this polarity?
                       info
-                      [(inc-pn-counter cnts dtag pole)                  ; Update pos/neg/all counts
-                       (update-values xmap xkeys #(conj % xmp))]))))
+                      (do
+                       (send Status-Counts                              ; Prepare for filtering
+                                #(update % sname (fnil inc 0)))
+                       [(inc-pn-counter cnts dtag pole)                 ; Update pos/neg/all counts
+                        (update-values xmap xkeys #(conj % xmp))])))))
 
             [(zero-pn-counter dtag)                                 ; ACC: total/pos/neg counts
              (reduce #(assoc %1 %2 #{}) {} (keys Rule-Words))]      ;      Examples keyed by rule
 
             (enumeration-seq (.enumerateInstances insts)))))))      ; SEQ: Weka instances
+
+
+
+;;; --------------------------------------------------------------------------
+(defn filter-by-status-counts
+  "Takes a stream of statuses or user profiles and returns a lazy sequence
+  containing only those who have published at least as many tweets as the
+  :min-statuses parameter in the :sila configuration."
+  ([txts]
+  (filter-by-status-counts (cfg/? :sila)))
+
+
+  ([texts sconf]
+  (let [counts @Status-Counts
+        thresh (sconf :min-statuses 1)]
+    ;; Keep the ones with at least the minimum number of tweets
+    (filter #(when-let [n (counts (:screen_name %) 0)]
+               (>= n thresh))
+            texts))))
+
 
 
 
@@ -1925,9 +1950,13 @@
           :as   xmps}]
   ;; This middle arity clause is where we wrap everything up!
   ;; Make an ontology out of the passed e[x]ample hashmap.
-  (let [sconf  (cfg/? :sila {})
-        world  (-> (populate-profiles dtag (users dtag))
-                   (populate-statuses (texts dtag) sconf))]
+  (await Status-Counts)
+  (let [sconf   (cfg/? :sila {})
+        [usrs
+         txts]  (map #(filter-by-status-counts (% dtag) sconf) [users
+                                                                texts])
+        world   (-> (populate-profiles dtag usrs)
+                    (populate-statuses txts sconf))]
 
     ;; Set our top-level state. Each element holds a tagged map of the appropriate data
     (reset! World (assoc xmps :ontology {dtag world}))

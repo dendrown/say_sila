@@ -12,6 +12,8 @@
      :all-tokens?       true                    ; Use all text tokens, even if they seem devoid of value
      :community?        false                   ; Use individual user ontologies
      :foaf?             false                   ; Link to equivalent FOAF classes
+     :min-statuses      1                       ; Minimum status (tweet text) count to be in ontology
+     :pn-balance?       false                   ; Equal representation for pos/neg classes
      :pn-count          1000                    ; Maximum instance count for data subsets in pos/neg goals
      :rand-seed         12345                   ; Seed an RNG for Weka dataset handling
      :surveys           #{}                     ; DEPRECATED: Look for links in the specified survey(s)
