@@ -1245,9 +1245,9 @@
     (ontology
       :tawny.owl/name (prefix "say-sila")
       :iri     (ont-iri oname)
-      :prefix  (prefix oname)
+      :prefix  (prefix "ss")
       :import  say-sila
-      :comment (str "Ontology for modelling '" oname "'Twitter users and their activity."))))
+      :comment (str "Ontology for modelling '" oname "' climate change communications on Twitter."))))
 
 
 
@@ -1282,7 +1282,7 @@
     (if (cfg/?? :sila :community?)
       ;; Each user has an individual ontology
       (let [onter (fn [sname]
-                    (make-ontology (apply hyphenize otag sname)))]
+                    (make-ontology (hyphenize otag sname)))]
 
         ;; Function to retrieve/create user ontologies in the community
         (fn [& [sname]]
