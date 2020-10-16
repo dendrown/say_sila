@@ -12,7 +12,9 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.infer
   (:require [say.genie          :refer :all]
-            [tawny.reasoner     :as rsn]))
+            [tawny.reasoner     :as rsn])
+  (:import  (org.semanticweb.owlapi.model OWLOntology)
+            (org.semanticweb.owlapi.reasoner OWLReasoner)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -38,7 +40,8 @@
   (unreason ont (rsn/reasoner-for-ontology ont)))
 
 
-  ([ont rsnr]
+  ([^OWLOntology ont
+    ^OWLReasoner rsnr]
   ;; Make sure HermiT doesn't hoard memory.  Tawny-OWL (as of version 2.0.3) is
   ;; not calling dispose on the HermiT reasoner due to crashiness they've seen.
   (when rsnr
