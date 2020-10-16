@@ -8,6 +8,16 @@
 ;;;;
 ;;;; Emotion and sentiment analysis Ontology
 ;;;;
+;;;; NOTE: This namespace is DEPRECATED and will be removed from the project
+;;;;       at some future date.
+;;;;
+;;;;       Much of the functionality and ontological definitions in this
+;;;;       namespace have been recreated in say.sila so that neither that
+;;;;       ontology nor the the associated Clojure code is dependent on
+;;;;       this namespace.  The say.senti code and ontology represent a
+;;;;       research effort to determine sentiment polarity in tweets using
+;;;;       the Sentiment140 and Kaggle datasets.
+;;;;
 ;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.senti
@@ -18,6 +28,7 @@
             [say.cmu-pos        :as pos]
             [say.dllearner      :as dll]
             [say.dolce          :as dul]
+            [say.infer          :as inf]
             [say.survey         :as six]
             [say.tweebo         :as twbo]
             [say.wordnet        :as word]
@@ -455,45 +466,46 @@
   :label    "Beliefs Question Keyword"
   :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
 
-(defclass HumanCauseToken
-  :super pos/Token
-  :equivalent (dl/and pos/Token
-                      (dl/or
-                        (dl/and
-                          (dl/some indicatesRule HUMAN)
-                          (dl/some indicatesRule CAUSE))
-                        (dl/and
-                          (dl/some indicatesRule HUMAN)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+(when (cfg/?? :senti :use-tweebo?)
+  (defclass HumanCauseToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
-(defclass NaturalCauseToken
-  :super pos/Token
-  :equivalent (dl/and pos/Token
-                      (dl/or
-                        (dl/and
-                          (dl/some indicatesRule NATURE)
-                          (dl/some indicatesRule CAUSE))
-                        (dl/and
-                          (dl/some indicatesRule NATURE)
-                          (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+  (defclass NaturalCauseToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
 
-(comment defclass HumanCauseBelieverAccount
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/or
-                        (dl/and
-                          (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))
-                          (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))
-                        (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
+  (comment defclass HumanCauseBelieverAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/or
+                          (dl/and
+                            (dl/some publishes (dl/some dul/hasComponent HumanCauseToken))
+                            (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
 
-(comment defclass NaturalCauseBelieverAccount
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/or
-                        (dl/and
-                          (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))
-                          (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken))))
-                        (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken)))))
+  (comment defclass NaturalCauseBelieverAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/or
+                          (dl/and
+                            (dl/some publishes (dl/some dul/hasComponent NaturalCauseToken))
+                            (dl/not (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))))
 
 
 (defonce Surveys        (select-keys {:sassy sassy                  ; Only configured surveys
@@ -786,12 +798,7 @@
           ptexts  (rsn/instances ont learned)]                    ; Predicted positive texts
 
       (log/debug "Learned:" (map qry/tawny-name (rsn/isubclasses ont learned)))
-
-      ;; Make sure HermiT doesn't hoard memory.  Tawny-OWL (as of version 2.0.3) is
-      ;; not calling dispose on the HermiT reasoner due to crashiness they've seen.
-      (.dispose rsnr)
-      (rsn/discard-reasoner ont)
-
+      (inf/unreason ont rsnr)
       ptexts)))
 
 
@@ -899,8 +906,8 @@
 
 
   ([ont entity
-    {:keys [affect content tid pos-tags rules screen_name surveys]}         ; Text breakdown
-    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]  ; Senti-params
+    {:keys [affect content tid pos-tags rules screen_name surveys]}     ; Text breakdown
+    {:keys [full-links? links? secondaries? use-scr? use-tweebo?]       ; Senti-params
      :as   sconf}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
