@@ -73,14 +73,22 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn which-code
+  "Returns the current dataset key code, given the short code format."
+  [dtag]
+  (or (Datasets dtag)                       ; Short identifier    - :s
+      (Datasets (Codes dtag))               ; Human identifier    - :senti
+      (some #{dtag} (keys Columns))))       ; Explicit identifier - :s01
+
+
+
+;;; --------------------------------------------------------------------------
 (defn code
   "Returns the current dataset format code in string form for the specified
   short or long data tag."
   [dtag]
-  (let [dset (or (Datasets dtag)
-                 (Datasets (Codes dtag)))]
-    (when dset
-      (KEYSTR dset))))
+  (when-let [dset (which-code dtag)]
+    (KEYSTR dset)))
 
 
 
@@ -108,7 +116,7 @@
   "Returns the key for the last (presumably the target) column for the
   specified data format code."
   [dset]
-  (last (keys (Columns dset))))
+  (last (keys (Columns (which-code dset)))))
 
 
 

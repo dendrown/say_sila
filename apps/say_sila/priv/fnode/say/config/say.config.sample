@@ -12,7 +12,8 @@
      :all-tokens?       true                    ; Use all text tokens, even if they seem devoid of value
      :community?        false                   ; Use individual user ontologies
      :foaf?             false                   ; Link to equivalent FOAF classes
-     :pos-neg?          false                   ; Assign Texts to Positive|Negative subclass
+     :pn-count          1000                    ; Maximum instance count for data subsets in pos/neg goals
+     :rand-seed         12345                   ; Seed an RNG for Weka dataset handling
      :surveys           #{}                     ; DEPRECATED: Look for links in the specified survey(s)
      :emo-system        :plutchik               ; Base emotion system: plutchik|Ekman|nil
      :use-tweebo?       false                   ; Tweebo Parser dependency trees for tweets
@@ -37,24 +38,6 @@
     {:dproperties?      false                   ; Include optional data (sub) properties (pos:hasPartOfSpeechTag)
      :oproperties?      false                   ; Include optional object (sub) properties (pos:isPartOfSpeech)
      :ignore            #{"," "~"}}
-
-  :senti
-    {:all-data?         true                    ; Use complete dataset (vs. a manageable subset)
-     :balance?          false                   ; Equal representation for pos/neg classes
-     :oproperties?      false                   ; Include optional object (sub) properties (senti:denotesAffect)
-     :rand-seed         12345                   ; Seed an RNG for Weka dataset handling
-     :shuffle-data?     true                    ; Randomize Weka input data instances
-     :learn-cap         1                       ; Number of top learned rules to retain (per iteration)
-     :secondaries?      false                   ; Construct secondary emotions from primary (for Plutchik's theory)
-     :data-split        {:iterate?      true    ; Learn in steps through subset of the data
-                         :datasets      10
-                         :train         1000
-                         :test          1000
-                         :parts         10
-                         :rand-seed     24816}
-     :num-instances     1000                    ; We may need extra Weka instances to balance classes
-     :num-examples      1000}                   ; Use a subset until we get everything squared away
-
 
   ;; -------------------------------------------------------------------------
   :dllearner                                    ; EXTERNAL TOOL: DL-Learner

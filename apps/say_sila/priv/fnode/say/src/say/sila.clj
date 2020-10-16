@@ -24,10 +24,10 @@
             [say.infer          :as inf]
             [say.jvm            :as jvm]
             [say.label          :as lbl]
-            [say.senti          :as senti]                  ; FIXME: deprecated
             [say.social         :as soc]
             [say.survey         :as six]
             [say.tweebo         :as twbo]
+            [say.wordnet        :as word]
             [weka.core          :as weka]
             [weka.dataset       :as dset]
             [weka.tweet         :as tw]
@@ -63,11 +63,19 @@
 
 (def ^:const Init-Data      {:tag :env, :tracker :all, :source :tweets, :dir Emotion-FStub})
 (def ^:const Split-Tags     [:train :test])
+(def ^:const Init-PN-Count  100)
 
 
-;;; Expressions for Liu's sentiment composition rules (SCR)
-(defonce Expressions    {})                                     ; Currently unused
+;;; --------------------------------------------------------------------------
 (defonce Memory         (agent {:start (jvm/memory-used :MB)})) ; Memory used in megabytes
+
+;;; Word sets which invoke Sentiment/Survey rules
+(defonce Rule-Triggers  (merge six/Concept-Triggers
+                               {"NEGATION"     #{"not"}}))          ; Syntactical adjusters
+
+(defonce Rule-Words     (word/synonym-values Rule-Triggers))        ; Rule trigger expansion
+(defonce Rule-Stems     (update-values Rule-Words
+                                       #(tw/stem-all % :set)))
 
 (defonce World          (atom {:users {}
                                :texts {}
@@ -1050,7 +1058,7 @@
 (defn etweet
   "Returns a colourized string representing the example tweet. Survey keyword
   hits are underlined.  The function defaults to using the configured survey,
-  or SASSY if none is configured.)"
+  or SASSY if none is configured."
   ([xmp]
   ;;; TODO: Handle multiple surveys if we're going to support more than one
   (etweet xmp (six/which-survey)))
@@ -1406,9 +1414,7 @@
 
   ([o xmps]
   (log/debug "Populating ontology:" o)
-  (let [sconf (merge (cfg/? :senti) ;;; FIXME ;;;
-                     (cfg/? :sila)                     ; Cache config params
-                     )              ;;; FIXME ;;;
+  (let [sconf (cfg/? :sila)                     ; Cache config params
         onter (make-ontology-maker o)]          ; Tag|ontology to factory function
     (run! (fn [{:as xmp
                 sname :screen_name
@@ -1624,46 +1630,34 @@
 
 ;;; --------------------------------------------------------------------------
 (defn- create-pn-goal
-  "Checks the :senti configuation and returns a map with the elements needed
+  "Checks the :sila configuation and returns a map with the elements needed
   to construct datasets and populate ontologies.  The function allows the
   caller to override the configuration by adding :key value pairs as arguments."
  ([dset]
- (let [{:as   conf
-        :keys [num-examples]
-        :or   {num-examples senti/INIT-NUM-EXAMPLES}} (cfg/? :senti)]   ; FIXME: deprecated
+ (let [{:as   sconf
+        :keys [pn-count]
+        :or   {pn-count Init-PN-Count}} (cfg/? :sila)]
     ;; The default is the number of examples for creating ontology individuals
-    (create-pn-goal dset num-examples conf)))
+    (create-pn-goal dset pn-count sconf)))
 
 
  ([dset cnt]
- (create-pn-goal dset cnt (cfg/? :senti)))
+ (create-pn-goal dset cnt (cfg/? :sila)))
 
 
- ([dset cnt {:as   conf
-             :keys [balance?]}]
+ ([dset cnt {:as   sconf
+             :keys [pn-balance?]}]
  ;; Unless it's a singleton, odd counts that are balanced will have an extra instance
  (let [[goal
-        checks] (if (and balance?
+        checks] (if (and pn-balance?
                          (> cnt 1))
                     [(int (/ cnt 2)) [:positive :negative]]     ; pos/neg instances separately
                     [cnt [dset]])]                              ; all instances together
 
    ;; Add what we need for our goals
-   (assoc conf :goal    goal
-               :checks  checks
-               :dataset dset))))
-
-
-;;; --------------------------------------------------------------------------
-(defn- split-pn-goals
-  "Returns a map of pos/neg creation goals for creating :train and :test
-  datasets."
-  [dset]
-  (let [{:as   conf
-         :keys [data-split]} (cfg/? :senti)]
-
-    (into {} (map #(vector % (create-pn-goal dset (% data-split) conf))
-                  Split-Tags))))
+   (assoc sconf :goal    goal
+                :checks  checks
+                :dataset dset))))
 
 
 
@@ -1736,18 +1730,13 @@
 (defn toolbox
   "Creates and bundles utility functions used for processing textual examples
   with respect to sentiment/emotion content and sentiment composition rules.
-  This function bundle is tuned by parameters in the :senti section of the
+  This function bundle is tuned by parameters in the :sila section of the
   configuration."
   []
   ;; Create a closure for a configuration-based analysis
   (let [all-pn? (cfg/?? :sila :skip-neutrals?)
         lex     (tw/make-lexicon (cfg/?? :sila :lexicon :liu))  ; TODO: Capture lex change on config update
-        sball   (tw/make-stemmer)                               ; Weka Affective Tweets plus Snowball stemmer
-        stem    (fn [w]
-                  (.stem sball w))
-
-        exprs   (update-values Expressions                      ; Pre-stem Liu's SCR expressions
-                               #(into #{} (map stem %)))]
+        sball   (tw/make-stemmer)]                              ; Weka Affective Tweets plus Snowball stemmer
 
     ;; Bundle everything up
     (map->Toolbox
@@ -1756,17 +1745,17 @@
       :stoic?   (fn [{:keys [analysis]}]                        ; Check that we're not including neutral Texts
                   (and all-pn? (every? empty? analysis)))       ; ..and that no sentiment (rule) is expressed
 
-      :stem     stem
+      :stem     (fn [w]
+                  (.stem sball w))
 
       :sense    #(tw/analyze-token+- lex % Affect-Fragments)    ; Lexicon lookup for P/N rules
 
-      :scr      #(let [term (stem %)]                           ; Match terms for Sentiment Composite Rules
-                   (reduce (fn [acc [scr terms]]
-                             (if (contains? terms term)
+      :scr      #(reduce (fn [acc [scr terms]]                  ; Match terms for Sentiment Composite Rules
+                             (if (six/in-stems? terms % sball some)
                                  (conj acc scr)
                                  acc))
                            #{}
-                           exprs))
+                           Rule-Stems)
 
       :surveys  #(reduce (fn [acc s]                            ; Link Six Americas surveys
                            (if (six/in-survey? s % sball)
@@ -1803,6 +1792,7 @@
      :tid         tid
      :polarity    polarity
      :content     terms
+     :affect      affect
      :rules       rules
      :pos-tags    (map first pairs)
      :surveys     (map (:surveys tools) terms)
@@ -1818,9 +1808,9 @@
   ;; NOTE: Our Twitter user data (U00) is currently unlabeled.
   (let [target  :environmentalist
         insts   (weka/load-dataset data target)
-        dset    (dset/Datasets :u)                              ; Structure for user (U99) data
-        tools   (senti/toolbox)                                 ; Sentiment/emotion analysis
-        attrs   (select-keys (dset/Columns dset) [:screen_name  ; 0-based attribute indices
+        dtag    (dset/Datasets :u)                              ; Structure for user (U99) data
+        tools   (toolbox)                                       ; Sentiment/emotion analysis
+        attrs   (select-keys (dset/Columns dtag) [:screen_name  ; 0-based attribute indices
                                                   :name
                                                   :description
                                                   :environmentalist])]
@@ -1838,8 +1828,8 @@
          (weka/instance-seq insts)))))
 
 
-  ([dset data]
-  (hash-map dset (profiles->examples data))))
+  ([dtag data]
+  (hash-map dtag (profiles->examples data))))
 
 
 
@@ -1847,14 +1837,14 @@
 (defn statuses->examples
   "Converts Weka status (S99) instances (tweets) into a sequence of examples
   in the intermediate format."
-  ([dset data]
-  (let [insts (weka/load-dataset data (senti/which-target))     ; FIXME: deprecated
+  ([dtag data]
+  (let [insts (weka/load-dataset data (dset/col-target :s))
         icnt  (.numInstances insts)]
-    (log/fmt-debug "Text instances~a: ~a" dset icnt)
-    (senti/instances->examples dset insts icnt)))               ; FIXME: deprecated
+    (log/fmt-debug "Text instances~a: ~a" dtag icnt)
+    (statuses->examples dtag insts icnt)))
 
 
-  ([dset ^Instances insts cnt]
+  ([dtag ^Instances insts cnt]
   ;; Keep track of how many examples to create, as per the configured 'balance' setting
   (let [columns     (dset/columns :s)
         [col-id
@@ -1862,7 +1852,7 @@
          col-text]  (map columns [:id :screen_name :text])
         tools       (toolbox)
         stoic?      (:stoic? tools)
-        goal        (create-pn-goal dset cnt)]
+        goal        (create-pn-goal dtag cnt)]
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (describe-creation goal)
@@ -1870,7 +1860,7 @@
               (if ((:all-pn? tools)) "(emotive)" "(includes stoic)"))
 
     ;; Shall we (pseudo)randomize the instances?
-    (when-let [seed (cfg/?? :senti :rand-seed)]
+    (when-let [seed (cfg/?? :sila :rand-seed)]
       (log/fmt-info "Shuffling ~a input instances: seed[~a]" (.numInstances insts) seed)
       (.randomize insts (Random. seed)))
 
@@ -1888,16 +1878,16 @@
                         pole   (lbl/polarize inst)
                         elms   (.stringValue inst (int col-text))       ; Text elements are "pos_term"
                         xmp    (make-example tools tid sname elms pole) ; Example as a hashmap
-                        xkeys  (apply set/union #{dset} (xmp :rules))]  ; Full dataset & all SCRs
+                        xkeys  (apply set/union #{dtag} (xmp :rules))]  ; Full dataset & all SCRs
                     ;; Do we skip|process this Text??
                     (if (or (stoic? xmp)                                ; Is it void of pos/neg/emotion?
                             (creation-full? cnts pole goal))            ; Still collecting for this polarity?
                       info
-                      [(inc-pn-counter cnts dset pole)                  ; Update pos/neg/all counts
+                      [(inc-pn-counter cnts dtag pole)                  ; Update pos/neg/all counts
                        (update-values xmap xkeys #(conj % xmp))]))))
 
-            [(zero-pn-counter dset)                                 ; ACC: total/pos/neg counts
-             (reduce #(assoc %1 %2 #{}) {} (keys Expressions))]     ;      Examples keyed by rule
+            [(zero-pn-counter dtag)                                 ; ACC: total/pos/neg counts
+             (reduce #(assoc %1 %2 #{}) {} (keys Rule-Words))]      ;      Examples keyed by rule
 
             (enumeration-seq (.enumerateInstances insts)))))))      ; SEQ: Weka instances
 
@@ -1925,9 +1915,10 @@
   ([dtag]
   ;; Reuse a saved set of examples (rather than constructing news ones per the configuration)
   (let [fpath (which-edn dtag :examples)]
-    (when (.exists (io/file fpath))
-      (log/fmt-info "User/text examples~a: ~a" dtag fpath)
-      (create-world! dtag (edn/read-string (slurp fpath))))))
+    (if (.exists (io/file fpath))
+        (do (log/fmt-info "User/text examples~a: ~a" dtag fpath)
+            (create-world! dtag (edn/read-string (slurp fpath))))
+        (log/warn "No saved world:" (name dtag)))))
 
 
   ([dtag {:keys [users texts]
@@ -2130,7 +2121,7 @@
   [user]
   ;; NOTE: we may want to redo our keying system so the data tag is the top level
   (let [eprint (fn [xmps]
-                 (run! #(senti/eprint-tweet %)
+                 (run! #(eprint-tweet %)
                        (filter #(= user (:screen_name %)) xmps)))]
     ;; Run through the supported text-types
     (run! (fn [ttype]
