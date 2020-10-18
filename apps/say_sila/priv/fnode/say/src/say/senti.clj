@@ -8,6 +8,16 @@
 ;;;;
 ;;;; Emotion and sentiment analysis Ontology
 ;;;;
+;;;; NOTE: This namespace is DEPRECATED and will be removed from the project
+;;;;       at some future date.
+;;;;
+;;;;       Much of the functionality and ontological definitions in this
+;;;;       namespace have been recreated in say.sila so that neither that
+;;;;       ontology nor the the associated Clojure code is dependent on
+;;;;       this namespace.  The say.senti code and ontology represent a
+;;;;       research effort to determine sentiment polarity in tweets using
+;;;;       the Sentiment140 and Kaggle datasets.
+;;;;
 ;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.senti
@@ -18,6 +28,7 @@
             [say.cmu-pos        :as pos]
             [say.dllearner      :as dll]
             [say.dolce          :as dul]
+            [say.infer          :as inf]
             [say.survey         :as six]
             [say.tweebo         :as twbo]
             [say.wordnet        :as word]
@@ -455,7 +466,6 @@
   :label    "Beliefs Question Keyword"
   :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
 
-;;; The current green-detection strategy requires TweeboParser dependency trees
 (when (cfg/?? :senti :use-tweebo?)
   (defclass HumanCauseToken
     :super pos/Token
@@ -788,12 +798,7 @@
           ptexts  (rsn/instances ont learned)]                    ; Predicted positive texts
 
       (log/debug "Learned:" (map qry/tawny-name (rsn/isubclasses ont learned)))
-
-      ;; Make sure HermiT doesn't hoard memory.  Tawny-OWL (as of version 2.0.3) is
-      ;; not calling dispose on the HermiT reasoner due to crashiness they've seen.
-      (.dispose rsnr)
-      (rsn/discard-reasoner ont)
-
+      (inf/unreason ont rsnr)
       ptexts)))
 
 
@@ -878,6 +883,16 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn meaningful?
+  "Returns true if a token is 'meaningful' as per the given :senti
+  (sub)configuration map and the specified concept sequences."
+  [sconf & concepts]
+  (or (:all-tokens? sconf)
+      (not-every? empty? concepts)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn add-text
   "Adds a textual individual to the specified ontology.  The default behaviour
   is to create a new individual of type Text, but the arity-4 clause allows
@@ -891,8 +906,9 @@
 
 
   ([ont entity
-    {:keys [affect content tid pos-tags rules screen_name surveys]}             ; Text breakdown
-    {:keys [full-links? links? pos-neg? secondaries? use-scr? use-tweebo?]}]    ; Senti-params
+    {:keys [affect content tid pos-tags rules screen_name surveys]}     ; Text breakdown
+    {:keys [full-links? links? secondaries? use-scr? use-tweebo?]       ; Senti-params
+     :as   sconf}]
   ;; The code will assume there's at least one token, so make sure!
   (when (seq pos-tags)
     (let [msg   (apply str (interpose " " content))
@@ -918,7 +934,8 @@
         (fn [[cnt tokens :as info]
              [aff scr tag word svys]]
           ;; Get the Part of Speech for the tag reported by Weka
-          (if-let [pos (pos/lookup# tag)]
+          (if-let [pos (and (meaningful? sconf aff scr svys)
+                            (pos/lookup# tag))]
 
             ;; Set up an individual for this Token.
             ;;
@@ -990,7 +1007,7 @@
   ontology."
   ([ont {:keys [tid]
          :as   xmp}]
-  (log/info "Finding dependencies for" tid)
+  ;(log/info "Finding dependencies for" tid)
   (add-dependencies ont xmp (twbo/predict tid)))
 
 
@@ -1011,7 +1028,7 @@
                                                              "MWE"  MultiWordExpression))]
                               ;; Add the relation for token-->entity to the ontology.
                               ;; The Tweebo map entry for Token N does not reference the entity.
-                              (log/debug "Adding" ling entid)
+                              ;(log/debug "Adding" ling entid)
                               (refine ont token :fact (is dul/expresses entity))
 
                               ;; Multi-word expression roots (n) don't have the MWE code
@@ -1075,7 +1092,7 @@
   {:keys [tid rules deps]
    :as   xmp}]
 
-  (log/info "Finding negations for" tid)
+  ;(log/info "Finding negations for" tid)
   (let [;; Non-negated concept tokens will depend on the check we are performing here
         not-neg (individual ont Not-Negated-Check)
 
@@ -1094,7 +1111,7 @@
     (letfn [;; ---------------------------------------------------------------
             (affirm [[i _ _]]
               ;; Mark the token as non-negated
-              (log/debug "Affirming token" i)
+              ;(log/debug "Affirming token" i)
               (refine ont (individual ont (label-text-token tid i))
                           :fact (is directlyDependsOn not-neg
                           )))
@@ -1121,7 +1138,7 @@
 
       ;; All non-negated concept tokens must depend on a "non-negated" affirmation.
       ;; Here, negating a token implies taking it out of the set of concept tokens.
-      (log/debug "CONCEPTS:" ctoks)
+      ;(log/debug "CONCEPTS:" ctoks)
       (run! affirm (reduce negate
                            (into #{} ctoks)
                            (map chain negs))))))
@@ -1502,7 +1519,8 @@
          col-text]  (map Columns [:id :screen_name :text])
         tools       (toolbox)
         stoic?      (:stoic? tools)
-        goal        (create-pn-goal dset cnt)]
+        goal        (create-pn-goal dset cnt)
+        sconf       (cfg/? :sconf {})]
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info (describe-creation goal)
@@ -1510,7 +1528,8 @@
               (if ((:all-pn? tools)) "(emotive)" "(includes stoic)"))
 
     ;; Shall we (pseudo)randomize the instances?
-    (when-let [seed (cfg/?? :senti :rand-seed)]
+    (when-let [seed (and (sconf :shuffle-data?)
+                         (sconf :rand-seed))]
       (log/fmt-info "Shuffling ~a input instances: seed[~a]" (.numInstances insts) seed)
       (.randomize insts (Random. seed)))
 

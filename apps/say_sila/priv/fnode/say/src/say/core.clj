@@ -45,9 +45,6 @@
 
 (set! *warn-on-reflection* true)
 
-(def TO-SILA (agent {:cnt 0}))          ; TODO: Serialize responses to Erlang
-
-
 
 ;;; --------------------------------------------------------------------------
 (defn- ^OtpNode make-node

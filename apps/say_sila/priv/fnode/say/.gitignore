@@ -37,3 +37,5 @@ resources/test/test.A??.Sentiment140.arff
 resources/test/tweebo/test.A??.owl
 resources/tweebo/ProfileOf*
 resources/tweebo/t*
+resources/world/*.edn
+resources/world/*/

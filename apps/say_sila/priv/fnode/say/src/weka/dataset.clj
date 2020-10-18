@@ -29,6 +29,7 @@
             [clojure.string  :as str]
             [clojure.pprint  :refer [pp]])
   (:import  (weka.core  Attribute
+                        Instance
                         Instances)
             (weka.filters.unsupervised.instance RemoveDuplicates
                                                 SubsetByExpression)))
@@ -72,14 +73,22 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn which-code
+  "Returns the current dataset key code, given the short code format."
+  [dtag]
+  (or (Datasets dtag)                       ; Short identifier    - :s
+      (Datasets (Codes dtag))               ; Human identifier    - :senti
+      (some #{dtag} (keys Columns))))       ; Explicit identifier - :s01
+
+
+
+;;; --------------------------------------------------------------------------
 (defn code
   "Returns the current dataset format code in string form for the specified
   short or long data tag."
   [dtag]
-  (let [dset (or (Datasets dtag)
-                 (Datasets (Codes dtag)))]
-    (when dset
-      (KEYSTR dset))))
+  (when-let [dset (which-code dtag)]
+    (KEYSTR dset)))
 
 
 
@@ -107,7 +116,7 @@
   "Returns the key for the last (presumably the target) column for the
   specified data format code."
   [dset]
-  (last (keys (Columns dset))))
+  (last (keys (Columns (which-code dset)))))
 
 
 
@@ -280,4 +289,27 @@
   (let [insts (weka/load-arff arff)]
     (map #(% arff (Instances. insts)) [t->s             ; TODO: pmap
                                        t->u])))
+
+
+;;; --------------------------------------------------------------------------
+(defn count-user-tweets
+  "Lists user tweet counts in descending order for the specified dataset.
+  The caller may give a minimum tweet count for a user to be included in
+  the report."
+  ([dset data]
+  (count-user-tweets dset data 1))
+
+
+  ([dset data mincnt]
+  (let [insts (weka/load-dataset data)
+        col   (col-index (Datasets :t) :screen_name)
+        users (reduce #(update %1 (.stringValue ^Instance %2 (int col)) ; Key: screen name
+                                  (fnil inc 0))                         ; Val: tweet count
+                      {}
+                      (weka/instance-seq insts))]
+
+    ;; Print out a simple report listing, the user screen names and counts
+    (doseq [[usr cnt] (take-while #(>= (second %) mincnt)                       ; Use requested count
+                                  (sort-by second #(compare %2 %1) users))]     ; Count order:  Z..A
+      (log/fmt-info "~24a: ~a" usr cnt)))))
 
