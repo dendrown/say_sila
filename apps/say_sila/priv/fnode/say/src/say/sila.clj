@@ -1453,7 +1453,7 @@
   (let [ont     (onter screen_name)
         include #(refine ont %1 :fact (is dul/hasComponent %2))
         equiv?  #(or (= %1 %2)
-                     (every? #{"\"" "QUOTE" "\"'"} [%1 %2]))
+                     (every? #{"\"" "QUOTE" "\"'" "'\""} [%1 %2]))
         make    (memoize (fn [ling n]
                             (let [tokid  (lbl/label-text-token tid n)
                                   token  (individual ont tokid)
