@@ -51,7 +51,7 @@
     (if (.exists (io/file opath))
       runs
       (do
-        (log/debug "Parsing dependencies:" ipath)
+        (log/fmt-debug "Parsing dependencies: cnt[~a] fp[~a]" runs ipath)
         (spit ipath text)
         (let [{:keys [err
                       exit
@@ -62,8 +62,8 @@
                   (inc runs))
 
               ;; Errors are also going to stderr
-              (do (log/fmt-error "Tweebo failure on ~a: ~a: rc[~a]" tid err exit)))
-                  runs)))))
+              (do (log/fmt-error "Tweebo failure on ~a: ~a: rc[~a]" tid err exit)
+                  runs)))))))
 
 
 
