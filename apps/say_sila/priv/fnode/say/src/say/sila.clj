@@ -1908,7 +1908,7 @@
   containing only those who have published at least as many tweets as the
   :min-statuses parameter in the :sila configuration."
   ([txts]
-  (filter-by-status-counts (cfg/? :sila)))
+  (filter-by-status-counts txts (cfg/? :sila)))
 
 
   ([texts sconf]
@@ -1919,6 +1919,15 @@
                (>= n thresh))
             texts))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn zap-status-counts
+  "Reinitializes the Status-Counts agent."
+  []
+  ;; TODO: Use local world records that encapsulate all the bits and bobs!
+  (await Status-Counts)
+  (send Status-Counts (fn [_] {})))
 
 
 
@@ -2107,6 +2116,7 @@
   ([dtag onts]
   (let [targets '[HumanCauseBelieverAccount
                   NaturalCauseBelieverAccount]
+        ccnt    (comm/size)
 
         search  (fn [ont]
                   ;; Find all instances for the search classes
@@ -2121,8 +2131,9 @@
                   (reduce #(merge-with set/union %1 %2) {} (pmap search onts)))
 
         report  (fn [sym]
-                  (let [accts (get needles sym)]
-                    (log/info (str sym dtag ":") (count accts))
+                  (let [accts (get needles sym)
+                        acnt  (count accts)]
+                    (log/fmt-info "~a~a: ~a of ~a (~$%)" sym dtag acnt ccnt (/ acnt ccnt))
                     (comment run! #(log/debug "  -" (iri-fragment %)) accts)))]
 
     ;; Log report to the console for all targets
@@ -2230,13 +2241,16 @@
   "Performs an experiment."
   [dtag ausers atexts]
   ;; TODO: Refactor to use local worlds & hold the community in the world
-  (let [sconf (cfg/? :sila {})]
+  (let [sconf (cfg/? :sila)
+        zap!  (fn []
+                (zap-status-counts)
+                (comm/zap!))]
     (doseq [i (range 1 4)]
+      (log/debug)
       (log/info "Minimum status count:" i)
-      (comm/zap!)
+      (zap!)
       (create-world! dtag ausers atexts (assoc sconf :min-statuses i))
       (log/info "Community size:" (comm/size))
-      (report-accounts)
-      (log/debug))))
+      (report-accounts))))
 
 
