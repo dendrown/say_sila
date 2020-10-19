@@ -80,8 +80,12 @@
 (defn predict
   "Prepares a TweeboParser (predicted) dependency tree for later use."
   [tid]
-  (with-open [rdr (io/reader (get-fpath tid :predict))]
-    (doall (csv/read-csv rdr :separator \tab))))
+  (try
+    (with-open [rdr (io/reader (get-fpath tid :predict))]
+      (doall (csv/read-csv rdr :separator \tab)))
+    (catch Exception ex
+      (log/error "Cannot read predicted dependencies:" tid)
+      (throw ex))))
 
 
 
