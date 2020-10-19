@@ -42,7 +42,7 @@
             [tawny.query        :as qry]
             [tawny.repl         :as repl]                   ; <= debug
             [tawny.owl          :refer :all]
-            [clojure.core.logic :refer :all :exclude [annotate is]])
+            [clojure.core.logic :refer :all :exclude [annotate is run]])
   (:import  (java.util Random)
             (org.semanticweb.owlapi.model   IRI
                                             OWLOntology
@@ -1919,7 +1919,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn create-world!
+(defun create-world!
   "Loads the official say-sila examples and ontologies."
   ([]
   ;; Pull the configured dataset information for users and their texts.
@@ -1946,15 +1946,21 @@
         (log/warn "No saved world:" (name dtag)))))
 
 
-  ([dtag {:keys [users texts]
-          :as   xmps}]
+  ([dtag
+    ausers :guard string?
+    atexts :guard string?]
+  (create-world! dtag ausers atexts (cfg/? :sila {})))
+
+
+  ([dtag
+    xmps :guard map?
+   sconf :guard map?]
   ;; This middle arity clause is where we wrap everything up!
   ;; Make an ontology out of the passed e[x]ample hashmap.
   (await Status-Counts)
-  (let [sconf   (cfg/? :sila {})
-        [usrs
-         txts]  (map #(filter-by-status-counts (% dtag) sconf) [users
-                                                                texts])
+  (let [[usrs
+         txts]  (map #(filter-by-status-counts (-> xmps % dtag) sconf) [:users
+                                                                        :texts])
         world   (-> (populate-profiles dtag usrs)
                     (populate-statuses txts sconf))]
 
@@ -1964,7 +1970,7 @@
     dtag))
 
 
-  ([dtag ausers atexts]
+  ([dtag ausers atexts sconf]
   ;; Create e[x]amples from the source [a]arff files
   (let [xusers (profiles->examples dtag ausers)             ; U-dataset user profiles
         xtexts (statuses->examples dtag atexts)]            ; S-dataset tweet texts
@@ -1973,8 +1979,9 @@
     (log/fmt-info "Dataset user~a: ~a" dtag ausers)
     (log/fmt-info "Dataset text~a: ~a" dtag atexts)
 
-    (create-world! dtag {:users xusers
-                         :texts xtexts}))))
+    (create-world! dtag
+                   {:users xusers, :texts xtexts}
+                   sconf))))
 
 
 
@@ -2211,5 +2218,21 @@
     (merge {:examples fpath}
            (when (some #{:ont} opts)
              (save-ontologies world dtag)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn run
+  "Performs an experiment."
+  [dtag ausers atexts]
+  ;; TODO: Refactor to use local worlds & hold the community in the world
+  (let [sconf (cfg/? :sila {})]
+    (doseq [i (range 1 4)]
+      (log/info "Minimum status count:" i)
+      (comm/zap!)
+      (create-world! dtag ausers atexts (assoc sconf :min-statuses i))
+      (log/info "Community size:" (comm/size))
+      (report-accounts)
+      (log/debug))))
 
 

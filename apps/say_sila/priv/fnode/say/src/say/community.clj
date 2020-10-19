@@ -75,3 +75,19 @@
               (save-ontology ont (strfmt "~a/community-~a.~a.owl" fstub tag who) :owl))
           @Community)))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn size
+  "Returns the number of community members."
+  []
+  (count @Community))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn zap!
+  "Adds an ontology to the community for the user specified by who."
+  []
+  (reset! Community {}))
+
