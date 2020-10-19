@@ -1481,7 +1481,10 @@
       ;; All three arguments should be in alignment, except tweebo may have a final [""]
       (if pos1
         ;; Process the next Tweebo line
-        (let [obj-num (Long/parseLong obj)
+        (let [obj-num (try (Long/parseLong obj)
+                        (catch Exception _
+                               (log/error "Dependency parse @" tid ":" tok2 "(" sub "<-" obj ")")
+                               -1))
               dep?    (pos? obj-num)
               build   #(conj % (if dep? obj-num nil))]
           ;; Complain if the POS analysis doesn't match up (uncommon)

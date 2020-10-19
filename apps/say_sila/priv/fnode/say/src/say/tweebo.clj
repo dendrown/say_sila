@@ -49,7 +49,8 @@
   (let [ipath (get-fpath tid)
         opath (get-fpath tid :predict)]
     (if (.exists (io/file opath))
-      runs
+      (do ;(log/debug "Tweebo parse exists:" opath)
+          runs)
       (do
         (log/fmt-debug "Parsing dependencies: cnt[~a] fp[~a]" runs ipath)
         (spit ipath text)
