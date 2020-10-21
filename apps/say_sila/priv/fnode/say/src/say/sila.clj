@@ -2077,24 +2077,26 @@
 (defn eprint-user
   "Pretty-prints a user's profile and tweets, highlighting the affect and
   showing a token dependency tree if available."
-  [user]
-  ;; NOTE: we may want to redo our keying system so the data tag is the top level
-  (let [eprint (fn [xmps]
-                 (run! #(eprint-tweet %)
-                       (filter #(= user (:screen_name %)) xmps)))]
-    ;; Run through the supported text-types
-    (run! (fn [ttype]
-            ;; Group profile/tweet reports by the dataset
-            (run! (fn [[dtag elms]]
-                    (log/fmt! "~a'~a' ~a ~a~a\n" log/Bright
-                                                 (name dtag)
-                                                 (case ttype :users "Profile of"
-                                                             :texts "Tweets for")
-                                                 user
-                                                 log/Text)
-                    (eprint elms))
-                  (@World ttype)))
-          [:users :texts])))
+  ([user]
+  (eprint-user user @World))
+
+
+  ([user
+    {:as    world
+     :keys  [dtag]}]
+  ;; Run through the supported text-types
+  (run! (fn [ttype]
+          ;; Group profile/tweet reports by the dataset
+          (run! (fn [txt]
+                  (log/fmt! "~a'~a' ~a ~a~a\n" log/Bright
+                                               (name dtag)
+                                               (case ttype :users "Profile of"
+                                                           :texts "Tweets for")
+                                               user
+                                               log/Text)
+                  (eprint-tweet txt))
+                (filter #(= user (:screen_name %)) (world ttype))))
+        [:users :texts])))
 
 
 
