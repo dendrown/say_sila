@@ -77,10 +77,10 @@
 (defonce Rule-Stems     (update-values Rule-Words
                                        #(tw/stem-all % :set)))
 
-(defonce Status-Counts  (agent {}))                                 ; Tweet counts for users
 (defonce World          (atom {:users {}
                                :texts {}
-                               :ontology {}}))
+                               :ontology {}
+                               :community {}}))
 
 (defontology say-sila
   :iri    Ont-IRI
@@ -1255,9 +1255,10 @@
 ;;; --------------------------------------------------------------------------
 (defprotocol OntologyFactory
   "Functionality to create individual ontologies."
-  (make-ontology-maker [o]  "Returns a factory function which, depending on
-                             the :sila :community configuration setting, either
-                             returns a single ontology or a new one for each user."))
+  (make-ontology-maker [o]
+    "Returns a factory function which, depending on the :sila :community
+    configuration setting, either returns a single ontology or a new one
+    for each user."))
 
 (extend-protocol OntologyFactory
   OWLOntology
@@ -1282,12 +1283,17 @@
   (make-ontology-maker [otag]
     (if (cfg/?? :sila :community?)
       ;; Each user has an individual ontology
-      (let [onter (fn [sname]
+      (let [comm  (comm/new)
+            onter (fn [sname]
                     (make-ontology (hyphenize otag sname)))]
 
         ;; Function to retrieve/create user ontologies in the community
         (fn [& [sname]]
-          (comm/fetch sname onter)))
+          (case sname
+           :community comm
+           :size      (comm/size comm)
+           :fetch     (comm/fetch comm)
+                      (comm/fetch comm sname onter))))
 
       ;; All users share a single ontology
       (make-ontology-maker (make-ontology otag)))))
@@ -1408,16 +1414,16 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defun ^OWLOntology populate-profiles
-  "Populates an ontology using examples extracted from an ARFF with user data."
-  ([xmps :guard map?]
-  (update-kv-values xmps #(populate-profiles %1 %2)))
+(defun populate-profiles
+  "Populates an ontology community with user profile data from the 'examples'
+  intermediate format. The function returns the ontology maker for the community."
+  ([dtag xmps]
+  (populate-profiles dtag xmps (cfg/? :sila)))
 
 
-  ([o xmps]
+  ([o xmps sconf]
   (log/debug "Populating ontology:" o)
-  (let [sconf (cfg/? :sila)                     ; Cache config params
-        onter (make-ontology-maker o)]          ; Tag|ontology to factory function
+  (let [onter (make-ontology-maker o)]          ; Tag|ontology to factory function
     (run! (fn [{:as xmp
                 sname :screen_name
                 descr :description              ; User profile text
@@ -1622,7 +1628,7 @@
 
 
   ([world]
-  (apply keyize :- (keys (:users world)))))         ; Multi-dtag support
+  (:dtag world)))
 
 
 
@@ -1631,96 +1637,6 @@
   "Returns the filepath for a user/text examples file."
   [dtag rsrc]
   (strfmt "~a/~a-~a.edn" World-FStub (name rsrc) (name dtag)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- create-pn-goal
-  "Checks the :sila configuation and returns a map with the elements needed
-  to construct datasets and populate ontologies.  The function allows the
-  caller to override the configuration by adding :key value pairs as arguments."
- ([dset]
- (let [{:as   sconf
-        :keys [pn-count]
-        :or   {pn-count Init-PN-Count}} (cfg/? :sila)]
-    ;; The default is the number of examples for creating ontology individuals
-    (create-pn-goal dset pn-count sconf)))
-
-
- ([dset cnt]
- (create-pn-goal dset cnt (cfg/? :sila)))
-
-
- ([dset cnt {:as   sconf
-             :keys [pn-balance?]}]
- ;; Unless it's a singleton, odd counts that are balanced will have an extra instance
- (let [[goal
-        checks] (if (and pn-balance?
-                         (> cnt 1))
-                    [(int (/ cnt 2)) [:positive :negative]]     ; pos/neg instances separately
-                    [cnt [dset]])]                              ; all instances together
-
-   ;; Add what we need for our goals
-   (assoc sconf :goal    goal
-                :checks  checks
-                :dataset dset))))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- describe-creation
-  "Returns a string describing the creation goals."
-  ([{:keys [balance?
-            dataset
-            extra-info
-            goal]}]
-   (str (if balance? (str "Balancing " goal "/" goal)
-                     (str "Creating "  goal))
-        " " (name dataset)
-        (when extra-info
-          (str " " extra-info))))
-
-
-  ([goals tt]
-  (describe-creation (assoc (goals tt)
-                            :extra-info (name tt)))))
-
-
-;;; --------------------------------------------------------------------------
-(defn- creation-done?
-  "Returns true if the callers creation activites have completed."
-  [cnts
-   {:keys [goal checks]}]
-  (every? #(>= (cnts %) goal) checks))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- creation-full?
-  "Returns true if a (pos|neg balanced) category has filled up during  the
-  creation of a dataset or an example set."
-  [cnts pole
-   {:keys [balance? goal checks]}]
-  (and (not= pole :?)                       ; Not under evaluation
-       balance?
-       (>= (cnts pole) goal)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- zero-pn-counter
-  "Returns a map used to initialize counting SCR examples or data instances."
-  [dset]
-  (reduce #(assoc %1 %2 0) {} [dset :positive :negative :?]))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- inc-pn-counter
-  "Returns an updated map after incrementing the couter values for the dataset
-  and the specified polarity."
-  [cnts dset pn]
-  (update-values cnts [dset pn] inc))
 
 
 
@@ -1835,7 +1751,8 @@
 
 
   ([dtag data]
-  (hash-map dtag (profiles->examples data))))
+  (hash-map :dtag  dtag
+            :users (profiles->examples data))))
 
 
 
@@ -1843,27 +1760,18 @@
 (defn statuses->examples
   "Converts Weka status (S99) instances (tweets) into a sequence of examples
   in the intermediate format."
-  ([dtag data]
-  (let [insts (weka/load-dataset data (dset/col-target :s))
-        icnt  (.numInstances insts)]
-    (log/fmt-debug "Text instances~a: ~a" dtag icnt)
-    (statuses->examples dtag insts icnt)))
-
-
-  ([dtag ^Instances insts cnt]
+  [dtag data]
   ;; Keep track of how many examples to create, as per the configured 'balance' setting
-  (let [columns     (dset/columns :s)
+  (let [insts       (weka/load-dataset data (dset/col-target :s))
+        columns     (dset/columns :s)
         [col-id
          col-sname
          col-text]  (map columns [:id :screen_name :text])
         tools       (toolbox)
-        stoic?      (:stoic? tools)
-        goal        (create-pn-goal dtag cnt)]
+        activity    (agent {})]                             ; Track user text counts
 
     ;; The number of examples we're creating depends on how things were configured
-    (log/info (describe-creation goal)
-              "SCR examples [pos/neg]"
-              (if ((:all-pn? tools)) "(emotive)" "(includes stoic)"))
+    (log/info "Converting" (.numInstances insts) "instances")
 
     ;; Shall we (pseudo)randomize the instances?
     (when-let [seed (cfg/?? :sila :rand-seed)]
@@ -1871,69 +1779,62 @@
       (.randomize insts (Random. seed)))
 
     ;; Throw away the counter & return the folded example sequence
-    (second
-      (reduce (fn [[cnts xmap :as info]                             ; FUN: add a textual eXample
-                   ^Instance inst]
-                ;(log/debug "Counts:" cnts)
-                ;; Do we have enough examples to stop?
-                (if (creation-done? cnts goal)
-                  (do (log/info "Examples:" cnts)
-                      (reduced info))
-                  (let [tid    (lbl/label-text (.stringValue inst (int col-id)))
-                        sname  (.stringValue inst (int col-sname))
-                        pole   (lbl/polarize inst)
-                        elms   (.stringValue inst (int col-text))       ; Text elements are "pos_term"
-                        xmp    (make-example tools tid sname elms pole) ; Example as a hashmap
-                        xkeys  (apply set/union #{dtag} (xmp :rules))]  ; Full dataset & all SCRs
-                    ;; Do we skip|process this Text??
-                    (if (or (stoic? xmp)                                ; Is it void of pos/neg/emotion?
-                            (creation-full? cnts pole goal))            ; Still collecting for this polarity?
-                      info
-                      (do
-                       (send Status-Counts                              ; Prepare for filtering
-                                #(update % sname (fnil inc 0)))
-                       [(inc-pn-counter cnts dtag pole)                 ; Update pos/neg/all counts
-                        (update-values xmap xkeys #(conj % xmp))])))))
+    (hash-map
+     :dtag dtag
+     :activity activity
+     :texts (domap (fn [^Instance inst]
+                     (let [tid   (lbl/label-text (.stringValue inst (int col-id)))
+                           sname (.stringValue inst (int col-sname))
+                           pole  (lbl/polarize inst)
+                           elms  (.stringValue inst (int col-text))]    ; Text elements are "pos_term"
 
-            [(zero-pn-counter dtag)                                 ; ACC: total/pos/neg counts
-             (reduce #(assoc %1 %2 #{}) {} (keys Rule-Words))]      ;      Examples keyed by rule
+                       (send activity #(update % sname (fnil inc 0)))   ; Prepare for filtering
+                       (make-example tools tid sname elms pole)))       ; Example as a hashmap
 
-            (enumeration-seq (.enumerateInstances insts)))))))      ; SEQ: Weka instances
+                   (weka/instance-seq insts)))))                        ; SEQ: Weka instances
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn filter-by-status-counts
+(defn filter-by-activity
   "Takes a stream of statuses or user profiles and returns a lazy sequence
   containing only those who have published at least as many tweets as the
   :min-statuses parameter in the :sila configuration."
-  ([txts]
-  (filter-by-status-counts txts (cfg/? :sila)))
+  ([world]
+  (filter-by-activity world (cfg/? :sila)))
 
 
-  ([texts sconf]
-  (let [counts @Status-Counts
-        thresh (sconf :min-statuses 1)]
-    ;; Keep the ones with at least the minimum number of tweets
-    (filter #(when-let [n (counts (:screen_name %) 0)]
-               (>= n thresh))
-            texts))))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn zap-status-counts
-  "Reinitializes the Status-Counts agent."
-  []
-  ;; TODO: Use local world records that encapsulate all the bits and bobs!
-  (await Status-Counts)
-  (send Status-Counts (fn [_] {})))
+  ([{:keys [activity users texts]
+     :as world}
+    sconf]
+  ;; Keep profiles/statuses with at least the minimum number of tweets
+  (let [counts @activity
+        thresh (sconf :min-statuses 1)
+        select (fn [texts]
+                 (filter #(when-let [n (counts (:screen_name %) 0)]
+                            (>= n thresh))
+                         texts))]
+    (merge world {:users (select users)
+                  :texts (select texts)}))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defun create-world!
-  "Loads the official say-sila examples and ontologies."
+(defn zap-activity
+  "Reinitializes the status activity agent."
+  ([]
+  (zap-activity @World))
+
+  ([{:keys [activity]}]
+  (await activity)
+  (send activity (fn [_] {}))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn create-world
+  "Returns a world structure containing the official say-sila examples,
+  ontologies and associated data."
   ([]
   ;; Pull the configured dataset information for users and their texts.
   ;; TODO: Incorporate dset/t->su
@@ -1947,7 +1848,7 @@
                                             (map name [dir src track dtag (dset/code %)]))
                               [:user :senti])]
     ;; Now we've got ARFF datasets, load % process them
-    (create-world! dtag ausers atexts)))
+    (create-world dtag ausers atexts)))
 
 
   ([dtag]
@@ -1955,47 +1856,53 @@
   (let [fpath (which-edn dtag :examples)]
     (if (.exists (io/file fpath))
         (do (log/fmt-info "User/text examples~a: ~a" dtag fpath)
-            (create-world! dtag (edn/read-string (slurp fpath))))
+            (create-world (edn/read-string (slurp fpath))
+                          (cfg/? :sila {})))
         (log/warn "No saved world:" (name dtag)))))
 
 
-  ([dtag
-    ausers :guard string?
-    atexts :guard string?]
-  (create-world! dtag ausers atexts (cfg/? :sila {})))
-
-
-  ([dtag
-    xmps :guard map?
-   sconf :guard map?]
+  ([{:keys [dtag activity]
+     :as   preworld}
+    sconf]
   ;; This middle arity clause is where we wrap everything up!
-  ;; Make an ontology out of the passed e[x]ample hashmap.
-  (await Status-Counts)
-  (let [[usrs
-         txts]  (map #(filter-by-status-counts (-> xmps % dtag) sconf) [:users
-                                                                        :texts])
-        world   (-> (populate-profiles dtag usrs)
-                    (populate-statuses txts sconf))]
+  ;; The (pre)world already has users and their texts; create the ontology.
+  (await activity)
+  (let [{:as   world
+         :keys [users texts]} (filter-by-activity preworld sconf)
 
-    ;; Set our top-level state. Each element holds a tagged map of the appropriate data
-    (reset! World (assoc xmps :ontology {dtag world}))
-    (send Memory conj [:world (jvm/memory-used :MB)])
-    dtag))
+        onter (-> (populate-profiles dtag users sconf)
+                  (populate-statuses texts sconf))]
+
+    ;; Put everything together
+    (assoc world :ontology onter)))
+
+
+  ([dtag ausers atexts]
+  (create-world dtag ausers atexts (cfg/? :sila {})))
 
 
   ([dtag ausers atexts sconf]
   ;; Create e[x]amples from the source [a]arff files
-  (let [xusers (profiles->examples dtag ausers)             ; U-dataset user profiles
-        xtexts (statuses->examples dtag atexts)]            ; S-dataset tweet texts
+  (log/fmt-info "Dataset user~a: ~a" dtag ausers)
+  (log/fmt-info "Dataset text~a: ~a" dtag atexts)
 
-    ;; Now we've got ARFF datasets, load % process them
-    (log/fmt-info "Dataset user~a: ~a" dtag ausers)
-    (log/fmt-info "Dataset text~a: ~a" dtag atexts)
+  (create-world (merge (profiles->examples dtag ausers)     ; U-dataset user profiles
+                       (statuses->examples dtag atexts))    ; S-dataset tweet status texts
+                  sconf)))
 
-    (create-world! dtag
-                   {:users xusers, :texts xtexts}
-                   sconf))))
 
+
+;;; --------------------------------------------------------------------------
+(defun create-world!
+  "Loads the official say-sila examples and ontologies into the official World
+  for this namespace.  Contrary to the generalized create-world, this function
+  simply returns the data tag for the new official World.  This behaviour is
+  due to the complexity of worlds and the function's intended use in the REPL."
+  [& args]
+  (let [w (apply create-world args)]
+    (reset! World w)
+    (send Memory conj [:world (jvm/memory-used :MB)])
+    (:dtag w)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -2101,22 +2008,20 @@
   (report-accounts @World))
 
 
-  ([world]
+  ([{:keys [dtag ontology]
+     :as   world}]
   ;; NOTE: The newer community way is subtly different from the original say-sila world
   (if (cfg/?? :sila :community?)
     ;; The community approach currently supports (just) a single set of ontologies
-    (report-accounts (first (keys (:ontology world)))       ; The single data tag
-                     (comm/fetch))
-    ;; The base say-sila approach has multiple (big) ontologies, keyed by data tags
-    (run! (fn [[dtag onter]]
-            (report-accounts dtag [(onter)]))
-            (:ontology world))))
+    (report-accounts dtag (ontology :fetch) (ontology :size))
+
+    ;; The base say-sila approach has a big ontologies with all the users
+    (report-accounts dtag [((:ontology world))] (count (:users world)))))
 
 
-  ([dtag onts]
+  ([dtag onts ccnt]
   (let [targets '[HumanCauseBelieverAccount
                   NaturalCauseBelieverAccount]
-        ccnt    (comm/size)
 
         search  (fn [ont]
                   ;; Find all instances for the search classes
@@ -2132,8 +2037,11 @@
 
         report  (fn [sym]
                   (let [accts (get needles sym)
-                        acnt  (count accts)]
-                    (log/fmt-info "~a~a: ~a of ~a (~$%)" sym dtag acnt ccnt (/ acnt ccnt))
+                        acnt  (count accts)
+                        p100  (if (pos? ccnt)
+                                  (/ acnt ccnt)
+                                  0.0)]
+                    (log/fmt-info "~a~a: ~a of ~a (~$%)" sym dtag acnt ccnt p100)
                     (comment run! #(log/debug "  -" (iri-fragment %)) accts)))]
 
     ;; Log report to the console for all targets
@@ -2205,14 +2113,11 @@
   (save-ontologies @World))
 
 
-  ([world]
-  (save-ontologies world (which-data world)))
-
-
-  ([world dtag]
+  ([{:keys  [dtag ontology]
+     :as    world}]
   (save-ontology say-sila Ont-FPath :owl)
   (if (cfg/?? :sila :community?)
-      (comm/save dtag)
+      (comm/save (ontology :community) dtag)
       (merge {:say-sila Ont-FPath}
              (save-ontology-map (:ontology world) Ont-FStub)))))
 
@@ -2240,17 +2145,20 @@
 (defn run
   "Performs an experiment."
   [dtag ausers atexts]
-  ;; TODO: Refactor to use local worlds & hold the community in the world
-  (let [sconf (cfg/? :sila)
-        zap!  (fn []
-                (zap-status-counts)
-                (comm/zap!))]
-    (doseq [i (range 1 4)]
-      (log/debug)
-      (log/info "Minimum status count:" i)
-      (zap!)
-      (create-world! dtag ausers atexts (assoc sconf :min-statuses i))
-      (log/info "Community size:" (comm/size))
-      (report-accounts))))
+  (let [maxmin  4                                   ; Maximum 'minimum activity'
+        sconf   (cfg/? :sila)
+        reconf  (fn [n]
+                  (assoc sconf :min-statuses n))
+        reworld (fn [w n]
+                  (create-world w (reconf n)))]
 
+    ;; Check ontological coverage for a series of increasing minimum activity
+    (loop [n 1
+           w (create-world dtag ausers atexts (reconf 1))]
+      (when (<= n maxmin)
+        (log/debug)
+        (log/info "Minimum status count:" n)
+        (log/info "Community size:" ((w :ontology) :size))
+        (report-accounts w)
+        (recur (inc n) (reworld w n))))))
 
