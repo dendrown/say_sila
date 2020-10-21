@@ -93,8 +93,9 @@
 (defn wait
   "Blocks execution until all pernding Tweebo Parser requests have completed."
   []
-  (log/fmt-info "Syncing Tweebo requests: cnt[~a]" @Runner)
-  (await Runner))
+  (log/fmt-debug "Syncing Tweebo requests: cnt[~a]" @Runner)
+  (when-not (await-for 30000 Runner)
+    (recur)))
 
 
 
