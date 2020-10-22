@@ -1292,6 +1292,7 @@
           (case sname
            :community comm
            :size      (comm/size comm)
+           :zap!      (comm/zap! comm)
            :fetch     (comm/fetch comm)
                       (comm/fetch comm sname onter))))
 
@@ -2168,21 +2169,24 @@
                 (merge sconf skips {:min-statuses n})))
 
             ;; ---------------------------------------------------------------
-            (reworld [w & cfg]
-                (create-world w (apply reconf cfg)))
+            (zap! [w]
+              ;; Release the community ontologies to free up memory
+              ((w :ontology) :zap!))
 
             ;; ---------------------------------------------------------------
-            (report [w0 n]
-              ;; If we want to create an MD table, we'll need to do something like this...
-              (comment interpose
-               "|"
-               (doall (for [w (apply list w0
-                                         (map #(reworld w0 n %) skips))]
-                        (report-accounts w))))
-              ;; That's having problems with lazy handling of ontologies, so for now...
-              (report-accounts w0)
-              (run! #(report-accounts (reworld w0 n %)) skips)
-              "\n")]
+            (reworld [w & cfg]
+              (create-world w (apply reconf cfg)))
+
+            ;; ---------------------------------------------------------------
+            (report
+              ([w]
+                (report-accounts w)
+                (zap! w))
+
+              ([w0 n]
+                (report w0)
+                (run! #(report (reworld w0 n %)) skips)
+                "\n"))]
 
       ;; Check ontological coverage for a series of increasing minimum activity
       (loop [n 1
