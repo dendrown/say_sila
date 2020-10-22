@@ -1341,8 +1341,7 @@
 
     ;; If they didn't pass an entity, assume this is a tweet
     ;; TODO: Handle access to say.sila namespace
-    (when (and screen_name                                              ; Test data may not have screen names
-               (not entity))
+    (when screen_name                                               ; Test data may not have screen names
       (refine ont (individual ont screen_name) :fact (is publishes text)))
 
      ;; Prepare for Tweebo Parsing if desired
@@ -1429,12 +1428,13 @@
                 descr :description              ; User profile text
                 tid   :tid}]                    ; Text ID is the profile ID
             (let [ont   (onter sname)
-                  acct  (individual ont sname :type OnlineAccount)  ; Twitter user account
-                  prof  (individual ont tid                         ; User profile
-                                    :type PersonalProfile
-                                    :fact (is dul/isAbout acct))]
-              ;; Add PoS/senti for the profile content
-              (add-text onter prof xmp sconf)))
+                  acct  (individual ont sname :type OnlineAccount)] ; Twitter user account
+              ;; Add PoS/senti for the user's profile content
+              (when-not (:skip-profiles sconf)
+                (add-text onter
+                          (individual ont tid :type PersonalProfile)
+                          xmp
+                          sconf))))
           xmps)
     ;; Return the ontology maker
     onter)))
@@ -1459,7 +1459,7 @@
   (let [ont     (onter screen_name)
         include #(refine ont %1 :fact (is dul/hasComponent %2))
         equiv?  #(or (= %1 %2)
-                     (every? #{"\"" "QUOTE" "\"'" "'\"" "/QUøTE"} [%1 %2]))
+                     (every? #{"\"" "QUOTE" "\"'" "'\"" "QUøTE"} [%1 %2]))
         make    (memoize (fn [ling n]
                             (let [tokid  (lbl/label-text-token tid n)
                                   token  (individual ont tokid)
@@ -1605,18 +1605,21 @@
 
   ([o xmps sconf]
   (let [onter (make-ontology-maker o)]
-    ;; Populate combined|community ontology with the tweet statuses
-    (run! #(add-text onter % sconf) xmps)
+    ;; For testing, we may skip tweets (using only profiles)
+    (when-not (:skip-statuses sconf)
+      ;; Populate combined|community ontology with the tweet statuses
+      (run! #(add-text onter % sconf) xmps)
 
-    ;; Add Tweebo dependencies
-    (when (get sconf :use-tweebo?)
-      ;; add-dependencies will update the ontology, but we need to do a bit more processing
-      (twbo/wait)
-      (let [xdeps (map #(add-dependencies onter %) xmps)]
+      ;; Add Tweebo dependencies
+      (when (get sconf :use-tweebo?)
+        ;; add-dependencies will update the ontology, but we need to do a bit more processing
+        (twbo/wait)
+        (let [xdeps (map #(add-dependencies onter %) xmps)]
 
-        ;; Indicate which tokens were NOT negated
-        (run! #(add-affirmations onter %) xdeps)))
+          ;; Indicate which tokens were NOT negated
+          (run! #(add-affirmations onter %) xdeps))))
 
+    ;; Return the ontology look-er-up-er function
     onter)))
 
 
@@ -2149,18 +2152,48 @@
   [dtag ausers atexts]
   (let [maxmin  4                                   ; Maximum 'minimum activity'
         sconf   (cfg/? :sila)
-        reconf  (fn [n]
-                  (assoc sconf :min-statuses n))
-        reworld (fn [w n]
-                  (create-world w (reconf n)))]
+        yn??    [true false]
 
-    ;; Check ontological coverage for a series of increasing minimum activity
-    (loop [n 1
-           w (create-world dtag ausers atexts (reconf 1))]
-      (when (<= n maxmin)
-        (log/debug)
-        (log/info "Minimum status count:" n)
-        (log/info "Community size:" ((w :ontology) :size))
-        (report-accounts w)
-        (recur (inc n) (reworld w n))))))
+        ;; Set up to skip profiles (0), then statuses, then neither
+        [_ skip1 & skips] (for [profs yn??
+                                stats yn??]
+                            {:skip-profiles profs, :skip-statuses stats})]
+
+    (letfn [;; ---------------------------------------------------------------
+            (reconf
+              ([n]
+                (reconf n skip1))
+
+              ([n skips]
+                (merge sconf skips {:min-statuses n})))
+
+            ;; ---------------------------------------------------------------
+            (reworld [w & cfg]
+                (create-world w (apply reconf cfg)))
+
+            ;; ---------------------------------------------------------------
+            (report [w0 n]
+              ;; If we want to create an MD table, we'll need to do something like this...
+              (comment interpose
+               "|"
+               (doall (for [w (apply list w0
+                                         (map #(reworld w0 n %) skips))]
+                        (report-accounts w))))
+              ;; That's having problems with lazy handling of ontologies, so for now...
+              (report-accounts w0)
+              (run! #(report-accounts (reworld w0 n %)) skips)
+              "\n")]
+
+      ;; Check ontological coverage for a series of increasing minimum activity
+      (loop [n 1
+             w (create-world dtag ausers atexts (reconf 1))]
+
+        (when (<= n maxmin)
+          (log/info "Minimum status count:" n)
+          (log/info "Community size:" ((w :ontology) :size))
+
+          (let [rpt (report w n)
+                n+1 (inc n)]
+          (log/debug rpt)
+          (recur n+1 (reworld w n+1))))))))
 
