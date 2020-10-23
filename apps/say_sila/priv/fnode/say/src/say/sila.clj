@@ -417,6 +417,9 @@
 (defrule HUMAN  "Expressions which refer to humans or humanity.")
 (defrule NATURE "Expressions which refer to the natural world.")
 
+(defrule ENERGY "Expressions which refer to energy.")
+(defrule CONSERVATION "Expressions which indicate a relationship of convervation.")
+
 (defrule NEGATION "Expressions which negate other terms.")
 
 ;; HermiT gives us all kinds of problems at inference-time if we don't
@@ -515,7 +518,24 @@
     :equivalent (dl/and OnlineAccount
                         (dl/or
                           (dl/some publishes (dl/some dul/hasComponent AffirmedNaturalCauseToken))
-                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken)))))
+
+  ;; -------------------------------------------------------------------------
+  (defclass EnergyToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/some indicatesRule ENERGY)))
+
+  (defclass ConservationToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/some indicatesRule CONSERVATION)))
+
+  (defclass EnergyConservationAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
+                                                   (dl/some dul/hasComponent ConservationToken)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -2022,7 +2042,8 @@
 
 
   ([dtag onts ccnt]
-  (let [targets '[HumanCauseBelieverAccount
+  (let [targets '[EnergyConservationAccount
+                  HumanCauseBelieverAccount
                   NaturalCauseBelieverAccount]
 
         search  (fn [ont]
