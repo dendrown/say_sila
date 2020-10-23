@@ -1914,28 +1914,26 @@
   "Give positive/negative coverage and sentiment statistics for sets of
   intermediate-format examples or a hashmap with multiple sets of examples
   as values."
-  ([xmps]
-  (if (map? xmps)
-      (run! #(apply report-examples %)                          ; Report keyed example sets
-            (select-keys xmps (filter keyword? (keys xmps))))   ; ..ignoring s"CONCEPT" submaps
-      (report-examples :examples xmps)))                        ; Single set of examples
+  ([]
+  (report-examples @World))
 
 
-  ([dtag xmps]
+  ([{:keys [dtag
+            texts]}]
   (let [;; Statistics on text polarity and presence of affect
         stats   (reduce #(let [ss (if (every? empty? (:affect %2))
                                       :stoic
                                       :senti)]
                            (update-values %1 [:count (:polarity %2) ss] inc))
                         (zero-hashmap :count :positive :negative :? :senti :stoic)
-                        xmps)
+                        texts)
 
         ;; Generalized roll-up functionality
         p100    #(* 100. (/ (stats %)
                             (stats :count)))
 
         zero    #(apply zero-hashmap %)
-        init    #(vector (map %1 xmps)                          ; [elements, initial count-map]
+        init    #(vector (map %1 texts)                         ; [elements, initial count-map]
                          (zero %2))
         kount   #(update-values %1 %2 inc)                      ; Accumulate hits from seq %2
 
@@ -1974,7 +1972,7 @@
                           pos-tags)]
 
   ;; Report the basic statistics
-  (log/fmt-info "SCR~a: p[~1$%] s[~1$%] xmps~a"
+  (log/fmt-info "SCR~a: p[~1$%] s[~1$%] txts~a"
                 dtag (p100 :positive) (p100 :senti) stats)
 
   ;; Report pos/neg first, then the emotions

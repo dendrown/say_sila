@@ -37,6 +37,11 @@
 2020-10-22 22:17:55.274   INFO: Community size: 3050
 2020-10-22 22:56:59.935   INFO: HumanCauseBelieverAccount:env: 63 of 3050 (0.02%)
 2020-10-22 22:56:59.935   INFO: NaturalCauseBelieverAccount:env: 37 of 3050 (0.01%)
+
+;; Minimum of 4 tweets
+2020-10-23 --:--:--.---   INFO: Community size: 1884
+2020-10-23 15:49:00.150   INFO: HumanCauseBelieverAccount:env: 53 of 1884 (0.03%)
+2020-10-23 15:49:00.152   INFO: NaturalCauseBelieverAccount:env: 30 of 1884 (0.02%)
 ```
 
 ## TopN20 Big Players for green run
