@@ -6,7 +6,7 @@
 ;;;;         _/    _/    _/        _/    _/
 ;;;;  _/_/_/    _/_/_/  _/_/_/_/  _/    _/
 ;;;;
-;;;; Wrappers fordNet functionality
+;;;; Wrappers WordNet functionality
 ;;;;
 ;;;; @copyright 2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
@@ -14,7 +14,15 @@
   (:require [say.genie          :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
-            [wordnet.core       :as wnet]))
+            [wordnet.core       :as wnet]
+            [clojure.pprint     :refer [pp]]))
+
+(defonce Concept-Synsets
+ ;; These are synsets applicable to climate change concepts as described in the Six Americas
+ {"save"
+  #{"SID-02556565-V"    ;gloss "save from ruin, destruction, or harm"
+    "SID-02557529-V"    ;gloss "bring into safety; \"We pulled through most of the victims of the bomb attack\""
+    "SID-02470006-V"}}) ;gloss "refrain from harming"
 
 
 ;;; --------------------------------------------------------------------------
@@ -38,13 +46,29 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn synonyms
-  "Returns synonyms (lemmas) of the word.  Caution: the synonyms span all
-  associated synsets."
+(defn synsets
+  "Returns synsets for the specified word.  If the word represents a Say-Sila
+  concept, the caller will only get the synsets wich are applicable climate
+  change modelling.  Otherwise, the synonyms span all associated synsets."
   [word]
   (wordnet word
+  (let [syns (get Concept-Synsets word)
+        use? #(or (nil? syns)
+                  (contains? syns (:id %)))]
     (->> (Dictionary word)
          (map wnet/synset)
+         (filter use?)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn synonyms
+  "Returns synonyms (lemmas) of the word.  Note that for words representing
+  Say-Sila concepts, the function will only return synonyms associated with
+  climate change modelling."
+  [word]
+  (when-let [syns (synsets word)]
+    (->> syns
          (mapcat wnet/words)
          (map :lemma)
          (into #{}))))
