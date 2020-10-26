@@ -12,6 +12,7 @@
 | 03| ≈50KB | ≈1000  | Individual ontologies |
 
 
+### Minimum tweet activity
 ```clojure
 ;; Tweets & Profiles
 2020-10-22 19:17:03.024   INFO: Minimum status count: 1
@@ -42,6 +43,14 @@
 2020-10-23 --:--:--.---   INFO: Community size: 1884
 2020-10-23 15:49:00.150   INFO: HumanCauseBelieverAccount:env: 53 of 1884 (0.03%)
 2020-10-23 15:49:00.152   INFO: NaturalCauseBelieverAccount:env: 30 of 1884 (0.02%)
+```
+
+### WordNet synset constraints + Energy Conservation Account
+```clojure
+;; Min tweet count: 1
+2020-10-25 21:37:19.338   INFO: EnergyConservationAccount:env: 1240 of 25682 (0.05%)
+2020-10-25 21:37:19.341   INFO: HumanCauseBelieverAccount:env: 103 of 25682 (0.00%)
+2020-10-25 21:37:19.341   INFO: NaturalCauseBelieverAccount:env: 65 of 25682 (0.00%)
 ```
 
 ## TopN20 Big Players for green run
