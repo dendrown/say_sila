@@ -37,7 +37,7 @@
             [clojure.string     :as str]
             [clojure.pprint     :refer [pp]]
             [defun.core         :refer [defun]]
-            [incanter.core      :refer [dataset view with-data]]
+            [incanter.core      :refer [dataset $data view with-data]]
             [incanter.charts    :refer [stacked-bar-chart set-stroke-color]]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
@@ -1039,7 +1039,7 @@
     ;; Have we one text or many?
     (cond
      (map? txt) (sum txt)
-     (seq? txt) (apply merge-with + (map sum txt)))))
+     (sequential? txt) (apply merge-with + (map sum txt)))))
 
 
 
@@ -1055,7 +1055,7 @@
 ;;; --------------------------------------------------------------------------
 (defn chart-affect
   "Produces a  affect total counts for all the tokens in a text/profile."
-  [txt]
+  [texts]
   ;; Match affect colours to Incanter/jFree charting
   (let [affect [["Anger"        Color/red]
                 ["Fear"         (new Color 000 153 000)]
@@ -1066,15 +1066,21 @@
                 ["Disgust"      (new Color 204 051 204)]
                 ["Trust"        (new Color 051 255 102)]
                 ["Positive"     Color/yellow]
-                ["Negative"     (new Color 051 051 204)]]]
+                ["Negative"     (new Color 051 051 204)]]
+        utexts  (group-by :screen_name texts)
+        emote   (fn [[sname txts]]
+                  ;; Affect levels across all texts for this user
+                  (map (fn [[emo cnt]] [sname emo cnt])
+                    (sum-affect txts)))]
 
   (with-data (dataset [:user :emotion :level]                   ; dataset columns
                       (concat (map (fn [[emo _]] ["" emo 0])    ; Set colour order
                                    affect)
-                      (map (fn [[emo cnt]] ["user" emo cnt])    ; User affect levels
-                           (sum-affect txt))))
+                       (mapcat emote utexts)))                  ; User affect levels
 
     (let [chart (stacked-bar-chart :user :level :group-by :emotion :legend true)]
+
+      ;(view $data)
 
       ;; Set the colours for the order we made with the :sync rows
       (run! #(set-stroke-color chart (second (affect %)) :series %)
