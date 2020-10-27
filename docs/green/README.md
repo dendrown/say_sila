@@ -51,6 +51,16 @@
 2020-10-25 21:37:19.338   INFO: EnergyConservationAccount:env: 1240 of 25682 (0.05%)
 2020-10-25 21:37:19.341   INFO: HumanCauseBelieverAccount:env: 103 of 25682 (0.00%)
 2020-10-25 21:37:19.341   INFO: NaturalCauseBelieverAccount:env: 65 of 25682 (0.00%)
+
+;; Min tweet count: 5
+2020-10-26 14:37:44.311   INFO: EnergyConservationAccount:env: 309 of 1317 (0.23%)
+2020-10-26 14:37:44.313   INFO: HumanCauseBelieverAccount:env: 20 of 1317 (0.02%)
+2020-10-26 14:37:44.314   INFO: NaturalCauseBelieverAccount:env: 17 of 1317 (0.01%)
+
+;; Min tweet count: 10
+2020-10-26 15:30:36.937   INFO: EnergyConservationAccount:env: 178 of 527 (0.34%)
+2020-10-26 15:30:36.939   INFO: HumanCauseBelieverAccount:env: 10 of 527 (0.02%)
+2020-10-26 15:30:36.939   INFO: NaturalCauseBelieverAccount:env: 8 of 527 (0.02%)
 ```
 
 ## TopN20 Big Players for green run

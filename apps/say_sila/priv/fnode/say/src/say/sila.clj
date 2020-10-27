@@ -37,13 +37,16 @@
             [clojure.string     :as str]
             [clojure.pprint     :refer [pp]]
             [defun.core         :refer [defun]]
+            [incanter.core      :refer [dataset view with-data]]
+            [incanter.charts    :refer [stacked-bar-chart set-stroke-color]]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
             [tawny.query        :as qry]
             [tawny.repl         :as repl]                   ; <= debug
             [tawny.owl          :refer :all]
             [clojure.core.logic :refer :all :exclude [annotate is run]])
-  (:import  (java.util Random)
+  (:import  (java.awt Color)
+            (java.util Random)
             (org.semanticweb.owlapi.model   IRI
                                             OWLOntology
                                             OWLOntologyID)
@@ -1024,6 +1027,66 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn sum-analysis
+  "Returns analysis element totals counts for all the tokens in a single text
+  (or profile) or a sequence of them."
+  [txt]
+  (let [sum (fn [t]
+              (reduce #(update-values %1 %2 (fnil inc 0))
+                      {}
+                      (remove empty? (:analysis t))))]
+    ;; Have we one text or many?
+    (cond
+     (map? txt) (sum txt)
+     (seq? txt) (apply merge-with + (map sum txt)))))
+
+
+
+
+;;; --------------------------------------------------------------------------
+(defn sum-affect
+  "Returns affect total counts for all the tokens in a text/profile."
+  [txt]
+  (select-keys (sum-analysis txt) Affect-Names))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn chart-affect
+  "Produces a  affect total counts for all the tokens in a text/profile."
+  [txt]
+  ;; Match affect colours to Incanter/jFree charting
+  (let [affect [["Anger"        Color/red]
+                ["Fear"         (new Color 000 153 000)]
+                ["Sadness"      (new Color 148 000 211)]
+                ["Joy"          (new Color 255 215 000)]
+                ["Surprise"     (new Color 051 255 255)]
+                ["Anticipation" (new Color 255 140 000)]
+                ["Disgust"      (new Color 204 051 204)]
+                ["Trust"        (new Color 051 255 102)]
+                ["Positive"     Color/yellow]
+                ["Negative"     (new Color 051 051 204)]]]
+
+  (with-data (dataset [:user :emotion :level]                   ; dataset columns
+                      (concat (map (fn [[emo _]] [:sync emo 0]) ; Set colour order
+                                   affect)
+                      (map (fn [[emo cnt]] ["user" emo cnt])    ; User affect levels
+                           (sum-affect txt))))
+
+    (let [chart (stacked-bar-chart :user :level :group-by :emotion :legend true)]
+
+      ;; Set the colours for the order we made with the :sync rows
+      (run! #(set-stroke-color chart (second (affect %)) :series %)
+            (range (count affect)))
+
+      ;; Render and go!
+      (-> chart .getCategoryPlot .getRenderer)
+      (view chart)))))
+
+
+
+
+;;; --------------------------------------------------------------------------
 (defn eword
   "Returns a printable colour-coded string of word high-lighted with respect
   to the specified sentiment/emotion set."
@@ -1957,7 +2020,7 @@
                          (zero %2))
         kount   #(update-values %1 %2 inc)                      ; Accumulate hits from seq %2
 
-        count-tokens    (fn [zeros elements]
+        count-tokens    (fn [zeros elements]                    ; TODO: use sum-analysis
                           (reduce kount
                                   zeros
                                   (flatten (map #(remove empty? %) elements))))
@@ -2120,6 +2183,13 @@
                   (eprint-tweet txt))
                 (filter #(= user (:screen_name %)) (world ttype))))
         [:users :texts])))
+
+
+
+(defn echart-user
+  "Create a chart of the emotionalexpression in users' tweets."
+  [user]
+  :todo)
 
 
 
