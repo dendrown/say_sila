@@ -47,6 +47,7 @@
             [clojure.core.logic :refer :all :exclude [annotate is run]])
   (:import  (java.awt Color)
             (java.util Random)
+            (org.jfree.chart JFreeChart)
             (org.semanticweb.owlapi.model   IRI
                                             OWLOntology
                                             OWLOntologyID)
@@ -1068,7 +1069,7 @@
                 ["Negative"     (new Color 051 051 204)]]]
 
   (with-data (dataset [:user :emotion :level]                   ; dataset columns
-                      (concat (map (fn [[emo _]] [:sync emo 0]) ; Set colour order
+                      (concat (map (fn [[emo _]] ["" emo 0])    ; Set colour order
                                    affect)
                       (map (fn [[emo cnt]] ["user" emo cnt])    ; User affect levels
                            (sum-affect txt))))
@@ -1080,7 +1081,9 @@
             (range (count affect)))
 
       ;; Render and go!
-      (-> chart .getCategoryPlot .getRenderer)
+      (-> ^JFreeChart chart
+          .getCategoryPlot
+          .getRenderer)
       (view chart)))))
 
 
