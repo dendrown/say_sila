@@ -1055,7 +1055,7 @@
 ;;; --------------------------------------------------------------------------
 (defn chart-affect
   "Produces a  affect total counts for all the tokens in a text/profile."
-  [texts]
+  [texts & opts]
   ;; Match affect colours to Incanter/jFree charting
   (let [affect [["Anger"        Color/red]
                 ["Fear"         (new Color 000 153 000)]
@@ -1067,19 +1067,27 @@
                 ["Trust"        (new Color 051 255 102)]
                 ["Positive"     Color/yellow]
                 ["Negative"     (new Color 051 051 204)]]
-        utexts  (group-by :screen_name texts)
+
         emote   (fn [[sname txts]]
-                  ;; Affect levels across all texts for this user
+                  ;; Affect levels across all texts for one user
                   (map (fn [[emo cnt]] [sname emo cnt])
-                    (sum-affect txts)))]
+                    (sum-affect txts)))
+
+        ;; Group tweets by user, ordered by Z..A text count
+        tcount  #(- (count (second %)))
+        utexts  (sort-by tcount (group-by :screen_name texts))]
 
   (with-data (dataset [:user :emotion :level]                   ; dataset columns
                       (concat (map (fn [[emo _]] ["" emo 0])    ; Set colour order
                                    affect)
                        (mapcat emote utexts)))                  ; User affect levels
 
-    (let [chart (stacked-bar-chart :user :level :group-by :emotion :legend true)]
-
+    (let [chart (stacked-bar-chart :user :level :group-by :emotion :legend true
+                                   :x-label "Users by decreasing activity"
+                                   :y-label "Emotion level")
+          rndr  (-> ^JFreeChart chart
+                    .getCategoryPlot
+                    .getRenderer)]
       ;(view $data)
 
       ;; Set the colours for the order we made with the :sync rows
@@ -1087,9 +1095,9 @@
             (range (count affect)))
 
       ;; Render and go!
-      (-> ^JFreeChart chart
-          .getCategoryPlot
-          .getRenderer)
+      (when (some #{:p100 :%} opts)
+        (.setRenderAsPercentages rndr true))
+
       (view chart)))))
 
 
