@@ -48,6 +48,7 @@
   (:import  (java.awt Color)
             (java.util Random)
             (org.jfree.chart JFreeChart)
+            (org.jfree.chart.renderer.category StackedBarRenderer)
             (org.semanticweb.owlapi.model   IRI
                                             OWLOntology
                                             OWLOntologyID)
@@ -1082,12 +1083,14 @@
                                    affect)
                        (mapcat emote utexts)))                  ; User affect levels
 
-    (let [chart (stacked-bar-chart :user :level :group-by :emotion :legend true
-                                   :x-label "Users by decreasing activity"
-                                   :y-label "Emotion level")
-          rndr  (-> ^JFreeChart chart
-                    .getCategoryPlot
-                    .getRenderer)]
+    (let [^JFreeChart chart (stacked-bar-chart
+                             :user :level :group-by :emotion :legend true
+                             :x-label "Users by decreasing activity"
+                             :y-label "Emotion level")
+
+          ^StackedBarRenderer rndr (-> chart
+                                       .getCategoryPlot
+                                       .getRenderer)]
       ;(view $data)
 
       ;; Set the colours for the order we made with the :sync rows
