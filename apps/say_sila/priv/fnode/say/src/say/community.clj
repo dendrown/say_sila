@@ -15,8 +15,11 @@
   (:require [say.genie          :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
+            [say.infer          :as inf]
             [clojure.java.io    :as io]
-            [tawny.owl          :refer :all]))
+            [clojure.set        :as set]
+            [tawny.owl          :refer :all]
+            [tawny.reasoner     :as rsn]))
 
 
 ;;; --------------------------------------------------------------------------
@@ -79,6 +82,42 @@
     (run! (fn [[who ont]]
               (save-ontology ont (strfmt "~a/community-~a.~a.owl" fstub tag who) :owl))
           @comm)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defprotocol Searcher
+  "Handles search request across a community."
+  (instances [comm tgts]
+    "Use reasoner to find instances of the specified target symbols."))
+
+
+(extend-protocol Searcher
+
+  clojure.lang.Sequential
+  (instances [onts tgts]
+    (let [targets (if (sequential? tgts) tgts [tgts])
+          search  (fn [ont]
+                    ;; Find all instances for the search classes
+                    (let [hits (reduce #(conj %1 [%2 (rsn/instances ont (eval %2))])
+                                       {}
+                                       targets)]
+                      ;; Reclaim memory from reasoner
+                      (inf/unreason ont)
+                      hits))]
+
+      (inf/with-silence
+       (reduce #(merge-with set/union %1 %2) {} (pmap search onts)))))
+
+
+  clojure.lang.Atom
+  (instances [comm tgts]
+    (instances (fetch @comm) tgts))                 ; Search a whole community
+
+
+  org.semanticweb.owlapi.model.OWLOntology
+  (instances [ont tgts]
+    (instances ont [tgts])))                        ; Search singleton ontology
 
 
 

@@ -2125,21 +2125,12 @@
 
 
   ([dtag onts ccnt]
-  (let [targets '[EnergyConservationAccount
-                  HumanCauseBelieverAccount
-                  NaturalCauseBelieverAccount]
+  ;; Qualify our symbols as our caller may be in another namespace
+  (let [targets '[say.sila/EnergyConservationAccount
+                  say.sila/HumanCauseBelieverAccount
+                  say.sila/NaturalCauseBelieverAccount]
 
-        search  (fn [ont]
-                  ;; Find all instances for the search classes
-                  (let [hits (reduce #(conj %1 [%2 (rsn/instances ont (eval %2))])
-                                     {}
-                                     targets)]
-                    ;; Reclaim memory from reasoner
-                    (inf/unreason ont)
-                    hits))
-
-        needles (inf/with-silence
-                  (reduce #(merge-with set/union %1 %2) {} (pmap search onts)))
+        needles (comm/instances onts targets)
 
         report  (fn [sym]
                   (let [accts (get needles sym)
