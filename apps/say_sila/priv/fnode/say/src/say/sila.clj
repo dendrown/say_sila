@@ -2123,7 +2123,8 @@
 
   ([{:keys [dtag ontology]
      :as   world}]
-  ;; NOTE: The newer community way is subtly different from the original say-sila world
+  ;; TODO: The newer community way is subtly different from the original say-sila world.
+  ;;       Handle non-community mode as a signle-ontology community.
   (if (cfg/?? :sila :community?)
     ;; The community approach currently supports (just) a single set of ontologies
     (report-accounts dtag (ontology :fetch) (ontology :size))
@@ -2215,6 +2216,28 @@
   ([user
     {:keys  [texts]}]
     (echart-affect (filter #(= user (:screen_name %)) texts))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-text-instances
+  "Produces an affect stacked bar chart for all texts associated with the
+  specified Text class."
+  ([klass]
+  (echart-text-instances klass @World))
+
+
+  ([klass
+    {:keys  [texts ontology]
+     :as    world}]
+  ;; FIXME: Handle non-community mode as a signle-ontology community.
+  (let [onts (if (cfg/?? :sila :community?)
+                 (ontology :fetch)
+                 [((:ontology world))])
+        tids (into #{}
+                   (map iri-fragment (comm/instances onts klass)))]
+
+   (echart-affect (filter #(contains? tids (:tid %)) texts)))))
 
 
 

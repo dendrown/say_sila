@@ -88,15 +88,17 @@
 ;;; --------------------------------------------------------------------------
 (defprotocol Searcher
   "Handles search request across a community."
-  (instances [comm tgts]
-    "Use reasoner to find instances of the specified target symbols."))
+  (instances [comm syms]
+    "Use reasoner to find instances of the specified target symbols.
+     Note the syms are traditionally symbols, but ontological classes also work."))
 
 
 (extend-protocol Searcher
 
   clojure.lang.Sequential
-  (instances [onts tgts]
-    (let [targets (if (sequential? tgts) tgts [tgts])
+  (instances [onts syms]
+    (let [group?  (sequential? syms)
+          targets (if group? syms [syms])           ; Groupize a singleton target
           search  (fn [ont]
                     ;; Find all instances for the search classes
                     (let [hits (reduce #(conj %1 [%2 (rsn/instances ont (eval %2))])
@@ -104,20 +106,25 @@
                                        targets)]
                       ;; Reclaim memory from reasoner
                       (inf/unreason ont)
-                      hits))]
+                      hits))
+          needles (inf/with-silence
+                    (reduce #(merge-with set/union %1 %2) {} (pmap search onts)))]
 
-      (inf/with-silence
-       (reduce #(merge-with set/union %1 %2) {} (pmap search onts)))))
+        ;; Results will be in a map, ungroup them if we got a singleton
+        (if group?
+          needles
+          (get needles syms))))
 
 
   clojure.lang.Atom
   (instances [comm tgts]
-    (instances (fetch @comm) tgts))                 ; Search a whole community
+    ;; Search a whole community
+    (instances (fetch @comm) tgts))
 
 
   org.semanticweb.owlapi.model.OWLOntology
   (instances [ont tgts]
-    (instances ont [tgts])))                        ; Search singleton ontology
+    (instances ont [tgts])))
 
 
 
