@@ -536,6 +536,14 @@
     :equivalent (dl/and pos/Token
                         (dl/some indicatesRule CONSERVATION)))
 
+  ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
+  ;;        We may need to make Text and Survey disjoint
+  (defclass EnergyConservationText
+    :super Text
+    :equivalent (dl/and dul/InformationObject
+                        (dl/and (dl/some dul/hasComponent EnergyToken))
+                                (dl/some dul/hasComponent ConservationToken)))
+
   (defclass EnergyConservationAccount
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
@@ -1054,8 +1062,8 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn chart-affect
-  "Produces a  affect total counts for all the tokens in a text/profile."
+(defn echart-affect
+  "Produces an affect stacked bar chart for all given text/profiles."
   [texts & opts]
   ;; Match affect colours to Incanter/jFree charting
   (let [affect [["Anger"        Color/red]
@@ -2197,10 +2205,16 @@
 
 
 
+;;; --------------------------------------------------------------------------
 (defn echart-user
-  "Create a chart of the emotionalexpression in users' tweets."
-  [user]
-  :todo)
+  "Produces an affect stacked bar chart for all text published by the user."
+  ([user]
+  (echart-user user @World))
+
+
+  ([user
+    {:keys  [texts]}]
+    (echart-affect (filter #(= user (:screen_name %)) texts))))
 
 
 
