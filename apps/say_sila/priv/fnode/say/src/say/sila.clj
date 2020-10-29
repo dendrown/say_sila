@@ -536,14 +536,24 @@
     :equivalent (dl/and pos/Token
                         (dl/some indicatesRule CONSERVATION)))
 
+  (defclass EnergyConservationToken
+    :super pos/Token
+    :equivalent (dl/and EnergyToken
+                        (dl/some dependsOn ConservationToken)))
+
+  (defclass EnergyConservationText1
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent EnergyToken)
+                        (dl/some dul/hasComponent ConservationToken)))
+
+  (defclass EnergyConservationText2
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent EnergyConservationToken)))
+
   ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
   ;;        We may need to make Text and Survey disjoint
-  (defclass EnergyConservationText
-    :super Text
-    :equivalent (dl/and dul/InformationObject
-                        (dl/and (dl/some dul/hasComponent EnergyToken))
-                                (dl/some dul/hasComponent ConservationToken)))
-
   (defclass EnergyConservationAccount
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
@@ -2209,13 +2219,12 @@
 ;;; --------------------------------------------------------------------------
 (defn echart-user
   "Produces an affect stacked bar chart for all text published by the user."
-  ([user]
-  (echart-user user @World))
-
-
-  ([user
-    {:keys  [texts]}]
-    (echart-affect (filter #(= user (:screen_name %)) texts))))
+  [user & args]
+  (let [[world
+         opts]  (optionize map? @World args)
+        texts   (:texts world)]
+    ;; Grab this user's texts and chart 'em!
+    (apply echart-affect (filter #(= user (:screen_name %)) texts) opts)))
 
 
 
@@ -2223,21 +2232,22 @@
 (defn echart-text-instances
   "Produces an affect stacked bar chart for all texts associated with the
   specified Text class."
-  ([klass]
-  (echart-text-instances klass @World))
+  [klass & args]
+  (let [[{:keys  [texts ontology]
+           :as    world}
+         opts]  (optionize map? @World args)
 
-
-  ([klass
-    {:keys  [texts ontology]
-     :as    world}]
-  ;; FIXME: Handle non-community mode as a signle-ontology community.
-  (let [onts (if (cfg/?? :sila :community?)
+        ;; FIXME: Handle non-community mode as a single-ontology community.
+        onts (if (cfg/?? :sila :community?)
                  (ontology :fetch)
                  [((:ontology world))])
+
+        ;; Find the text IDs for texts of the specified subclass
         tids (into #{}
                    (map iri-fragment (comm/instances onts klass)))]
 
-   (echart-affect (filter #(contains? tids (:tid %)) texts)))))
+    ;; Chart just those texts for the users
+    (apply echart-affect (filter #(contains? tids (:tid %)) texts) opts)))
 
 
 

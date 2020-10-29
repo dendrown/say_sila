@@ -1,7 +1,9 @@
 ## Dataset: tweets.all.env.2020-Q1.arff
 
-- **Tweets**: 57378
+- **Tweets**: 57368
 - **Users**:  25524
+- **EnergyConservationText1**:  125/16618 @ min20 tweets
+- **EnergyConservationText2**:  307/16618 @ min20 tweets
 
 
 |Run| Size  | Axioms | Strategy              |
@@ -66,6 +68,11 @@
 2020-10-27 09:36:34.388   INFO: EnergyConservationAccount:env: 137 of 300 (0.46%)
 2020-10-27 09:36:34.389   INFO: HumanCauseBelieverAccount:env: 8 of 300 (0.03%)
 2020-10-27 09:36:34.390   INFO: NaturalCauseBelieverAccount:env: 5 of 300 (0.02%)
+
+;; Min tweet count: 20
+2020-10-28 20:10:41.932   INFO: say.sila/EnergyConservationAccount:env: 118 of 226 (0.52%)
+2020-10-28 20:10:41.934   INFO: say.sila/HumanCauseBelieverAccount:env: 7 of 226 (0.03%)
+2020-10-28 20:10:41.935   INFO: say.sila/NaturalCauseBelieverAccount:env: 4 of 226 (0.02%)
 ```
 
 ## TopN20 Big Players for green run
