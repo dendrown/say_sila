@@ -2,8 +2,8 @@
 
 - **Tweets**: 57368
 - **Users**:  25524
-- **EnergyConservationText1**:  125/16618 @ min20 tweets
-- **EnergyConservationText2**:  307/16618 @ min20 tweets
+- **EnergyConservationText1**:  307/16618 @ min20 tweets
+- **EnergyConservationText2**:  125/16618 @ min20 tweets
 
 
 |Run| Size  | Axioms | Strategy              |
