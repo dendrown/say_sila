@@ -74,7 +74,7 @@
 ;;; --------------------------------------------------------------------------
 (defonce Memory         (agent {:start (jvm/memory-used :MB)})) ; Memory used in megabytes
 
-;;; Word sets which invoke Sentiment/Survey rules
+;;; Word sets which invoke Survey Concept Rules
 (defonce Rule-Triggers  (merge six/Concept-Triggers
                                {"NEGATION"     #{"not"}}))          ; Syntactical adjusters
 
@@ -2072,19 +2072,23 @@
                                   zeros
                                   elements))
 
-        ;; We'll need a sequence of affect (rule) sets for the Texts
-        [aff-rules                                              ; Affect sets from Texts
-         aff-zeros] (init :affect Affect-Names)                 ; Acc init: affect counts
+        count-all       (fn [elm items]
+                          (let [[rules
+                                 zeros] (init elm items)]
+                            [(count-tokens zeros rules)
+                             (count-texts  zeros rules)]))
 
-        aff-toks    (count-tokens aff-zeros aff-rules)
-        aff-texts   (count-texts  aff-zeros aff-rules)
+        ;; We'll need a sequence of affect (rule) sets for the Texts
+        [aff-toks
+         aff-texts] (count-all :affect Affect-Names)
 
         ;; Six Americas surveys
-        [svy-hits                                               ; Keyword hits from surveys
-         svy-zeros] (init :surveys (keys Surveys))              ; Acc init: survey counts
+        [svy-toks
+         svy-texts] (count-all :surveys (keys Surveys))
 
-        svy-toks    (count-tokens svy-zeros svy-hits)
-        svy-texts   (count-texts  svy-zeros svy-hits)
+        ;; Survey Concept Rules
+        [scr-toks
+         scr-texts] (count-all :rules (keys Rule-Triggers))
 
         ;; Now get a sequence of part-of-speech tags for the Texts.
         [pos-tags                                               ; POS tags for all Texts
@@ -2097,7 +2101,7 @@
                           pos-tags)]
 
   ;; Report the basic statistics
-  (log/fmt-info "SCR~a: p[~1$%] s[~1$%] txts~a"
+  (log/fmt-info "Dset:~a: p[~1$%] s[~1$%] txts~a"
                 dtag (p100 :positive) (p100 :senti) stats)
 
   ;; Report pos/neg first, then the emotions
@@ -2116,6 +2120,14 @@
                     dtag (name svy)
                     (get svy-toks svy)
                     (get svy-texts svy)))
+
+  ;; Survey Concept Rules
+  (log/debug)
+  (doseq [scr (sort (keys scr-texts))]
+    (log/fmt-debug "Concept:~a ~12a [~4d Tokens in ~4d Texts]"
+                    dtag scr
+                    (get scr-toks scr)
+                    (get scr-texts scr)))
 
   ;; Report part-of-speech tags
   (log/debug)
@@ -2189,7 +2201,7 @@
 
     (when (some #{:users} opts)
       (log/debug)
-      (log/fmt-info "USERS~a: ~a" (map :screen_name users)))))
+      (log/fmt-info "USERS~a: ~a" dtag (map :screen_name users)))))
 
 
 
