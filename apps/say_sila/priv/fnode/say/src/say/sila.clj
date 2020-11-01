@@ -2041,6 +2041,10 @@
 
   ([{:keys [dtag
             texts]}]
+  (report-examples dtag texts))
+
+
+  ([dtag texts]
   (let [;; Statistics on text polarity and presence of affect
         stats   (reduce #(let [ss (if (every? empty? (:affect %2))
                                       :stoic
@@ -2155,7 +2159,7 @@
                   (let [accts (get needles sym)
                         acnt  (count accts)
                         p100  (if (pos? ccnt)
-                                  (/ acnt ccnt)
+                                  (* 100. (/ acnt ccnt))
                                   0.0)]
                     (log/fmt-info "~a~a: ~a of ~a (~$%)" sym dtag acnt ccnt p100)
                     (comment run! #(log/debug "  -" (iri-fragment %)) accts)))]
@@ -2171,21 +2175,21 @@
   Say-Sila World data. Passing a :users option will list the users for
   each data tag."
   [& opts]
-  (let [world @World
-        users (when (some #{:users} opts)               ; On request:
-                (update-values (world :users)           ; Tagged maps of user sequences
-                               #(into #{} (map :screen_name %))))]
-    ;; Report affect and PoS in profiles and tweets
-    (run! (fn [[elm title]]
-            (log/info title)
-            (report-examples (world elm))
-            (log/debug))
-          [[:users "User Profiles:"]
-           [:texts "User Tweets:"]])
+  (let [{:keys [dtag
+                texts
+                users]} @World]
 
-    (doseq [[tag us] users]
+    ;; Report affect and PoS in profiles and tweets
+    (run! (fn [[txts title]]
+            (log/info title)
+            (report-examples dtag txts)
+            (log/debug))
+          [[users "User Profiles:"]
+           [texts "User Tweets:"]])
+
+    (when (some #{:users} opts)
       (log/debug)
-      (log/fmt-info "USERS~a: ~a" tag us))))
+      (log/fmt-info "USERS~a: ~a" (map :screen_name users)))))
 
 
 
