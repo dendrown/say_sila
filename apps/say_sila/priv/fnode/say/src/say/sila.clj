@@ -2041,21 +2041,22 @@
 
   ([{:keys [dtag
             texts]}]
-  (report-examples dtag texts))
+  (report-examples dtag texts :texts))
 
 
-  ([dtag texts]
+  ([dtag texts text-type]
   (let [;; Statistics on text polarity and presence of affect
+        ttype   (name text-type)
         stats   (reduce #(let [ss (if (every? empty? (:affect %2))
                                       :stoic
                                       :senti)]
                            (update-values %1 [:count (:polarity %2) ss] inc))
                         (zero-hashmap :count :positive :negative :? :senti :stoic)
                         texts)
+        fullcnt (stats :count)
 
         ;; Generalized roll-up functionality
-        p100    #(* 100. (/ (stats %)
-                            (stats :count)))
+        stat100 #(p100 (stats %) fullcnt)
 
         zero    #(apply zero-hashmap %)
         init    #(vector (map %1 texts)                         ; [elements, initial count-map]
@@ -2081,10 +2082,12 @@
         report          (fn [ks toks txts what show width]
                           (log/debug)
                           (doseq [k ks]
-                            (log/fmt-debug "~a~a ~va [~4d Tokens in ~4d Texts]"
-                                            what dtag width (show k)
-                                            (get toks k)
-                                            (get txts k))))
+                            (let [tokcnt (get toks k)
+                                  txtcnt (get txts k)]
+                              (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~4,1F%)]"
+                                              what dtag width (show k)
+                                              tokcnt txtcnt ttype
+                                              (p100z txtcnt fullcnt)))))
 
         ;; Calculate token & text counts for key elements
         [aff-toks aff-txts] (count-all :affect  Affect-Names)           ; Pos/neg & emotions
@@ -2103,7 +2106,7 @@
 
   ;; Report the basic statistics
   (log/fmt-info "Dset:~a: p[~1$%] s[~1$%] txts~a"
-                dtag (p100 :positive) (p100 :senti) stats)
+                dtag (stat100 :positive) (stat100 :senti) stats)
 
   ;; Report pos/neg first, then the emotions
   (report (conj (sort (keys (dissoc aff-txts "Positive" "Negative")))   ; ABCize emotions
@@ -2155,11 +2158,8 @@
 
         report  (fn [sym]
                   (let [accts (get needles sym)
-                        acnt  (count accts)
-                        p100  (if (pos? ccnt)
-                                  (* 100. (/ acnt ccnt))
-                                  0.0)]
-                    (log/fmt-info "~a~a: ~a of ~a (~$%)" sym dtag acnt ccnt p100)
+                        acnt  (count accts)]
+                    (log/fmt-info "~a~a: ~a of ~a (~,1F%)" sym dtag acnt ccnt (p100z acnt ccnt))
                     (comment run! #(log/debug "  -" (iri-fragment %)) accts)))]
 
     ;; Log report to the console for all targets
@@ -2178,12 +2178,12 @@
                 users]} @World]
 
     ;; Report affect and PoS in profiles and tweets
-    (run! (fn [[txts title]]
+    (run! (fn [[txts ttype title]]
             (log/info title)
-            (report-examples dtag txts)
+            (report-examples dtag txts ttype)
             (log/debug))
-          [[users "User Profiles:"]
-           [texts "User Tweets:"]])
+          [[users :profiles "User Profiles:"]
+           [texts :statuses "User Tweets:"]])
 
     (when (some #{:users} opts)
       (log/debug)
