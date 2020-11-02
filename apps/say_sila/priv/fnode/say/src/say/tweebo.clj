@@ -49,9 +49,10 @@
   (let [ipath (get-fpath tid)
         opath (get-fpath tid :predict)]
     (if (.exists (io/file opath))
-      runs
+      (do ;(log/debug "Tweebo parse exists:" opath)
+          runs)
       (do
-        (log/debug "Parsing dependencies:" ipath)
+        (log/fmt-debug "Parsing dependencies: cnt[~a] fp[~a]" runs ipath)
         (spit ipath text)
         (let [{:keys [err
                       exit
@@ -62,8 +63,8 @@
                   (inc runs))
 
               ;; Errors are also going to stderr
-              (do (log/fmt-error "Tweebo failure on ~a: ~a: rc[~a]" tid err exit)))
-                  runs)))))
+              (do (log/fmt-error "Tweebo failure on ~a: ~a: rc[~a]" tid err exit)
+                  runs)))))))
 
 
 
@@ -79,8 +80,12 @@
 (defn predict
   "Prepares a TweeboParser (predicted) dependency tree for later use."
   [tid]
-  (with-open [rdr (io/reader (get-fpath tid :predict))]
-    (doall (csv/read-csv rdr :separator \tab))))
+  (try
+    (with-open [rdr (io/reader (get-fpath tid :predict))]
+      (doall (csv/read-csv rdr :separator \tab)))
+    (catch Exception ex
+      (log/error "Cannot read predicted dependencies:" tid)
+      (throw ex))))
 
 
 
@@ -88,8 +93,9 @@
 (defn wait
   "Blocks execution until all pernding Tweebo Parser requests have completed."
   []
-  (log/fmt-info "Syncing Tweebo requests: cnt[~a]" @Runner)
-  (await Runner))
+  (log/fmt-debug "Syncing Tweebo requests: cnt[~a]" @Runner)
+  (when-not (await-for 30000 Runner)
+    (recur)))
 
 
 

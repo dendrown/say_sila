@@ -44,3 +44,11 @@
       (subs tok 1)
       tok))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn weave
+  "Join component tokens into a username."
+  [& toks]
+  (apply str (map str/capitalize toks)))
+

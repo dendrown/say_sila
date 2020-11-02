@@ -37,13 +37,18 @@
             [clojure.string     :as str]
             [clojure.pprint     :refer [pp]]
             [defun.core         :refer [defun]]
+            [incanter.core      :refer [dataset $data view with-data]]
+            [incanter.charts    :refer [stacked-bar-chart set-stroke-color]]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
             [tawny.query        :as qry]
             [tawny.repl         :as repl]                   ; <= debug
             [tawny.owl          :refer :all]
-            [clojure.core.logic :refer :all :exclude [annotate is]])
-  (:import  (java.util Random)
+            [clojure.core.logic :refer :all :exclude [annotate is run]])
+  (:import  (java.awt Color)
+            (java.util Random)
+            (org.jfree.chart JFreeChart)
+            (org.jfree.chart.renderer.category StackedBarRenderer)
             (org.semanticweb.owlapi.model   IRI
                                             OWLOntology
                                             OWLOntologyID)
@@ -69,7 +74,7 @@
 ;;; --------------------------------------------------------------------------
 (defonce Memory         (agent {:start (jvm/memory-used :MB)})) ; Memory used in megabytes
 
-;;; Word sets which invoke Sentiment/Survey rules
+;;; Word sets which invoke Survey Concept Rules
 (defonce Rule-Triggers  (merge six/Concept-Triggers
                                {"NEGATION"     #{"not"}}))          ; Syntactical adjusters
 
@@ -77,10 +82,10 @@
 (defonce Rule-Stems     (update-values Rule-Words
                                        #(tw/stem-all % :set)))
 
-(defonce Status-Counts  (agent {}))                                 ; Tweet counts for users
 (defonce World          (atom {:users {}
                                :texts {}
-                               :ontology {}}))
+                               :ontology {}
+                               :community {}}))
 
 (defontology say-sila
   :iri    Ont-IRI
@@ -417,6 +422,9 @@
 (defrule HUMAN  "Expressions which refer to humans or humanity.")
 (defrule NATURE "Expressions which refer to the natural world.")
 
+(defrule ENERGY "Expressions which refer to energy.")
+(defrule CONSERVATION "Expressions which indicate a relationship of convervation.")
+
 (defrule NEGATION "Expressions which negate other terms.")
 
 ;; HermiT gives us all kinds of problems at inference-time if we don't
@@ -515,7 +523,42 @@
     :equivalent (dl/and OnlineAccount
                         (dl/or
                           (dl/some publishes (dl/some dul/hasComponent AffirmedNaturalCauseToken))
-                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken)))))
+
+  ;; -------------------------------------------------------------------------
+  (defclass EnergyToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/some indicatesRule ENERGY)))
+
+  (defclass ConservationToken
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/some indicatesRule CONSERVATION)))
+
+  (defclass EnergyConservationToken
+    :super pos/Token
+    :equivalent (dl/and EnergyToken
+                        (dl/some dependsOn ConservationToken)))
+
+  (defclass EnergyConservationText1
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent EnergyToken)
+                        (dl/some dul/hasComponent ConservationToken)))
+
+  (defclass EnergyConservationText2
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent EnergyConservationToken)))
+
+  ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
+  ;;        We may need to make Text and Survey disjoint
+  (defclass EnergyConservationAccount
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
+                                                   (dl/some dul/hasComponent ConservationToken)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -1004,6 +1047,84 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn sum-analysis
+  "Returns analysis element totals counts for all the tokens in a single text
+  (or profile) or a sequence of them."
+  [txt]
+  (let [sum (fn [t]
+              (reduce #(update-values %1 %2 (fnil inc 0))
+                      {}
+                      (remove empty? (:analysis t))))]
+    ;; Have we one text or many?
+    (cond
+     (map? txt) (sum txt)
+     (sequential? txt) (apply merge-with + (map sum txt)))))
+
+
+
+
+;;; --------------------------------------------------------------------------
+(defn sum-affect
+  "Returns affect total counts for all the tokens in a text/profile."
+  [txt]
+  (select-keys (sum-analysis txt) Affect-Names))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-affect
+  "Produces an affect stacked bar chart for all given text/profiles."
+  [texts & opts]
+  ;; Match affect colours to Incanter/jFree charting
+  (let [affect [["Anger"        Color/red]
+                ["Fear"         (new Color 000 153 000)]
+                ["Sadness"      (new Color 148 000 211)]
+                ["Joy"          (new Color 255 215 000)]
+                ["Surprise"     (new Color 051 255 255)]
+                ["Anticipation" (new Color 255 140 000)]
+                ["Disgust"      (new Color 204 051 204)]
+                ["Trust"        (new Color 051 255 102)]
+                ["Positive"     Color/yellow]
+                ["Negative"     (new Color 051 051 204)]]
+
+        emote   (fn [[sname txts]]
+                  ;; Affect levels across all texts for one user
+                  (map (fn [[emo cnt]] [sname emo cnt])
+                    (sum-affect txts)))
+
+        ;; Group tweets by user, ordered by Z..A text count
+        tcount  #(- (count (second %)))
+        utexts  (sort-by tcount (group-by :screen_name texts))]
+
+  (with-data (dataset [:user :emotion :level]                   ; dataset columns
+                      (concat (map (fn [[emo _]] ["" emo 0])    ; Set colour order
+                                   affect)
+                       (mapcat emote utexts)))                  ; User affect levels
+
+    (let [^JFreeChart chart (stacked-bar-chart
+                             :user :level :group-by :emotion :legend true
+                             :x-label "Users by decreasing activity"
+                             :y-label "Emotion level")
+
+          ^StackedBarRenderer rndr (-> chart
+                                       .getCategoryPlot
+                                       .getRenderer)]
+      ;(view $data)
+
+      ;; Set the colours for the order we made with the :sync rows
+      (run! #(set-stroke-color chart (second (affect %)) :series %)
+            (range (count affect)))
+
+      ;; Render and go!
+      (when (some #{:p100 :%} opts)
+        (.setRenderAsPercentages rndr true))
+
+      (view chart)))))
+
+
+
+
+;;; --------------------------------------------------------------------------
 (defn eword
   "Returns a printable colour-coded string of word high-lighted with respect
   to the specified sentiment/emotion set."
@@ -1255,9 +1376,10 @@
 ;;; --------------------------------------------------------------------------
 (defprotocol OntologyFactory
   "Functionality to create individual ontologies."
-  (make-ontology-maker [o]  "Returns a factory function which, depending on
-                             the :sila :community configuration setting, either
-                             returns a single ontology or a new one for each user."))
+  (make-ontology-maker [o]
+    "Returns a factory function which, depending on the :sila :community
+    configuration setting, either returns a single ontology or a new one
+    for each user."))
 
 (extend-protocol OntologyFactory
   OWLOntology
@@ -1282,12 +1404,18 @@
   (make-ontology-maker [otag]
     (if (cfg/?? :sila :community?)
       ;; Each user has an individual ontology
-      (let [onter (fn [sname]
+      (let [comm  (comm/new)
+            onter (fn [sname]
                     (make-ontology (hyphenize otag sname)))]
 
         ;; Function to retrieve/create user ontologies in the community
         (fn [& [sname]]
-          (comm/fetch sname onter)))
+          (case sname
+           :community comm
+           :size      (comm/size comm)
+           :zap!      (comm/zap! comm)
+           :fetch     (comm/fetch comm)
+                      (comm/fetch comm sname onter))))
 
       ;; All users share a single ontology
       (make-ontology-maker (make-ontology otag)))))
@@ -1335,8 +1463,7 @@
 
     ;; If they didn't pass an entity, assume this is a tweet
     ;; TODO: Handle access to say.sila namespace
-    (when (and screen_name                                              ; Test data may not have screen names
-               (not entity))
+    (when screen_name                                               ; Test data may not have screen names
       (refine ont (individual ont screen_name) :fact (is publishes text)))
 
      ;; Prepare for Tweebo Parsing if desired
@@ -1408,27 +1535,28 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defun ^OWLOntology populate-profiles
-  "Populates an ontology using examples extracted from an ARFF with user data."
-  ([xmps :guard map?]
-  (update-kv-values xmps #(populate-profiles %1 %2)))
+(defun populate-profiles
+  "Populates an ontology community with user profile data from the 'examples'
+  intermediate format. The function returns the ontology maker for the community."
+  ([dtag xmps]
+  (populate-profiles dtag xmps (cfg/? :sila)))
 
 
-  ([o xmps]
+  ([o xmps sconf]
   (log/debug "Populating ontology:" o)
-  (let [sconf (cfg/? :sila)                     ; Cache config params
-        onter (make-ontology-maker o)]          ; Tag|ontology to factory function
+  (let [onter (make-ontology-maker o)]          ; Tag|ontology to factory function
     (run! (fn [{:as xmp
                 sname :screen_name
                 descr :description              ; User profile text
                 tid   :tid}]                    ; Text ID is the profile ID
             (let [ont   (onter sname)
-                  acct  (individual ont sname :type OnlineAccount)  ; Twitter user account
-                  prof  (individual ont tid                         ; User profile
-                                    :type PersonalProfile
-                                    :fact (is dul/isAbout acct))]
-              ;; Add PoS/senti for the profile content
-              (add-text onter prof xmp sconf)))
+                  acct  (individual ont sname :type OnlineAccount)] ; Twitter user account
+              ;; Add PoS/senti for the user's profile content
+              (when-not (:skip-profiles sconf)
+                (add-text onter
+                          (individual ont tid :type PersonalProfile)
+                          xmp
+                          sconf))))
           xmps)
     ;; Return the ontology maker
     onter)))
@@ -1449,10 +1577,11 @@
     {:keys [screen_name tid content pos-tags]
      :as   xmp}
     tweebo]
+  ;(log/debug "Adding dependencies:" tid)
   (let [ont     (onter screen_name)
         include #(refine ont %1 :fact (is dul/hasComponent %2))
         equiv?  #(or (= %1 %2)
-                     (every? #{"\"" "QUOTE"} [%1 %2]))
+                     (every? #{"\"" "QUOTE" "\"'" "'\"" "QUøTE"} [%1 %2]))
         make    (memoize (fn [ling n]
                             (let [tokid  (lbl/label-text-token tid n)
                                   token  (individual ont tokid)
@@ -1481,7 +1610,10 @@
       ;; All three arguments should be in alignment, except tweebo may have a final [""]
       (if pos1
         ;; Process the next Tweebo line
-        (let [obj-num (Long/parseLong obj)
+        (let [obj-num (try (Long/parseLong obj)
+                        (catch Exception _
+                               (log/error "Dependency parse @" tid ":" tok2 "(" sub "<-" obj ")")
+                               -1))
               dep?    (pos? obj-num)
               build   #(conj % (if dep? obj-num nil))]
           ;; Complain if the POS analysis doesn't match up (uncommon)
@@ -1595,18 +1727,21 @@
 
   ([o xmps sconf]
   (let [onter (make-ontology-maker o)]
-    ;; Populate combined|community ontology with the tweet statuses
-    (run! #(add-text onter % sconf) xmps)
+    ;; For testing, we may skip tweets (using only profiles)
+    (when-not (:skip-statuses sconf)
+      ;; Populate combined|community ontology with the tweet statuses
+      (run! #(add-text onter % sconf) xmps)
 
-    ;; Add Tweebo dependencies
-    (when (get sconf :use-tweebo?)
-      ;; add-dependencies will update the ontology, but we need to do a bit more processing
-      (twbo/wait)
-      (let [xdeps (map #(add-dependencies onter %) xmps)]
+      ;; Add Tweebo dependencies
+      (when (get sconf :use-tweebo?)
+        ;; add-dependencies will update the ontology, but we need to do a bit more processing
+        (twbo/wait)
+        (let [xdeps (map #(add-dependencies onter %) xmps)]
 
-        ;; Indicate which tokens were NOT negated
-        (run! #(add-affirmations onter %) xdeps)))
+          ;; Indicate which tokens were NOT negated
+          (run! #(add-affirmations onter %) xdeps))))
 
+    ;; Return the ontology look-er-up-er function
     onter)))
 
 
@@ -1618,7 +1753,7 @@
 
 
   ([world]
-  (apply keyize :- (keys (:users world)))))         ; Multi-dtag support
+  (:dtag world)))
 
 
 
@@ -1627,96 +1762,6 @@
   "Returns the filepath for a user/text examples file."
   [dtag rsrc]
   (strfmt "~a/~a-~a.edn" World-FStub (name rsrc) (name dtag)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- create-pn-goal
-  "Checks the :sila configuation and returns a map with the elements needed
-  to construct datasets and populate ontologies.  The function allows the
-  caller to override the configuration by adding :key value pairs as arguments."
- ([dset]
- (let [{:as   sconf
-        :keys [pn-count]
-        :or   {pn-count Init-PN-Count}} (cfg/? :sila)]
-    ;; The default is the number of examples for creating ontology individuals
-    (create-pn-goal dset pn-count sconf)))
-
-
- ([dset cnt]
- (create-pn-goal dset cnt (cfg/? :sila)))
-
-
- ([dset cnt {:as   sconf
-             :keys [pn-balance?]}]
- ;; Unless it's a singleton, odd counts that are balanced will have an extra instance
- (let [[goal
-        checks] (if (and pn-balance?
-                         (> cnt 1))
-                    [(int (/ cnt 2)) [:positive :negative]]     ; pos/neg instances separately
-                    [cnt [dset]])]                              ; all instances together
-
-   ;; Add what we need for our goals
-   (assoc sconf :goal    goal
-                :checks  checks
-                :dataset dset))))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- describe-creation
-  "Returns a string describing the creation goals."
-  ([{:keys [balance?
-            dataset
-            extra-info
-            goal]}]
-   (str (if balance? (str "Balancing " goal "/" goal)
-                     (str "Creating "  goal))
-        " " (name dataset)
-        (when extra-info
-          (str " " extra-info))))
-
-
-  ([goals tt]
-  (describe-creation (assoc (goals tt)
-                            :extra-info (name tt)))))
-
-
-;;; --------------------------------------------------------------------------
-(defn- creation-done?
-  "Returns true if the callers creation activites have completed."
-  [cnts
-   {:keys [goal checks]}]
-  (every? #(>= (cnts %) goal) checks))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- creation-full?
-  "Returns true if a (pos|neg balanced) category has filled up during  the
-  creation of a dataset or an example set."
-  [cnts pole
-   {:keys [balance? goal checks]}]
-  (and (not= pole :?)                       ; Not under evaluation
-       balance?
-       (>= (cnts pole) goal)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- zero-pn-counter
-  "Returns a map used to initialize counting SCR examples or data instances."
-  [dset]
-  (reduce #(assoc %1 %2 0) {} [dset :positive :negative :?]))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- inc-pn-counter
-  "Returns an updated map after incrementing the couter values for the dataset
-  and the specified polarity."
-  [cnts dset pn]
-  (update-values cnts [dset pn] inc))
 
 
 
@@ -1831,7 +1876,8 @@
 
 
   ([dtag data]
-  (hash-map dtag (profiles->examples data))))
+  (hash-map :dtag  dtag
+            :users (profiles->examples data))))
 
 
 
@@ -1839,27 +1885,18 @@
 (defn statuses->examples
   "Converts Weka status (S99) instances (tweets) into a sequence of examples
   in the intermediate format."
-  ([dtag data]
-  (let [insts (weka/load-dataset data (dset/col-target :s))
-        icnt  (.numInstances insts)]
-    (log/fmt-debug "Text instances~a: ~a" dtag icnt)
-    (statuses->examples dtag insts icnt)))
-
-
-  ([dtag ^Instances insts cnt]
+  [dtag data]
   ;; Keep track of how many examples to create, as per the configured 'balance' setting
-  (let [columns     (dset/columns :s)
+  (let [insts       (weka/load-dataset data (dset/col-target :s))
+        columns     (dset/columns :s)
         [col-id
          col-sname
          col-text]  (map columns [:id :screen_name :text])
         tools       (toolbox)
-        stoic?      (:stoic? tools)
-        goal        (create-pn-goal dtag cnt)]
+        activity    (agent {})]                             ; Track user text counts
 
     ;; The number of examples we're creating depends on how things were configured
-    (log/info (describe-creation goal)
-              "SCR examples [pos/neg]"
-              (if ((:all-pn? tools)) "(emotive)" "(includes stoic)"))
+    (log/info "Converting" (.numInstances insts) "instances")
 
     ;; Shall we (pseudo)randomize the instances?
     (when-let [seed (cfg/?? :sila :rand-seed)]
@@ -1867,60 +1904,62 @@
       (.randomize insts (Random. seed)))
 
     ;; Throw away the counter & return the folded example sequence
-    (second
-      (reduce (fn [[cnts xmap :as info]                             ; FUN: add a textual eXample
-                   ^Instance inst]
-                ;(log/debug "Counts:" cnts)
-                ;; Do we have enough examples to stop?
-                (if (creation-done? cnts goal)
-                  (do (log/info "Examples:" cnts)
-                      (reduced info))
-                  (let [tid    (lbl/label-text (.stringValue inst (int col-id)))
-                        sname  (.stringValue inst (int col-sname))
-                        pole   (lbl/polarize inst)
-                        elms   (.stringValue inst (int col-text))       ; Text elements are "pos_term"
-                        xmp    (make-example tools tid sname elms pole) ; Example as a hashmap
-                        xkeys  (apply set/union #{dtag} (xmp :rules))]  ; Full dataset & all SCRs
-                    ;; Do we skip|process this Text??
-                    (if (or (stoic? xmp)                                ; Is it void of pos/neg/emotion?
-                            (creation-full? cnts pole goal))            ; Still collecting for this polarity?
-                      info
-                      (do
-                       (send Status-Counts                              ; Prepare for filtering
-                                #(update % sname (fnil inc 0)))
-                       [(inc-pn-counter cnts dtag pole)                 ; Update pos/neg/all counts
-                        (update-values xmap xkeys #(conj % xmp))])))))
+    (hash-map
+     :dtag dtag
+     :activity activity
+     :texts (domap (fn [^Instance inst]
+                     (let [tid   (lbl/label-text (.stringValue inst (int col-id)))
+                           sname (.stringValue inst (int col-sname))
+                           pole  (lbl/polarize inst)
+                           elms  (.stringValue inst (int col-text))]    ; Text elements are "pos_term"
 
-            [(zero-pn-counter dtag)                                 ; ACC: total/pos/neg counts
-             (reduce #(assoc %1 %2 #{}) {} (keys Rule-Words))]      ;      Examples keyed by rule
+                       (send activity #(update % sname (fnil inc 0)))   ; Prepare for filtering
+                       (make-example tools tid sname elms pole)))       ; Example as a hashmap
 
-            (enumeration-seq (.enumerateInstances insts)))))))      ; SEQ: Weka instances
+                   (weka/instance-seq insts)))))                        ; SEQ: Weka instances
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn filter-by-status-counts
+(defn filter-by-activity
   "Takes a stream of statuses or user profiles and returns a lazy sequence
   containing only those who have published at least as many tweets as the
   :min-statuses parameter in the :sila configuration."
-  ([txts]
-  (filter-by-status-counts (cfg/? :sila)))
+  ([world]
+  (filter-by-activity world (cfg/? :sila)))
 
 
-  ([texts sconf]
-  (let [counts @Status-Counts
-        thresh (sconf :min-statuses 1)]
-    ;; Keep the ones with at least the minimum number of tweets
-    (filter #(when-let [n (counts (:screen_name %) 0)]
-               (>= n thresh))
-            texts))))
-
+  ([{:keys [activity users texts]
+     :as world}
+    sconf]
+  ;; Keep profiles/statuses with at least the minimum number of tweets
+  (let [counts @activity
+        thresh (sconf :min-statuses 1)
+        select (fn [texts]
+                 (filter #(when-let [n (counts (:screen_name %) 0)]
+                            (>= n thresh))
+                         texts))]
+    (merge world {:users (select users)
+                  :texts (select texts)}))))
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn create-world!
-  "Loads the official say-sila examples and ontologies."
+(defn zap-activity
+  "Reinitializes the status activity agent."
+  ([]
+  (zap-activity @World))
+
+  ([{:keys [activity]}]
+  (await activity)
+  (send activity (fn [_] {}))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn create-world
+  "Returns a world structure containing the official say-sila examples,
+  ontologies and associated data."
   ([]
   ;; Pull the configured dataset information for users and their texts.
   ;; TODO: Incorporate dset/t->su
@@ -1934,7 +1973,7 @@
                                             (map name [dir src track dtag (dset/code %)]))
                               [:user :senti])]
     ;; Now we've got ARFF datasets, load % process them
-    (create-world! dtag ausers atexts)))
+    (create-world dtag ausers atexts)))
 
 
   ([dtag]
@@ -1942,73 +1981,90 @@
   (let [fpath (which-edn dtag :examples)]
     (if (.exists (io/file fpath))
         (do (log/fmt-info "User/text examples~a: ~a" dtag fpath)
-            (create-world! dtag (edn/read-string (slurp fpath))))
+            (create-world (edn/read-string (slurp fpath))
+                          (cfg/? :sila {})))
         (log/warn "No saved world:" (name dtag)))))
 
 
-  ([dtag {:keys [users texts]
-          :as   xmps}]
+  ([{:keys [dtag activity]
+     :as   preworld}
+    sconf]
   ;; This middle arity clause is where we wrap everything up!
-  ;; Make an ontology out of the passed e[x]ample hashmap.
-  (await Status-Counts)
-  (let [sconf   (cfg/? :sila {})
-        [usrs
-         txts]  (map #(filter-by-status-counts (% dtag) sconf) [users
-                                                                texts])
-        world   (-> (populate-profiles dtag usrs)
-                    (populate-statuses txts sconf))]
+  ;; The (pre)world already has users and their texts; create the ontology.
+  (await activity)
+  (let [{:as   world
+         :keys [users texts]} (filter-by-activity preworld sconf)
 
-    ;; Set our top-level state. Each element holds a tagged map of the appropriate data
-    (reset! World (assoc xmps :ontology {dtag world}))
-    (send Memory conj [:world (jvm/memory-used :MB)])
-    dtag))
+        onter (-> (populate-profiles dtag users sconf)
+                  (populate-statuses texts sconf))]
+
+    ;; Put everything together
+    (assoc world :ontology onter)))
 
 
   ([dtag ausers atexts]
+  (create-world dtag ausers atexts (cfg/? :sila {})))
+
+
+  ([dtag ausers atexts sconf]
   ;; Create e[x]amples from the source [a]arff files
-  (let [xusers (profiles->examples dtag ausers)             ; U-dataset user profiles
-        xtexts (statuses->examples dtag atexts)]            ; S-dataset tweet texts
+  (log/fmt-info "Dataset user~a: ~a" dtag ausers)
+  (log/fmt-info "Dataset text~a: ~a" dtag atexts)
 
-    ;; Now we've got ARFF datasets, load % process them
-    (log/fmt-info "Dataset user~a: ~a" dtag ausers)
-    (log/fmt-info "Dataset text~a: ~a" dtag atexts)
+  (create-world (merge (profiles->examples dtag ausers)     ; U-dataset user profiles
+                       (statuses->examples dtag atexts))    ; S-dataset tweet status texts
+                  sconf)))
 
-    (create-world! dtag {:users xusers
-                         :texts xtexts}))))
 
+
+;;; --------------------------------------------------------------------------
+(defun create-world!
+  "Loads the official say-sila examples and ontologies into the official World
+  for this namespace.  Contrary to the generalized create-world, this function
+  simply returns the data tag for the new official World.  This behaviour is
+  due to the complexity of worlds and the function's intended use in the REPL."
+  [& args]
+  (let [w (apply create-world args)]
+    (reset! World w)
+    (send Memory conj [:world (jvm/memory-used :MB)])
+    (:dtag w)))
 
 
 ;;; --------------------------------------------------------------------------
 (defn report-examples
   "Give positive/negative coverage and sentiment statistics for sets of
   intermediate-format examples or a hashmap with multiple sets of examples
-  as values."
-  ([xmps]
-  (if (map? xmps)
-      (run! #(apply report-examples %)                          ; Report keyed example sets
-            (select-keys xmps (filter keyword? (keys xmps))))   ; ..ignoring s"CONCEPT" submaps
-      (report-examples :examples xmps)))                        ; Single set of examples
+  as values.  See report-world for a list of reporting options accepted by
+  the final clause."
+  ([]
+  (report-examples @World))
 
 
-  ([dtag xmps]
+  ([{:keys [dtag
+            texts]}]
+  (report-examples dtag texts :texts))
+
+
+  ([dtag texts text-type & opts]
   (let [;; Statistics on text polarity and presence of affect
+        ttype   (name text-type)
         stats   (reduce #(let [ss (if (every? empty? (:affect %2))
                                       :stoic
                                       :senti)]
                            (update-values %1 [:count (:polarity %2) ss] inc))
                         (zero-hashmap :count :positive :negative :? :senti :stoic)
-                        xmps)
+                        texts)
+        fullcnt (stats :count)
 
         ;; Generalized roll-up functionality
-        p100    #(* 100. (/ (stats %)
-                            (stats :count)))
+        stat100 #(p100 (stats %) fullcnt)
 
         zero    #(apply zero-hashmap %)
-        init    #(vector (map %1 xmps)                          ; [elements, initial count-map]
+        init    #(vector (map %1 texts)                         ; [elements, initial count-map]
                          (zero %2))
         kount   #(update-values %1 %2 inc)                      ; Accumulate hits from seq %2
 
-        count-tokens    (fn [zeros elements]
+        count-tokens    (fn [zeros elements]                    ; TODO: use sum-analysis
                           (reduce kount
                                   zeros
                                   (flatten (map #(remove empty? %) elements))))
@@ -2018,60 +2074,61 @@
                                   zeros
                                   elements))
 
-        ;; We'll need a sequence of affect (rule) sets for the Texts
-        [aff-rules                                              ; Affect sets from Texts
-         aff-zeros] (init :affect Affect-Names)                 ; Acc init: affect counts
+        count-all       (fn [elm items]
+                          (let [[rules
+                                 zeros] (init elm items)]
+                            [(count-tokens zeros rules)
+                             (count-texts  zeros rules)]))
 
-        aff-toks    (count-tokens aff-zeros aff-rules)
-        aff-texts   (count-texts  aff-zeros aff-rules)
+        report          (fn [ks toks txts what show width]
+                          (log/debug)
+                          (doseq [k ks]
+                            (let [tokcnt (get toks k)
+                                  txtcnt (get txts k)]
+                              (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~4,1F%)]"
+                                              what dtag width (show k)
+                                              tokcnt txtcnt ttype
+                                              (p100z txtcnt fullcnt)))))
 
-        ;; Six Americas surveys
-        [svy-hits                                               ; Keyword hits from surveys
-         svy-zeros] (init :surveys (keys Surveys))              ; Acc init: survey counts
-
-        svy-toks    (count-tokens svy-zeros svy-hits)
-        svy-texts   (count-texts  svy-zeros svy-hits)
+        ;; Calculate token & text counts for key elements
+        [aff-toks aff-txts] (count-all :affect  Affect-Names)           ; Pos/neg & emotions
+        [svy-toks svy-txts] (count-all :surveys (keys Surveys))         ; Six Americas surveys
+        [scr-toks scr-txts] (count-all :rules   (keys Rule-Triggers))   ; Survey Concept Rules
 
         ;; Now get a sequence of part-of-speech tags for the Texts.
         [pos-tags                                               ; POS tags for all Texts
          pos-zeros] (init :pos-tags pos/POS-Codes)              ; Acc init: POS tag counts
 
-        pos-toks  (reduce kount pos-zeros pos-tags)
-        pos-texts (reduce (fn [cnts pos]
-                            (update-values cnts (into #{} pos) inc))
-                          pos-zeros
-                          pos-tags)]
+        pos-toks (reduce kount pos-zeros pos-tags)
+        pos-txts (reduce (fn [cnts pos]
+                           (update-values cnts (into #{} pos) inc))
+                         pos-zeros
+                         pos-tags)]
 
   ;; Report the basic statistics
-  (log/fmt-info "SCR~a: p[~1$%] s[~1$%] xmps~a"
-                dtag (p100 :positive) (p100 :senti) stats)
+  (log/fmt-info "Dset:~a: p[~1$%] s[~1$%] txts~a"
+                dtag (stat100 :positive) (stat100 :senti) stats)
 
   ;; Report pos/neg first, then the emotions
-  (doseq [aff (conj (sort (keys (dissoc aff-texts "Positive" "Negative")))  ; ABCize emotions
-                    "Negative"                                              ; Add onto head
-                    "Positive")]                                            ; ..of the list
-    (log/fmt-debug "Affect~a ~12a [~4d Tokens in ~4d Texts]"
-                   dtag aff
-                   (get aff-toks  aff)
-                   (get aff-texts aff)))
+  (report (conj (sort (keys (dissoc aff-txts "Positive" "Negative")))   ; ABCize emotions
+                "Negative"                                              ; Add onto head
+                "Positive")                                             ; ..of the list
+          aff-toks aff-txts "Affect" identity 12)
 
   ;; Six Americas surveys
-  (log/debug)
-  (doseq [svy (sort (keys svy-texts))]
-    (log/fmt-debug "Survey~a ~12a [~4d Tokens in ~4d Texts]"
-                    dtag (name svy)
-                    (get svy-toks svy)
-                    (get svy-texts svy)))
+  (report (sort (keys svy-txts))
+          svy-toks svy-txts "Survey" name 12)
+
+  ;; Survey Concept Rules
+  (report (sort (keys scr-txts))
+          scr-toks scr-txts "Concept" identity 12)
 
   ;; Report part-of-speech tags
-  (log/debug)
-  (doseq [pos (sort-by pos/POS-Fragments
-                      (keys pos-texts))]
-    (log/fmt-debug "Speech~a ~24a [~4d Tokens in ~4d Texts]"
-                   dtag
-                   (pos/POS-Fragments pos)
-                   (get pos-toks  pos)
-                   (get pos-texts pos))))))
+  (when-not (some #{:no-pos} opts)
+    (report (sort-by pos/POS-Fragments
+                     (keys pos-txts))
+            pos-toks pos-txts "Speech" pos/POS-Fragments 24)))))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -2081,37 +2138,30 @@
   (report-accounts @World))
 
 
-  ([world]
-  ;; NOTE: The newer community way is subtly different from the original say-sila world
+  ([{:keys [dtag ontology]
+     :as   world}]
+  ;; TODO: The newer community way is subtly different from the original say-sila world.
+  ;;       Handle non-community mode as a signle-ontology community.
   (if (cfg/?? :sila :community?)
     ;; The community approach currently supports (just) a single set of ontologies
-    (report-accounts (first (keys (:ontology world)))       ; The single data tag
-                     (comm/fetch))
-    ;; The base say-sila approach has multiple (big) ontologies, keyed by data tags
-    (run! (fn [[dtag onter]]
-            (report-accounts dtag [(onter)]))
-            (:ontology world))))
+    (report-accounts dtag (ontology :fetch) (ontology :size))
+
+    ;; The base say-sila approach has a big ontologies with all the users
+    (report-accounts dtag [((:ontology world))] (count (:users world)))))
 
 
-  ([dtag onts]
-  (let [targets '[HumanCauseBelieverAccount
-                  NaturalCauseBelieverAccount]
+  ([dtag onts ccnt]
+  ;; Qualify our symbols as our caller may be in another namespace
+  (let [targets '[say.sila/EnergyConservationAccount
+                  say.sila/HumanCauseBelieverAccount
+                  say.sila/NaturalCauseBelieverAccount]
 
-        search  (fn [ont]
-                  ;; Find all instances for the search classes
-                  (let [hits (reduce #(conj %1 [%2 (rsn/instances ont (eval %2))])
-                                     {}
-                                     targets)]
-                    ;; Reclaim memory from reasoner
-                    (inf/unreason ont)
-                    hits))
-
-        needles (inf/with-silence
-                  (reduce #(merge-with set/union %1 %2) {} (pmap search onts)))
+        needles (comm/instances onts targets)
 
         report  (fn [sym]
-                  (let [accts (get needles sym)]
-                    (log/info (str sym dtag ":") (count accts))
+                  (let [accts (get needles sym)
+                        acnt  (count accts)]
+                    (log/fmt-info "~a~a: ~a of ~a (~,1F%)" sym dtag acnt ccnt (p100z acnt ccnt))
                     (comment run! #(log/debug "  -" (iri-fragment %)) accts)))]
 
     ;; Log report to the console for all targets
@@ -2122,24 +2172,25 @@
 ;;; --------------------------------------------------------------------------
 (defn report-world
   "Give positive/negative/emotion/survey/part-of-speech coverage for the
-  Say-Sila World data. Passing a :users option will list the users for
-  each data tag."
+  Say-Sila World data. Supported options are:
+    :users  - list the users for each data tag
+    :no-pos - omit the part of speech report"
   [& opts]
-  (let [world @World
-        users (when (some #{:users} opts)               ; On request:
-                (update-values (world :users)           ; Tagged maps of user sequences
-                               #(into #{} (map :screen_name %))))]
-    ;; Report affect and PoS in profiles and tweets
-    (run! (fn [[elm title]]
-            (log/info title)
-            (report-examples (world elm))
-            (log/debug))
-          [[:users "User Profiles:"]
-           [:texts "User Tweets:"]])
+  (let [{:keys [dtag
+                texts
+                users]} @World]
 
-    (doseq [[tag us] users]
+    ;; Report affect and PoS in profiles and tweets
+    (run! (fn [[txts ttype title]]
+            (log/info title)
+            (apply report-examples dtag txts ttype opts)
+            (log/debug))
+          [[users :profiles "User Profiles:"]
+           [texts :statuses "User Tweets:"]])
+
+    (when (some #{:users} opts)
       (log/debug)
-      (log/fmt-info "USERS~a: ~a" tag us))))
+      (log/fmt-info "USERS~a: ~a" dtag (map :screen_name users)))))
 
 
 
@@ -2147,24 +2198,61 @@
 (defn eprint-user
   "Pretty-prints a user's profile and tweets, highlighting the affect and
   showing a token dependency tree if available."
-  [user]
-  ;; NOTE: we may want to redo our keying system so the data tag is the top level
-  (let [eprint (fn [xmps]
-                 (run! #(eprint-tweet %)
-                       (filter #(= user (:screen_name %)) xmps)))]
-    ;; Run through the supported text-types
-    (run! (fn [ttype]
-            ;; Group profile/tweet reports by the dataset
-            (run! (fn [[dtag elms]]
-                    (log/fmt! "~a'~a' ~a ~a~a\n" log/Bright
-                                                 (name dtag)
-                                                 (case ttype :users "Profile of"
-                                                             :texts "Tweets for")
-                                                 user
-                                                 log/Text)
-                    (eprint elms))
-                  (@World ttype)))
-          [:users :texts])))
+  ([user]
+  (eprint-user user @World))
+
+
+  ([user
+    {:as    world
+     :keys  [dtag]}]
+  ;; Run through the supported text-types
+  (run! (fn [ttype]
+          ;; Group profile/tweet reports by the dataset
+          (run! (fn [txt]
+                  (log/fmt! "~a'~a' ~a ~a~a\n" log/Bright
+                                               (name dtag)
+                                               (case ttype :users "Profile of"
+                                                           :texts "Tweets for")
+                                               user
+                                               log/Text)
+                  (eprint-tweet txt))
+                (filter #(= user (:screen_name %)) (world ttype))))
+        [:users :texts])))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-user
+  "Produces an affect stacked bar chart for all text published by the user."
+  [user & args]
+  (let [[world
+         opts]  (optionize map? @World args)
+        texts   (:texts world)]
+    ;; Grab this user's texts and chart 'em!
+    (apply echart-affect (filter #(= user (:screen_name %)) texts) opts)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-text-instances
+  "Produces an affect stacked bar chart for all texts associated with the
+  specified Text class."
+  [klass & args]
+  (let [[{:keys  [texts ontology]
+           :as    world}
+         opts]  (optionize map? @World args)
+
+        ;; FIXME: Handle non-community mode as a single-ontology community.
+        onts (if (cfg/?? :sila :community?)
+                 (ontology :fetch)
+                 [((:ontology world))])
+
+        ;; Find the text IDs for texts of the specified subclass
+        tids (into #{}
+                   (map iri-fragment (comm/instances onts klass)))]
+
+    ;; Chart just those texts for the users
+    (apply echart-affect (filter #(contains? tids (:tid %)) texts) opts)))
 
 
 
@@ -2183,14 +2271,11 @@
   (save-ontologies @World))
 
 
-  ([world]
-  (save-ontologies world (which-data world)))
-
-
-  ([world dtag]
+  ([{:keys  [dtag ontology]
+     :as    world}]
   (save-ontology say-sila Ont-FPath :owl)
   (if (cfg/?? :sila :community?)
-      (comm/save dtag)
+      (comm/save (ontology :community) dtag)
       (merge {:say-sila Ont-FPath}
              (save-ontology-map (:ontology world) Ont-FStub)))))
 
@@ -2212,4 +2297,59 @@
            (when (some #{:ont} opts)
              (save-ontologies world dtag)))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn run
+  "Performs an experiment."
+  [dtag ausers atexts]
+  (let [maxmin  4                                   ; Maximum 'minimum activity'
+        sconf   (cfg/? :sila)
+        yn??    [true false]
+
+        ;; Set up to skip profiles (0), then statuses, then neither
+        [_ skip1 & skips] (for [profs yn??
+                                stats yn??]
+                            {:skip-profiles profs, :skip-statuses stats})]
+
+    (letfn [;; ---------------------------------------------------------------
+            (reconf
+              ([n]
+                (reconf n skip1))
+
+              ([n skips]
+                (merge sconf skips {:min-statuses n})))
+
+            ;; ---------------------------------------------------------------
+            (zap! [w]
+              ;; Release the community ontologies to free up memory
+              ((w :ontology) :zap!))
+
+            ;; ---------------------------------------------------------------
+            (reworld [w & cfg]
+              (create-world w (apply reconf cfg)))
+
+            ;; ---------------------------------------------------------------
+            (report
+              ([w]
+                (report-accounts w)
+                (zap! w))
+
+              ([w0 n]
+                (report w0)
+                (run! #(report (reworld w0 n %)) skips)
+                "\n"))]
+
+      ;; Check ontological coverage for a series of increasing minimum activity
+      (loop [n 1
+             w (create-world dtag ausers atexts (reconf 1))]
+
+        (when (<= n maxmin)
+          (log/info "Minimum status count:" n)
+          (log/info "Community size:" ((w :ontology) :size))
+
+          (let [rpt (report w n)
+                n+1 (inc n)]
+          (log/debug rpt)
+          (recur n+1 (reworld w n+1))))))))
 

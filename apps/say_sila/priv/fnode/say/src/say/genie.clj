@@ -249,6 +249,26 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn p100
+  "Returns the percentage of things with respect to the total."
+  [things total]
+  (* 100. (/ things
+             total)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn p100z
+  "Returns the percentage of things with respect to the total.  If total is
+  zero, returns (Double) 0."
+  [things total]
+  (if (zero? total)
+      0.
+      (p100 things total)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn ^String strfmt
   "Wrapper for clojure.pprint/cl-format to create strings."
   [text & args]

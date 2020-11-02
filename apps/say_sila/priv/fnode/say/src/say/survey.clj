@@ -41,9 +41,13 @@
 ;;; Six Americas Surveys:
 ;;;
 ;;; Word sets which invoke essential concepts
-(def ^:const Concept-Triggers  {"CAUSE"        #{"cause"}
-                                "HUMAN"        #{"human"}
-                                "NATURE"       #{"nature"}})
+(def ^:const Concept-Triggers   {;; ------------------------------------------
+                                 "CAUSE"        #{"cause"}
+                                 "HUMAN"        #{"human"}
+                                 "NATURE"       #{"nature"}
+                                 ;; ------------------------------------------
+                                 "ENERGY"       #{"energy"}
+                                 "CONSERVATION" #{"conservation" "save"}})
 
 (defonce Concept-Words          (word/synonym-values Concept-Triggers))     ; Concept expansion
 (defonce Concept-Stems          (update-values Concept-Words #(tw/stem-all % :set)))

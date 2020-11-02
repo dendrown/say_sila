@@ -13,13 +13,13 @@
      :community?        false                   ; Use individual user ontologies
      :foaf?             false                   ; Link to equivalent FOAF classes
      :min-statuses      1                       ; Minimum status (tweet text) count to be in ontology
-     :pn-balance?       false                   ; Equal representation for pos/neg classes
-     :pn-count          1000                    ; Maximum instance count for data subsets in pos/neg goals
      :rand-seed         12345                   ; Seed an RNG for Weka dataset handling
      :surveys           #{}                     ; DEPRECATED: Look for links in the specified survey(s)
      :emo-system        :plutchik               ; Base emotion system: plutchik|Ekman|nil
      :use-tweebo?       false                   ; Tweebo Parser dependency trees for tweets
      :skip-neutrals?    false                   ; Do not include Texts that have no terms expressing sentiment/emotion
+     :skip-profiles     false                   ; Do not use user profiles for reasoning
+     :skip-statuses     false                   ; Do not use status texts (tweets) for reasoning
      :lexicon           :liu                    ; Options: liu|mpqa|nrc|swn
      :wordnet-dir       "/opt/wordnet/dict/"}   ; Location of WordNet dictionary
 
