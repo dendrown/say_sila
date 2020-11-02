@@ -2078,66 +2078,52 @@
                             [(count-tokens zeros rules)
                              (count-texts  zeros rules)]))
 
-        ;; We'll need a sequence of affect (rule) sets for the Texts
-        [aff-toks
-         aff-texts] (count-all :affect Affect-Names)
+        report          (fn [ks toks txts what show width]
+                          (log/debug)
+                          (doseq [k ks]
+                            (log/fmt-debug "~a~a ~va [~4d Tokens in ~4d Texts]"
+                                            what dtag width (show k)
+                                            (get toks k)
+                                            (get txts k))))
 
-        ;; Six Americas surveys
-        [svy-toks
-         svy-texts] (count-all :surveys (keys Surveys))
-
-        ;; Survey Concept Rules
-        [scr-toks
-         scr-texts] (count-all :rules (keys Rule-Triggers))
+        ;; Calculate token & text counts for key elements
+        [aff-toks aff-txts] (count-all :affect  Affect-Names)           ; Pos/neg & emotions
+        [svy-toks svy-txts] (count-all :surveys (keys Surveys))         ; Six Americas surveys
+        [scr-toks scr-txts] (count-all :rules   (keys Rule-Triggers))   ; Survey Concept Rules
 
         ;; Now get a sequence of part-of-speech tags for the Texts.
         [pos-tags                                               ; POS tags for all Texts
          pos-zeros] (init :pos-tags pos/POS-Codes)              ; Acc init: POS tag counts
 
-        pos-toks  (reduce kount pos-zeros pos-tags)
-        pos-texts (reduce (fn [cnts pos]
-                            (update-values cnts (into #{} pos) inc))
-                          pos-zeros
-                          pos-tags)]
+        pos-toks (reduce kount pos-zeros pos-tags)
+        pos-txts (reduce (fn [cnts pos]
+                           (update-values cnts (into #{} pos) inc))
+                         pos-zeros
+                         pos-tags)]
 
   ;; Report the basic statistics
   (log/fmt-info "Dset:~a: p[~1$%] s[~1$%] txts~a"
                 dtag (p100 :positive) (p100 :senti) stats)
 
   ;; Report pos/neg first, then the emotions
-  (doseq [aff (conj (sort (keys (dissoc aff-texts "Positive" "Negative")))  ; ABCize emotions
-                    "Negative"                                              ; Add onto head
-                    "Positive")]                                            ; ..of the list
-    (log/fmt-debug "Affect~a ~12a [~4d Tokens in ~4d Texts]"
-                   dtag aff
-                   (get aff-toks  aff)
-                   (get aff-texts aff)))
+  (report (conj (sort (keys (dissoc aff-txts "Positive" "Negative")))   ; ABCize emotions
+                "Negative"                                              ; Add onto head
+                "Positive")                                             ; ..of the list
+          aff-toks aff-txts "Affect" identity 12)
 
   ;; Six Americas surveys
-  (log/debug)
-  (doseq [svy (sort (keys svy-texts))]
-    (log/fmt-debug "Survey~a ~12a [~4d Tokens in ~4d Texts]"
-                    dtag (name svy)
-                    (get svy-toks svy)
-                    (get svy-texts svy)))
+  (report (sort (keys svy-txts))
+          svy-toks svy-txts "Survey" name 12)
 
   ;; Survey Concept Rules
-  (log/debug)
-  (doseq [scr (sort (keys scr-texts))]
-    (log/fmt-debug "Concept:~a ~12a [~4d Tokens in ~4d Texts]"
-                    dtag scr
-                    (get scr-toks scr)
-                    (get scr-texts scr)))
+  (report (sort (keys scr-txts))
+          scr-toks scr-txts "Concept" identity 12)
 
   ;; Report part-of-speech tags
-  (log/debug)
-  (doseq [pos (sort-by pos/POS-Fragments
-                      (keys pos-texts))]
-    (log/fmt-debug "Speech~a ~24a [~4d Tokens in ~4d Texts]"
-                   dtag
-                   (pos/POS-Fragments pos)
-                   (get pos-toks  pos)
-                   (get pos-texts pos))))))
+  (report (sort-by pos/POS-Fragments
+                   (keys pos-txts))
+          pos-toks pos-txts "Speech" pos/POS-Fragments 24))))
+
 
 
 ;;; --------------------------------------------------------------------------
