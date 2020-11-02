@@ -2034,7 +2034,8 @@
 (defn report-examples
   "Give positive/negative coverage and sentiment statistics for sets of
   intermediate-format examples or a hashmap with multiple sets of examples
-  as values."
+  as values.  See report-world for a list of reporting options accepted by
+  the final clause."
   ([]
   (report-examples @World))
 
@@ -2044,7 +2045,7 @@
   (report-examples dtag texts :texts))
 
 
-  ([dtag texts text-type]
+  ([dtag texts text-type & opts]
   (let [;; Statistics on text polarity and presence of affect
         ttype   (name text-type)
         stats   (reduce #(let [ss (if (every? empty? (:affect %2))
@@ -2123,9 +2124,10 @@
           scr-toks scr-txts "Concept" identity 12)
 
   ;; Report part-of-speech tags
-  (report (sort-by pos/POS-Fragments
-                   (keys pos-txts))
-          pos-toks pos-txts "Speech" pos/POS-Fragments 24))))
+  (when-not (some #{:no-pos} opts)
+    (report (sort-by pos/POS-Fragments
+                     (keys pos-txts))
+            pos-toks pos-txts "Speech" pos/POS-Fragments 24)))))
 
 
 
@@ -2170,8 +2172,9 @@
 ;;; --------------------------------------------------------------------------
 (defn report-world
   "Give positive/negative/emotion/survey/part-of-speech coverage for the
-  Say-Sila World data. Passing a :users option will list the users for
-  each data tag."
+  Say-Sila World data. Supported options are:
+    :users  - list the users for each data tag
+    :no-pos - omit the part of speech report"
   [& opts]
   (let [{:keys [dtag
                 texts
@@ -2180,7 +2183,7 @@
     ;; Report affect and PoS in profiles and tweets
     (run! (fn [[txts ttype title]]
             (log/info title)
-            (report-examples dtag txts ttype)
+            (apply report-examples dtag txts ttype opts)
             (log/debug))
           [[users :profiles "User Profiles:"]
            [texts :statuses "User Tweets:"]])
