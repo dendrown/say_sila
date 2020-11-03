@@ -267,3 +267,17 @@
     (.close node)
     :ok)))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn go!
+  "Shortcut to run the experiment current under study.  Expect this function
+  to change frequently!"
+  []
+  (log/notice "Minimum status count:" (cfg/?? :sila :min-statuses))
+  (sila/create-world! :env
+                      "/srv/say_sila/weka/tweets/tweets.all.env.2020-Q1.U00.arff"
+                      "/srv/say_sila/weka/tweets/tweets.all.env.2020-Q1.S01.arff")
+  (sila/report-world :no-pos)
+  (sila/report-concepts))
+

@@ -511,6 +511,42 @@
       :equivalent (dl/and NaturalCauseToken
                           (dl/some directlyDependsOn NotNegatedCheck))))
 
+  ;; Text-level causality (currently these are used only for data analysis)
+  (defclass HumanAndCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent (dl/some indicatesRule HUMAN))
+                        (dl/some dul/hasComponent (dl/some indicatesRule CAUSE))))
+
+  (defclass AffirmedHumanCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent AffirmedHumanCauseToken)))
+
+  (defclass NegatedHumanCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent NegatedHumanCauseToken)))
+
+
+  (defclass NatureAndCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent (dl/some indicatesRule NATURE))
+                        (dl/some dul/hasComponent (dl/some indicatesRule CAUSE))))
+
+  (defclass AffirmedNaturalCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent AffirmedNaturalCauseToken)))
+
+  (defclass NegatedHumanCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent NegatedNaturalCauseToken)))
+
+
+  ;; Account-level causality
   (defclass HumanCauseBelieverAccount
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
@@ -2085,7 +2121,7 @@
                           (doseq [k ks]
                             (let [tokcnt (get toks k)
                                   txtcnt (get txts k)]
-                              (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~4,1F%)]"
+                              (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~5,2F%)]"
                                               what dtag width (show k)
                                               tokcnt txtcnt ttype
                                               (p100z txtcnt fullcnt)))))
@@ -2120,7 +2156,8 @@
           svy-toks svy-txts "Survey" name 12)
 
   ;; Survey Concept Rules
-  (report (sort (keys scr-txts))
+  (report ;(sort (keys scr-txts))
+          ["NEGATION" "CAUSE" "HUMAN" "NATURE" "CONSERVATION" "ENERGY"] ; Order for charting
           scr-toks scr-txts "Concept" identity 12)
 
   ;; Report part-of-speech tags
@@ -2132,40 +2169,53 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn report-accounts
-  "Gives instance coverage of specific online account classes."
+(defn report-concepts
+  "Gives instance coverage of concepts from say-sila community ontologies."
   ([]
-  (report-accounts @World))
+  (report-concepts @World))
 
 
-  ([{:keys [dtag ontology]
+  ([{:keys [dtag ontology texts]
      :as   world}]
   ;; TODO: The newer community way is subtly different from the original say-sila world.
   ;;       Handle non-community mode as a signle-ontology community.
-  (if (cfg/?? :sila :community?)
-    ;; The community approach currently supports (just) a single set of ontologies
-    (report-accounts dtag (ontology :fetch) (ontology :size))
+  (let [txtcnt   (count texts)
+        [onts
+         usrcnt] (if (cfg/?? :sila :community?)
+                     [(ontology :fetch)     , (ontology :size)]         ; A set of user ontologies
+                     [[((:ontology world))] , (count (:users world))])] ; [big ontology with all users]
 
-    ;; The base say-sila approach has a big ontologies with all the users
-    (report-accounts dtag [((:ontology world))] (count (:users world)))))
+    (report-concepts dtag onts txtcnt usrcnt)))
 
 
-  ([dtag onts ccnt]
+  ([dtag onts txtcnt usrcnt]
   ;; Qualify our symbols as our caller may be in another namespace
-  (let [targets '[say.sila/EnergyConservationAccount
-                  say.sila/HumanCauseBelieverAccount
-                  say.sila/NaturalCauseBelieverAccount]
+  (let [texts   '[say.sila/HumanAndCauseText
+                  say.sila/AffirmedHumanCauseText
+                  say.sila/NegatedHumanCauseText
+                 ;------------------------------------------------------------
+                  say.sila/NatureAndCauseText
+                  say.sila/AffirmedNaturalCauseText
+                  say.sila/NegatedHumanCauseText]
 
-        needles (comm/instances onts targets)
+        accts   '[say.sila/HumanCauseBelieverAccount
+                  say.sila/NaturalCauseBelieverAccount
+                 ;------------------------------------------------------------
+                  say.sila/EnergyConservationAccount]
 
-        report  (fn [sym]
-                  (let [accts (get needles sym)
-                        acnt  (count accts)]
-                    (log/fmt-info "~a~a: ~a of ~a (~,1F%)" sym dtag acnt ccnt (p100z acnt ccnt))
-                    (comment run! #(log/debug "  -" (iri-fragment %)) accts)))]
+        needles (comm/instances onts (concat texts accts))
+
+        report  (fn [sym what fullcnt]
+                  (let [elms (get needles sym)
+                        cnt  (count elms)]
+                    (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
+                                  sym dtag cnt fullcnt what (p100z cnt fullcnt))
+                    (comment run! #(log/debug "  -" (iri-fragment %)) elms)))]
 
     ;; Log report to the console for all targets
-    (run! report targets))))
+    (run! #(report % "texts" txtcnt) texts)
+    (log/debug)
+    (run! #(report % "users" usrcnt) accts))))
 
 
 
@@ -2332,7 +2382,7 @@
             ;; ---------------------------------------------------------------
             (report
               ([w]
-                (report-accounts w)
+                (report-concepts w)
                 (zap! w))
 
               ([w0 n]
