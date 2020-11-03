@@ -590,11 +590,16 @@
 
   ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
   ;;        We may need to make Text and Survey disjoint
-  (defclass EnergyConservationAccount
+  (defclass EnergyConservationAccount1
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
                         (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
-                                                   (dl/some dul/hasComponent ConservationToken)))))
+                                                   (dl/some dul/hasComponent ConservationToken))))
+
+  (defclass EnergyConservationAccount2
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/some publishes (dl/some dul/hasComponent EnergyConservationToken)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -2157,7 +2162,7 @@
 
   ;; Survey Concept Rules
   (report ;(sort (keys scr-txts))
-          ["NEGATION" "CAUSE" "HUMAN" "NATURE" "CONSERVATION" "ENERGY"] ; Order for charting
+          ["NEGATION" "CAUSE" "HUMAN" "NATURE" "ENERGY" "CONSERVATION"] ; Order for charting
           scr-toks scr-txts "Concept" identity 12)
 
   ;; Report part-of-speech tags
@@ -2193,15 +2198,19 @@
   (let [texts   '[say.sila/HumanAndCauseText
                   say.sila/AffirmedHumanCauseText
                   say.sila/NegatedHumanCauseText
-                 ;------------------------------------------------------------
+                 ;--------------------------------------
                   say.sila/NatureAndCauseText
                   say.sila/AffirmedNaturalCauseText
-                  say.sila/NegatedHumanCauseText]
+                  say.sila/NegatedHumanCauseText
+                 ;--------------------------------------
+                  say.sila/EnergyConservationText1
+                  say.sila/EnergyConservationText2]
 
         accts   '[say.sila/HumanCauseBelieverAccount
                   say.sila/NaturalCauseBelieverAccount
-                 ;------------------------------------------------------------
-                  say.sila/EnergyConservationAccount]
+                 ;--------------------------------------
+                  say.sila/EnergyConservationAccount1
+                  say.sila/EnergyConservationAccount2]
 
         needles (comm/instances onts (concat texts accts))
 
