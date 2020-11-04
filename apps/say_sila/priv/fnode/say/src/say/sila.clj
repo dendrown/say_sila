@@ -392,9 +392,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defclass SurveyReferenceRule
+(defclass SurveyConceptRule
   :super   dul/Concept
-  :label   "Survey Reference Rule"
+  :label   "Survey Concept Rule"
   :comment (str "An abstraction describing a Text or portion of a Text, "
                  "indicating that it refers to a question from a Six Americas survey."))
 
@@ -404,7 +404,7 @@
   :super   dul/expresses
   :label   "indicates rule"
   :domain  pos/Token
-  :range   SurveyReferenceRule
+  :range   SurveyConceptRule
   :comment "A relationship between a Token and the survey reference rule it expresses.")
 
 
@@ -412,8 +412,8 @@
   "Adds a Sentiment Composition Rule (component) subclass to the say-sila ontology"
   [tag descr]
   `(do (defclass ~tag
-         :super   SurveyReferenceRule
-         :label   (str "Survey Reference Rule - " (name '~tag))
+         :super   SurveyConceptRule
+         :label   (str "Survey Concept Rule - " (name '~tag))
          :comment ~descr)
        (defpun ~tag)))
 
@@ -449,10 +449,10 @@
   :equivalent (dl/and pos/Token
                       (dl/some dul/isComponentOf Survey)))
 
-(comment defclass SurveyReference   ; TODO: Pending decision on info-objs
+(comment defclass SurveyConcept     ; TODO: Pending decision on info-objs
   :super    dul/InformationObject
-  :label    "Survey Reference"
-  :comment  (str "An Information Object which has one or more keywords from  a "
+  :label    "Survey Concept"
+  :comment  (str "An Information Object which has one or more keywords from a "
                  "Six Americas survey.")
   :equivalent (dl/and dul/InformationObject
                       (dl/some dul/hasComponent SurveyKeyword)))
@@ -540,7 +540,7 @@
     :equivalent (dl/and Text
                         (dl/some dul/hasComponent AffirmedNaturalCauseToken)))
 
-  (defclass NegatedHumanCauseText
+  (defclass NegatedNaturalCauseText
     :super Text
     :equivalent (dl/and Text
                         (dl/some dul/hasComponent NegatedNaturalCauseToken)))
@@ -1554,7 +1554,7 @@
             (doseq [a aff]
               (refine ont curr :fact (is denotesAffect (individual say-sila a))))
 
-            ;; Express sentiment composition rules  (TODO: rename these rules)
+            ;; Express survey concept rules
             (doseq [r scr]
               (refine ont curr :fact (is indicatesRule (individual say-sila r))))
 
@@ -2098,7 +2098,7 @@
         fullcnt (stats :count)
 
         ;; Generalized roll-up functionality
-        stat100 #(p100 (stats %) fullcnt)
+        stat100 #(p100z (stats %) fullcnt)
 
         zero    #(apply zero-hashmap %)
         init    #(vector (map %1 texts)                         ; [elements, initial count-map]
@@ -2201,7 +2201,7 @@
                  ;--------------------------------------
                   say.sila/NatureAndCauseText
                   say.sila/AffirmedNaturalCauseText
-                  say.sila/NegatedHumanCauseText
+                  say.sila/NegatedNaturalCauseText
                  ;--------------------------------------
                   say.sila/EnergyConservationText1
                   say.sila/EnergyConservationText2]
