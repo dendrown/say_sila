@@ -129,7 +129,7 @@ stop() ->
 % @end  --
 make_arff() ->
     % This may take a while depending on the tweet count
-    gen_server:call(?MODULE, make_arff, 30 * 1000).
+    gen_server:call(?MODULE, make_arff, 60 * 1000).
 
 
 
@@ -232,11 +232,13 @@ code_change(OldVsn, State, _Extra) ->
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
 handle_call(make_arff, _From, State = #state{tracker = Tracker,
-                                             tweets  = Tweets}) ->
+                                             tweets  = Tweets,
+                                             options = Options}) ->
     Response = case Tweets of
         [] -> none;
         _  -> arff:from_tweets(?str_fmt("tweets.~s.env", [Tracker]),
-                               Tweets)
+                               Tweets,
+                               [{comment, ?str_fmt("~p", [Options])}])
     end,
     {reply, Response, State};
 
