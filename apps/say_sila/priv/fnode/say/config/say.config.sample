@@ -72,5 +72,9 @@
   :survey
     {:survey            :sassy                  ; Active survey for checking profiles/tweets
      :min-chart-hits    5}                      ; Mininimum hit frequency to be included in report chart
+
+  ;; -------------------------------------------------------------------------
+  :tweebo
+    {:dir               "resources/tweebo"}
 }
 ;;; vim: ft=clojure:

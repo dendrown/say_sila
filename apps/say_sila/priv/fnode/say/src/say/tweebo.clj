@@ -12,8 +12,10 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.tweebo
   (:require [say.genie          :refer :all]
+  [say.resources]
             [say.config         :as cfg]
             [say.log            :as log]
+            [say.resources      :as rsc]
             [clojure.data.csv   :as csv]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
@@ -27,7 +29,7 @@
 (def ^:const TWEEBO-EXEC    "/usr/local/bin/tweebo")
 
 (defonce Runner     (agent 0))
-(defonce Tweebo-Dir (str (System/getProperty "user.dir") "/resources/tweebo/"))
+(defonce Tweebo-Dir (rsc/get-dir (cfg/?? :tweebo :dir) "tweebo"))
 
 
 ;;; --------------------------------------------------------------------------
@@ -37,8 +39,9 @@
   (get-fpath tid nil))
 
   ([tid kind]
-  (apply str Tweebo-Dir tid (when kind
-                              ["." (name kind)]))))
+  (rsc/get-fpath Tweebo-Dir (if kind
+                                 (str tid "." (name kind))
+                                 tid))))
 
 
 
