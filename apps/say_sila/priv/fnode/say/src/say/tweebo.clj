@@ -68,9 +68,11 @@
   (get-fpath tid nil))
 
   ([tid kind]
-  (rsc/get-fpath Tweebo-Dir (if kind
-                                 (str tid "." (name kind))
-                                 tid))))
+  (rsc/get-fpath Tweebo-Dir
+                 (get-subdir tid)
+                 (if kind
+                     (str tid "." (name kind))
+                     tid))))
 
 
 
@@ -79,12 +81,14 @@
   "Prepares a TweeboParser (predicted) dependency tree for later use."
   [runs tid text]
   (let [ipath (get-fpath tid)
-        opath (get-fpath tid :predict)]
-    (if (.exists (io/file opath))
+        opath (get-fpath tid :predict)
+        ofile (io/file opath)]
+    (if (.exists ofile)
       (do ;(log/debug "Tweebo parse exists:" opath)
           runs)
       (do
         (log/fmt-debug "Parsing dependencies: cnt[~a] fp[~a]" runs ipath)
+        (.mkdirs (.getParentFile ofile))
         (spit ipath text)
         (let [{:keys [err
                       exit

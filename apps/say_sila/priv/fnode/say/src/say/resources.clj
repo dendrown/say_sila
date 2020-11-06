@@ -70,9 +70,13 @@
 ;;; --------------------------------------------------------------------------
 (defn get-fpath
   "Returns the filepath give the directory stub and the filename."
-  [fstub fname]
-  (let [sep (if (str/ends-with? fstub Separator)
-                ""
-                Separator)]
-    (str (get-dir fstub) sep fname)))
+  [fstub & fparts]
+  (let [separate #(if (str/ends-with? % Separator)
+                      ""
+                      Separator)]
+    ;; String the file parts together adding slashes as needed
+    (apply str (reduce (fn [acc fpart]
+                         (conj acc (separate acc) fpart))
+                       (vector (get-dir fstub))
+                       fparts))))
 
