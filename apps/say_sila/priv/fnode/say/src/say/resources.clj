@@ -20,7 +20,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn attach-project-dir
+(defn- attach-project-dir
   "Returns a directory path under the main project directory."
   [& dirs]
   (apply str (interpose Separator
@@ -29,7 +29,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn attach-resource-dir
+(defn- attach-resource-dir
   "Returns a directory path under the project resources directory."
   [& dirs]
   (apply attach-project-dir "resources" dirs))

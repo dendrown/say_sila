@@ -22,7 +22,8 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const TWEET-TAG  "t")                        ; Tweet individual have this tag plus the ID ( "t42" )
+(def ^:const Tweet-Tag      "t")                    ; Tweet individual have this tag plus the ID ( "t42" )
+(def ^:const Profile-Tag    "ProfileOf_")           ; User profiles look like "ProfileOf_ArthurDent
 
 (defonce Columns (dset/columns :s))                 ; Weka format for Say-Sila status/sentiment feed
 
@@ -81,13 +82,13 @@
   String
   (label-text [s]
     ;; Allow multiple calls without retagging
-    (if (str/starts-with? s TWEET-TAG)
+    (if (str/starts-with? s Tweet-Tag)
         s
-        (str TWEET-TAG s)))
+        (str Tweet-Tag s)))
 
   Object
   (label-text [x]
-    (str TWEET-TAG (longify x))))
+    (str Tweet-Tag (longify x))))
 
 
 

@@ -1908,7 +1908,7 @@
            (fn [acc ^Instance inst]
              (let [avals (update-values attrs #(.stringValue inst (int %)))     ; Pull attr-vals
                    sname (:screen_name avals)
-                   tid   (str "ProfileOf_" sname)                               ; TextID is profile name
+                   tid   (str lbl/Profile-Tag sname)                               ; TextID is profile name
                    xmp   (make-example tools tid sname (:description avals))]   ; Check emotion
              ;; Add on hashmap with attribute data plus emotion analysis
              (conj acc (merge avals xmp))))

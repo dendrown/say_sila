@@ -14,6 +14,7 @@
   (:require [say.genie          :refer :all]
   [say.resources]
             [say.config         :as cfg]
+            [say.label          :as lbl]
             [say.log            :as log]
             [say.resources      :as rsc]
             [clojure.data.csv   :as csv]
@@ -26,10 +27,33 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const TWEEBO-EXEC    "/usr/local/bin/tweebo")
+(def ^:const Subdir-Cut     4)                          ; Characters cut from ID
+(def ^:const Tweebo-Exec    "/usr/local/bin/tweebo")
 
 (defonce Runner     (agent 0))
 (defonce Tweebo-Dir (rsc/get-dir (cfg/?? :tweebo :dir) "tweebo"))
+
+
+;;; --------------------------------------------------------------------------
+(defn get-subdir
+  "Returns the  subdirectory (under the tweebo resource directory) where a
+  user's tweet or profile analysis should go."
+  [fname]
+  ;; The text ID is the simple filename; remove any extension.
+  (let [id (first (str/split fname #"\." 2))]
+    (cond
+      ;; Use the last digits of a tweet ID. (The initial digits don't vary enough.)
+      (str/starts-with? id lbl/Tweet-Tag)
+        (subs id (- (count id) Subdir-Cut))
+
+      ;; Use the first part of the account name for user profiles
+      (str/starts-with? id lbl/Profile-Tag)
+        (let [skip (count lbl/Profile-Tag)]
+          (subs id skip (+ skip Subdir-Cut)))
+
+      :else
+        (str "_" (subs id Subdir-Cut)))))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -59,7 +83,7 @@
         (spit ipath text)
         (let [{:keys [err
                       exit
-                      out]} (sh/sh TWEEBO-EXEC ipath)]
+                      out]} (sh/sh Tweebo-Exec ipath)]
           (if (zero? exit)
               ;; TweeboParser seems to be writing normal output to stderr
               (do (log/fmt-debug "Tweebo on ~a: ~a" tid (last (str/split err #"\n")))
