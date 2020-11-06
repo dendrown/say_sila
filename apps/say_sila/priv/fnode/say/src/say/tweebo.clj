@@ -27,7 +27,9 @@
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const Subdir-Cut     4)                          ; Characters cut from ID
+(def ^:const Subdir-Tweet-Cut   4)                      ; (Final) digits from tweet ID
+(def ^:const Subdir-User-Cut    3)                      ; Letters from user ID
+(def ^:const Subdir-Unknown-Cut 2)                      ; Characters from unrecognized ID
 (def ^:const Tweebo-Exec    "/usr/local/bin/tweebo")
 
 (defonce Runner     (agent 0))
@@ -40,19 +42,22 @@
   user's tweet or profile analysis should go."
   [fname]
   ;; The text ID is the simple filename; remove any extension.
-  (let [id (first (str/split fname #"\." 2))]
+  (let [id  (first (str/split fname #"\." 2))
+        cnt (count id)]
     (cond
       ;; Use the last digits of a tweet ID. (The initial digits don't vary enough.)
       (str/starts-with? id lbl/Tweet-Tag)
-        (subs id (- (count id) Subdir-Cut))
+        (subs id (- cnt Subdir-Tweet-Cut))
 
       ;; Use the first part of the account name for user profiles
       (str/starts-with? id lbl/Profile-Tag)
-        (let [skip (count lbl/Profile-Tag)]
-          (subs id skip (+ skip Subdir-Cut)))
+        (let [skip  (count lbl/Profile-Tag)
+              cut   (min cnt
+                         (+ skip Subdir-User-Cut))]
+          (str/upper-case (subs id skip cut)))
 
       :else
-        (str "_" (subs id Subdir-Cut)))))
+        (str "_" (subs id 0 Subdir-Unknown-Cut)))))
 
 
 
