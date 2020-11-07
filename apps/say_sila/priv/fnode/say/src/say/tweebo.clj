@@ -21,15 +21,16 @@
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
             [clojure.pprint     :refer [pp]]
-            [clojure.string     :as str]))
+            [clojure.string     :as str]
+            [me.raynes.fs       :as fs]))
 
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const Subdir-Tweet-Cut   4)                      ; (Final) digits from tweet ID
-(def ^:const Subdir-User-Cut    3)                      ; Letters from user ID
-(def ^:const Subdir-Unknown-Cut 2)                      ; Characters from unrecognized ID
+(def ^:const Subdir-Tweet-Cut   3)                      ; (Final) digits from tweet ID
+(def ^:const Subdir-User-Cut    2)                      ; Letters from user ID
+(def ^:const Subdir-Unknown-Cut 4)                      ; Characters from unrecognized ID
 (def ^:const Tweebo-Exec    "/usr/local/bin/tweebo")
 
 (defonce Runner     (agent 0))
@@ -196,4 +197,27 @@
       (println "•")
       (process 0 [] roots children)
       (println))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn migrate!
+  "Development function that copies Tweebo files from the legacy directory
+  structure to the new one as defined in the configuration."
+  []
+  (let [old-dir   (rsc/get-dir "tweebo")
+        old-fpath #(str old-dir "/" %)
+        ignore    #{".keep" "working_dir" "requote" "requote.l"}]
+
+    (println "Migrating Tweebo files:")
+    (println "* SRC:" old-dir)
+    (println "* DST:" Tweebo-Dir)
+    (println "Please press <ENTER>")
+    (read-line)
+
+    (doseq [o (.list (io/file old-dir))]
+      (when-not (ignore o)
+        (log/debug "Copying" o)
+        (fs/copy+ (old-fpath o)
+                  (get-fpath o))))))
 
