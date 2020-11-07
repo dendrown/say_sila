@@ -53,9 +53,9 @@
 ; External JARs [ lein localrepo install ]
 ;
 ; * Erlang jInterface:
-;   /usr/lib/erlang/lib/jinterface-1.9.1/priv/OtpErlang.jar
+;   /usr/lib64/erlang/lib/jinterface-1.11/priv/OtpErlang.jar
 ;   org.erlang.otp/jinterface
-;   1.9.1
+;   1..11.0
 ;   NOTE: Not up-to-date @ https://mvnrepository.com/artifact/org.erlang.otp/jinterface
 ;
 ; * Snowball Stemmers
