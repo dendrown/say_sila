@@ -178,7 +178,7 @@
 
 
   ([insts dset col & opts]
-  (let [lex-tag (cfg/?? :senti :lexicon :liu)
+  (let [lex-tag (cfg/?? :sila :lexicon :liu)
         txt-ndx (col-index dset col :1-based)
         dataset (if (some #{:ensure-text} opts)
                     (weka/filter-instances insts
