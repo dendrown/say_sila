@@ -238,7 +238,7 @@ handle_call(make_arff, _From, State = #state{tracker = Tracker,
         [] -> none;
         _  -> arff:from_tweets(?str_fmt("tweets.~s.env", [Tracker]),
                                Tweets,
-                               [{comment, ?str_fmt("~p", [Options])}])
+                               [{comment, ?str_fmt("~s: ~p", [?MODULE, Options])}])
     end,
     {reply, Response, State};
 
