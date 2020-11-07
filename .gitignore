@@ -15,8 +15,9 @@ _*
 *.o
 *.beam
 *.*_plt
-*.swp
-*.swo
+.*.swp
+.*.swo
+.*.ods#
 .erlang.cookie
 ebin
 erl_crash.dump
