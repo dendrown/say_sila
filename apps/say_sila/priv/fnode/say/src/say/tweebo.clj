@@ -12,22 +12,54 @@
 ;;;; -------------------------------------------------------------------------
 (ns say.tweebo
   (:require [say.genie          :refer :all]
+  [say.resources]
             [say.config         :as cfg]
+            [say.label          :as lbl]
             [say.log            :as log]
+            [say.resources      :as rsc]
             [clojure.data.csv   :as csv]
             [clojure.java.io    :as io]
             [clojure.java.shell :as sh]
             [clojure.pprint     :refer [pp]]
-            [clojure.string     :as str]))
+            [clojure.string     :as str]
+            [me.raynes.fs       :as fs]))
 
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const TWEEBO-EXEC    "/usr/local/bin/tweebo")
+(def ^:const Subdir-Tweet-Cut   3)                      ; (Final) digits from tweet ID
+(def ^:const Subdir-User-Cut    2)                      ; Letters from user ID
+(def ^:const Subdir-Unknown-Cut 4)                      ; Characters from unrecognized ID
+(def ^:const Tweebo-Exec    "/usr/local/bin/tweebo")
 
 (defonce Runner     (agent 0))
-(defonce Tweebo-Dir (str (System/getProperty "user.dir") "/resources/tweebo/"))
+(defonce Tweebo-Dir (rsc/get-dir (cfg/?? :tweebo :dir) "tweebo"))
+
+
+;;; --------------------------------------------------------------------------
+(defn get-subdir
+  "Returns the  subdirectory (under the tweebo resource directory) where a
+  user's tweet or profile analysis should go."
+  [fname]
+  ;; The text ID is the simple filename; remove any extension.
+  (let [id  (first (str/split fname #"\." 2))
+        cnt (count id)]
+    (cond
+      ;; Use the last digits of a tweet ID. (The initial digits don't vary enough.)
+      (str/starts-with? id lbl/Tweet-Tag)
+        (subs id (- cnt Subdir-Tweet-Cut))
+
+      ;; Use the first part of the account name for user profiles
+      (str/starts-with? id lbl/Profile-Tag)
+        (let [skip  (count lbl/Profile-Tag)
+              cut   (min cnt
+                         (+ skip Subdir-User-Cut))]
+          (str/upper-case (subs id skip cut)))
+
+      :else
+        (str "_" (subs id 0 Subdir-Unknown-Cut)))))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -37,8 +69,11 @@
   (get-fpath tid nil))
 
   ([tid kind]
-  (apply str Tweebo-Dir tid (when kind
-                              ["." (name kind)]))))
+  (rsc/get-fpath Tweebo-Dir
+                 (get-subdir tid)
+                 (if kind
+                     (str tid "." (name kind))
+                     tid))))
 
 
 
@@ -47,16 +82,18 @@
   "Prepares a TweeboParser (predicted) dependency tree for later use."
   [runs tid text]
   (let [ipath (get-fpath tid)
-        opath (get-fpath tid :predict)]
-    (if (.exists (io/file opath))
+        opath (get-fpath tid :predict)
+        ofile (io/file opath)]
+    (if (.exists ofile)
       (do ;(log/debug "Tweebo parse exists:" opath)
           runs)
       (do
         (log/fmt-debug "Parsing dependencies: cnt[~a] fp[~a]" runs ipath)
+        (.mkdirs (.getParentFile ofile))
         (spit ipath text)
         (let [{:keys [err
                       exit
-                      out]} (sh/sh TWEEBO-EXEC ipath)]
+                      out]} (sh/sh Tweebo-Exec ipath)]
           (if (zero? exit)
               ;; TweeboParser seems to be writing normal output to stderr
               (do (log/fmt-debug "Tweebo on ~a: ~a" tid (last (str/split err #"\n")))
@@ -160,4 +197,27 @@
       (println "•")
       (process 0 [] roots children)
       (println))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn migrate!
+  "Development function that copies Tweebo files from the legacy directory
+  structure to the new one as defined in the configuration."
+  []
+  (let [old-dir   (rsc/get-dir "tweebo")
+        old-fpath #(str old-dir "/" %)
+        ignore    #{".keep" "working_dir" "requote" "requote.l"}]
+
+    (println "Migrating Tweebo files:")
+    (println "* SRC:" old-dir)
+    (println "* DST:" Tweebo-Dir)
+    (println "Please press <ENTER>")
+    (read-line)
+
+    (doseq [o (.list (io/file old-dir))]
+      (when-not (ignore o)
+        (log/debug "Copying" o)
+        (fs/copy+ (old-fpath o)
+                  (get-fpath o))))))
 

@@ -392,9 +392,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defclass SurveyReferenceRule
+(defclass SurveyConceptRule
   :super   dul/Concept
-  :label   "Survey Reference Rule"
+  :label   "Survey Concept Rule"
   :comment (str "An abstraction describing a Text or portion of a Text, "
                  "indicating that it refers to a question from a Six Americas survey."))
 
@@ -404,7 +404,7 @@
   :super   dul/expresses
   :label   "indicates rule"
   :domain  pos/Token
-  :range   SurveyReferenceRule
+  :range   SurveyConceptRule
   :comment "A relationship between a Token and the survey reference rule it expresses.")
 
 
@@ -412,8 +412,8 @@
   "Adds a Sentiment Composition Rule (component) subclass to the say-sila ontology"
   [tag descr]
   `(do (defclass ~tag
-         :super   SurveyReferenceRule
-         :label   (str "Survey Reference Rule - " (name '~tag))
+         :super   SurveyConceptRule
+         :label   (str "Survey Concept Rule - " (name '~tag))
          :comment ~descr)
        (defpun ~tag)))
 
@@ -449,10 +449,10 @@
   :equivalent (dl/and pos/Token
                       (dl/some dul/isComponentOf Survey)))
 
-(comment defclass SurveyReference   ; TODO: Pending decision on info-objs
+(comment defclass SurveyConcept     ; TODO: Pending decision on info-objs
   :super    dul/InformationObject
-  :label    "Survey Reference"
-  :comment  (str "An Information Object which has one or more keywords from  a "
+  :label    "Survey Concept"
+  :comment  (str "An Information Object which has one or more keywords from a "
                  "Six Americas survey.")
   :equivalent (dl/and dul/InformationObject
                       (dl/some dul/hasComponent SurveyKeyword)))
@@ -511,6 +511,42 @@
       :equivalent (dl/and NaturalCauseToken
                           (dl/some directlyDependsOn NotNegatedCheck))))
 
+  ;; Text-level causality (currently these are used only for data analysis)
+  (defclass HumanAndCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent (dl/some indicatesRule HUMAN))
+                        (dl/some dul/hasComponent (dl/some indicatesRule CAUSE))))
+
+  (defclass AffirmedHumanCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent AffirmedHumanCauseToken)))
+
+  (defclass NegatedHumanCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent NegatedHumanCauseToken)))
+
+
+  (defclass NatureAndCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent (dl/some indicatesRule NATURE))
+                        (dl/some dul/hasComponent (dl/some indicatesRule CAUSE))))
+
+  (defclass AffirmedNaturalCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent AffirmedNaturalCauseToken)))
+
+  (defclass NegatedNaturalCauseText
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent NegatedNaturalCauseToken)))
+
+
+  ;; Account-level causality
   (defclass HumanCauseBelieverAccount
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
@@ -554,11 +590,16 @@
 
   ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
   ;;        We may need to make Text and Survey disjoint
-  (defclass EnergyConservationAccount
+  (defclass EnergyConservationAccount1
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
                         (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
-                                                   (dl/some dul/hasComponent ConservationToken)))))
+                                                   (dl/some dul/hasComponent ConservationToken))))
+
+  (defclass EnergyConservationAccount2
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/some publishes (dl/some dul/hasComponent EnergyConservationToken)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -1513,7 +1554,7 @@
             (doseq [a aff]
               (refine ont curr :fact (is denotesAffect (individual say-sila a))))
 
-            ;; Express sentiment composition rules  (TODO: rename these rules)
+            ;; Express survey concept rules
             (doseq [r scr]
               (refine ont curr :fact (is indicatesRule (individual say-sila r))))
 
@@ -1867,7 +1908,7 @@
            (fn [acc ^Instance inst]
              (let [avals (update-values attrs #(.stringValue inst (int %)))     ; Pull attr-vals
                    sname (:screen_name avals)
-                   tid   (str "ProfileOf_" sname)                               ; TextID is profile name
+                   tid   (str lbl/Profile-Tag sname)                               ; TextID is profile name
                    xmp   (make-example tools tid sname (:description avals))]   ; Check emotion
              ;; Add on hashmap with attribute data plus emotion analysis
              (conj acc (merge avals xmp))))
@@ -2057,7 +2098,7 @@
         fullcnt (stats :count)
 
         ;; Generalized roll-up functionality
-        stat100 #(p100 (stats %) fullcnt)
+        stat100 #(p100z (stats %) fullcnt)
 
         zero    #(apply zero-hashmap %)
         init    #(vector (map %1 texts)                         ; [elements, initial count-map]
@@ -2085,7 +2126,7 @@
                           (doseq [k ks]
                             (let [tokcnt (get toks k)
                                   txtcnt (get txts k)]
-                              (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~4,1F%)]"
+                              (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~5,2F%)]"
                                               what dtag width (show k)
                                               tokcnt txtcnt ttype
                                               (p100z txtcnt fullcnt)))))
@@ -2120,7 +2161,8 @@
           svy-toks svy-txts "Survey" name 12)
 
   ;; Survey Concept Rules
-  (report (sort (keys scr-txts))
+  (report ;(sort (keys scr-txts))
+          ["NEGATION" "CAUSE" "HUMAN" "NATURE" "ENERGY" "CONSERVATION"] ; Order for charting
           scr-toks scr-txts "Concept" identity 12)
 
   ;; Report part-of-speech tags
@@ -2132,40 +2174,57 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn report-accounts
-  "Gives instance coverage of specific online account classes."
+(defn report-concepts
+  "Gives instance coverage of concepts from say-sila community ontologies."
   ([]
-  (report-accounts @World))
+  (report-concepts @World))
 
 
-  ([{:keys [dtag ontology]
+  ([{:keys [dtag ontology texts]
      :as   world}]
   ;; TODO: The newer community way is subtly different from the original say-sila world.
   ;;       Handle non-community mode as a signle-ontology community.
-  (if (cfg/?? :sila :community?)
-    ;; The community approach currently supports (just) a single set of ontologies
-    (report-accounts dtag (ontology :fetch) (ontology :size))
+  (let [txtcnt   (count texts)
+        [onts
+         usrcnt] (if (cfg/?? :sila :community?)
+                     [(ontology :fetch)     , (ontology :size)]         ; A set of user ontologies
+                     [[((:ontology world))] , (count (:users world))])] ; [big ontology with all users]
 
-    ;; The base say-sila approach has a big ontologies with all the users
-    (report-accounts dtag [((:ontology world))] (count (:users world)))))
+    (report-concepts dtag onts txtcnt usrcnt)))
 
 
-  ([dtag onts ccnt]
+  ([dtag onts txtcnt usrcnt]
   ;; Qualify our symbols as our caller may be in another namespace
-  (let [targets '[say.sila/EnergyConservationAccount
-                  say.sila/HumanCauseBelieverAccount
-                  say.sila/NaturalCauseBelieverAccount]
+  (let [texts   '[say.sila/HumanAndCauseText
+                  say.sila/AffirmedHumanCauseText
+                  say.sila/NegatedHumanCauseText
+                 ;--------------------------------------
+                  say.sila/NatureAndCauseText
+                  say.sila/AffirmedNaturalCauseText
+                  say.sila/NegatedNaturalCauseText
+                 ;--------------------------------------
+                  say.sila/EnergyConservationText1
+                  say.sila/EnergyConservationText2]
 
-        needles (comm/instances onts targets)
+        accts   '[say.sila/HumanCauseBelieverAccount
+                  say.sila/NaturalCauseBelieverAccount
+                 ;--------------------------------------
+                  say.sila/EnergyConservationAccount1
+                  say.sila/EnergyConservationAccount2]
 
-        report  (fn [sym]
-                  (let [accts (get needles sym)
-                        acnt  (count accts)]
-                    (log/fmt-info "~a~a: ~a of ~a (~,1F%)" sym dtag acnt ccnt (p100z acnt ccnt))
-                    (comment run! #(log/debug "  -" (iri-fragment %)) accts)))]
+        needles (comm/instances onts (concat texts accts))
+
+        report  (fn [sym what fullcnt]
+                  (let [elms (get needles sym)
+                        cnt  (count elms)]
+                    (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
+                                  sym dtag cnt fullcnt what (p100z cnt fullcnt))
+                    (comment run! #(log/debug "  -" (iri-fragment %)) elms)))]
 
     ;; Log report to the console for all targets
-    (run! report targets))))
+    (run! #(report % "texts" txtcnt) texts)
+    (log/debug)
+    (run! #(report % "users" usrcnt) accts))))
 
 
 
@@ -2332,7 +2391,7 @@
             ;; ---------------------------------------------------------------
             (report
               ([w]
-                (report-accounts w)
+                (report-concepts w)
                 (zap! w))
 
               ([w0 n]

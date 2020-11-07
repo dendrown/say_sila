@@ -22,7 +22,8 @@
  {"cause"
   #{"SID-07341157-N"    ;gloss "events that provide the generative force that is the origin of something..."
     "SID-00007347-N"    ;gloss "any entity that produces an effect or is responsible for events or results"
-    "SID-01649143-V"}   ;gloss "give rise to; cause to happen or occur, not always intentionally..."
+    "SID-01649143-V"    ;gloss "give rise to; cause to happen or occur, not always intentionally..."
+    "SID-00772482-V"}   ;gloss "cause to do; cause to act in a specified manner"
 
   "human"
   #{"SID-02474924-N"    ;gloss "any living or extinct member of the family Hominidae characterized by

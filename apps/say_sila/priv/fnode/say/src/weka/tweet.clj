@@ -327,6 +327,7 @@
         stems (map #(.stem sball (str/lower-case %)) coll)]
     ;; Set or sequence?
     (if (some #{:set} opts)
+        (into #{} stems)
         stems)))
 
 

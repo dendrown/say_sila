@@ -224,6 +224,7 @@ from_report(Name, Type, #{big := BigRptPack,
 %       file for Weka.
 %
 %       Available options are:
+%       - {comment, "File description"} : Include the description as a comment in the output ARFF
 %       - {mode, single}                : The whole ARFF will be this one list of tweets (default)
 %       - {mode, start}                 : Begin continuous ARFF creation
 %       - {mode, {cont, FOut, FName}}   : Continue ongoing ARFF creation
@@ -267,6 +268,11 @@ from_tweets(Name, Tweets, Opts) ->
         {FP, Out} = open_arff(tweets, Name),
 
         ?info("Creating ARFF: ~s", [FP]),
+        case pprops:get_value(comment, Opts) of
+            undefined -> ok;
+            Comment   -> ?io_fmt(Out, "~n% ~s~n~n", [Comment])
+        end,
+
         ?put_attr(Out, id,          string),
         ?put_attr(Out, lang,        string),
         ?put_attr(Out, screen_name, string),
