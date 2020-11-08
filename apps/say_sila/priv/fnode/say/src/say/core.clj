@@ -281,3 +281,12 @@
   (sila/report-world :no-pos)
   (sila/report-concepts))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn -main
+  "Run experiments from the command line."
+  [& args]
+  (println "Say Sila!")
+  (System/exit 0))
+
