@@ -130,11 +130,19 @@
 (as-disjoint OnlineAccount dul/InformationObject dul/Quality)
 
 
-(defoproperty publishes
-  :label    "publishes"
-  :domain   OnlineAccount
-  :range    dul/InformationObject
-  :comment  "The action of making an Information Object available to an online community.")
+(as-inverse
+  (defoproperty publishes
+    :label    "publishes"
+    :domain   OnlineAccount
+    :range    dul/InformationObject
+    :comment  "The action of making an Information Object available to an online community.")
+
+  (defoproperty isPublishedBy
+    :label    "is published by"
+    :domain   dul/InformationObject
+    :range    OnlineAccount
+    :comment  (str "Indicates that the Information Object has been made available "
+                   "to an online community by the Online Account.")))
 
 
 ;;; --------------------------------------------------------------------------
@@ -292,33 +300,31 @@
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
 
+(defmacro affectize
+  "Runs the action function/macro for all defined affect elements."
+  [action]
+  `(do ~@(for [aff# Affect-Names]
+           `(~action ~aff#))))
+
+
 ;;; --------------------------------------------------------------------------
 ;;; Environmental clues at the Text level
 ;;;
 ;;; TBox: building on pos:Token
-
 (defmacro def-affect-token
   "Creates an affect Token class for the given (String) sentiment polarity or emotion."
   [aff]
-  `(defclass ~(symbol (str aff "Token"))
-     :super    pos/Token
-     :label    (str ~aff " Token")
-     :comment  (str "A Token which may indicate " ~aff ".")
-     :equivalent (dl/and pos/Token
-                         (dl/some denotesAffect (owl-class say-sila ~aff)))))
+  (let [sym (eval `(as-symbol ~aff "Token"))]
+    `(defclass ~sym
+       :super    pos/Token
+       :label    (str ~aff " Token")
+       :comment  (str "A Token which may indicate " ~aff ".")
+       :equivalent (dl/and pos/Token
+                           (dl/some denotesAffect (owl-class say-sila ~aff))))))
 
 ;;; Create affect Token and Information Objects for all defined polarities and emotions
-;(run! #(def-affect-token %) Affect-Names)                      ; FIXME
-(def-affect-token "Positive")
-(def-affect-token "Negative")
-(def-affect-token "Anger")
-(def-affect-token "Fear")
-(def-affect-token "Sadness")
-(def-affect-token "Joy")
-(def-affect-token "Surprise")
-(def-affect-token "Anticipation")
-(def-affect-token "Disgust")
-(def-affect-token "Trust")
+(affectize def-affect-token)
+
 
 (defmacro def-affect-info-obj
   "Creates an affect InformationObject class for the given (String) sentiment polarity or emotion."
@@ -330,21 +336,10 @@
     :equivalent (dl/and dul/InformationObject
                         (dl/some dul/hasComponent ~(symbol (str aff "Token"))))))
 
-;(run! #(def-affect-info-obj %) Affect-Names)                   ; FIXME
-(comment
-;; FIXME: Looking into issues with DL-Learner never returning when it has too many
-;;        [Affect][PoS]InformationObjects to play with.
-(def-affect-info-obj "Positive")
-(def-affect-info-obj "Negative")
-(def-affect-info-obj "Anger")
-(def-affect-info-obj "Fear")
-(def-affect-info-obj "Sadness")
-(def-affect-info-obj "Joy")
-(def-affect-info-obj "Surprise")
-(def-affect-info-obj "Anticipation")
-(def-affect-info-obj "Disgust")
-(def-affect-info-obj "Trust")
-)
+;; TODO: Looking into issues with DL-Learner never returning when it has too many
+;;       [Affect][PoS]InformationObjects to play with.
+;(affectize def-affect-info-obj)
+
 
 ;;; --------------------------------------------------------------------------
 ;;; Combinations of Affect PLUS Part-of-Speech
@@ -383,7 +378,7 @@
   ;; Define a Token AND InformationObject for all Affect on the PoS elements
   `(do ~@(for [aff Affect-Names
                pos (eval poss)]
-           `(do (def-affect-pos-token    ~aff ~pos)
+           `(do (def-affect-pos-token ~aff ~pos)
                 ;; FIXME: Looking into issues with DL-Learner never returning when it has too many
                 ;;        [Affect][PoS]InformationObjects to play with.
                 (comment def-affect-pos-info-obj ~aff ~pos)))))
@@ -1013,7 +1008,7 @@
 (def ^:const DLL-Denier
  "publishes some (hasComponent some (AngerToken and (FearToken or SadnessToken))) (pred. acc.: 76.67%, F-measure: 58.82%)")
 
-(defclass DenierAccount
+(comment defclass DenierAccount
   :super    OnlineAccount
   :label    "Denier Account"
   :comment  "An Online Account that represents someone who does not believe in anthropogenic climate change."
@@ -1024,7 +1019,7 @@
                            (tawny.english/and AngerToken
                            (tawny.english/or FearToken SadnessToken))))))
 
-(defclass GreenAccount
+(comment defclass GreenAccount
   :super    OnlineAccount
   :label    "Green Account"
   :comment  "An Online Account that represents someone who is concerned about the environment.")

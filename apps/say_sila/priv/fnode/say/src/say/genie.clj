@@ -75,6 +75,13 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defmacro as-symbol
+  "Assembles one symbol by concatenating the parts."
+  [sym & syms]
+  `(symbol (str ~sym ~@syms)))
+
+
+;;; --------------------------------------------------------------------------
 (defn butlast-last
   "Accepts a sequence and returns a vector pair, in which the first element
   is the sequence minus the final item (as with butlast) and the second
