@@ -323,7 +323,7 @@
                            (dl/some denotesAffect (owl-class say-sila ~aff))))))
 
 ;;; Create affect Token and Information Objects for all defined polarities and emotions
-(affectize def-affect-token)
+(affectize def-affect-token)                        ; Define AngerToken, etc...
 
 
 (defmacro def-affect-info-obj
@@ -336,9 +336,9 @@
     :equivalent (dl/and dul/InformationObject
                         (dl/some dul/hasComponent ~(symbol (str aff "Token"))))))
 
-;; TODO: Looking into issues with DL-Learner never returning when it has too many
+;; NOTE: There is an issue with DL-Learner never returning when it has too many
 ;;       [Affect][PoS]InformationObjects to play with.
-;(affectize def-affect-info-obj)
+(affectize def-affect-info-obj)                     ; Define AngerInformationObject, ...
 
 
 ;;; --------------------------------------------------------------------------

@@ -124,7 +124,7 @@
 
   org.semanticweb.owlapi.model.OWLOntology
   (instances [ont tgts]
-    (instances ont [tgts])))
+    (instances [ont] tgts)))
 
 
 
