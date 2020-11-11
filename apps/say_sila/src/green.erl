@@ -19,11 +19,12 @@
 -export([start/1,       start/2,
          start_link/1,  start_link/2,
          stop/0,
-         find_stance/1,
+         get_stance/1,
+         load_stances/1,
          make_arff/0,
          re_pattern/0,
          run_biggies/0,
-         use_top_n/1, use_top_n/2]).
+         use_top_n/1,   use_top_n/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -import(lists, [filter/2, foldl/3]).
@@ -127,14 +128,41 @@ stop() ->
 
 
 %%--------------------------------------------------------------------
--spec find_stance(Account :: stringy()) -> stance().
+-spec get_stance(Account :: stringy()) -> stance().
 %%
 % @doc  Queries the twitter server to determine if the stance of the
 %       user represented by the specified Account is `green`, `denier'
 %       or `undefined' if the stance cannot be determined.
 % @end  --
-find_stance(Account) ->
-    gen_server:call(?MODULE, {find_stance, Account}).
+get_stance(Account) ->
+    gen_server:call(?MODULE, {get_stance, Account}).
+
+
+
+%%--------------------------------------------------------------------
+-spec load_stances(FPath :: stringy()) -> #{binary() := stance()}.
+%%
+% @doc  Load accounts from the specified file and return a map
+%       keyed with those accounts, containing the stances of those
+%       users.
+% @end  --
+load_stances(FPath) ->
+    Accounts = load_screen_names(FPath),
+    Throttle = gen_server:call(?MODULE, get_throttle),
+
+    % TODO: create a more sophisticated throttling abstraction
+    GetStance = fun(Acct, {Cnt, Acc}) ->
+        case Cnt > 0 of
+            true  -> timer:sleep(Throttle);
+            false -> ok
+        end,
+        Stance = get_stance(Acct),
+        ?info("~s: ~s", [Acct, Stance]),
+        {Cnt+1, Acc#{Acct => Stance}}
+    end,
+    {_,
+     Stances} = foldl(GetStance, {0, #{}}, Accounts),
+    Stances.
 
 
 
@@ -214,19 +242,11 @@ init([Tracker, Options]) ->
     ?notice("Initializing analysis of enviromentalism"),
     process_flag(trap_exit, true),
 
-    % fff
+    % Load the list of base accounts for deniers and green-minded folk
     GetBase = fun(Who) ->
         FPath = ?str_fmt("~s/resources/accounts/~s.lst", [code:priv_dir(say_sila), Who]),
         ?debug("Reading base ~s: ~s", [Who, FPath]),
-        case file:read_file(FPath) of
-            {ok, Data} ->
-                fp:remove(fun string:is_empty/1,
-                          [string:trim(A) || A <- string:split(Data, <<"\n">>, all)]);
-
-            {error, Why} ->
-                ?error("Cannot load ~s base accounts: ~p", [Why]),
-                []
-        end
+        load_screen_names(FPath)
     end,
 
     % Get environmental tweets per the specified options
@@ -265,9 +285,8 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call({find_stance, Account}, _From, State = #state{deniers = Deniers,
+handle_call({get_stance, Account}, _From, State = #state{deniers = Deniers,
                                                           greens  = Greens}) ->
-    % TODO: Throttle requests so we don't exceed 180 / 15-minutes
     CountFollowers = fun(Base) ->
         length(filter(fun(S) -> S =:= true end,
                       [twitter:is_following(Account, B) || B <- Base]))
@@ -278,10 +297,20 @@ handle_call({find_stance, Account}, _From, State = #state{deniers = Deniers,
         [_, 0] -> denier;
         [0, _] -> green;
         [D, G] ->
-            ?warning("User ~s is following both sides: denier[~B] green[~B]", [D, G]),
+            ?warning("User ~s is following both sides: denier[~B] green[~B]",
+                     [Account, D, G]),
             undefined
     end,
     {reply, Response, State};
+
+
+handle_call(get_throttle, _From, State = #state{deniers = Deniers,
+                                                greens  = Greens}) ->
+    % Throttle requests so we don't exceed 180 every 15 minutes (720 req/hr or 5 sec/req)
+    % TODO: (1) Abstract and formalize throttling (modules: green, pan).
+    %       (2) Keep submitting requests until we near limit, then throttle
+    Millis = 5000 * (length(Deniers) + length(Greens)),
+    {reply, Millis, State};
 
 
 handle_call(make_arff, _From, State = #state{tracker = Tracker,
@@ -422,6 +451,24 @@ handle_info(Msg, State) ->
 start_up(Starter, Tracker, Options) ->
     Args = [Tracker, Options],
     gen_server:Starter({?REG_DIST, ?MODULE}, ?MODULE, Args, []).
+
+
+%%--------------------------------------------------------------------
+-spec load_screen_names(FPath :: stringy()) -> [binary()].
+%%
+% @doc  Returns a list of the screen names contained (one per line)
+%       in the specified file.
+% @end  --
+load_screen_names(FPath) ->
+    case file:read_file(FPath) of
+        {ok, Data} ->
+            fp:remove(fun string:is_empty/1,
+                      [string:trim(A) || A <- string:split(Data, <<"\n">>, all)]);
+
+        {error, Why} ->
+            ?error("Cannot load ~s accounts: ~p", [Why]),
+            []
+    end.
 
 
 
