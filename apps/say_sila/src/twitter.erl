@@ -404,7 +404,9 @@ has_hashtag(Hash, Text) ->
                    Followed :: stringy()) -> boolean()
                                            | undefined.
 %%
-% @doc  dd
+% @doc  Returns true if the Follower is following the Follwed; false
+%       if this i not the case, and undefined if Twitter does not
+%       provide a definitive response (check log messages for why).
 % @end  --
 is_following(Follower, Followed) ->
     Source = to_binary(Follower),
@@ -819,7 +821,7 @@ handle_call({api_get, API, Cmd, Body, Opts}, _From, State = #state{consumer     
                                                                    oauth_secret = Secret}) ->
 
     URL = make_api_url(API, Cmd),
-    ?debug("GET ~s: ~p", [URL, Body]),
+    %?debug("GET ~s: ~p", [URL, Body]),
     Reply = case oauth:get(URL, Body, Consumer, Token, Secret, [{body_format, binary}]) of
 
         {ok, {{_, 200, _}, _, DataIn}} ->

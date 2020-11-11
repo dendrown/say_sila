@@ -19,13 +19,14 @@
 -export([start/1,       start/2,
          start_link/1,  start_link/2,
          stop/0,
+         find_stance/1,
          make_arff/0,
          re_pattern/0,
          run_biggies/0,
          use_top_n/1, use_top_n/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
--import(lists, [foldl/3]).
+-import(lists, [filter/2, foldl/3]).
 -import(proplists, [get_value/2]).
 
 % Quickies for development
@@ -42,7 +43,7 @@ go(Tracker) ->
 
 
 %%%-------------------------------------------------------------------
-opts() -> opts(q1).
+opts() -> opts(day).                    % TODO: Find mystery period (q1?)
 
 opts(green)   -> [no_retweet, {start, {2019, 10, 1}}, {stop, {2020, 7, 1}}];
 opts(q1)      -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
@@ -61,10 +62,14 @@ opts(biggies) -> [no_retweet| biggies:period(train)].
 
 
 -record(state, {tracker       :: tracker(),
+                deniers = []  :: [binary()],        % Base climate denier accounts
+                greens  = []  :: [binary()],        % Base green user accounts
                 tweets  = []  :: tweets(),
                 options = []  :: proplist(),
                 workers = #{} :: #{pid() => proplist()} }).
 -type state() :: #state{}.
+
+-type stance() :: green|denier|undefined.
 
 
 %%====================================================================
@@ -118,6 +123,18 @@ start_link(Tracker, Options) ->
 % @end  --
 stop() ->
     gen_server:call(?MODULE, stop).
+
+
+
+%%--------------------------------------------------------------------
+-spec find_stance(Account :: stringy()) -> stance().
+%%
+% @doc  Queries the twitter server to determine if the stance of the
+%       user represented by the specified Account is `green`, `denier'
+%       or `undefined' if the stance cannot be determined.
+% @end  --
+find_stance(Account) ->
+    gen_server:call(?MODULE, {find_stance, Account}).
 
 
 
@@ -197,10 +214,27 @@ init([Tracker, Options]) ->
     ?notice("Initializing analysis of enviromentalism"),
     process_flag(trap_exit, true),
 
+    % fff
+    GetBase = fun(Who) ->
+        FPath = ?str_fmt("~s/resources/accounts/~s.lst", [code:priv_dir(say_sila), Who]),
+        ?debug("Reading base ~s: ~s", [Who, FPath]),
+        case file:read_file(FPath) of
+            {ok, Data} ->
+                fp:remove(fun string:is_empty/1,
+                          [string:trim(A) || A <- string:split(Data, <<"\n">>, all)]);
+
+            {error, Why} ->
+                ?error("Cannot load ~s base accounts: ~p", [Why]),
+                []
+        end
+    end,
+
     % Get environmental tweets per the specified options
     gen_server:cast(self(), {get_tweets, Options}),
 
-    {ok, #state{tracker = Tracker}}.
+    {ok, #state{tracker  = Tracker,
+                 deniers = GetBase(deniers),
+                 greens  = GetBase(greens)}}.
 
 
 
@@ -231,6 +265,25 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call({find_stance, Account}, _From, State = #state{deniers = Deniers,
+                                                          greens  = Greens}) ->
+    % TODO: Throttle requests so we don't exceed 180 / 15-minutes
+    CountFollowers = fun(Base) ->
+        length(filter(fun(S) -> S =:= true end,
+                      [twitter:is_following(Account, B) || B <- Base]))
+        end,
+
+    Response = case [CountFollowers(Base) || Base <- [Deniers, Greens]] of
+        [0, 0] -> undefined;
+        [_, 0] -> denier;
+        [0, _] -> green;
+        [D, G] ->
+            ?warning("User ~s is following both sides: denier[~B] green[~B]", [D, G]),
+            undefined
+    end,
+    {reply, Response, State};
+
+
 handle_call(make_arff, _From, State = #state{tracker = Tracker,
                                              tweets  = Tweets,
                                              options = Options}) ->
