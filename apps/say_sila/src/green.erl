@@ -19,6 +19,7 @@
 -export([start/1,       start/2,
          start_link/1,  start_link/2,
          stop/0,
+         clear_cache/0,
          get_stance/1,
          load_stances/1,
          make_arff/0,
@@ -61,6 +62,7 @@ opts(biggies) -> [no_retweet| biggies:period(train)].
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("llog/include/llog.hrl").
 
+-define(STANCE_CACHE,   ?DETS_DIR "/green_stance").
 
 -record(state, {tracker       :: tracker(),
                 deniers = []  :: [binary()],        % Base climate denier accounts
@@ -123,12 +125,25 @@ start_link(Tracker, Options) ->
 % @doc  Shutdown function for modelling enviromentalism.
 % @end  --
 stop() ->
-    gen_server:call(?MODULE, stop).
+    gen_server:call(?MODULE, stop),
+    dets:close(?STANCE_CACHE).
 
 
 
 %%--------------------------------------------------------------------
--spec get_stance(Account :: stringy()) -> stance().
+-spec clear_cache() -> ok
+                     | {error, term()}.
+%%
+% @doc  Clears the green-related DETS cache.
+% @end  --
+clear_cache() ->
+    dets:delete_all_objects(?STANCE_CACHE).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_stance(Account :: stringy()) -> {ok|twitter,
+                                           stance()}.
 %%
 % @doc  Queries the twitter server to determine if the stance of the
 %       user represented by the specified Account is `green`, `denier'
@@ -151,17 +166,18 @@ load_stances(FPath) ->
     Throttle = gen_server:call(?MODULE, get_throttle),
 
     % TODO: create a more sophisticated throttling abstraction
-    GetStance = fun(Acct, {Cnt, Acc}) ->
-        case Cnt > 0 of
-            true  -> timer:sleep(Throttle);
-            false -> ok
+    GetStance = fun(Acct, {Wait, Acc}) ->
+        case Wait of
+            ok      -> ok;
+            twitter -> timer:sleep(Throttle)
         end,
-        Stance = get_stance(Acct),
+        {NewWait,
+         Stance} = get_stance(Acct),
         ?info("~s: ~s", [Acct, Stance]),
-        {Cnt+1, Acc#{Acct => Stance}}
+        {NewWait, Acc#{Acct => Stance}}
     end,
     {_,
-     Stances} = foldl(GetStance, {0, #{}}, Accounts),
+     Stances} = foldl(GetStance, {ok, #{}}, Accounts),
     Stances.
 
 
@@ -285,23 +301,17 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call({get_stance, Account}, _From, State = #state{deniers = Deniers,
-                                                          greens  = Greens}) ->
-    CountFollowers = fun(Base) ->
-        length(filter(fun(S) -> S =:= true end,
-                      [twitter:is_following(Account, B) || B <- Base]))
-        end,
+handle_call({get_stance, Account}, _From, State) ->
 
-    Response = case [CountFollowers(Base) || Base <- [Deniers, Greens]] of
-        [0, 0] -> undefined;
-        [_, 0] -> denier;
-        [0, _] -> green;
-        [D, G] ->
-            ?warning("User ~s is following both sides: denier[~B] green[~B]",
-                     [Account, D, G]),
-            undefined
+    Reply = case dets:lookup(?STANCE_CACHE, Account) of
+        [] ->
+            Stance = query_stance(Account, State),
+            dets:insert(?STANCE_CACHE, {Account, Stance}),
+            {twitter, Stance};
+
+        [{Account, Stance}] -> {ok, Stance}
     end,
-    {reply, Response, State};
+    {reply, Reply, State};
 
 
 handle_call(get_throttle, _From, State = #state{deniers = Deniers,
@@ -309,7 +319,7 @@ handle_call(get_throttle, _From, State = #state{deniers = Deniers,
     % Throttle requests so we don't exceed 180 every 15 minutes (720 req/hr or 5 sec/req)
     % TODO: (1) Abstract and formalize throttling (modules: green, pan).
     %       (2) Keep submitting requests until we near limit, then throttle
-    Millis = 5000 * (length(Deniers) + length(Greens)),
+    Millis = 5100 * (length(Deniers) + length(Greens)),
     {reply, Millis, State};
 
 
@@ -449,8 +459,13 @@ handle_info(Msg, State) ->
 % @doc  Startup function for modelling enviromentalism.
 % @end  --
 start_up(Starter, Tracker, Options) ->
+    % Twitter limits our query rate severely. Cache what we know!
+    ioo:make_fpath(?STANCE_CACHE),
+    dets:open_file(?STANCE_CACHE, [{repair, true}, {auto_save, 60000}]),
+
     Args = [Tracker, Options],
     gen_server:Starter({?REG_DIST, ?MODULE}, ?MODULE, Args, []).
+
 
 
 %%--------------------------------------------------------------------
@@ -468,6 +483,31 @@ load_screen_names(FPath) ->
         {error, Why} ->
             ?error("Cannot load ~s accounts: ~p", [Why]),
             []
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec query_stance(Account :: stringy(),
+                   State   :: state()) -> stance().
+%%
+% @doc  Pulls the specified user's stance from Twitter.
+% @end  --
+query_stance(Account, #state{deniers = Deniers,
+                             greens  = Greens}) ->
+    CountFollowers = fun(Base) ->
+        length(filter(fun(S) -> S =:= true end,
+                      [twitter:is_following(Account, B) || B <- Base]))
+        end,
+
+    case [CountFollowers(Base) || Base <- [Deniers, Greens]] of
+        [0, 0] -> undefined;
+        [_, 0] -> denier;
+        [0, _] -> green;
+        [D, G] ->
+            ?warning("User ~s is following both sides: denier[~B] green[~B]",
+                     [Account, D, G]),
+            undefined
     end.
 
 
