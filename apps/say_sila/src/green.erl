@@ -319,7 +319,7 @@ handle_call(get_throttle, _From, State = #state{deniers = Deniers,
     % Throttle requests so we don't exceed 180 every 15 minutes (720 req/hr or 5 sec/req)
     % TODO: (1) Abstract and formalize throttling (modules: green, pan).
     %       (2) Keep submitting requests until we near limit, then throttle
-    Millis = 5100 * (length(Deniers) + length(Greens)),
+    Millis = 2 * 5000 * (length(Deniers) + length(Greens)),     % Doubled! Twitter is 403-ing us
     {reply, Millis, State};
 
 
