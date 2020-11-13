@@ -20,7 +20,7 @@
          start_link/1,  start_link/2,
          stop/0,
          clear_cache/0,
-         get_stance/1,
+         get_stance/1,  get_stance/2,
          load_stances/1,
          make_arff/0,
          re_pattern/0,
@@ -144,13 +144,24 @@ clear_cache() ->
 %%--------------------------------------------------------------------
 -spec get_stance(Account :: stringy()) -> {ok|twitter,
                                            stance()}.
+
+-spec get_stance(Account :: stringy(),
+                 Options :: options()) -> {ok|twitter,
+                                           stance()}.
 %%
 % @doc  Queries the twitter server to determine if the stance of the
 %       user represented by the specified Account is `green`, `denier'
 %       or `undefined' if the stance cannot be determined.
+%
+%       Specifying the option `requery' will ignore any existing
+%       value in the cache and force a call to the Twitter API.
 % @end  --
 get_stance(Account) ->
-    gen_server:call(?MODULE, {get_stance, Account}).
+    get_stance(Account, []).
+
+
+get_stance(Account, Options) ->
+    gen_server:call(?MODULE, {get_stance, Account, Options}).
 
 
 
@@ -301,15 +312,15 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
-handle_call({get_stance, Account}, _From, State) ->
+handle_call({get_stance, Account, Options}, _From, State) ->
 
-    Reply = case dets:lookup(?STANCE_CACHE, Account) of
-        [] ->
+    Reply = case check_stance(Account, Options) of
+        none ->
             Stance = query_stance(Account, State),
-            dets:insert(?STANCE_CACHE, {Account, Stance}),
+            cache_stance(Account, Stance),
             {twitter, Stance};
 
-        [{Account, Stance}] -> {ok, Stance}
+        {_, Stance} -> {ok, Stance}
     end,
     {reply, Reply, State};
 
@@ -319,7 +330,7 @@ handle_call(get_throttle, _From, State = #state{deniers = Deniers,
     % Throttle requests so we don't exceed 180 every 15 minutes (720 req/hr or 5 sec/req)
     % TODO: (1) Abstract and formalize throttling (modules: green, pan).
     %       (2) Keep submitting requests until we near limit, then throttle
-    Millis = 2 * 5000 * (length(Deniers) + length(Greens)),     % Doubled! Twitter is 403-ing us
+    Millis = 5100 * (length(Deniers) + length(Greens)),
     {reply, Millis, State};
 
 
@@ -465,6 +476,46 @@ start_up(Starter, Tracker, Options) ->
 
     Args = [Tracker, Options],
     gen_server:Starter({?REG_DIST, ?MODULE}, ?MODULE, Args, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec cache_stance(Account :: stringy(),
+                   Stance  :: stance()) -> ok | {error, term()}.
+%%
+% @doc  Updates the DETS cache explicitly with the specified
+%       key (Account) and value (Stance).
+% @end  --
+cache_stance(Account, Stance) ->
+    dets:insert(?STANCE_CACHE, {types:to_binary(Account), Stance}).
+
+
+
+%%--------------------------------------------------------------------
+-spec check_stance(Account :: stringy(),
+                   Options :: options()) -> none
+                                          | {binary(), stance()}.
+%%
+% @doc  Checks the DETS cache for the specified key (Account) and
+%       returns a key-value pair {Account, Stance}, or `none' if
+%       the stance cache does not contain the specified key.
+%
+%       Specifying the only supported option [`requery'] will
+%       cause the function to skip the cache check and return
+%       `none' in all cases.
+% @end  --
+check_stance(Account, Options) ->
+    case pprops:get_value(requery, Options) of
+        % Normal operation searches the cache
+        undefined ->
+            case dets:lookup(?STANCE_CACHE, types:to_binary(Account)) of
+                []    -> none;
+                [Hit] -> Hit
+            end;
+
+        % A requery assumes no-hit so the caller will query the service
+        _ -> none
+    end.
 
 
 
