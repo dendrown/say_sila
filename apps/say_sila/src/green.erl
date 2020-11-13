@@ -526,9 +526,15 @@ check_stance(Account, Options) ->
 %       in the specified file.
 % @end  --
 load_screen_names(FPath) ->
+
+    ThrowOut = fun
+        (<<$%,_/binary>>) -> true;                  % Comment %
+        (X)               -> string:is_empty(X)     % Blank line
+    end,
+
     case file:read_file(FPath) of
         {ok, Data} ->
-            fp:remove(fun string:is_empty/1,
+            fp:remove(ThrowOut,
                       [string:trim(A) || A <- string:split(Data, <<"\n">>, all)]);
 
         {error, Why} ->
