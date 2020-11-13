@@ -546,12 +546,19 @@ load_screen_names(FPath) ->
 % @end  --
 query_stance(Account, #state{deniers = Deniers,
                              greens  = Greens}) ->
-    CountFollowers = fun(Base) ->
-        length(filter(fun(S) -> S =:= true end,
-                      [twitter:is_following(Account, B) || B <- Base]))
-        end,
+    CountFollowers = fun
+        Recur([], Acc) -> Acc;
 
-    case [CountFollowers(Base) || Base <- [Deniers, Greens]] of
+        Recur([B|RestBase], Acc) ->
+            case twitter:is_following(Account, B) of
+                undefined -> Acc;                       % Issue w/ account|query
+                false     -> Recur(RestBase, Acc);
+                true      -> Recur(RestBase, Acc+1)
+            end
+    end,
+
+    % Make a decision when it's clear.  When it's not, Twitter will log messages.
+    case [CountFollowers(Base, 0) || Base <- [Deniers, Greens]] of
         [0, 0] -> undefined;
         [_, 0] -> denier;
         [0, _] -> green;
