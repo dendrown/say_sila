@@ -25,6 +25,7 @@
          make_arff/0,
          re_pattern/0,
          run_biggies/0,
+         set_stance/2,
          use_top_n/1,   use_top_n/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
@@ -235,6 +236,23 @@ run_biggies() ->
                                          {sweep,     1}]).          % To start!
 
 
+%%--------------------------------------------------------------------
+-spec set_stance(Account :: stringy(),
+                 Stance  :: stance()) -> ok | {error, term()}.
+%%
+% @doc  Allows a user-override to set green|denier stance for a given
+%       user.
+% @end  --
+set_stance(Account, Stance) ->
+    case check_stance(Account) of
+        Stance ->
+            ?info("User ~s stance is already ~s", [Account, Stance]);
+        {_, OldStance} ->
+            ?info("Setting user ~s stance: ~s -> ~s", [Account, OldStance, Stance]),
+            cache_stance(Account, Stance)
+    end.
+
+
 
 %%--------------------------------------------------------------------
 -spec use_top_n(N :: pos_integer()) -> ok.
@@ -330,7 +348,7 @@ handle_call(get_throttle, _From, State = #state{deniers = Deniers,
     % Throttle requests so we don't exceed 180 every 15 minutes (720 req/hr or 5 sec/req)
     % TODO: (1) Abstract and formalize throttling (modules: green, pan).
     %       (2) Keep submitting requests until we near limit, then throttle
-    Millis = 5100 * (length(Deniers) + length(Greens)),
+    Millis = 5250 * (length(Deniers) + length(Greens)),
     {reply, Millis, State};
 
 
@@ -492,6 +510,9 @@ cache_stance(Account, Stance) ->
 
 
 %%--------------------------------------------------------------------
+-spec check_stance(Account :: stringy()) -> none
+                                          | {binary(), stance()}.
+
 -spec check_stance(Account :: stringy(),
                    Options :: options()) -> none
                                           | {binary(), stance()}.
@@ -504,6 +525,10 @@ cache_stance(Account, Stance) ->
 %       cause the function to skip the cache check and return
 %       `none' in all cases.
 % @end  --
+check_stance(Account) ->
+    check_stance(Account, []).
+
+
 check_stance(Account, Options) ->
     case pprops:get_value(requery, Options) of
         % Normal operation searches the cache
