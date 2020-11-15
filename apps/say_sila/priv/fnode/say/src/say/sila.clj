@@ -2311,6 +2311,31 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn save-accounts
+  "Saves a list of the accounts in the specified world."
+  ([]
+  (save-accounts "/tmp/sila-accounts.lst"))
+
+
+  ([fpath]
+  (save-accounts @World fpath))
+
+
+  ([{onter :ontology}
+    fpath]
+  ;; An ontology community is keyed by the user screen names
+  (let [comm  (onter :community)
+        accts (filter some? (keys @comm))]  ; FIXME: We have an extra nil key with an empty ontology
+     (with-open [wtr (io/writer fpath)]
+       (doseq [a accts]
+         (.write wtr (str a "\n"))))
+
+     ;; Just return some information on what we saved
+     {fpath (count accts)})))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn save-ontologies
   "Saves the say-sila ontology and all World ontologies in OWL format.
 
