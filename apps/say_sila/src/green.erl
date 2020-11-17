@@ -174,12 +174,12 @@ get_stance(Account, Options) ->
 
 -spec get_stances(Options :: uqam|options()) -> #{binary() := stances()}.
 %%
-% @doc  Queries the twitter server to determine if the stance of the
-%       user represented by the specified Account is `green`, `denier'
-%       or `undefined' if the stance cannot be determined.
+% @doc  Creates a mapping of stances (`green' or `denier') to lists
+%       of users.
 %
-%       Specifying the option `requery' will ignore any existing
-%       value in the cache and force a call to the Twitter API.
+%       The following options are available:
+%       - format    : Return the mapping as `json' or and Erlang `map' (default)
+%       - fpath     : Also save the mapping to the specified file path
 % @end  --
 get_stances() ->
     get_stances([]).

@@ -31,6 +31,7 @@
             [weka.core          :as weka]
             [weka.dataset       :as dset]
             [weka.tweet         :as tw]
+            [clojure.data.json  :as json]
             [clojure.edn        :as edn]
             [clojure.java.io    :as io]
             [clojure.set        :as set]
@@ -2307,6 +2308,19 @@
 
     ;; Chart just those texts for the users
     (apply echart-affect (filter #(contains? tids (:tid %)) texts) opts)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn load-stances
+  "Loads a mapping of stances (`green' or `denier') from the specified
+  file path."
+  ([]
+  (load-stances "/tmp/sila-stances.json"))
+
+
+  ([fpath]
+  (update-values (json/read-str (slurp fpath)) set)))
 
 
 
