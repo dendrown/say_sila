@@ -21,6 +21,7 @@
          stop/0,
          clear_cache/0,
          get_stance/1,  get_stance/2,
+         get_stances/0, get_stances/1,
          load_stances/1,
          make_arff/0,
          re_pattern/0,
@@ -62,6 +63,7 @@ opts(biggies) -> [no_retweet| biggies:period(train)].
 -include("types.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("llog/include/llog.hrl").
+-include_lib("stdlib/include/ms_transform.hrl").
 
 -define(STANCE_CACHE,   ?DETS_DIR "/green_stance").
 
@@ -73,7 +75,8 @@ opts(biggies) -> [no_retweet| biggies:period(train)].
                 workers = #{} :: #{pid() => proplist()} }).
 -type state() :: #state{}.
 
--type stance() :: green|denier|undefined.
+-type stance()  :: green|denier|undefined.
+-type stances() :: [stance()].
 
 
 %%====================================================================
@@ -163,6 +166,58 @@ get_stance(Account) ->
 
 get_stance(Account, Options) ->
     gen_server:call(?MODULE, {get_stance, Account, Options}).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_stances() -> #{binary() := stances()}.
+
+-spec get_stances(Options :: uqam|options()) -> #{binary() := stances()}.
+%%
+% @doc  Queries the twitter server to determine if the stance of the
+%       user represented by the specified Account is `green`, `denier'
+%       or `undefined' if the stance cannot be determined.
+%
+%       Specifying the option `requery' will ignore any existing
+%       value in the cache and force a call to the Twitter API.
+% @end  --
+get_stances() ->
+    get_stances([]).
+
+
+get_stances(uqam) ->
+    green:get_stances([{format,json},
+                       {fpath, "/tmp/sila-stances.json"}]);
+
+
+get_stances(Options) ->
+    % Cache queries are created at compile time!!
+    Queries = #{denier => ets:fun2ms(fun ({Acct, denier}) -> Acct end),
+                green  => ets:fun2ms(fun ({Acct, green})  -> Acct end)},
+
+    Stances = maps:map(fun(_,Q) -> dets:select(?STANCE_CACHE, Q) end, Queries),
+
+    % How do they want the results?
+    Format = pprops:get_value(format, Options, map),
+    Return = case Format of
+        map  -> Stances;
+        json -> jsx:encode(Stances)
+    end,
+
+    % Save a copy for development use?
+    case pprops:get_value(fpath, Options) of
+        undefined -> ok;
+
+        FPath ->
+            % The write method differs slightly for JSON and erlang terms
+            ?info("Saving stances to ~s", [FPath]),
+            file:write_file(FPath,
+                            case Format of
+                                json -> Return;
+                                _    -> term_to_binary(Return)
+                            end)
+    end,
+    Return.
 
 
 
