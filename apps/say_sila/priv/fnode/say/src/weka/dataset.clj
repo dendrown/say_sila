@@ -341,21 +341,26 @@
 (defn label!
   "Add dependent class information to an unlabelled dataset.  Currently we
   are supporting this procedure only as a T00==>T01 transformation.  If data
-  is a filepath, the associated ARFF is loaded and a corresponding 'T01' tagged
-  output ARFF is saved to disk.  If data is a set of Instances, this dataset is
-  copied, and the transformation is performed on the copy  In either case, the
-  function returns the newly labelled dataset.  Note that rows with screen_name
-  values not found in the stances map will not be included in the final dataset."
+  represents a filepath, the function loads the associated ARFF, creates a
+  corresponding 'T01' tagged output ARFF, and returns the filepath to it.
+  If data is a set of Instances, the function makes a copy of this dataset,
+  performs the transformation on this copy, and returns it.  Note that rows
+  with screen_name values not found in the stances map will not be included
+  in the final dataset."
   ([dset data]
   (label! dset data nil))
 
 
   ([dset data stances]
-  (let [stances (if (map? stances)
+  (when (not= dset :t00)
+    (log/warn "Dataset code" dset "is not currently supported"))
+
+  (let [arff?   (string? data)
+        stances (if (map? stances)
                     stances                             ; KV: stance => screen_name
                     (load-stances stances))             ; Pull map from file
         insts   ^Instances
-                (if (string? data)
+                (if arff?
                     (weka/load-arff data)               ; Load dataset from file
                     (Instances. ^Instances data))       ; Copy input instances
         cndx    (.numAttributes insts)                  ; [c]lass index
@@ -382,9 +387,12 @@
     ;; Remove users for whom we don't know where they stand
     (.deleteWithMissingClass insts)
 
-    ;; Save the ARFF if we know what to call it
-    (when (string? data)
-      (weka/save-file data (KEYSTR :t01) insts :arff))
-
-    insts)))
+    ;; Prepare results as an ARFF or dataset per the original parameters
+    (if arff?
+      ;; Save the dataset and just return the path
+      (let [fpath (weka/tag-filename data (KEYSTR :t01))]
+        (weka/save-file fpath insts)
+        fpath)
+      ;; Data IN, so data OUT
+      insts))))
 
