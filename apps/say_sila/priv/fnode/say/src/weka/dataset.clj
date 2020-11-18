@@ -21,13 +21,14 @@
 ;;;; @copyright 2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns weka.dataset
-  (:require [say.genie       :refer :all]
-            [say.config      :as cfg]
-            [say.log         :as log]
-            [weka.core       :as weka]
-            [weka.tweet      :as tw]
-            [clojure.string  :as str]
-            [clojure.pprint  :refer [pp]])
+  (:require [say.genie          :refer :all]
+            [say.config         :as cfg]
+            [say.log            :as log]
+            [weka.core          :as weka]
+            [weka.tweet         :as tw]
+            [clojure.data.json  :as json]
+            [clojure.string     :as str]
+            [clojure.pprint     :refer [pp]])
   (:import  (weka.core  Attribute
                         Instance
                         Instances)
@@ -36,9 +37,10 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const Codes  {:senti :s
-                     :tweet :t
-                     :user  :u})
+(def ^:const Init-Stances   "/tmp/sila-stances.json")
+(def ^:const Codes          {:senti :s
+                             :tweet :t
+                             :user  :u})
 
 
 ;;; --------------------------------------------------------------------------
@@ -57,19 +59,22 @@
 
 
 ;;; Column names generally correspond to Twitter's status (meta)data keys
-(defonce S02-cols   (col-map [:id :screen_name :text :green]))
-(defonce S01-cols   (col-map [:id :screen_name :text :sentiment]))
-(defonce S00-cols   (col-map [:id :text :sentiment]))
+(defonce S02-Cols   (col-map [:id :screen_name :text :green]))
+(defonce S01-Cols   (col-map [:id :screen_name :text :sentiment]))
+(defonce S00-Cols   (col-map [:id :text :sentiment]))
 
-(defonce T00-cols   (col-map [:id :lang :screen_name :name :description :text]))
-(defonce U00-cols   (col-map [:screen_name :name :description :environmentalist]))
+(defonce T00-Cols   (col-map [:id :lang :screen_name :name :description :text]))
+(defonce T01-Cols   (col-map [:id :lang :screen_name :name :description :text :stance]))
+
+(defonce U00-Cols   (col-map [:screen_name :name :description :environmentalist]))
 
 ;;; Column/attribute lookup by dataset
-(defonce Columns    {:s02 S02-cols
-                     :s01 S01-cols
-                     :s00 S00-cols
-                     :t00 T00-cols
-                     :u00 U00-cols})
+(defonce Columns    {:s02 S02-Cols
+                     :s01 S01-Cols
+                     :s00 S00-Cols
+                     :t00 T00-Cols
+                     :t01 T01-Cols
+                     :u00 U00-Cols})
 
 
 ;;; --------------------------------------------------------------------------
@@ -291,6 +296,7 @@
                                        t->u])))
 
 
+
 ;;; --------------------------------------------------------------------------
 (defn count-user-tweets
   "Lists user tweet counts in descending order for the specified dataset.
@@ -312,4 +318,73 @@
     (doseq [[usr cnt] (take-while #(>= (second %) mincnt)                       ; Use requested count
                                   (sort-by second #(compare %2 %1) users))]     ; Count order:  Z..A
       (log/fmt-info "~24a: ~a" usr cnt)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn load-stances
+  "Loads a mapping of stances (`green' or `denier') from the specified
+  file path."
+  ([]
+  (load-stances nil))
+
+
+  ([fpath]
+  (let [fpath (if fpath
+                  fpath
+                  Init-Stances)]
+    (update-values (json/read-str (slurp fpath)) set))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn label!
+  "Add dependent class information to an unlabelled dataset.  Currently we
+  are supporting this procedure only as a T00==>T01 transformation.  If data
+  is a filepath, the associated ARFF is loaded and a corresponding 'T01' tagged
+  output ARFF is saved to disk.  If data is a set of Instances, this dataset is
+  copied, and the transformation is performed on the copy  In either case, the
+  function returns the newly labelled dataset.  Note that rows with screen_name
+  values not found in the stances map will not be included in the final dataset."
+  ([dset data]
+  (label! dset data nil))
+
+
+  ([dset data stances]
+  (let [stances (if (map? stances)
+                    stances                             ; KV: stance => screen_name
+                    (load-stances stances))             ; Pull map from file
+        insts   ^Instances
+                (if (string? data)
+                    (weka/load-arff data)               ; Load dataset from file
+                    (Instances. ^Instances data))       ; Copy input instances
+        cndx    (.numAttributes insts)                  ; [c]lass index
+        nndx    (col-index dset :screen_name)           ; Screen [n]ame index
+        who     #(.stringValue ^Instance % (int nndx))  ; Screen name lookup
+        stand   #(reduce (fn [_ [stance accts]]         ; Find stance of account %
+                           (when (contains? accts %)
+                             (reduced stance)))
+                         nil
+                         stances)]
+    ;; We're altering the output dataset in place!
+    (doto insts
+          (.insertAttributeAt (Attribute. (name (col-target :t01))
+                                          ["green" "denier"])
+                                          cndx)
+          (.setClassIndex cndx))
+
+    ;; Set a green|denier stance for known users
+    (dotimes [i (.numInstances insts)]
+      (let [row (.instance insts i)]
+        (when-let [stance ^String (stand (who row))]
+          (.setClassValue row stance))))
+
+    ;; Remove users for whom we don't know where they stand
+    (.deleteWithMissingClass insts)
+
+    ;; Save the ARFF if we know what to call it
+    (when (string? data)
+      (weka/save-file data (KEYSTR :t01) insts :arff))
+
+    insts)))
 

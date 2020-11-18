@@ -31,7 +31,6 @@
             [weka.core          :as weka]
             [weka.dataset       :as dset]
             [weka.tweet         :as tw]
-            [clojure.data.json  :as json]
             [clojure.edn        :as edn]
             [clojure.java.io    :as io]
             [clojure.set        :as set]
@@ -2230,11 +2229,11 @@
                       ;; Handle header for a new CSV
                       (when-not exists?
                         (log/info "Creating report:" csv)
-                        (.write wtr (apply str "Min Tweets, Users," (interpose "," (map name syms))))
+                        (.write wtr ^String (apply str "Min Tweets, Users," (interpose "," (map name syms))))
                         (.write wtr "\n"))
                       ;; Report one line of CSV data
-                      (.write wtr (apply str (interpose "," (concat (map str [minimum usrcnt])
-                                                                    (map #(report % "users" usrcnt) syms)))))
+                      (.write wtr ^String (apply str (interpose "," (concat (map str [minimum usrcnt])
+                                                                            (map #(report % "users" usrcnt) syms)))))
                       (.write wtr "\n"))))]
 
     ;; Log report to the console for all targets
@@ -2329,19 +2328,6 @@
 
     ;; Chart just those texts for the users
     (apply echart-affect (filter #(contains? tids (:tid %)) texts) opts)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn load-stances
-  "Loads a mapping of stances (`green' or `denier') from the specified
-  file path."
-  ([]
-  (load-stances "/tmp/sila-stances.json"))
-
-
-  ([fpath]
-  (update-values (json/read-str (slurp fpath)) set)))
 
 
 
