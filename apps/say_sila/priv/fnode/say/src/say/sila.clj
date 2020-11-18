@@ -40,6 +40,7 @@
             [defun.core         :refer [defun]]
             [incanter.core      :refer [dataset $data view with-data]]
             [incanter.charts    :refer [stacked-bar-chart set-stroke-color]]
+            [me.raynes.fs       :as fs]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
             [tawny.query        :as qry]
@@ -66,6 +67,7 @@
 (def ^:const Ont-FStub      "resources/KB/say-sila")
 (def ^:const Emotion-FStub  "resources/world")
 (def ^:const World-FStub    "resources/world")
+(def ^:const Tmp-Dir        "/tmp/say.sila")
 
 (def ^:const Init-Data      {:tag :env, :tracker :all, :source :tweets, :dir Emotion-FStub})
 (def ^:const Split-Tags     [:train :test])
@@ -2191,7 +2193,8 @@
 
   ([dtag onts txtcnt usrcnt]
   ;; Qualify our symbols as our caller may be in another namespace
-  (let [texts   '[say.sila/HumanAndCauseText
+  (let [minimum (cfg/?? :sila :min-statuses)
+        texts   '[say.sila/HumanAndCauseText
                   say.sila/AffirmedHumanCauseText
                   say.sila/NegatedHumanCauseText
                  ;--------------------------------------
@@ -2202,25 +2205,43 @@
                   say.sila/EnergyConservationText1
                   say.sila/EnergyConservationText2]
 
-        accts   '[say.sila/HumanCauseBelieverAccount
-                  say.sila/NaturalCauseBelieverAccount
+        believers '[say.sila/HumanCauseBelieverAccount
+                    say.sila/NaturalCauseBelieverAccount]
                  ;--------------------------------------
-                  say.sila/EnergyConservationAccount1
-                  say.sila/EnergyConservationAccount2]
+        conservers '[say.sila/EnergyConservationAccount1
+                     say.sila/EnergyConservationAccount2]
 
-        needles (comm/instances onts (concat texts accts))
+        needles (comm/instances onts (concat texts believers conservers))
 
         report  (fn [sym what fullcnt]
                   (let [elms (get needles sym)
-                        cnt  (count elms)]
+                        cnt  (count elms)
+                        pct  (p100z cnt fullcnt)]
                     (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
-                                  sym dtag cnt fullcnt what (p100z cnt fullcnt))
-                    (comment run! #(log/debug "  -" (iri-fragment %)) elms)))]
+                                  sym dtag cnt fullcnt what pct)
+                    (comment run! #(log/debug "  -" (iri-fragment %)) elms)
+                    pct))
+
+        rpt-csv (fn [syms fstub]
+                  ;; TODO: This is currently just for user data. Generalize!
+                  (let [csv     (str Tmp-Dir "/" fstub ".csv")
+                        exists? (fs/exists? csv)]
+                    (with-open [wtr (io/writer csv)]
+                      ;; Handle header for a new CSV
+                      (when-not exists?
+                        (log/info "Creating report:" csv)
+                        (.write wtr (apply str "Min Tweets, Users," (interpose "," (map name syms))))
+                        (.write wtr "\n"))
+                      ;; Report one line of CSV data
+                      (.write wtr (apply str (interpose "," (concat (map str [minimum usrcnt])
+                                                                    (map #(report % "users" usrcnt) syms)))))
+                      (.write wtr "\n"))))]
 
     ;; Log report to the console for all targets
     (run! #(report % "texts" txtcnt) texts)
     (log/debug)
-    (run! #(report % "users" usrcnt) accts))))
+    (rpt-csv believers "CauseBelieverAccount")
+    (rpt-csv conservers "ConservationAccount"))))
 
 
 
@@ -2446,3 +2467,7 @@
           (log/debug rpt)
           (recur n+1 (reworld w n+1))))))))
 
+
+
+;;; --------------------------------------------------------------------------
+(fs/mkdir Tmp-Dir)
