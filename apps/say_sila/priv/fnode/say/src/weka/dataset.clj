@@ -53,28 +53,32 @@
 ;;; Current dataset layouts; where for the X99 codes:
 ;;; - X is the dataset content code, and
 ;;; - the highest 99 value represents the latest version
-(defonce Datasets   {:s :s01    ; TODO :s02     ; [S]tatus text [s]entiment/emotion
-                     :t :t00                    ; [T]witter input (from Sila/erl)
-                     :u :u00})                  ; [U]ser information
+(defonce Datasets   {:s :s02            ; [S]tatus text [s]entiment/emotion
+                     :t :t01            ; [T]witter input (from Sila/erl)
+                     :u :u01})          ; [U]ser information
 
 
 ;;; Column names generally correspond to Twitter's status (meta)data keys
-(defonce S02-Cols   (col-map [:id :screen_name :text :green]))
-(defonce S01-Cols   (col-map [:id :screen_name :text :sentiment]))
 (defonce S00-Cols   (col-map [:id :text :sentiment]))
+(defonce S01-Cols   (col-map [:id :screen_name :text :sentiment]))
+(defonce S02-Cols   (col-map [:id :screen_name :text :stance]))
 
 (defonce T00-Cols   (col-map [:id :lang :screen_name :name :description :text]))
 (defonce T01-Cols   (col-map [:id :lang :screen_name :name :description :text :stance]))
 
 (defonce U00-Cols   (col-map [:screen_name :name :description :environmentalist]))
+(defonce U01-Cols   (col-map [:screen_name :name :description :stance]))
 
 ;;; Column/attribute lookup by dataset
-(defonce Columns    {:s02 S02-Cols
+(defonce Columns    {:s00 S00-Cols
                      :s01 S01-Cols
-                     :s00 S00-Cols
+                     :s02 S02-Cols
+                     ;--------------
                      :t00 T00-Cols
                      :t01 T01-Cols
-                     :u00 U00-Cols})
+                     ;--------------
+                     :u00 U00-Cols
+                     :u01 U01-Cols})
 
 
 ;;; --------------------------------------------------------------------------
@@ -164,9 +168,7 @@
   ;; Remove extra columns in reverse order & add the target w/ unknown values
   (let [insts (weka/load-dataset data)
         dels  (reverse (col-diff in out))       ; Remove attrs in reverse order
-        adds  (if targets                       ; FIXME: Target should be nominal
-                  targets
-                  [(col-target out)])]
+        adds  (if targets targets [])]          ; FIXME: Target should be nominal
     (run! #(delete-col insts in %) dels)
     (run! #(append-col insts %) adds)
     insts))
@@ -199,43 +201,54 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- ^Instances t00->s02
+(defn- ^:deprecated ^Instances t00->s00
   "Converts the T00 tweet format to the S00 say-senti format.  The function
   creates a copy of the specified dataset whose filename is tagged with «S02»."
   [insts]
-  (-> (prep-dataset insts :t00 :s02)
-      (process-text :s02)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- ^Instances t00->s01
-  "Converts the T00 tweet format to the S00 say-senti format.  The function
-  creates a copy of the specified dataset whose filename is tagged with «S01»."
-  [insts]
-  (-> (prep-dataset insts :t00 :s01)
-      (process-text :s01)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- ^Instances t00->s00
-  "Converts the T00 tweet format to the S00 say-senti format.  The function
-  creates a copy of the specified dataset whose filename is tagged with «S00»."
-  [insts]
-  (-> (prep-dataset insts :t00 :s00)
+  (-> (prep-dataset insts :t00 :s00 :sentiment)
       (process-text :s00)))                                             ; Emo/POS on tweet text
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn- ^Instances t00->u00
+(defn- ^:deprecated ^Instances t00->s01
+  "Converts the T00 tweet format to the S01 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «S01»."
+  [insts]
+  (-> (prep-dataset insts :t00 :s01 :sentiment)
+      (process-text :s01)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^Instances t01->s02
+  "Converts the T01 tweet format to the S02 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «S00»."
+  [insts]
+  (-> (prep-dataset insts :t01 :s02)
+      (process-text :s02)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^:deprecated ^Instances t00->u00
   "Converts the T00 tweet format to the U00 say-senti format.  The function
   creates a copy of the specified dataset whose filename is tagged with «U00»."
   [insts]
-  (-> (prep-dataset insts :t00 :u00)
+  (-> (prep-dataset insts :t00 :u00 :environmentalist)
       (weka/filter-instances (RemoveDuplicates.))       ; One per user/profile
       (process-text :u00 :description :ensure-text)))   ; Emo/POS on user profile
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^Instances t01->u01
+  "Converts the T01 tweet format to the U01 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «U00»."
+  [insts]
+  (-> (prep-dataset insts :t01 :u01)
+      (weka/filter-instances (RemoveDuplicates.))       ; One per user/profile
+      (process-text :u01 :description :ensure-text)))   ; Emo/POS on user profile
 
 
 
