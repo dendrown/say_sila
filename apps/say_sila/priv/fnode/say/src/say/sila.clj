@@ -69,8 +69,6 @@
 (def ^:const Tmp-Dir        "/tmp/say.sila")
 
 (def ^:const Init-Data      {:tag :env, :tracker :all, :source :tweets, :dir Emotion-FStub})
-(def ^:const Split-Tags     [:train :test])
-(def ^:const Init-PN-Count  100)
 
 
 ;;; --------------------------------------------------------------------------
@@ -1860,7 +1858,7 @@
   (make-example tools tid sname elements :?))
 
 
-  ([tools tid sname elements polarity]
+  ([tools tid sname elements stance]
   (let [pairs   (map #(str/split % #"_" 2)                      ; Separate elements: [PoS token]
                       (str/split elements #" "))
 
@@ -1874,8 +1872,8 @@
 
     ;; Put all that together to build the example
     {:screen_name sname
+     :stance      (keyword stance)
      :tid         tid
-     :polarity    polarity
      :content     terms
      :affect      affect
      :rules       rules
@@ -1891,22 +1889,24 @@
   intermediate format."
   ([data]
   ;; NOTE: Our Twitter user data (U00) is currently unlabeled.
-  (let [target  :environmentalist
+  (let [target  (dset/col-target :u)
         insts   (weka/load-dataset data target)
         dtag    (dset/Datasets :u)                              ; Structure for user (U99) data
         tools   (toolbox)                                       ; Sentiment/emotion analysis
         attrs   (select-keys (dset/Columns dtag) [:screen_name  ; 0-based attribute indices
                                                   :name
                                                   :description
-                                                  :environmentalist])]
+                                                  target])]
     ;; Create a sequence of maps, each representing a Weka instance
     (map #(update % target keyword)                             ; Lazily convert "?" to :?
          (reduce
            (fn [acc ^Instance inst]
              (let [avals (update-values attrs #(.stringValue inst (int %)))     ; Pull attr-vals
                    sname (:screen_name avals)
-                   tid   (str lbl/Profile-Tag sname)                               ; TextID is profile name
-                   xmp   (make-example tools tid sname (:description avals))]   ; Check emotion
+                   tid   (str lbl/Profile-Tag sname)                            ; TextID is profile name
+                   xmp   (make-example tools tid sname                          ; Check emotion
+                                       (avals :description)
+                                       (avals target))]
              ;; Add on hashmap with attribute data plus emotion analysis
              (conj acc (merge avals xmp))))
          '()
@@ -1925,13 +1925,14 @@
   in the intermediate format."
   [dtag data]
   ;; Keep track of how many examples to create, as per the configured 'balance' setting
-  (let [insts       (weka/load-dataset data (dset/col-target :s))
-        columns     (dset/columns :s)
+  (let [insts        (weka/load-dataset data (dset/col-target :s))
+        columns      (dset/columns :s)
         [col-id
          col-sname
-         col-text]  (map columns [:id :screen_name :text])
-        tools       (toolbox)
-        activity    (agent {})]                             ; Track user text counts
+         col-text
+         col-target] (map columns [:id :screen_name :text (dset/col-target :s)])
+        tools        (toolbox)
+        activity     (agent {})]                            ; Track user text counts
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info "Converting" (.numInstances insts) "instances")
@@ -1946,13 +1947,13 @@
      :dtag dtag
      :activity activity
      :texts (domap (fn [^Instance inst]
-                     (let [tid   (lbl/label-text (.stringValue inst (int col-id)))
-                           sname (.stringValue inst (int col-sname))
-                           pole  (lbl/polarize inst)
-                           elms  (.stringValue inst (int col-text))]    ; Text elements are "pos_term"
+                     (let [tid    (lbl/label-text (.stringValue inst (int col-id)))
+                           sname  (.stringValue inst (int col-sname))
+                           stance (.stringValue inst (int col-target))  ; ARFF target is "stance"
+                           elms   (.stringValue inst (int col-text))]   ; Text elements are "PoS_term"
 
                        (send activity #(update % sname (fnil inc 0)))   ; Prepare for filtering
-                       (make-example tools tid sname elms pole)))       ; Example as a hashmap
+                       (make-example tools tid sname elms stance)))     ; Example as a hashmap
 
                    (weka/instance-seq insts)))))                        ; SEQ: Weka instances
 
