@@ -618,7 +618,7 @@ load_screen_names(FPath) ->
                       [string:trim(A) || A <- string:split(Data, <<"\n">>, all)]);
 
         {error, Why} ->
-            ?error("Cannot load ~s accounts: ~p", [Why]),
+            ?error("Cannot load accounts: ~p", [Why]),
             []
     end.
 
