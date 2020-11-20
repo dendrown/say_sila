@@ -66,7 +66,7 @@
 (def ^:const Ont-FStub      "resources/KB/say-sila")
 (def ^:const Emotion-FStub  "resources/world")
 (def ^:const World-FStub    "resources/world")
-(def ^:const Tmp-Dir        "/tmp/say.sila")
+(def ^:const Tmp-Dir        "/tmp/say_sila")                ; Shared with Erlang
 
 (def ^:const Init-Data      {:tag :env, :tracker :all, :source :tweets, :dir Emotion-FStub})
 
@@ -2224,7 +2224,7 @@
                   ;; TODO: This is currently just for user data. Generalize!
                   (let [csv     (str Tmp-Dir "/" fstub ".csv")
                         exists? (fs/exists? csv)]
-                    (with-open [wtr (io/writer csv)]
+                    (with-open [wtr (io/writer csv :append true)]
                       ;; Handle header for a new CSV
                       (when-not exists?
                         (log/info "Creating report:" csv)

@@ -186,8 +186,9 @@ get_stances() ->
 
 
 get_stances(uqam) ->
+    FPath = ioo:make_fpath(?TMP_DIR, "stances.json"),
     green:get_stances([{format,json},
-                       {fpath, "/tmp/sila-stances.json"}]);
+                       {fpath, FPath}]);
 
 
 get_stances(Options) ->

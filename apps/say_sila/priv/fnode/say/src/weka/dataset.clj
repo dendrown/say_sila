@@ -37,7 +37,7 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const Init-Stances   "/tmp/sila-stances.json")
+(def ^:const Init-Stances   "/tmp/say_sila/stances.json")
 (def ^:const Codes          {:senti :s
                              :tweet :t
                              :user  :u})

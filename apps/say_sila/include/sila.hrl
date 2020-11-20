@@ -17,6 +17,7 @@
 -define(REG_DIST, local).
 -define(WORK_DIR, "/srv/say_sila").
 -define(DETS_DIR, ?WORK_DIR "/dets").
+-define(TMP_DIR,  "/tmp/say_sila").                 % Shared with fnodes
 
 -define(DEFAULT_BIG_P100, 0.15).
 -define(DEFAULT_PERIOD,   "day").
