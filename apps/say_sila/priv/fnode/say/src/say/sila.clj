@@ -1008,18 +1008,12 @@
 (def ^:const DLL-Denier
  "publishes some (hasComponent some (AngerToken and (FearToken or SadnessToken))) (pred. acc.: 76.67%, F-measure: 58.82%)")
 
-(comment defclass DenierAccount
+(defclass DenierAccount
   :super    OnlineAccount
   :label    "Denier Account"
-  :comment  "An Online Account that represents someone who does not believe in anthropogenic climate change."
-  :equivalent (dl/and
-                OnlineAccount
-                (tawny.english/some publishes
-                    (tawny.english/some say.dolce/hasComponent
-                           (tawny.english/and AngerToken
-                           (tawny.english/or FearToken SadnessToken))))))
+  :comment  "An Online Account that represents someone who does not believe in anthropogenic climate change.")
 
-(comment defclass GreenAccount
+(defclass GreenAccount
   :super    OnlineAccount
   :label    "Green Account"
   :comment  "An Online Account that represents someone who is concerned about the environment.")
@@ -1585,8 +1579,12 @@
                 sname :screen_name
                 descr :description              ; User profile text
                 tid   :tid}]                    ; Text ID is the profile ID
-            (let [ont   (onter sname)
-                  acct  (individual ont sname :type OnlineAccount)] ; Twitter user account
+            (let [ont (onter sname)]
+              ;; Declare the Twitter user account if we know it
+              (individual ont sname :type (case (:stance xmp)
+                                            :green  GreenAccount
+                                            :denier DenierAccount
+                                                    OnlineAccount))
               ;; Add PoS/senti for the user's profile content
               (when-not (:skip-profiles sconf)
                 (add-text onter
