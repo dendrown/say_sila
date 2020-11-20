@@ -1928,7 +1928,7 @@
   ([data]
   ;; NOTE: Our Twitter user data (U00) is currently unlabeled.
   (let [target  (dset/col-target :u)
-        insts   (weka/load-dataset data (name target))
+        insts   (weka/load-dataset data target)
         dtag    (dset/Datasets :u)                              ; Structure for user (U99) data
         tools   (toolbox)                                       ; Sentiment/emotion analysis
         attrs   (select-keys (dset/Columns dtag) [:screen_name  ; 0-based attribute indices
@@ -2123,13 +2123,13 @@
 
 
   ([dtag texts text-type & opts]
-  (let [;; Statistics on text polarity and presence of affect
+  (let [;; Statistics on user stance and presence of affect
         ttype   (name text-type)
         stats   (reduce #(let [ss (if (every? empty? (:affect %2))
                                       :stoic
                                       :senti)]
-                           (update-values %1 [:count (:polarity %2) ss] inc))
-                        (zero-hashmap :count :positive :negative :? :senti :stoic)
+                           (update-values %1 [:count (:stance %2) ss] inc))
+                        (zero-hashmap :count :green :denier :? :senti :stoic)
                         texts)
         fullcnt (stats :count)
 
@@ -2183,8 +2183,8 @@
                          pos-tags)]
 
   ;; Report the basic statistics
-  (log/fmt-info "Dset:~a: p[~1$%] s[~1$%] txts~a"
-                dtag (stat100 :positive) (stat100 :senti) stats)
+  (log/fmt-info "Dset:~a: grn[~1$%] dnr[~1$%] s[~1$%] txts~a"
+                dtag (stat100 :green) (stat100 :denier) (stat100 :senti) stats)
 
   ;; Report pos/neg first, then the emotions
   (report (conj (sort (keys (dissoc aff-txts "Positive" "Negative")))   ; ABCize emotions
@@ -2275,7 +2275,7 @@
                     (with-open [wtr (io/writer csv :append true)]
                       ;; Handle header for a new CSV
                       (when-not exists?
-                        (log/info "Creating report:" csv)
+                        (log/notice "Creating report:" csv)
                         (.write wtr ^String (apply str "Min Tweets, Users," (interpose "," (map name syms))))
                         (.write wtr "\n"))
                       ;; Report one line of CSV data
