@@ -2262,13 +2262,14 @@
         report  (fn [sym what fullcnt]
                   (let [elms (get needles sym)
                         cnt  (count elms)
-                        pct  (p100z cnt fullcnt)]
+                        pct  (pctz cnt fullcnt)]
                     (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
-                                  sym dtag cnt fullcnt what pct)
+                                  sym dtag cnt fullcnt what (* 100 pct))
                     (comment run! #(log/debug "  -" (iri-fragment %)) elms)
                     pct))
 
         rpt-csv (fn [syms fstub]
+                  (log/debug)
                   ;; TODO: This is currently just for user data. Generalize!
                   (let [csv     (str Tmp-Dir "/" fstub ".csv")
                         exists? (fs/exists? csv)]
@@ -2276,7 +2277,7 @@
                       ;; Handle header for a new CSV
                       (when-not exists?
                         (log/notice "Creating report:" csv)
-                        (.write wtr ^String (apply str "Min Tweets, Users," (interpose "," (map name syms))))
+                        (.write wtr ^String (apply str "Min Tweets,Users," (interpose "," (map soc/acronymize syms))))
                         (.write wtr "\n"))
                       ;; Report one line of CSV data
                       (.write wtr ^String (apply str (interpose "," (concat (map str [minimum usrcnt])
@@ -2285,7 +2286,6 @@
 
     ;; Log report to the console for all targets
     (run! #(report % "texts" txtcnt) texts)
-    (log/debug)
     (rpt-csv believers "CauseBelieverAccounts")
     (rpt-csv conservers "ConservationAccounts"))))
 

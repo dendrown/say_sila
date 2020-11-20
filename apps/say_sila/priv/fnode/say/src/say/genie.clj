@@ -256,22 +256,38 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn p100
-  "Returns the percentage of things with respect to the total."
+(defn pct
+  "Returns the percentage [0..1] of things with respect to the total."
   [things total]
-  (* 100. (/ things
-             total)))
+  (double (/ things total)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn pctz
+  "Returns the percentage [0..1] of things with respect to the total.i
+  If total is zero, the function returns (Double) 0."
+  [things total]
+  (if (zero? total)
+      0.
+      (pct things total)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn p100
+  "Returns the percentage [0..100] of things with respect to the total."
+  [things total]
+  (* 100. (pct things total)))
 
 
 
 ;;; --------------------------------------------------------------------------
 (defn p100z
-  "Returns the percentage of things with respect to the total.  If total is
-  zero, returns (Double) 0."
+  "Returns the percentage [0..100] of things with respect to the total.
+  If total is zero, the function returns (Double) 0."
   [things total]
-  (if (zero? total)
-      0.
-      (p100 things total)))
+  (* 100. (pctz things total)))
 
 
 
