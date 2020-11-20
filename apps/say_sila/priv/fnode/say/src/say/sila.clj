@@ -1023,6 +1023,46 @@
   :label    "Rogue Account"
   :comment  "An Online Account which does not adhere to the rules of its associated online provider.")
 
+;; Combinations for analysis:
+(as-disjoint
+  (defclass GreenEnergyConservationAccount1
+    :super GreenAccount
+    :equivalent (dl/and GreenAccount EnergyConservationAccount1))
+
+  (defclass DenierEnergyConservationAccount1
+    :super DenierAccount
+    :equivalent (dl/and DenierAccount EnergyConservationAccount1)))
+
+
+(as-disjoint
+  (defclass GreenEnergyConservationAccount2
+    :super GreenAccount
+    :equivalent (dl/and GreenAccount EnergyConservationAccount2))
+
+  (defclass DenierEnergyConservationAccount2
+    :super DenierAccount
+    :equivalent (dl/and DenierAccount EnergyConservationAccount2)))
+
+
+(as-disjoint
+  (defclass GreenHumanCauseBelieverAccount
+    :super GreenAccount
+    :equivalent (dl/and GreenAccount HumanCauseBelieverAccount))
+
+  (defclass DenierHumanCauseBelieverAccount
+    :super DenierAccount
+    :equivalent (dl/and DenierAccount HumanCauseBelieverAccount)))
+
+
+(as-disjoint
+  (defclass GreenNaturalCauseBelieverAccount
+    :super GreenAccount
+    :equivalent (dl/and GreenAccount NaturalCauseBelieverAccount))
+
+  (defclass DenierNaturalCauseBelieverAccount
+    :super DenierAccount
+    :equivalent (dl/and DenierAccount NaturalCauseBelieverAccount)))
+
 
 ;;; --------------------------------------------------------------------------
 ;;; Align our class hierarchy with FOAF if configured to do so
@@ -1888,7 +1928,7 @@
   ([data]
   ;; NOTE: Our Twitter user data (U00) is currently unlabeled.
   (let [target  (dset/col-target :u)
-        insts   (weka/load-dataset data target)
+        insts   (weka/load-dataset data (name target))
         dtag    (dset/Datasets :u)                              ; Structure for user (U99) data
         tools   (toolbox)                                       ; Sentiment/emotion analysis
         attrs   (select-keys (dset/Columns dtag) [:screen_name  ; 0-based attribute indices
@@ -2192,22 +2232,30 @@
   ([dtag onts txtcnt usrcnt]
   ;; Qualify our symbols as our caller may be in another namespace
   (let [minimum (cfg/?? :sila :min-statuses)
-        texts   '[say.sila/HumanAndCauseText
-                  say.sila/AffirmedHumanCauseText
-                  say.sila/NegatedHumanCauseText
-                 ;--------------------------------------
-                  say.sila/NatureAndCauseText
-                  say.sila/AffirmedNaturalCauseText
-                  say.sila/NegatedNaturalCauseText
-                 ;--------------------------------------
-                  say.sila/EnergyConservationText1
-                  say.sila/EnergyConservationText2]
+        texts     '[say.sila/HumanAndCauseText
+                    say.sila/AffirmedHumanCauseText
+                    say.sila/NegatedHumanCauseText
+                   ;--------------------------------------------
+                    say.sila/NatureAndCauseText
+                    say.sila/AffirmedNaturalCauseText
+                    say.sila/NegatedNaturalCauseText
+                   ;--------------------------------------------
+                    say.sila/EnergyConservationText1
+                    say.sila/EnergyConservationText2]
 
         believers '[say.sila/HumanCauseBelieverAccount
-                    say.sila/NaturalCauseBelieverAccount]
-                 ;--------------------------------------
+                    say.sila/GreenHumanCauseBelieverAccount
+                    say.sila/DenierHumanCauseBelieverAccount
+                    say.sila/NaturalCauseBelieverAccount
+                    say.sila/GreenNaturalCauseBelieverAccount
+                    say.sila/DenierNaturalCauseBelieverAccount]
+                   ;--------------------------------------------
         conservers '[say.sila/EnergyConservationAccount1
-                     say.sila/EnergyConservationAccount2]
+                     say.sila/GreenEnergyConservationAccount1
+                     say.sila/DenierEnergyConservationAccount1
+                     say.sila/EnergyConservationAccount2
+                     say.sila/GreenEnergyConservationAccount2
+                     say.sila/DenierEnergyConservationAccount2]
 
         needles (comm/instances onts (concat texts believers conservers))
 
@@ -2238,8 +2286,8 @@
     ;; Log report to the console for all targets
     (run! #(report % "texts" txtcnt) texts)
     (log/debug)
-    (rpt-csv believers "CauseBelieverAccount")
-    (rpt-csv conservers "ConservationAccount"))))
+    (rpt-csv believers "CauseBelieverAccounts")
+    (rpt-csv conservers "ConservationAccounts"))))
 
 
 
