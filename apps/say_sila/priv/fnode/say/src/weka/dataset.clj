@@ -351,6 +351,23 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn target-stance!
+  "Inserts the stance {green,denier} column to the dataset (updated in place)
+  at the specified index (defaults to appending the stance column to the end)."
+  ([insts]
+  (target-stance! insts (.numAttributes insts)))        ; Append as last column
+
+
+  ([insts ndx]
+  (doto insts
+        (.insertAttributeAt (Attribute. (name (col-target :t01))
+                                        ["green" "denier"])
+                             ndx)
+        (.setClassIndex ndx))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn label!
   "Add dependent class information to an unlabelled dataset.  Currently we
   are supporting this procedure only as a T00==>T01 transformation.  If data
@@ -376,7 +393,6 @@
                 (if arff?
                     (weka/load-arff data)               ; Load dataset from file
                     (Instances. ^Instances data))       ; Copy input instances
-        cndx    (.numAttributes insts)                  ; [c]lass index
         nndx    (col-index dset :screen_name)           ; Screen [n]ame index
         who     #(.stringValue ^Instance % (int nndx))  ; Screen name lookup
         stand   #(reduce (fn [_ [stance accts]]         ; Find stance of account %
@@ -385,11 +401,7 @@
                          nil
                          stances)]
     ;; We're altering the output dataset in place!
-    (doto insts
-          (.insertAttributeAt (Attribute. (name (col-target :t01))
-                                          ["green" "denier"])
-                                          cndx)
-          (.setClassIndex cndx))
+    (target-stance! insts)
 
     ;; Set a green|denier stance for known users
     (dotimes [i (.numInstances insts)]

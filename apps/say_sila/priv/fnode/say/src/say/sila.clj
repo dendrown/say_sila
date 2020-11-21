@@ -2382,7 +2382,7 @@
 (defn save-accounts
   "Saves a list of the accounts in the specified world."
   ([]
-  (save-accounts "/tmp/sila-accounts.lst"))
+  (save-accounts (str Tmp-Dir "/accounts.lst")))
 
 
   ([fpath]
