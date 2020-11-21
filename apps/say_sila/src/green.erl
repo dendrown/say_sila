@@ -233,15 +233,24 @@ load_stances(FPath) ->
     Accounts = load_screen_names(FPath),
     Throttle = gen_server:call(?MODULE, get_throttle),
 
-    % TODO: create a more sophisticated throttling abstraction
-    GetStance = fun(Acct, {Wait, Acc}) ->
+    % We're going to want to do things only when we hit Twitter's API
+    WhenAPI = fun(Wait, Fun) ->
         case Wait of
-            ok      -> ok;
-            twitter -> timer:sleep(Throttle)
-        end,
+            ok      -> ok;              % NOOP for cache hit
+            twitter -> Fun()            % Dance for Twitter API
+        end
+    end,
+
+    % Check DETS or-else Twitter for a user's stance
+    GetStance = fun(Acct, {Wait, Acc}) ->
+        % TODO: create a more sophisticated throttling abstraction
+        WhenAPI(Wait, fun () -> timer:sleep(Throttle) end),
         {NewWait,
          Stance} = get_stance(Acct),
-        ?info("~s: ~s", [Acct, Stance]),
+
+        % Only give output for API items, as there may be thousands
+        % of accounts that we have to look over in the log listing.
+        WhenAPI(NewWait, fun () -> ?info("~s: ~s", [Acct, Stance]) end),
         {NewWait, Acc#{Acct => Stance}}
     end,
     {_,
@@ -404,7 +413,7 @@ handle_call(get_throttle, _From, State = #state{deniers = Deniers,
     % Throttle requests so we don't exceed 180 every 15 minutes (720 req/hr or 5 sec/req)
     % TODO: (1) Abstract and formalize throttling (modules: green, pan).
     %       (2) Keep submitting requests until we near limit, then throttle
-    Millis = 5250 * (length(Deniers) + length(Greens)),
+    Millis = 5500 * (length(Deniers) + length(Greens)),
     {reply, Millis, State};
 
 
