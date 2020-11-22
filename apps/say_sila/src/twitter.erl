@@ -448,7 +448,7 @@ is_following(Follower, Followed) ->
             SrcFollowsTgt orelse SrcSeeksTgt;
 
         Rsp ->
-            ?warning("Unexpected response checking ~s==>~s: ~p", [Follower, Followed, Rsp]),
+            ?warning("Unexpected response checking ~s ==> ~s: ~p", [Follower, Followed, Rsp]),
             undefined
     end.
 
