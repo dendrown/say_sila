@@ -2112,7 +2112,8 @@
   "Saves the specified information to a CSV file."
   [ctype concept syms fullcnt percents]
     ;; Determine to the the appropriate CSV for this concept
-    (let [->title #(if (string? %)
+    (let [ctype   (str/capitalize (name ctype))
+          ->title #(if (string? %)
                        (str/capitalize %)
                        (soc/acronymize %))
           minimum (cfg/?? :sila :min-statuses)
