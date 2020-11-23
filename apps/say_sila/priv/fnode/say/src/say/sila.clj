@@ -2222,9 +2222,12 @@
   ;; Survey Concept Rules (show in REPL and add to running CSV files)
   (doseq [[concept symbols] [["CauseBeliever" ["NEGATION" "CAUSE" "HUMAN" "NATURE"]]
                              ["Conservation"  ["NEGATION" "ENERGY" "CONSERVATION"]]]]
+    ;; Always report to REPL
+    (let [pcts (report symbols scr-toks scr-txts "Concept" identity 12)]
 
-    (report-to-csv "Tokens" concept symbols fullcnt
-                   (report symbols scr-toks scr-txts "Concept" identity 12)))
+      ;; And report tweets to the CSV
+      (when (= text-type :statuses)
+        (report-to-csv "Tokens" concept symbols fullcnt pcts))))
 
   ;; Report part-of-speech tags
   (when-not (some #{:no-pos} opts)
