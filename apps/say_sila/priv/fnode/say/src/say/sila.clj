@@ -2108,6 +2108,27 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- report-to-csv
+  "Saves the specified information to a CSV file."
+  [ctype concept syms fullcnt percents]
+    ;; Determine to the the appropriate CSV for this concept
+    (let [->title #(if (string? %)
+                       (str/capitalize %)
+                       (soc/acronymize %))
+          minimum (cfg/?? :sila :min-statuses)
+          csv     (str Tmp-Dir "/" concept ctype ".csv")
+          exists? (fs/exists? csv)]                       ; Know existance BEFORE opening
+      (with-open [wtr (io/writer csv :append true)]
+        ;; Handle header for a new CSV
+        (when-not exists?
+          (log/notice "Creating report:" csv)
+          (.write wtr (strfmt "Min Tweets,~a~{,~a~}~%" ctype (map ->title syms))))
+        ;; Report one line of CSV data
+        (.write wtr (strfmt "~a,~a~{,~a~}~%" minimum fullcnt percents)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn report-examples
   "Give positive/negative coverage and sentiment statistics for sets of
   intermediate-format examples or a hashmap with multiple sets of examples
@@ -2157,15 +2178,17 @@
                             [(count-tokens zeros rules)
                              (count-texts  zeros rules)]))
 
-        report          (fn [ks toks txts what show width]
+        report          (fn [keyz toks txts what show width]
                           (log/debug)
-                          (doseq [k ks]
-                            (let [tokcnt (get toks k)
-                                  txtcnt (get txts k)]
+                          (domap
+                            #(let [tokcnt (get toks %)
+                                   txtcnt (get txts %)
+                                   pct    (pctz txtcnt fullcnt)]
                               (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~5,2F%)]"
-                                              what dtag width (show k)
-                                              tokcnt txtcnt ttype
-                                              (p100z txtcnt fullcnt)))))
+                                              what dtag width (show %)
+                                              tokcnt txtcnt ttype (* 100 pct))
+                              pct)
+                            keyz))
 
         ;; Calculate token & text counts for key elements
         [aff-toks aff-txts] (count-all :affect  Affect-Names)           ; Pos/neg & emotions
@@ -2196,10 +2219,12 @@
   (report (sort (keys svy-txts))
           svy-toks svy-txts "Survey" name 12)
 
-  ;; Survey Concept Rules
-  (report ;(sort (keys scr-txts))
-          ["NEGATION" "CAUSE" "HUMAN" "NATURE" "ENERGY" "CONSERVATION"] ; Order for charting
-          scr-toks scr-txts "Concept" identity 12)
+  ;; Survey Concept Rules (show in REPL and add to running CSV files)
+  (doseq [[concept symbols] [["CauseBeliever" ["NEGATION" "CAUSE" "HUMAN" "NATURE"]]
+                             ["Conservation"  ["NEGATION" "ENERGY" "CONSERVATION"]]]]
+
+    (report-to-csv "Tokens" concept symbols fullcnt
+                   (report symbols scr-toks scr-txts "Concept" identity 12)))
 
   ;; Report part-of-speech tags
   (when-not (some #{:no-pos} opts)
@@ -2232,10 +2257,7 @@
 
   ([dtag onts fullcnts]
   ;; Qualify our symbols as our caller may be in another namespace
-  (let [minimum (cfg/?? :sila :min-statuses)
-        heading #(str/capitalize (name %))
-
-        ;; The concept map is organized according to the report setup
+  (let [;; The concept map is organized according to the report setup:
         ;;         LEVEL  CONCEPT            ONTOLOGY SYMBOLS
         concepts {[:texts "CauseBeliever"]  '[say.sila/HumanAndCauseText
                                               say.sila/AffirmedHumanCauseText
@@ -2279,18 +2301,10 @@
         rpt-csv (fn [[[level concept] syms]]
                   (log/debug)
                   ;; Report to the the appropriate CSV for this concept
-                  (let [lhead   (heading level)                         ; Title case for header/filename
-                        fullcnt (fullcnts level)                        ; Pull text|user count
-                        pcts    (domap #(report % lhead fullcnt) syms)
-                        csv     (str Tmp-Dir "/" concept lhead ".csv")
-                        exists? (fs/exists? csv)]                       ; Know existance BEFORE opening
-                    (with-open [wtr (io/writer csv :append true)]
-                      ;; Handle header for a new CSV
-                      (when-not exists?
-                        (log/notice "Creating report:" csv)
-                        (.write wtr (strfmt "Min Tweets,~a~{,~a~}~%" lhead (map soc/acronymize syms))))
-                      ;; Report one line of CSV data
-                      (.write wtr (strfmt "~a,~a~{,~a~}~%" minimum fullcnt pcts)))))]
+                  (let [lhead   (str/capitalize (name level))       ; Title case for header/filename
+                        fullcnt (fullcnts level)                    ; Pull text|user count
+                        pcts    (domap #(report % lhead fullcnt) syms)]
+                    (report-to-csv level concept syms fullcnt pcts)))]
 
     ;; Log report to the console & file for all targets
     (run! rpt-csv concepts))))
