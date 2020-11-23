@@ -354,11 +354,11 @@
 (defn target-stance!
   "Inserts the stance {green,denier} column to the dataset (updated in place)
   at the specified index (defaults to appending the stance column to the end)."
-  ([insts]
+  ([^Instances insts]
   (target-stance! insts (.numAttributes insts)))        ; Append as last column
 
 
-  ([insts ndx]
+  ([^Instances insts ndx]
   (doto insts
         (.insertAttributeAt (Attribute. (name (col-target :t01))
                                         ["green" "denier"])
