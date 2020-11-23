@@ -2226,40 +2226,48 @@
                      [(ontology :fetch)     , (ontology :size)]         ; A set of user ontologies
                      [[((:ontology world))] , (count (:users world))])] ; [big ontology with all users]
 
-    (report-concepts dtag onts txtcnt usrcnt)))
+    (report-concepts dtag onts {:texts txtcnt
+                                :users usrcnt})))
 
 
-  ([dtag onts txtcnt usrcnt]
+  ([dtag onts fullcnts]
   ;; Qualify our symbols as our caller may be in another namespace
   (let [minimum (cfg/?? :sila :min-statuses)
-        texts     '[say.sila/HumanAndCauseText
-                    say.sila/AffirmedHumanCauseText
-                    say.sila/NegatedHumanCauseText
-                   ;--------------------------------------------
-                    say.sila/NatureAndCauseText
-                    say.sila/AffirmedNaturalCauseText
-                    say.sila/NegatedNaturalCauseText
-                   ;--------------------------------------------
-                    say.sila/EnergyConservationText1
-                    say.sila/EnergyConservationText2]
+        heading #(str/capitalize (name %))
 
-        believers '[say.sila/HumanCauseBelieverAccount
-                    say.sila/GreenHumanCauseBelieverAccount
-                    say.sila/DenierHumanCauseBelieverAccount
-                    say.sila/NaturalCauseBelieverAccount
-                    say.sila/GreenNaturalCauseBelieverAccount
-                    say.sila/DenierNaturalCauseBelieverAccount]
-                   ;--------------------------------------------
-        conservers '[say.sila/EnergyConservationAccount1
-                     say.sila/GreenEnergyConservationAccount1
-                     say.sila/DenierEnergyConservationAccount1
-                     say.sila/EnergyConservationAccount2
-                     say.sila/GreenEnergyConservationAccount2
-                     say.sila/DenierEnergyConservationAccount2]
+        ;; The concept map is organized according to the report setup
+        ;;         LEVEL  CONCEPT            ONTOLOGY SYMBOLS
+        concepts {[:texts "CauseBeliever"]  '[say.sila/HumanAndCauseText
+                                              say.sila/AffirmedHumanCauseText
+                                              say.sila/NegatedHumanCauseText
+                                              ;---------------------------------
+                                              say.sila/NatureAndCauseText
+                                              say.sila/AffirmedNaturalCauseText
+                                              say.sila/NegatedNaturalCauseText]
 
-        needles (comm/instances onts (concat texts believers conservers))
+                  [:texts "Conservation"]   '[say.sila/EnergyConservationText1
+                                              say.sila/EnergyConservationText2]
+
+                  [:users "CauseBeliever"]  '[say.sila/HumanCauseBelieverAccount
+                                              say.sila/GreenHumanCauseBelieverAccount
+                                              say.sila/DenierHumanCauseBelieverAccount
+                                              ;-----------------------------------------
+                                              say.sila/NaturalCauseBelieverAccount
+                                              say.sila/GreenNaturalCauseBelieverAccount
+                                              say.sila/DenierNaturalCauseBelieverAccount]
+
+                  [:users "Conservation"]   '[say.sila/EnergyConservationAccount1
+                                              say.sila/GreenEnergyConservationAccount1
+                                              say.sila/DenierEnergyConservationAccount1
+                                              ;-----------------------------------------
+                                              say.sila/EnergyConservationAccount2
+                                              say.sila/GreenEnergyConservationAccount2
+                                              say.sila/DenierEnergyConservationAccount2]}
+
+        needles (comm/instances onts (mapcat val concepts))
 
         report  (fn [sym what fullcnt]
+                  ;; Report to the REPL console
                   (let [elms (get needles sym)
                         cnt  (count elms)
                         pct  (pctz cnt fullcnt)]
@@ -2268,26 +2276,24 @@
                     (comment run! #(log/debug "  -" (iri-fragment %)) elms)
                     pct))
 
-        rpt-csv (fn [syms fstub]
+        rpt-csv (fn [[[level concept] syms]]
                   (log/debug)
-                  ;; TODO: This is currently just for user data. Generalize!
-                  (let [csv     (str Tmp-Dir "/" fstub ".csv")
-                        exists? (fs/exists? csv)]
+                  ;; Report to the the appropriate CSV for this concept
+                  (let [lhead   (heading level)                         ; Title case for header/filename
+                        fullcnt (fullcnts level)                        ; Pull text|user count
+                        pcts    (domap #(report % lhead fullcnt) syms)
+                        csv     (str Tmp-Dir "/" concept lhead ".csv")
+                        exists? (fs/exists? csv)]                       ; Know existance BEFORE opening
                     (with-open [wtr (io/writer csv :append true)]
                       ;; Handle header for a new CSV
                       (when-not exists?
                         (log/notice "Creating report:" csv)
-                        (.write wtr ^String (apply str "Min Tweets,Users," (interpose "," (map soc/acronymize syms))))
-                        (.write wtr "\n"))
+                        (.write wtr (strfmt "Min Tweets,~a~{,~a~}~%" lhead (map soc/acronymize syms))))
                       ;; Report one line of CSV data
-                      (.write wtr ^String (apply str (interpose "," (concat (map str [minimum usrcnt])
-                                                                            (map #(report % "users" usrcnt) syms)))))
-                      (.write wtr "\n"))))]
+                      (.write wtr (strfmt "~a,~a~{,~a~}~%" minimum fullcnt pcts)))))]
 
-    ;; Log report to the console for all targets
-    (run! #(report % "texts" txtcnt) texts)
-    (rpt-csv believers "CauseBelieverAccounts")
-    (rpt-csv conservers "ConservationAccounts"))))
+    ;; Log report to the console & file for all targets
+    (run! rpt-csv concepts))))
 
 
 
