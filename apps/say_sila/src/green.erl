@@ -19,13 +19,18 @@
 -export([start/1,       start/2,
          start_link/1,  start_link/2,
          stop/0,
+         clear_cache/0,
+         get_stance/1,  get_stance/2,
+         get_stances/0, get_stances/1,
+         load_stances/1,
          make_arff/0,
          re_pattern/0,
          run_biggies/0,
-         use_top_n/1, use_top_n/2]).
+         set_stance/2,
+         use_top_n/1,   use_top_n/2]).
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
--import(lists, [foldl/3]).
+-import(lists, [filter/2, foldl/3]).
 -import(proplists, [get_value/2]).
 
 % Quickies for development
@@ -42,7 +47,7 @@ go(Tracker) ->
 
 
 %%%-------------------------------------------------------------------
-opts() -> opts(q1).
+opts() -> opts(day).                    % TODO: Find mystery period (q1?)
 
 opts(green)   -> [no_retweet, {start, {2019, 10, 1}}, {stop, {2020, 7, 1}}];
 opts(q1)      -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
@@ -58,13 +63,20 @@ opts(biggies) -> [no_retweet| biggies:period(train)].
 -include("types.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("llog/include/llog.hrl").
+-include_lib("stdlib/include/ms_transform.hrl").
 
+-define(STANCE_CACHE,   ?DETS_DIR "/green_stance").
 
 -record(state, {tracker       :: tracker(),
+                deniers = []  :: [binary()],        % Base climate denier accounts
+                greens  = []  :: [binary()],        % Base green user accounts
                 tweets  = []  :: tweets(),
                 options = []  :: proplist(),
                 workers = #{} :: #{pid() => proplist()} }).
 -type state() :: #state{}.
+
+-type stance()  :: green|denier|undefined.
+-type stances() :: [stance()].
 
 
 %%====================================================================
@@ -117,7 +129,133 @@ start_link(Tracker, Options) ->
 % @doc  Shutdown function for modelling enviromentalism.
 % @end  --
 stop() ->
-    gen_server:call(?MODULE, stop).
+    gen_server:call(?MODULE, stop),
+    dets:close(?STANCE_CACHE).
+
+
+
+%%--------------------------------------------------------------------
+-spec clear_cache() -> ok
+                     | {error, term()}.
+%%
+% @doc  Clears the green-related DETS cache.
+% @end  --
+clear_cache() ->
+    dets:delete_all_objects(?STANCE_CACHE).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_stance(Account :: stringy()) -> {ok|twitter,
+                                           stance()}.
+
+-spec get_stance(Account :: stringy(),
+                 Options :: options()) -> {ok|twitter,
+                                           stance()}.
+%%
+% @doc  Queries the twitter server to determine if the stance of the
+%       user represented by the specified Account is `green`, `denier'
+%       or `undefined' if the stance cannot be determined.
+%
+%       Specifying the option `requery' will ignore any existing
+%       value in the cache and force a call to the Twitter API.
+% @end  --
+get_stance(Account) ->
+    get_stance(Account, []).
+
+
+get_stance(Account, Options) ->
+    gen_server:call(?MODULE, {get_stance, Account, Options}).
+
+
+
+%%--------------------------------------------------------------------
+-spec get_stances() -> #{binary() := stances()}.
+
+-spec get_stances(Options :: uqam|options()) -> #{binary() := stances()}.
+%%
+% @doc  Creates a mapping of stances (`green' or `denier') to lists
+%       of users.
+%
+%       The following options are available:
+%       - format    : Return the mapping as `json' or and Erlang `map' (default)
+%       - fpath     : Also save the mapping to the specified file path
+% @end  --
+get_stances() ->
+    get_stances([]).
+
+
+get_stances(uqam) ->
+    FPath = ioo:make_fpath(?TMP_DIR, "stances.json"),
+    green:get_stances([{format,json},
+                       {fpath, FPath}]);
+
+
+get_stances(Options) ->
+    % Cache queries are created at compile time!!
+    Queries = #{denier => ets:fun2ms(fun ({Acct, denier}) -> Acct end),
+                green  => ets:fun2ms(fun ({Acct, green})  -> Acct end)},
+
+    Stances = maps:map(fun(_,Q) -> dets:select(?STANCE_CACHE, Q) end, Queries),
+
+    % How do they want the results?
+    Format = pprops:get_value(format, Options, map),
+    Return = case Format of
+        map  -> Stances;
+        json -> jsx:encode(Stances)
+    end,
+
+    % Save a copy for development use?
+    case pprops:get_value(fpath, Options) of
+        undefined -> ok;
+
+        FPath ->
+            % The write method differs slightly for JSON and erlang terms
+            ?info("Saving stances to ~s", [FPath]),
+            file:write_file(FPath,
+                            case Format of
+                                json -> Return;
+                                _    -> term_to_binary(Return)
+                            end)
+    end,
+    Return.
+
+
+
+%%--------------------------------------------------------------------
+-spec load_stances(FPath :: stringy()) -> #{binary() := stance()}.
+%%
+% @doc  Load accounts from the specified file and return a map
+%       keyed with those accounts, containing the stances of those
+%       users.
+% @end  --
+load_stances(FPath) ->
+    Accounts = load_screen_names(FPath),
+    Throttle = gen_server:call(?MODULE, get_throttle),
+
+    % We're going to want to do things only when we hit Twitter's API
+    WhenAPI = fun(Wait, Fun) ->
+        case Wait of
+            ok      -> ok;              % NOOP for cache hit
+            twitter -> Fun()            % Dance for Twitter API
+        end
+    end,
+
+    % Check DETS or-else Twitter for a user's stance
+    GetStance = fun(Acct, {Wait, Acc}) ->
+        % TODO: create a more sophisticated throttling abstraction
+        WhenAPI(Wait, fun () -> timer:sleep(Throttle) end),
+        {NewWait,
+         Stance} = get_stance(Acct),
+
+        % Only give output for API items, as there may be thousands
+        % of accounts that we have to look over in the log listing.
+        WhenAPI(NewWait, fun () -> ?info("~s: ~s", [Acct, Stance]) end),
+        {NewWait, Acc#{Acct => Stance}}
+    end,
+    {_,
+     Stances} = foldl(GetStance, {ok, #{}}, Accounts),
+    Stances.
 
 
 
@@ -163,6 +301,23 @@ run_biggies() ->
                                          {sweep,     1}]).          % To start!
 
 
+%%--------------------------------------------------------------------
+-spec set_stance(Account :: stringy(),
+                 Stance  :: stance()) -> ok | {error, term()}.
+%%
+% @doc  Allows a user-override to set green|denier stance for a given
+%       user.
+% @end  --
+set_stance(Account, Stance) ->
+    case check_stance(Account) of
+        Stance ->
+            ?info("User ~s stance is already ~s", [Account, Stance]);
+        {_, OldStance} ->
+            ?info("Setting user ~s stance: ~s -> ~s", [Account, OldStance, Stance]),
+            cache_stance(Account, Stance)
+    end.
+
+
 
 %%--------------------------------------------------------------------
 -spec use_top_n(N :: pos_integer()) -> ok.
@@ -197,10 +352,19 @@ init([Tracker, Options]) ->
     ?notice("Initializing analysis of enviromentalism"),
     process_flag(trap_exit, true),
 
+    % Load the list of base accounts for deniers and green-minded folk
+    GetBase = fun(Who) ->
+        FPath = ?str_fmt("~s/resources/accounts/~s.lst", [code:priv_dir(say_sila), Who]),
+        ?debug("Reading base ~s: ~s", [Who, FPath]),
+        load_screen_names(FPath)
+    end,
+
     % Get environmental tweets per the specified options
     gen_server:cast(self(), {get_tweets, Options}),
 
-    {ok, #state{tracker = Tracker}}.
+    {ok, #state{tracker  = Tracker,
+                 deniers = GetBase(deniers),
+                 greens  = GetBase(greens)}}.
 
 
 
@@ -231,6 +395,28 @@ code_change(OldVsn, State, _Extra) ->
 %%
 % @doc  Synchronous messages for the web user interface server.
 % @end  --
+handle_call({get_stance, Account, Options}, _From, State) ->
+
+    Reply = case check_stance(Account, Options) of
+        none ->
+            Stance = query_stance(Account, State),
+            cache_stance(Account, Stance),
+            {twitter, Stance};
+
+        {_, Stance} -> {ok, Stance}
+    end,
+    {reply, Reply, State};
+
+
+handle_call(get_throttle, _From, State = #state{deniers = Deniers,
+                                                greens  = Greens}) ->
+    % Throttle requests so we don't exceed 180 every 15 minutes (720 req/hr or 5 sec/req)
+    % TODO: (1) Abstract and formalize throttling (modules: green, pan).
+    %       (2) Keep submitting requests until we near limit, then throttle
+    Millis = 5500 * (length(Deniers) + length(Greens)),
+    {reply, Millis, State};
+
+
 handle_call(make_arff, _From, State = #state{tracker = Tracker,
                                              tweets  = Tweets,
                                              options = Options}) ->
@@ -367,8 +553,116 @@ handle_info(Msg, State) ->
 % @doc  Startup function for modelling enviromentalism.
 % @end  --
 start_up(Starter, Tracker, Options) ->
+    % Twitter limits our query rate severely. Cache what we know!
+    ioo:make_fpath(?STANCE_CACHE),
+    dets:open_file(?STANCE_CACHE, [{repair, true}, {auto_save, 60000}]),
+
     Args = [Tracker, Options],
     gen_server:Starter({?REG_DIST, ?MODULE}, ?MODULE, Args, []).
+
+
+
+%%--------------------------------------------------------------------
+-spec cache_stance(Account :: stringy(),
+                   Stance  :: stance()) -> ok | {error, term()}.
+%%
+% @doc  Updates the DETS cache explicitly with the specified
+%       key (Account) and value (Stance).
+% @end  --
+cache_stance(Account, Stance) ->
+    dets:insert(?STANCE_CACHE, {types:to_binary(Account), Stance}).
+
+
+
+%%--------------------------------------------------------------------
+-spec check_stance(Account :: stringy()) -> none
+                                          | {binary(), stance()}.
+
+-spec check_stance(Account :: stringy(),
+                   Options :: options()) -> none
+                                          | {binary(), stance()}.
+%%
+% @doc  Checks the DETS cache for the specified key (Account) and
+%       returns a key-value pair {Account, Stance}, or `none' if
+%       the stance cache does not contain the specified key.
+%
+%       Specifying the only supported option [`requery'] will
+%       cause the function to skip the cache check and return
+%       `none' in all cases.
+% @end  --
+check_stance(Account) ->
+    check_stance(Account, []).
+
+
+check_stance(Account, Options) ->
+    case pprops:get_value(requery, Options) of
+        % Normal operation searches the cache
+        undefined ->
+            case dets:lookup(?STANCE_CACHE, types:to_binary(Account)) of
+                []    -> none;
+                [Hit] -> Hit
+            end;
+
+        % A requery assumes no-hit so the caller will query the service
+        _ -> none
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec load_screen_names(FPath :: stringy()) -> [binary()].
+%%
+% @doc  Returns a list of the screen names contained (one per line)
+%       in the specified file.
+% @end  --
+load_screen_names(FPath) ->
+
+    ThrowOut = fun
+        (<<$%,_/binary>>) -> true;                  % Comment %
+        (X)               -> string:is_empty(X)     % Blank line
+    end,
+
+    case file:read_file(FPath) of
+        {ok, Data} ->
+            fp:remove(ThrowOut,
+                      [string:trim(A) || A <- string:split(Data, <<"\n">>, all)]);
+
+        {error, Why} ->
+            ?error("Cannot load accounts: ~p", [Why]),
+            []
+    end.
+
+
+
+%%--------------------------------------------------------------------
+-spec query_stance(Account :: stringy(),
+                   State   :: state()) -> stance().
+%%
+% @doc  Pulls the specified user's stance from Twitter.
+% @end  --
+query_stance(Account, #state{deniers = Deniers,
+                             greens  = Greens}) ->
+    CountFollowers = fun
+        Recur([], Acc) -> Acc;
+
+        Recur([B|RestBase], Acc) ->
+            case twitter:is_following(Account, B) of
+                undefined -> Acc;                       % Issue w/ account|query
+                false     -> Recur(RestBase, Acc);
+                true      -> Recur(RestBase, Acc+1)
+            end
+    end,
+
+    % Make a decision when it's clear.  When it's not, Twitter will log messages.
+    case [CountFollowers(Base, 0) || Base <- [Deniers, Greens]] of
+        [0, 0] -> undefined;
+        [_, 0] -> denier;
+        [0, _] -> green;
+        [D, G] ->
+            ?warning("User ~s is following both sides: denier[~B] green[~B]",
+                     [Account, D, G]),
+            undefined
+    end.
 
 
 

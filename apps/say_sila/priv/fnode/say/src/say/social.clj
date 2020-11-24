@@ -28,10 +28,18 @@
 (defn tokenize
   "Attempts to split up a username or similar into component tokens."
   [txt & opts]
-  (as-> (filter seq (str/split txt Token-Splitter)) toks
+  (as-> (filter seq (str/split (name txt) Token-Splitter)) toks
     (if (some #{:lower-case} opts) (map str/lower-case toks)        toks)
     (if (some #{:upper-case} opts) (map str/upper-case toks)        toks)
     (if (some #{:str}        opts) (apply str (interpose " " toks)) toks)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn acronymize
+  "Conerts the specifed token to an acronym."
+  [tok]
+  (str/upper-case (apply str (map first (tokenize tok)))))
 
 
 

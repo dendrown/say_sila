@@ -7,7 +7,8 @@ apps/say_sila/www/graph/*.png
 apps/say_sila/www/status/*.etf
 apps/say_sila/priv/plot/*.dat
 apps/say_sila/priv/plot/*.png
-docs/green/accounts/*.txt
+apps/say_sila/priv/resources/accounts/*.lst
+docs/green/accounts/
 rebar.lock
 .rebar3
 _*

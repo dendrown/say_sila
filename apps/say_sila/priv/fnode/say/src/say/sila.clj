@@ -39,6 +39,7 @@
             [defun.core         :refer [defun]]
             [incanter.core      :refer [dataset $data view with-data]]
             [incanter.charts    :refer [stacked-bar-chart set-stroke-color]]
+            [me.raynes.fs       :as fs]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
             [tawny.query        :as qry]
@@ -65,10 +66,9 @@
 (def ^:const Ont-FStub      "resources/KB/say-sila")
 (def ^:const Emotion-FStub  "resources/world")
 (def ^:const World-FStub    "resources/world")
+(def ^:const Tmp-Dir        "/tmp/say_sila")                ; Shared with Erlang
 
 (def ^:const Init-Data      {:tag :env, :tracker :all, :source :tweets, :dir Emotion-FStub})
-(def ^:const Split-Tags     [:train :test])
-(def ^:const Init-PN-Count  100)
 
 
 ;;; --------------------------------------------------------------------------
@@ -130,11 +130,19 @@
 (as-disjoint OnlineAccount dul/InformationObject dul/Quality)
 
 
-(defoproperty publishes
-  :label    "publishes"
-  :domain   OnlineAccount
-  :range    dul/InformationObject
-  :comment  "The action of making an Information Object available to an online community.")
+(as-inverse
+  (defoproperty publishes
+    :label    "publishes"
+    :domain   OnlineAccount
+    :range    dul/InformationObject
+    :comment  "The action of making an Information Object available to an online community.")
+
+  (defoproperty isPublishedBy
+    :label    "is published by"
+    :domain   dul/InformationObject
+    :range    OnlineAccount
+    :comment  (str "Indicates that the Information Object has been made available "
+                   "to an online community by the Online Account.")))
 
 
 ;;; --------------------------------------------------------------------------
@@ -292,33 +300,31 @@
 (apply as-subclasses Affect :disjoint (map #(owl-class %) Affect-Names))
 
 
+(defmacro affectize
+  "Runs the action function/macro for all defined affect elements."
+  [action]
+  `(do ~@(for [aff# Affect-Names]
+           `(~action ~aff#))))
+
+
 ;;; --------------------------------------------------------------------------
 ;;; Environmental clues at the Text level
 ;;;
 ;;; TBox: building on pos:Token
-
 (defmacro def-affect-token
   "Creates an affect Token class for the given (String) sentiment polarity or emotion."
   [aff]
-  `(defclass ~(symbol (str aff "Token"))
-     :super    pos/Token
-     :label    (str ~aff " Token")
-     :comment  (str "A Token which may indicate " ~aff ".")
-     :equivalent (dl/and pos/Token
-                         (dl/some denotesAffect (owl-class say-sila ~aff)))))
+  (let [sym (eval `(as-symbol ~aff "Token"))]
+    `(defclass ~sym
+       :super    pos/Token
+       :label    (str ~aff " Token")
+       :comment  (str "A Token which may indicate " ~aff ".")
+       :equivalent (dl/and pos/Token
+                           (dl/some denotesAffect (owl-class say-sila ~aff))))))
 
 ;;; Create affect Token and Information Objects for all defined polarities and emotions
-;(run! #(def-affect-token %) Affect-Names)                      ; FIXME
-(def-affect-token "Positive")
-(def-affect-token "Negative")
-(def-affect-token "Anger")
-(def-affect-token "Fear")
-(def-affect-token "Sadness")
-(def-affect-token "Joy")
-(def-affect-token "Surprise")
-(def-affect-token "Anticipation")
-(def-affect-token "Disgust")
-(def-affect-token "Trust")
+(affectize def-affect-token)                        ; Define AngerToken, etc...
+
 
 (defmacro def-affect-info-obj
   "Creates an affect InformationObject class for the given (String) sentiment polarity or emotion."
@@ -330,21 +336,10 @@
     :equivalent (dl/and dul/InformationObject
                         (dl/some dul/hasComponent ~(symbol (str aff "Token"))))))
 
-;(run! #(def-affect-info-obj %) Affect-Names)                   ; FIXME
-(comment
-;; FIXME: Looking into issues with DL-Learner never returning when it has too many
-;;        [Affect][PoS]InformationObjects to play with.
-(def-affect-info-obj "Positive")
-(def-affect-info-obj "Negative")
-(def-affect-info-obj "Anger")
-(def-affect-info-obj "Fear")
-(def-affect-info-obj "Sadness")
-(def-affect-info-obj "Joy")
-(def-affect-info-obj "Surprise")
-(def-affect-info-obj "Anticipation")
-(def-affect-info-obj "Disgust")
-(def-affect-info-obj "Trust")
-)
+;; NOTE: There is an issue with DL-Learner never returning when it has too many
+;;       [Affect][PoS]InformationObjects to play with.
+(affectize def-affect-info-obj)                     ; Define AngerInformationObject, ...
+
 
 ;;; --------------------------------------------------------------------------
 ;;; Combinations of Affect PLUS Part-of-Speech
@@ -383,7 +378,7 @@
   ;; Define a Token AND InformationObject for all Affect on the PoS elements
   `(do ~@(for [aff Affect-Names
                pos (eval poss)]
-           `(do (def-affect-pos-token    ~aff ~pos)
+           `(do (def-affect-pos-token ~aff ~pos)
                 ;; FIXME: Looking into issues with DL-Learner never returning when it has too many
                 ;;        [Affect][PoS]InformationObjects to play with.
                 (comment def-affect-pos-info-obj ~aff ~pos)))))
@@ -1016,13 +1011,7 @@
 (defclass DenierAccount
   :super    OnlineAccount
   :label    "Denier Account"
-  :comment  "An Online Account that represents someone who does not believe in anthropogenic climate change."
-  :equivalent (dl/and
-                OnlineAccount
-                (tawny.english/some publishes
-                    (tawny.english/some say.dolce/hasComponent
-                           (tawny.english/and AngerToken
-                           (tawny.english/or FearToken SadnessToken))))))
+  :comment  "An Online Account that represents someone who does not believe in anthropogenic climate change.")
 
 (defclass GreenAccount
   :super    OnlineAccount
@@ -1033,6 +1022,46 @@
   :super    OnlineAccount
   :label    "Rogue Account"
   :comment  "An Online Account which does not adhere to the rules of its associated online provider.")
+
+;; Combinations for analysis:
+(as-disjoint
+  (defclass GreenEnergyConservationAccount1
+    :super GreenAccount
+    :equivalent (dl/and GreenAccount EnergyConservationAccount1))
+
+  (defclass DenierEnergyConservationAccount1
+    :super DenierAccount
+    :equivalent (dl/and DenierAccount EnergyConservationAccount1)))
+
+
+(as-disjoint
+  (defclass GreenEnergyConservationAccount2
+    :super GreenAccount
+    :equivalent (dl/and GreenAccount EnergyConservationAccount2))
+
+  (defclass DenierEnergyConservationAccount2
+    :super DenierAccount
+    :equivalent (dl/and DenierAccount EnergyConservationAccount2)))
+
+
+(as-disjoint
+  (defclass GreenHumanCauseBelieverAccount
+    :super GreenAccount
+    :equivalent (dl/and GreenAccount HumanCauseBelieverAccount))
+
+  (defclass DenierHumanCauseBelieverAccount
+    :super DenierAccount
+    :equivalent (dl/and DenierAccount HumanCauseBelieverAccount)))
+
+
+(as-disjoint
+  (defclass GreenNaturalCauseBelieverAccount
+    :super GreenAccount
+    :equivalent (dl/and GreenAccount NaturalCauseBelieverAccount))
+
+  (defclass DenierNaturalCauseBelieverAccount
+    :super DenierAccount
+    :equivalent (dl/and DenierAccount NaturalCauseBelieverAccount)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -1590,8 +1619,12 @@
                 sname :screen_name
                 descr :description              ; User profile text
                 tid   :tid}]                    ; Text ID is the profile ID
-            (let [ont   (onter sname)
-                  acct  (individual ont sname :type OnlineAccount)] ; Twitter user account
+            (let [ont (onter sname)]
+              ;; Declare the Twitter user account if we know it
+              (individual ont sname :type (case (:stance xmp)
+                                            :green  GreenAccount
+                                            :denier DenierAccount
+                                                    OnlineAccount))
               ;; Add PoS/senti for the user's profile content
               (when-not (:skip-profiles sconf)
                 (add-text onter
@@ -1863,7 +1896,7 @@
   (make-example tools tid sname elements :?))
 
 
-  ([tools tid sname elements polarity]
+  ([tools tid sname elements stance]
   (let [pairs   (map #(str/split % #"_" 2)                      ; Separate elements: [PoS token]
                       (str/split elements #" "))
 
@@ -1877,8 +1910,8 @@
 
     ;; Put all that together to build the example
     {:screen_name sname
+     :stance      (keyword stance)
      :tid         tid
-     :polarity    polarity
      :content     terms
      :affect      affect
      :rules       rules
@@ -1894,22 +1927,24 @@
   intermediate format."
   ([data]
   ;; NOTE: Our Twitter user data (U00) is currently unlabeled.
-  (let [target  :environmentalist
+  (let [target  (dset/col-target :u)
         insts   (weka/load-dataset data target)
         dtag    (dset/Datasets :u)                              ; Structure for user (U99) data
         tools   (toolbox)                                       ; Sentiment/emotion analysis
         attrs   (select-keys (dset/Columns dtag) [:screen_name  ; 0-based attribute indices
                                                   :name
                                                   :description
-                                                  :environmentalist])]
+                                                  target])]
     ;; Create a sequence of maps, each representing a Weka instance
     (map #(update % target keyword)                             ; Lazily convert "?" to :?
          (reduce
            (fn [acc ^Instance inst]
              (let [avals (update-values attrs #(.stringValue inst (int %)))     ; Pull attr-vals
                    sname (:screen_name avals)
-                   tid   (str lbl/Profile-Tag sname)                               ; TextID is profile name
-                   xmp   (make-example tools tid sname (:description avals))]   ; Check emotion
+                   tid   (str lbl/Profile-Tag sname)                            ; TextID is profile name
+                   xmp   (make-example tools tid sname                          ; Check emotion
+                                       (avals :description)
+                                       (avals target))]
              ;; Add on hashmap with attribute data plus emotion analysis
              (conj acc (merge avals xmp))))
          '()
@@ -1928,13 +1963,14 @@
   in the intermediate format."
   [dtag data]
   ;; Keep track of how many examples to create, as per the configured 'balance' setting
-  (let [insts       (weka/load-dataset data (dset/col-target :s))
-        columns     (dset/columns :s)
+  (let [insts        (weka/load-dataset data (dset/col-target :s))
+        columns      (dset/columns :s)
         [col-id
          col-sname
-         col-text]  (map columns [:id :screen_name :text])
-        tools       (toolbox)
-        activity    (agent {})]                             ; Track user text counts
+         col-text
+         col-target] (map columns [:id :screen_name :text (dset/col-target :s)])
+        tools        (toolbox)
+        activity     (agent {})]                            ; Track user text counts
 
     ;; The number of examples we're creating depends on how things were configured
     (log/info "Converting" (.numInstances insts) "instances")
@@ -1949,13 +1985,13 @@
      :dtag dtag
      :activity activity
      :texts (domap (fn [^Instance inst]
-                     (let [tid   (lbl/label-text (.stringValue inst (int col-id)))
-                           sname (.stringValue inst (int col-sname))
-                           pole  (lbl/polarize inst)
-                           elms  (.stringValue inst (int col-text))]    ; Text elements are "pos_term"
+                     (let [tid    (lbl/label-text (.stringValue inst (int col-id)))
+                           sname  (.stringValue inst (int col-sname))
+                           stance (.stringValue inst (int col-target))  ; ARFF target is "stance"
+                           elms   (.stringValue inst (int col-text))]   ; Text elements are "PoS_term"
 
                        (send activity #(update % sname (fnil inc 0)))   ; Prepare for filtering
-                       (make-example tools tid sname elms pole)))       ; Example as a hashmap
+                       (make-example tools tid sname elms stance)))     ; Example as a hashmap
 
                    (weka/instance-seq insts)))))                        ; SEQ: Weka instances
 
@@ -2072,6 +2108,63 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn count-affect
+  "Returns a map containing the counts of affective words in tweets for the
+   following user categories: all, green, denier."
+  ([]
+  (count-affect @World))
+
+
+  ([{:keys [texts]}]
+  (let [;; Initialize map, keyed by affect with zero counts
+        zeros (apply zero-hashmap Affect-Names)
+
+        ;; Functions to count affect at each level: word -> tweet -> series
+        emote-token (fn [cnts emos]
+                      (update-values cnts (map str emos) inc))
+
+        emote-text  (fn [cnts txt]
+                      (reduce emote-token cnts (:affect txt)))
+
+        emote       (fn [txts]
+                      (reduce emote-text zeros txts))
+
+        ;; Filter tweet sequences by user type
+        flt-stance  (fn [s]
+                      (filter #(= s (:stance %)) texts))
+
+        texts-map   (hash-map :all    texts
+                              :green  (flt-stance :green)
+                              :denier (flt-stance :denier))]
+
+    ;; Now, count all that up!
+    (update-values texts-map emote))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- report-to-csv
+  "Saves the specified information to a CSV file."
+  [ctype concept syms fullcnt percents]
+    ;; Determine to the the appropriate CSV for this concept
+    (let [ctype   (str/capitalize (name ctype))
+          ->title #(if (string? %)
+                       (str/capitalize %)
+                       (soc/acronymize %))
+          minimum (cfg/?? :sila :min-statuses)
+          csv     (str Tmp-Dir "/" concept ctype ".csv")
+          exists? (fs/exists? csv)]                       ; Know existance BEFORE opening
+      (with-open [wtr (io/writer csv :append true)]
+        ;; Handle header for a new CSV
+        (when-not exists?
+          (log/notice "Creating report:" csv)
+          (.write wtr (strfmt "Min Tweets,~a~{,~a~}~%" ctype (map ->title syms))))
+        ;; Report one line of CSV data
+        (.write wtr (strfmt "~a,~a~{,~a~}~%" minimum fullcnt percents)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn report-examples
   "Give positive/negative coverage and sentiment statistics for sets of
   intermediate-format examples or a hashmap with multiple sets of examples
@@ -2087,13 +2180,13 @@
 
 
   ([dtag texts text-type & opts]
-  (let [;; Statistics on text polarity and presence of affect
+  (let [;; Statistics on user stance and presence of affect
         ttype   (name text-type)
         stats   (reduce #(let [ss (if (every? empty? (:affect %2))
                                       :stoic
                                       :senti)]
-                           (update-values %1 [:count (:polarity %2) ss] inc))
-                        (zero-hashmap :count :positive :negative :? :senti :stoic)
+                           (update-values %1 [:count (:stance %2) ss] inc))
+                        (zero-hashmap :count :green :denier :? :senti :stoic)
                         texts)
         fullcnt (stats :count)
 
@@ -2121,15 +2214,17 @@
                             [(count-tokens zeros rules)
                              (count-texts  zeros rules)]))
 
-        report          (fn [ks toks txts what show width]
+        report          (fn [keyz toks txts what show width]
                           (log/debug)
-                          (doseq [k ks]
-                            (let [tokcnt (get toks k)
-                                  txtcnt (get txts k)]
+                          (domap
+                            #(let [tokcnt (get toks %)
+                                   txtcnt (get txts %)
+                                   pct    (pctz txtcnt fullcnt)]
                               (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~5,2F%)]"
-                                              what dtag width (show k)
-                                              tokcnt txtcnt ttype
-                                              (p100z txtcnt fullcnt)))))
+                                              what dtag width (show %)
+                                              tokcnt txtcnt ttype (* 100 pct))
+                              pct)
+                            keyz))
 
         ;; Calculate token & text counts for key elements
         [aff-toks aff-txts] (count-all :affect  Affect-Names)           ; Pos/neg & emotions
@@ -2147,8 +2242,8 @@
                          pos-tags)]
 
   ;; Report the basic statistics
-  (log/fmt-info "Dset:~a: p[~1$%] s[~1$%] txts~a"
-                dtag (stat100 :positive) (stat100 :senti) stats)
+  (log/fmt-info "Dset:~a: grn[~1$%] dnr[~1$%] s[~1$%] txts~a"
+                dtag (stat100 :green) (stat100 :denier) (stat100 :senti) stats)
 
   ;; Report pos/neg first, then the emotions
   (report (conj (sort (keys (dissoc aff-txts "Positive" "Negative")))   ; ABCize emotions
@@ -2160,10 +2255,15 @@
   (report (sort (keys svy-txts))
           svy-toks svy-txts "Survey" name 12)
 
-  ;; Survey Concept Rules
-  (report ;(sort (keys scr-txts))
-          ["NEGATION" "CAUSE" "HUMAN" "NATURE" "ENERGY" "CONSERVATION"] ; Order for charting
-          scr-toks scr-txts "Concept" identity 12)
+  ;; Survey Concept Rules (show in REPL and add to running CSV files)
+  (doseq [[concept symbols] [["CauseBeliever" ["NEGATION" "CAUSE" "HUMAN" "NATURE"]]
+                             ["Conservation"  ["NEGATION" "ENERGY" "CONSERVATION"]]]]
+    ;; Always report to REPL
+    (let [pcts (report symbols scr-toks scr-txts "Concept" identity 12)]
+
+      ;; And report tweets to the CSV
+      (when (= text-type :statuses)
+        (report-to-csv "Tokens" concept symbols fullcnt pcts))))
 
   ;; Report part-of-speech tags
   (when-not (some #{:no-pos} opts)
@@ -2190,41 +2290,63 @@
                      [(ontology :fetch)     , (ontology :size)]         ; A set of user ontologies
                      [[((:ontology world))] , (count (:users world))])] ; [big ontology with all users]
 
-    (report-concepts dtag onts txtcnt usrcnt)))
+    (report-concepts dtag onts {:texts txtcnt
+                                :users usrcnt})))
 
 
-  ([dtag onts txtcnt usrcnt]
+  ([dtag onts fullcnts]
   ;; Qualify our symbols as our caller may be in another namespace
-  (let [texts   '[say.sila/HumanAndCauseText
-                  say.sila/AffirmedHumanCauseText
-                  say.sila/NegatedHumanCauseText
-                 ;--------------------------------------
-                  say.sila/NatureAndCauseText
-                  say.sila/AffirmedNaturalCauseText
-                  say.sila/NegatedNaturalCauseText
-                 ;--------------------------------------
-                  say.sila/EnergyConservationText1
-                  say.sila/EnergyConservationText2]
+  (let [;; The concept map is organized according to the report setup:
+        ;;         LEVEL  CONCEPT            ONTOLOGY SYMBOLS
+        concepts {[:texts "CauseBeliever"]  '[say.sila/HumanAndCauseText
+                                              say.sila/AffirmedHumanCauseText
+                                              say.sila/NegatedHumanCauseText
+                                              ;---------------------------------
+                                              say.sila/NatureAndCauseText
+                                              say.sila/AffirmedNaturalCauseText
+                                              say.sila/NegatedNaturalCauseText]
 
-        accts   '[say.sila/HumanCauseBelieverAccount
-                  say.sila/NaturalCauseBelieverAccount
-                 ;--------------------------------------
-                  say.sila/EnergyConservationAccount1
-                  say.sila/EnergyConservationAccount2]
+                  [:texts "Conservation"]   '[say.sila/EnergyConservationText1
+                                              say.sila/EnergyConservationText2]
 
-        needles (comm/instances onts (concat texts accts))
+                  [:users "CauseBeliever"]  '[say.sila/HumanCauseBelieverAccount
+                                              say.sila/GreenHumanCauseBelieverAccount
+                                              say.sila/DenierHumanCauseBelieverAccount
+                                              ;-----------------------------------------
+                                              say.sila/NaturalCauseBelieverAccount
+                                              say.sila/GreenNaturalCauseBelieverAccount
+                                              say.sila/DenierNaturalCauseBelieverAccount]
+
+                  [:users "Conservation"]   '[say.sila/EnergyConservationAccount1
+                                              say.sila/GreenEnergyConservationAccount1
+                                              say.sila/DenierEnergyConservationAccount1
+                                              ;-----------------------------------------
+                                              say.sila/EnergyConservationAccount2
+                                              say.sila/GreenEnergyConservationAccount2
+                                              say.sila/DenierEnergyConservationAccount2]}
+
+        needles (comm/instances onts (mapcat val concepts))
 
         report  (fn [sym what fullcnt]
+                  ;; Report to the REPL console
                   (let [elms (get needles sym)
-                        cnt  (count elms)]
+                        cnt  (count elms)
+                        pct  (pctz cnt fullcnt)]
                     (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
-                                  sym dtag cnt fullcnt what (p100z cnt fullcnt))
-                    (comment run! #(log/debug "  -" (iri-fragment %)) elms)))]
+                                  sym dtag cnt fullcnt what (* 100 pct))
+                    (comment run! #(log/debug "  -" (iri-fragment %)) elms)
+                    pct))
 
-    ;; Log report to the console for all targets
-    (run! #(report % "texts" txtcnt) texts)
-    (log/debug)
-    (run! #(report % "users" usrcnt) accts))))
+        rpt-csv (fn [[[level concept] syms]]
+                  (log/debug)
+                  ;; Report to the the appropriate CSV for this concept
+                  (let [lhead   (str/capitalize (name level))       ; Title case for header/filename
+                        fullcnt (fullcnts level)                    ; Pull text|user count
+                        pcts    (domap #(report % lhead fullcnt) syms)]
+                    (report-to-csv level concept syms fullcnt pcts)))]
+
+    ;; Log report to the console & file for all targets
+    (run! rpt-csv concepts))))
 
 
 
@@ -2312,6 +2434,31 @@
 
     ;; Chart just those texts for the users
     (apply echart-affect (filter #(contains? tids (:tid %)) texts) opts)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn save-accounts
+  "Saves a list of the accounts in the specified world."
+  ([]
+  (save-accounts (str Tmp-Dir "/accounts.lst")))
+
+
+  ([fpath]
+  (save-accounts @World fpath))
+
+
+  ([{onter :ontology}
+    fpath]
+  ;; An ontology community is keyed by the user screen names
+  (let [comm  (onter :community)
+        accts (filter some? (keys @comm))]  ; FIXME: We have an extra nil key with an empty ontology
+     (with-open [wtr (io/writer fpath)]
+       (doseq [a accts]
+         (.write wtr (str a "\n"))))
+
+     ;; Just return some information on what we saved
+     {fpath (count accts)})))
 
 
 
@@ -2412,3 +2559,7 @@
           (log/debug rpt)
           (recur n+1 (reworld w n+1))))))))
 
+
+
+;;; --------------------------------------------------------------------------
+(fs/mkdir Tmp-Dir)

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+/bin/grep -rl '.\s\"\s' | /bin/grep '\.predict$' | ./requote.l

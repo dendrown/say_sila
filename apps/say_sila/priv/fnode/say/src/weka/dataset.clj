@@ -21,13 +21,14 @@
 ;;;; @copyright 2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns weka.dataset
-  (:require [say.genie       :refer :all]
-            [say.config      :as cfg]
-            [say.log         :as log]
-            [weka.core       :as weka]
-            [weka.tweet      :as tw]
-            [clojure.string  :as str]
-            [clojure.pprint  :refer [pp]])
+  (:require [say.genie          :refer :all]
+            [say.config         :as cfg]
+            [say.log            :as log]
+            [weka.core          :as weka]
+            [weka.tweet         :as tw]
+            [clojure.data.json  :as json]
+            [clojure.string     :as str]
+            [clojure.pprint     :refer [pp]])
   (:import  (weka.core  Attribute
                         Instance
                         Instances)
@@ -36,9 +37,10 @@
 
 (set! *warn-on-reflection* true)
 
-(def ^:const Codes  {:senti :s
-                     :tweet :t
-                     :user  :u})
+(def ^:const Init-Stances   "/tmp/say_sila/stances.json")
+(def ^:const Codes          {:senti :s
+                             :tweet :t
+                             :user  :u})
 
 
 ;;; --------------------------------------------------------------------------
@@ -51,25 +53,32 @@
 ;;; Current dataset layouts; where for the X99 codes:
 ;;; - X is the dataset content code, and
 ;;; - the highest 99 value represents the latest version
-(defonce Datasets   {:s :s01    ; TODO :s02     ; [S]tatus text [s]entiment/emotion
-                     :t :t00                    ; [T]witter input (from Sila/erl)
-                     :u :u00})                  ; [U]ser information
+(defonce Datasets   {:s :s02            ; [S]tatus text [s]entiment/emotion
+                     :t :t01            ; [T]witter input (from Sila/erl)
+                     :u :u01})          ; [U]ser information
 
 
 ;;; Column names generally correspond to Twitter's status (meta)data keys
-(defonce S02-cols   (col-map [:id :screen_name :text :green]))
-(defonce S01-cols   (col-map [:id :screen_name :text :sentiment]))
-(defonce S00-cols   (col-map [:id :text :sentiment]))
+(defonce S00-Cols   (col-map [:id :text :sentiment]))
+(defonce S01-Cols   (col-map [:id :screen_name :text :sentiment]))
+(defonce S02-Cols   (col-map [:id :screen_name :text :stance]))
 
-(defonce T00-cols   (col-map [:id :lang :screen_name :name :description :text]))
-(defonce U00-cols   (col-map [:screen_name :name :description :environmentalist]))
+(defonce T00-Cols   (col-map [:id :lang :screen_name :name :description :text]))
+(defonce T01-Cols   (col-map [:id :lang :screen_name :name :description :text :stance]))
+
+(defonce U00-Cols   (col-map [:screen_name :name :description :environmentalist]))
+(defonce U01-Cols   (col-map [:screen_name :name :description :stance]))
 
 ;;; Column/attribute lookup by dataset
-(defonce Columns    {:s02 S02-cols
-                     :s01 S01-cols
-                     :s00 S00-cols
-                     :t00 T00-cols
-                     :u00 U00-cols})
+(defonce Columns    {:s00 S00-Cols
+                     :s01 S01-Cols
+                     :s02 S02-Cols
+                     ;--------------
+                     :t00 T00-Cols
+                     :t01 T01-Cols
+                     ;--------------
+                     :u00 U00-Cols
+                     :u01 U01-Cols})
 
 
 ;;; --------------------------------------------------------------------------
@@ -159,9 +168,7 @@
   ;; Remove extra columns in reverse order & add the target w/ unknown values
   (let [insts (weka/load-dataset data)
         dels  (reverse (col-diff in out))       ; Remove attrs in reverse order
-        adds  (if targets                       ; FIXME: Target should be nominal
-                  targets
-                  [(col-target out)])]
+        adds  (if targets targets [])]          ; FIXME: Target should be nominal
     (run! #(delete-col insts in %) dels)
     (run! #(append-col insts %) adds)
     insts))
@@ -194,43 +201,54 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn- ^Instances t00->s02
+(defn- ^:deprecated ^Instances t00->s00
   "Converts the T00 tweet format to the S00 say-senti format.  The function
   creates a copy of the specified dataset whose filename is tagged with «S02»."
   [insts]
-  (-> (prep-dataset insts :t00 :s02)
-      (process-text :s02)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- ^Instances t00->s01
-  "Converts the T00 tweet format to the S00 say-senti format.  The function
-  creates a copy of the specified dataset whose filename is tagged with «S01»."
-  [insts]
-  (-> (prep-dataset insts :t00 :s01)
-      (process-text :s01)))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn- ^Instances t00->s00
-  "Converts the T00 tweet format to the S00 say-senti format.  The function
-  creates a copy of the specified dataset whose filename is tagged with «S00»."
-  [insts]
-  (-> (prep-dataset insts :t00 :s00)
+  (-> (prep-dataset insts :t00 :s00 :sentiment)
       (process-text :s00)))                                             ; Emo/POS on tweet text
 
 
 
 ;;; --------------------------------------------------------------------------
-(defn- ^Instances t00->u00
+(defn- ^:deprecated ^Instances t00->s01
+  "Converts the T00 tweet format to the S01 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «S01»."
+  [insts]
+  (-> (prep-dataset insts :t00 :s01 :sentiment)
+      (process-text :s01)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^Instances t01->s02
+  "Converts the T01 tweet format to the S02 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «S00»."
+  [insts]
+  (-> (prep-dataset insts :t01 :s02)
+      (process-text :s02)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^:deprecated ^Instances t00->u00
   "Converts the T00 tweet format to the U00 say-senti format.  The function
   creates a copy of the specified dataset whose filename is tagged with «U00»."
   [insts]
-  (-> (prep-dataset insts :t00 :u00)
+  (-> (prep-dataset insts :t00 :u00 :environmentalist)
       (weka/filter-instances (RemoveDuplicates.))       ; One per user/profile
       (process-text :u00 :description :ensure-text)))   ; Emo/POS on user profile
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^Instances t01->u01
+  "Converts the T01 tweet format to the U01 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «U00»."
+  [insts]
+  (-> (prep-dataset insts :t01 :u01)
+      (weka/filter-instances (RemoveDuplicates.))       ; One per user/profile
+      (process-text :u01 :description :ensure-text)))   ; Emo/POS on user profile
 
 
 
@@ -291,6 +309,7 @@
                                        t->u])))
 
 
+
 ;;; --------------------------------------------------------------------------
 (defn count-user-tweets
   "Lists user tweet counts in descending order for the specified dataset.
@@ -312,4 +331,93 @@
     (doseq [[usr cnt] (take-while #(>= (second %) mincnt)                       ; Use requested count
                                   (sort-by second #(compare %2 %1) users))]     ; Count order:  Z..A
       (log/fmt-info "~24a: ~a" usr cnt)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn load-stances
+  "Loads a mapping of stances (`green' or `denier') from the specified
+  file path."
+  ([]
+  (load-stances nil))
+
+
+  ([fpath]
+  (let [fpath (if fpath
+                  fpath
+                  Init-Stances)]
+    (update-values (json/read-str (slurp fpath)) set))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn target-stance!
+  "Inserts the stance {green,denier} column to the dataset (updated in place)
+  at the specified index (defaults to appending the stance column to the end)."
+  ([^Instances insts]
+  (target-stance! insts (.numAttributes insts)))        ; Append as last column
+
+
+  ([^Instances insts ndx]
+  (doto insts
+        (.insertAttributeAt (Attribute. (name (col-target :t01))
+                                        ["green" "denier"])
+                             ndx)
+        (.setClassIndex ndx))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn label!
+  "Add dependent class information to an unlabelled dataset.  Currently we
+  are supporting this procedure only as a T00==>T01 transformation.  If data
+  represents a filepath, the function loads the associated ARFF, creates a
+  corresponding 'T01' tagged output ARFF, and returns the filepath to it.
+  If data is a set of Instances, the function makes a copy of this dataset,
+  performs the transformation on this copy, and returns it.  Note that rows
+  with screen_name values not found in the stances map will not be included
+  in the final dataset."
+  ([dset data]
+  (label! dset data nil))
+
+
+  ([dset data stances]
+  (when (not= dset :t00)
+    (log/warn "Dataset code" dset "is not currently supported"))
+
+  (let [arff?   (string? data)
+        stances (if (map? stances)
+                    stances                             ; KV: stance => screen_name
+                    (load-stances stances))             ; Pull map from file
+        insts   ^Instances
+                (if arff?
+                    (weka/load-arff data)               ; Load dataset from file
+                    (Instances. ^Instances data))       ; Copy input instances
+        nndx    (col-index dset :screen_name)           ; Screen [n]ame index
+        who     #(.stringValue ^Instance % (int nndx))  ; Screen name lookup
+        stand   #(reduce (fn [_ [stance accts]]         ; Find stance of account %
+                           (when (contains? accts %)
+                             (reduced stance)))
+                         nil
+                         stances)]
+    ;; We're altering the output dataset in place!
+    (target-stance! insts)
+
+    ;; Set a green|denier stance for known users
+    (dotimes [i (.numInstances insts)]
+      (let [row (.instance insts i)]
+        (when-let [stance ^String (stand (who row))]
+          (.setClassValue row stance))))
+
+    ;; Remove users for whom we don't know where they stand
+    (.deleteWithMissingClass insts)
+
+    ;; Prepare results as an ARFF or dataset per the original parameters
+    (if arff?
+      ;; Save the dataset and just return the path
+      (let [fpath (weka/tag-filename data (KEYSTR :t01))]
+        (weka/save-file fpath insts)
+        fpath)
+      ;; Data IN, so data OUT
+      insts))))
 

@@ -36,12 +36,14 @@
          get_tweets/2,
          get_tweets/3,
          has_hashtag/2,
+         is_following/2,
          login/0,
          ontologize/1,
          ontologize/2,
          %------------------------- pull_* functions are pulling info from the Twitter API
-         pull_tweet/1,  pull_tweet/2,
-         pull_tweets/3, pull_tweets/4,
+         pull_friends/2,
+         pull_tweet/1,      pull_tweet/2,
+         pull_tweets/3,     pull_tweets/4,
          reset/0,
          retrack/0,
          to_hashtag/1,
@@ -51,6 +53,7 @@
 -export([init/1, terminate/2, code_change/3, handle_call/3, handle_cast/2, handle_info/2]).
 
 -import(proplists, [get_value/3]).
+-import(types, [to_binary/1]).
 
 -include("sila.hrl").
 -include("dts.hrl").
@@ -397,6 +400,62 @@ has_hashtag(Hash, Text) ->
 
 
 %%--------------------------------------------------------------------
+-spec is_following(Follower :: stringy(),
+                   Followed :: stringy()) -> boolean()
+                                           | undefined.
+%%
+% @doc  Returns true if the Follower is following the Follwed; false
+%       if this i not the case, and undefined if Twitter does not
+%       provide a definitive response (check log messages for why).
+% @end  --
+is_following(Follower, Followed) ->
+    Source = to_binary(Follower),
+    Target = to_binary(Followed),
+    case pull_friends(Source, Target, [return_maps]) of
+        #{<<"relationship">> :=
+            #{<<"source">> :=
+                #{<<"followed_by">>         := TgtFollowsSrc,
+                  <<"following">>           := SrcFollowsTgt,
+                  <<"following_requested">> := SrcRequestedTgt,
+                  <<"marked_spam">>         := Spam,
+                  <<"screen_name">>         := Source},
+              <<"target">> :=
+                #{<<"followed_by">>         := SrcFollowsTgt,
+                  <<"following">>           := TgtFollowsSrc,
+                  <<"following_requested">> := TgtRequestedSrc,
+                  <<"screen_name">>         := Target}}} ->
+
+            % Alert when we have the reverse of the requested check
+            case TgtFollowsSrc of
+                false -> ok;
+                true  -> ?info("Note that ~s is following ~s", [Target, Source])
+            end,
+
+            % Alert the user when things are spammy
+            case Spam of
+                null  -> ok;
+                Alert -> ?warning("Twitter is marking ~s as a spammer: ~p", [Source, Alert])
+            end,
+
+            % For our purposes, a src->tgt follow-request counts as following
+            [SrcSeeksTgt,
+             TgtSeeksSrc] = [R =/= null || R <- [SrcRequestedTgt,
+                                                 TgtRequestedSrc]],
+            if  SrcSeeksTgt -> ?info("Follow request: ~s -> ~s", [Source, Target]);
+                TgtSeeksSrc -> ?info("Reverse request: ~s -> ~s", [Target, Source]);
+                true        -> ok
+            end,
+            SrcFollowsTgt orelse SrcSeeksTgt;
+
+        Rsp ->
+            ?warning("Unexpected response checking ~s ==> ~s: ~p", [Follower, Followed, Rsp]),
+            undefined
+    end.
+
+
+
+
+%%--------------------------------------------------------------------
 -spec login() -> ok.
 %%
 % @doc  Logs the application into twitter.
@@ -467,10 +526,42 @@ ontologize(#tweet{id             = ID,
 
 
 %%--------------------------------------------------------------------
+-spec pull_friends(Source  :: stringy(),
+                   Target  :: stringy()) -> map() | api_code().
+
+-spec pull_friends(Source  :: stringy(),
+                   Target  :: stringy(),
+                   Options :: options()) -> map() | api_code().
+%%
+% @doc  Retreives relationship information about the Source and Target
+%       accounts as a mapped Twitter reponse.
+%
+%       Supported options:
+%       - `return_maps' : Convert the Tweet JSON to a map
+% @end  --
+pull_friends(Source, Target) ->
+    pull_friends(Source, Target, []).
+
+
+pull_friends(Source, Target, Options) ->
+
+    Rsp = gen_server:call(?MODULE,
+                          {api_get, friendships, show,
+                           [{source_screen_name, Source},
+                            {target_screen_name, Target}],
+                          Options},
+                          10000),
+    %?debug("RSP: ~p", [Rsp]),
+    Rsp.
+
+
+
+
+%%--------------------------------------------------------------------
 -spec pull_tweet(ID  :: integer()
-                       | string()) -> binary()
-                                    | map()
-                                    | api_code().
+                      | string()) -> binary()
+                                   | map()
+                                   | api_code().
 
 -spec pull_tweet(ID   :: integer()
                        | string(),
@@ -730,7 +821,7 @@ handle_call({api_get, API, Cmd, Body, Opts}, _From, State = #state{consumer     
                                                                    oauth_secret = Secret}) ->
 
     URL = make_api_url(API, Cmd),
-    ?debug("GET ~s: ~p", [URL, Body]),
+    %?debug("GET ~s: ~p", [URL, Body]),
     Reply = case oauth:get(URL, Body, Consumer, Token, Secret, [{body_format, binary}]) of
 
         {ok, {{_, 200, _}, _, DataIn}} ->
