@@ -2108,6 +2108,41 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn count-affect
+  "Returns a map containing the counts of affective words in tweets for the
+   following user categories: all, green, denier."
+  ([]
+  (count-affect @World))
+
+
+  ([{:keys [texts]}]
+  (let [;; Initialize map, keyed by affect with zero counts
+        zeros (apply zero-hashmap Affect-Names)
+
+        ;; Functions to count affect at each level: word -> tweet -> series
+        emote-token (fn [cnts emos]
+                      (update-values cnts (map str emos) inc))
+
+        emote-text  (fn [cnts txt]
+                      (reduce emote-token cnts (:affect txt)))
+
+        emote       (fn [txts]
+                      (reduce emote-text zeros txts))
+
+        ;; Filter tweet sequences by user type
+        flt-stance  (fn [s]
+                      (filter #(= s (:stance %)) texts))
+
+        texts-map   (hash-map :all    texts
+                              :green  (flt-stance :green)
+                              :denier (flt-stance :denier))]
+
+    ;; Now, count all that up!
+    (update-values texts-map emote))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- report-to-csv
   "Saves the specified information to a CSV file."
   [ctype concept syms fullcnt percents]
