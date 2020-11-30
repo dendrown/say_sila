@@ -403,6 +403,15 @@
   :comment "A relationship between a Token and the survey reference rule it expresses.")
 
 
+(defn rule-symbol
+  "Create symbols based on the standard that rule concepts are in all-caps,
+  and related concepts are expressed in PascalCase."
+  [& parts]
+  (let [[rules
+         entity] (butlast-last parts)]
+    (symbol (apply str (conj (mapv str/capitalize rules) entity)))))
+
+
 (defmacro defrule
   "Adds a Sentiment Composition Rule (component) subclass to the say-sila ontology"
   [tag descr]
@@ -417,8 +426,71 @@
 (defrule HUMAN  "Expressions which refer to humans or humanity.")
 (defrule NATURE "Expressions which refer to the natural world.")
 
-(defrule ENERGY "Expressions which refer to energy.")
-(defrule CONSERVATION "Expressions which indicate a relationship of convervation.")
+(defmacro defscr-token
+  "Defines a class representing a token that implies a Survey Concept Rule."
+  [concept]
+  (let [rule  `~concept
+        token (rule-symbol rule "Token")]
+  `(defclass ~token
+     :super pos/Token
+     :equivalent (dl/and pos/Token
+                         (dl/some indicatesRule ~rule)))))
+
+
+(defmacro defscr-2
+  "Defines all necessary elements for a two-concept survey concept rule."
+  [concept1 descr1
+   concept2 descr2]
+  ;; We need all the symbols ready for insertion in the quasiquote code
+  (let [rule1   `~concept1
+        rule2   `~concept2
+        token1  (rule-symbol rule1 "Token")
+        token2  (rule-symbol rule2 "Token")
+        deptok  (rule-symbol rule1 rule2 "Token")
+        andtxt  (rule-symbol rule1 rule2 "Text1")
+        deptxt  (rule-symbol rule1 rule2 "Text2")
+        andacct (rule-symbol rule1 rule2 "Account1")
+        depacct (rule-symbol rule1 rule2 "Account2")]
+  `(do
+    (defrule ~rule1 ~descr1)
+    (defrule ~rule2 ~descr2)
+
+    (defscr-token ~rule1)
+    (defscr-token ~rule2)
+
+    (defclass ~deptok
+      :super pos/Token
+      :equivalent (dl/and ~token1
+                          (dl/some dependsOn ~token2)))
+
+  (defclass ~andtxt
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent ~token1)
+                        (dl/some dul/hasComponent ~token2)))
+
+  (defclass ~deptxt
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent ~deptok)))
+
+  (defclass ~andacct
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/some publishes (dl/and (dl/some dul/hasComponent ~token1))
+                                                   (dl/some dul/hasComponent ~token2))))
+
+  (defclass ~depacct
+    :super OnlineAccount
+    :equivalent (dl/and OnlineAccount
+                        (dl/some publishes (dl/some dul/hasComponent ~deptok)))))))
+
+
+  ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
+  ;;        We may need to make Text and Survey disjoint
+  (defscr-2 ENERGY "Expressions which refer to energy."
+            CONSERVATION "Expressions which indicate a relationship of convervation.")
+
 
 (defrule NEGATION "Expressions which negate other terms.")
 
@@ -459,7 +531,9 @@
   :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
 
 
+;;; --------------------------------------------------------------------------
 (when (cfg/?? :sila :use-tweebo?)
+
   (defclass HumanCauseToken
     :super pos/Token
     :equivalent (dl/and pos/Token
@@ -554,47 +628,8 @@
     :equivalent (dl/and OnlineAccount
                         (dl/or
                           (dl/some publishes (dl/some dul/hasComponent AffirmedNaturalCauseToken))
-                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken)))))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))))
 
-  ;; -------------------------------------------------------------------------
-  (defclass EnergyToken
-    :super pos/Token
-    :equivalent (dl/and pos/Token
-                        (dl/some indicatesRule ENERGY)))
-
-  (defclass ConservationToken
-    :super pos/Token
-    :equivalent (dl/and pos/Token
-                        (dl/some indicatesRule CONSERVATION)))
-
-  (defclass EnergyConservationToken
-    :super pos/Token
-    :equivalent (dl/and EnergyToken
-                        (dl/some dependsOn ConservationToken)))
-
-  (defclass EnergyConservationText1
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent EnergyToken)
-                        (dl/some dul/hasComponent ConservationToken)))
-
-  (defclass EnergyConservationText2
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent EnergyConservationToken)))
-
-  ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
-  ;;        We may need to make Text and Survey disjoint
-  (defclass EnergyConservationAccount1
-    :super OnlineAccount
-    :equivalent (dl/and OnlineAccount
-                        (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
-                                                   (dl/some dul/hasComponent ConservationToken))))
-
-  (defclass EnergyConservationAccount2
-    :super OnlineAccount
-    :equivalent (dl/and OnlineAccount
-                        (dl/some publishes (dl/some dul/hasComponent EnergyConservationToken)))))
 
 
 ;;; --------------------------------------------------------------------------
