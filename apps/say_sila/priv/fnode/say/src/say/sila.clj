@@ -408,8 +408,11 @@
   and related concepts are expressed in PascalCase."
   [& parts]
   (let [[rules
-         entity] (butlast-last parts)]
-    (symbol (apply str (conj (mapv str/capitalize rules) entity)))))
+         entity] (butlast-last parts)
+        recase   #(if (contains? #{"CO2"} (str %))
+                      %
+                      (str/capitalize %))]
+    (symbol (apply str (conj (mapv recase rules) entity)))))
 
 
 (defmacro defrule
@@ -425,72 +428,6 @@
 (defrule CAUSE  "Expressions which indicate a causal relationship.")
 (defrule HUMAN  "Expressions which refer to humans or humanity.")
 (defrule NATURE "Expressions which refer to the natural world.")
-
-(defmacro defscr-token
-  "Defines a class representing a token that implies a Survey Concept Rule."
-  [concept]
-  (let [rule  `~concept
-        token (rule-symbol rule "Token")]
-  `(defclass ~token
-     :super pos/Token
-     :equivalent (dl/and pos/Token
-                         (dl/some indicatesRule ~rule)))))
-
-
-(defmacro defscr-2
-  "Defines all necessary elements for a two-concept survey concept rule."
-  [concept1 descr1
-   concept2 descr2]
-  ;; We need all the symbols ready for insertion in the quasiquote code
-  (let [rule1   `~concept1
-        rule2   `~concept2
-        token1  (rule-symbol rule1 "Token")
-        token2  (rule-symbol rule2 "Token")
-        deptok  (rule-symbol rule1 rule2 "Token")
-        andtxt  (rule-symbol rule1 rule2 "Text1")
-        deptxt  (rule-symbol rule1 rule2 "Text2")
-        andacct (rule-symbol rule1 rule2 "Account1")
-        depacct (rule-symbol rule1 rule2 "Account2")]
-  `(do
-    (defrule ~rule1 ~descr1)
-    (defrule ~rule2 ~descr2)
-
-    (defscr-token ~rule1)
-    (defscr-token ~rule2)
-
-    (defclass ~deptok
-      :super pos/Token
-      :equivalent (dl/and ~token1
-                          (dl/some dependsOn ~token2)))
-
-  (defclass ~andtxt
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent ~token1)
-                        (dl/some dul/hasComponent ~token2)))
-
-  (defclass ~deptxt
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent ~deptok)))
-
-  (defclass ~andacct
-    :super OnlineAccount
-    :equivalent (dl/and OnlineAccount
-                        (dl/some publishes (dl/and (dl/some dul/hasComponent ~token1))
-                                                   (dl/some dul/hasComponent ~token2))))
-
-  (defclass ~depacct
-    :super OnlineAccount
-    :equivalent (dl/and OnlineAccount
-                        (dl/some publishes (dl/some dul/hasComponent ~deptok)))))))
-
-
-  ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
-  ;;        We may need to make Text and Survey disjoint
-  (defscr-2 ENERGY "Expressions which refer to energy."
-            CONSERVATION "Expressions which indicate a relationship of convervation.")
-
 
 (defrule NEGATION "Expressions which negate other terms.")
 
@@ -1060,26 +997,6 @@
 
 ;; Combinations for analysis:
 (as-disjoint
-  (defclass GreenEnergyConservationAccount1
-    :super GreenAccount
-    :equivalent (dl/and GreenAccount EnergyConservationAccount1))
-
-  (defclass DenierEnergyConservationAccount1
-    :super DenierAccount
-    :equivalent (dl/and DenierAccount EnergyConservationAccount1)))
-
-
-(as-disjoint
-  (defclass GreenEnergyConservationAccount2
-    :super GreenAccount
-    :equivalent (dl/and GreenAccount EnergyConservationAccount2))
-
-  (defclass DenierEnergyConservationAccount2
-    :super DenierAccount
-    :equivalent (dl/and DenierAccount EnergyConservationAccount2)))
-
-
-(as-disjoint
   (defclass GreenHumanCauseBelieverAccount
     :super GreenAccount
     :equivalent (dl/and GreenAccount HumanCauseBelieverAccount))
@@ -1097,6 +1014,117 @@
   (defclass DenierNaturalCauseBelieverAccount
     :super DenierAccount
     :equivalent (dl/and DenierAccount NaturalCauseBelieverAccount)))
+
+
+;;; --------------------------------------------------------------------------
+(defmacro defscr-token
+  "Defines a class representing a token that implies a Survey Concept Rule."
+  [concept]
+  (let [rule  `~concept
+        token (rule-symbol rule "Token")]
+  `(defclass ~token
+     :super pos/Token
+     :equivalent (dl/and pos/Token
+                         (dl/some indicatesRule ~rule)))))
+
+
+(defmacro defscr-2
+  "Defines all necessary elements for a two-concept survey concept rule."
+  [concept1 descr1
+   concept2 descr2]
+  ;; We need all the symbols ready for insertion in the quasiquote code.
+  ;; NOTE:  and : token1 & token2 are both present (but not necessarily dependent)
+  ;;        dep : token1 depends on token2
+  (let [rule1       `~concept1
+        rule2       `~concept2
+        token1      (rule-symbol rule1 "Token")
+        token2      (rule-symbol rule2 "Token")
+        dep-token   (rule-symbol rule1 rule2 "Token")
+        and-text    (rule-symbol rule1 rule2 "Text1")
+        dep-text    (rule-symbol rule1 rule2 "Text2")
+        and-account (rule-symbol rule1 rule2 "Account1")
+        dep-account (rule-symbol rule1 rule2 "Account2")
+        and-green   (rule-symbol "Green"  rule1 rule2 "Account1")
+        dep-green   (rule-symbol "Green"  rule1 rule2 "Account2")
+        and-denier  (rule-symbol "Denier" rule1 rule2 "Account1")
+        dep-denier  (rule-symbol "Denier" rule1 rule2 "Account2")]
+  `(do
+    ;; Basic Survey Concept Rule indicators
+    (defrule ~rule1 ~descr1)
+    (defrule ~rule2 ~descr2)
+
+    ;; Token definitions
+    (defscr-token ~rule1)
+    (defscr-token ~rule2)
+
+    (defclass ~dep-token
+      :super pos/Token
+      :equivalent (dl/and ~token1
+                          (dl/some dependsOn ~token2)))
+
+    ;; Both tokens present in text
+    (defclass ~and-text
+      :super Text
+      :equivalent (dl/and Text
+                          (dl/some dul/hasComponent ~token1)
+                          (dl/some dul/hasComponent ~token2)))
+
+    ;; Both Token1 depends on Token2 in a text
+    (defclass ~dep-text
+      :super Text
+      :equivalent (dl/and Text
+                          (dl/some dul/hasComponent ~dep-token)))
+
+    ;; User accounts publishing Texts with these Tokens
+    (defclass ~and-account
+      :super OnlineAccount
+      :equivalent (dl/and OnlineAccount
+                          (dl/some publishes (dl/and (dl/some dul/hasComponent ~token1))
+                                                     (dl/some dul/hasComponent ~token2))))
+
+    (defclass ~dep-account
+      :super OnlineAccount
+      :equivalent (dl/and OnlineAccount
+                          (dl/some publishes (dl/some dul/hasComponent ~dep-token))))
+
+    ;; Account combinations for analysis:
+    (as-disjoint
+      (defclass ~and-green
+        :super GreenAccount
+        :equivalent (dl/and GreenAccount ~and-account))
+
+      (defclass ~and-denier
+        :super DenierAccount
+        :equivalent (dl/and DenierAccount ~and-account)))
+
+
+    (as-disjoint
+      (defclass ~dep-green
+        :super GreenAccount
+        :equivalent (dl/and GreenAccount ~dep-account))
+
+      (defclass ~dep-denier
+        :super DenierAccount
+        :equivalent (dl/and DenierAccount ~dep-account))))))
+
+
+  ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
+  ;;        We may need to make Text and Survey disjoint
+  ;;
+  ;; ├── is (V)
+  ;; :   ├── why (R)
+  ;;     └── saving (V)
+  ;;         ├── energy (N)
+  ;;         └── ++important++ (A)
+  (defscr-2 ENERGY "Expressions which refer to energy."
+            CONSERVATION "Expressions which indicate a relationship of convervation.")
+
+  ;; ├── reduces (V)
+  ;; :  └── levels (N)
+  ;;         └── co2 (^)
+  (defscr-2 CO2 "Expressions which indicate a relationship of convervation."
+            CUT "Expressions which refer to reductions.")
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -2358,7 +2386,15 @@
                                               ;-----------------------------------------
                                               say.sila/EnergyConservationAccount2
                                               say.sila/GreenEnergyConservationAccount2
-                                              say.sila/DenierEnergyConservationAccount2]}
+                                              say.sila/DenierEnergyConservationAccount2]
+
+                  [:users "CO2Cut"]         '[say.sila/CO2CutAccount1
+                                              say.sila/GreenCO2CutAccount1
+                                              say.sila/DenierCO2CutAccount1
+                                              ;-----------------------------------------
+                                              say.sila/CO2CutAccount2
+                                              say.sila/GreenCO2CutAccount2
+                                              say.sila/DenierCO2CutAccount2]}
 
         needles (comm/instances onts (mapcat val concepts))
 

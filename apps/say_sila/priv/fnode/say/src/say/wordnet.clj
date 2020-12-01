@@ -15,6 +15,7 @@
             [say.config         :as cfg]
             [say.log            :as log]
             [wordnet.core       :as wnet]
+            [clojure.set        :as set]
             [clojure.pprint     :refer [pp]]))
 
 (defonce Concept-Synsets
@@ -35,17 +36,21 @@
   "nature"
   #{"SID-09389659-N"}   ;gloss "the natural physical world including plants and animals and landscapes etc."
 
-
  ;; --------------------------------------------------------------------------
   "conservagtion"
-  #{"SID-07434199-N"    ;gloss "an occurrence of improvement by virtue of preventing loss or injury or other change"}
-    "SID-00820935-N"}   ;gloss "the preservation and careful management of the environment and of natural resources"}
+  #{"SID-07434199-N"    ;gloss "an occurrence of improvement by virtue of preventing loss or injury or other change"
+    "SID-00820935-N"}   ;gloss "the preservation and careful management of the environment and of natural resources"
 
   "save"
   #{"SID-02556565-V"    ;gloss "save from ruin, destruction, or harm"
     "SID-02557529-V"    ;gloss "bring into safety; \"We pulled through most of the victims of the bomb attack\""
-    "SID-02470006-V"}}) ;gloss "refrain from harming"
+    "SID-02470006-V"}   ;gloss "refrain from harming"
 
+ ;; --------------------------------------------------------------------------
+  "cut"
+  #{"SID-00430013-V"    ;gloss "cut down on; make a reduction in; 'reduce your daily fat intake'"
+    "SID-00244786-V"}   ;gloss "reduce in scope while retaining essential elements; 'The manuscript must be shortened'"
+})
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
@@ -71,8 +76,11 @@
 (defn synsets
   "Returns synsets for the specified word.  If the word represents a Say-Sila
   concept, the caller will only get the synsets wich are applicable climate
-  change modelling.  Otherwise, the synonyms span all associated synsets."
-  [word]
+  change modelling.  Otherwise, the synonyms span all associated synsets.
+
+  When the caller specified multiple words, the function returns the
+  intersection of the synsets for these words."
+  ([word]
   (wordnet word
   (let [syns (get Concept-Synsets word)
         use? #(or (nil? syns)
@@ -80,6 +88,11 @@
     (->> (Dictionary word)
          (map wnet/synset)
          (filter use?)))))
+
+
+  ([word & more]
+  (apply set/intersection (map #(into #{} (synsets %))
+                          (conj more word)))))
 
 
 

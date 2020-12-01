@@ -47,7 +47,10 @@
                                  "NATURE"       #{"nature"}
                                  ;; ------------------------------------------
                                  "ENERGY"       #{"energy"}
-                                 "CONSERVATION" #{"conservation" "save"}})
+                                 "CONSERVATION" #{"conservation" "save"}
+                                 ;; ------------------------------------------
+                                 "CUT"          #{"cut"}
+                                 "CO2"          #{"co2"}})
 
 (defonce Concept-Words          (word/synonym-values Concept-Triggers))     ; Concept expansion
 (defonce Concept-Stems          (update-values Concept-Words #(tw/stem-all % :set)))
