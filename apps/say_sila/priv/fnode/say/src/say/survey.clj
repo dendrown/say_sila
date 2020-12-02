@@ -50,7 +50,13 @@
                                  "CONSERVATION" #{"conservation" "save"}
                                  ;; ------------------------------------------
                                  "CUT"          #{"cut" "regulate"}
-                                 "CO2"          #{"co2"}})
+                                 "CO2"          #{"co2"}
+                                 ;; ------------------------------------------
+                                 "PROTECT"      #{"protect"}
+                                 "ENVIRONMENT"  #{"environment"}
+                                 ;; ------------------------------------------
+                                 "ECONOMIC"     #{"economic"}
+                                 "GROWTH"       #{"growth"}})
 
 (defonce Concept-Words          (word/synonym-values Concept-Triggers))     ; Concept expansion
 (defonce Concept-Stems          (update-values Concept-Words #(tw/stem-all % :set)))
@@ -239,8 +245,8 @@
                                ; TRIGRAMS: "middle of the road"    
                                "Republican" "Democrat" "Independent" "party" "interested"
                                "politics" "liberal" "moderate" "conservative" "Tea" "Party"
-                               "movement" "registered" "vote"}
-)
+                               "movement" "registered" "vote"})
+
                      :sassy #{"think"
                               "global" "warming"
                               "harm"

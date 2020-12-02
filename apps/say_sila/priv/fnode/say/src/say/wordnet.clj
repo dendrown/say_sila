@@ -50,6 +50,21 @@
   "cut"
   #{"SID-00430013-V"    ;gloss "cut down on; make a reduction in; 'reduce your daily fat intake'"
     "SID-00244786-V"}   ;gloss "reduce in scope while retaining essential elements; 'The manuscript must be shortened'"
+
+ ;; --------------------------------------------------------------------------
+  "protect"
+  #{"SID-01130619-V"}   ;gloss "shield from danger, injury, destruction, or damage"
+
+  "environment"
+  #{"SID-13957629-N"}   ;gloss "the totality of surrounding conditions"
+
+ ;; --------------------------------------------------------------------------
+  "economic"
+  #{"SID-02727475-A"    ;gloss "of or relating to an economy, the system of production and management of material wealth"
+    "SID-02587892-A"}   ;gloss "concerned with worldly necessities of life (especially money)"
+
+  "growth"
+  #{"SID-13518338-N"}   ;gloss "a process of becoming larger or longer or more numerous or more important"
 })
 
 ;;; --------------------------------------------------------------------------

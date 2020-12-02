@@ -1149,6 +1149,19 @@
             CUT "Expressions which refer to reductions.")
 
 
+  ;; └── ++protect++ (V)
+  ;; :   ├── environment (N)
+  ;;     :   └── the (D)
+  (defscr-2 PROTECT     "Expressions which indicate a relationship of protection."
+            ENVIRONMENT "Expressions which refer to the environment")
+
+  ;; ├── advancing (V)
+  ;; :   └── ++growth++ (N)
+  ;;         └── economic (A)
+  (defscr-2 ECONOMIC "Expressions which refer to the environment"
+            GROWTH   "Expressions which indicate a relationship of protection.")
+
+
   ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
   ;;
   ;;        Tawmy-OWL is coding (some oproperty (and obj1 obj2))
@@ -2363,8 +2376,11 @@
           svy-toks svy-txts "Survey" name 12)
 
   ;; Survey Concept Rules (show in REPL and add to running CSV files)
-  (doseq [[concept symbols] [["CauseBeliever" ["NEGATION" "CAUSE" "HUMAN" "NATURE"]]
-                             ["Conservation"  ["NEGATION" "ENERGY" "CONSERVATION"]]]]
+  (doseq [[concept symbols] [["CauseBeliever" ["CAUSE" "HUMAN" "NATURE" "NEGATION"]]
+                             ["Conservation"  ["ENERGY" "CONSERVATION"]]
+                             ["CutCO2"        ["CUT" "CO2"]]
+                             ["ProtectEnv"    ["PROTECT" "ENVIRONMENT"]]
+                             ["EconGrowth"    ["ECONOMIC" "GROWTH"]]]]
     ;; Always report to REPL
     (let [pcts (report symbols scr-toks scr-txts "Concept" identity 12)]
 
@@ -2435,13 +2451,53 @@
                                               say.sila/GreenStrongEnergyConservationAccountAB
                                               say.sila/DenierStrongEnergyConservationAccountAB]
 
+                  [:users "ProtectEnv"]     '[say.sila/WeakProtectEnvironmentAccount
+                                              say.sila/GreenWeakProtectEnvironmentAccount
+                                              say.sila/DenierWeakProtectEnvironmentAccount
+                                              ;-----------------------------------------
+                                              say.sila/StrongProtectEnvironmentAccount
+                                              say.sila/GreenStrongProtectEnvironmentAccount
+                                              say.sila/DenierStrongProtectEnvironmentAccount
+                                              ;-----------------------------------------
+                                              say.sila/StrongProtectEnvironmentAccountAB
+                                              say.sila/GreenStrongProtectEnvironmentAccountAB
+                                              say.sila/DenierStrongProtectEnvironmentAccountAB
+                                              ;-----------------------------------------
+                                              say.sila/StrongProtectEnvironmentAccountBA
+                                              say.sila/GreenStrongProtectEnvironmentAccountBA
+                                              say.sila/DenierStrongProtectEnvironmentAccountBA]
+
+                  [:users "EconGrowth"]     '[say.sila/WeakEconomicGrowthAccount
+                                              say.sila/GreenWeakEconomicGrowthAccount
+                                              say.sila/DenierWeakEconomicGrowthAccount
+                                              ;-----------------------------------------
+                                              say.sila/StrongEconomicGrowthAccount
+                                              say.sila/GreenStrongEconomicGrowthAccount
+                                              say.sila/DenierStrongEconomicGrowthAccount
+                                              ;-----------------------------------------
+                                              say.sila/StrongEconomicGrowthAccountAB
+                                              say.sila/GreenStrongEconomicGrowthAccountAB
+                                              say.sila/DenierStrongEconomicGrowthAccountBA
+                                              ;-----------------------------------------
+                                              say.sila/StrongEconomicGrowthAccountBA
+                                              say.sila/GreenStrongEconomicGrowthAccountBA
+                                              say.sila/DenierStrongEconomicGrowthAccountBA]
+
                   [:users "CO2Cut"]         '[say.sila/WeakCO2CutAccount
                                               say.sila/GreenWeakCO2CutAccount
                                               say.sila/DenierWeakCO2CutAccount
                                               ;-----------------------------------------
+                                              say.sila/StrongCO2CutAccount
+                                              say.sila/GreenStrongCO2CutAccount
+                                              say.sila/DenierStrongCO2CutAccount
+                                              ;-----------------------------------------
                                               say.sila/StrongCO2CutAccountAB
                                               say.sila/GreenStrongCO2CutAccountAB
-                                              say.sila/DenierStrongCO2CutAccountAB]}
+                                              say.sila/DenierStrongCO2CutAccountAB
+                                              ;-----------------------------------------
+                                              say.sila/StrongCO2CutAccountBA
+                                              say.sila/GreenStrongCO2CutAccountBA
+                                              say.sila/DenierStrongCO2CutAccountBA]}
 
         needles (comm/instances onts (mapcat val concepts))
 
