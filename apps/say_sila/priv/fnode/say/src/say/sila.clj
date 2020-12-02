@@ -117,6 +117,7 @@
   :disjoint pos/Token
   :label    "Text"
   :comment  "An Information Object consisting of text.")
+(as-disjoint Text pos/Token)
 
 ;;; Keep the actual tweet/profile content as a development aid
 (defaproperty TextualContent)
@@ -211,6 +212,7 @@
   :super   dul/InformationObject
   :label   "Survey"
   :comment "A series of questions intended to extract information from a group of people")
+(as-disjoint Text Survey)
 
 (defindividual sassy
   :type  Survey
@@ -825,19 +827,18 @@
 );comment
 
 
-;;; TBox: building on dul:InformationObject==>senti:Text
+;;; TBox: building on dul:InformationObject==>sila:Text
 (defclass PersonalProfile
-  :super   dul/InformationObject
+  :super   Text
   :label   "Personal Profile"
   :comment "An Information Object consisting of a personal description for an online user.")
-
-(as-disjoint PersonalProfile Text pos/Token)
 
 (comment
 (defclass Tweet
   :super   Text
   :label   "Tweet"
   :comment "A Twitter message status message.")
+(as-disjoint PersonalProfile Tweet)
 
 (as-subclasses Tweet
   :cover
@@ -1061,7 +1062,7 @@
       (defclass ~account
         :super OnlineAccount
         :equivalent (dl/and OnlineAccount
-                          (dl/some publishes ~text)))
+                            (dl/some publishes ~text)))
       (as-disjoint
        (defclass ~green
          :super GreenAccount
@@ -1095,18 +1096,7 @@
         account1++2 (rule-symbol "Weak"   rule1 rule2 "Account")
         account1<>2 (rule-symbol "Strong" rule1 rule2 "Account")
         account1->2 (rule-symbol "Strong" rule1 rule2 "AccountAB")
-        account2->1 (rule-symbol "Strong" rule1 rule2 "AccountBA")
-
-;       green1++2   (rule-symbol "Green"  rule1 rule2 "Account1")
-;       green1<>2   (rule-symbol "Green"  rule1 rule2 "Account2")
-;       green1->2   (rule-symbol "Green"  rule1 rule2 "Account3")
-;       green2->1   (rule-symbol "Green"  rule1 rule2 "Account4")
-        ;;
-;       denier1++2  (rule-symbol "Denier" rule1 rule2 "Account1")
-;       denier1<>2  (rule-symbol "Denier" rule1 rule2 "Account2")
-;       denier1->2  (rule-symbol "Denier" rule1 rule2 "Account3")
-;       denier2->1  (rule-symbol "Denier" rule1 rule2 "Account4")
-]
+        account2->1 (rule-symbol "Strong" rule1 rule2 "AccountBA")]
   `(do
     ;; Basic Survey Concept Rule indicators
     (defrule ~rule1 ~descr1)
@@ -1160,19 +1150,25 @@
 
 
   ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
-  ;;        We may need to make Text and Survey disjoint
-  (defclass EnergyConservationAccountOld1
+  ;;
+  ;;        Tawmy-OWL is coding (some oproperty (and obj1 obj2))
+  ;;
+  ;;                         as (and (some oproperty obj1)
+  ;;                                 (some oproperty obj2))
+  ;;
+  ;; Discuss w/ RV and SR; then remove the old versions of theseclasses!
+  (defclass EnergyConservationAccountBROKEN1
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
                         (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
                                                    (dl/some dul/hasComponent ConservationToken))))
-  (defclass EnergyConservationAccountOld2
+  (defclass EnergyConservationAccountBROKEN2
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
                         (dl/some publishes (dl/and Text
                                                    (dl/some dul/hasComponent EnergyToken))
                                                    (dl/some dul/hasComponent ConservationToken))))
-  
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -2428,8 +2424,8 @@
                                               say.sila/GreenNaturalCauseBelieverAccount
                                               say.sila/DenierNaturalCauseBelieverAccount]
 
-                  [:users "Conserv-OLD"]    '[say.sila/EnergyConservationAccountOld1
-                                              say.sila/EnergyConservationAccountOld2]
+                  [:users "Conserv-OLD"]    '[say.sila/EnergyConservationAccountBROKEN1
+                                              say.sila/EnergyConservationAccountBROKEN2]
 
                   [:users "Conservation"]   '[say.sila/WeakEnergyConservationAccount
                                               say.sila/GreenWeakEnergyConservationAccount
