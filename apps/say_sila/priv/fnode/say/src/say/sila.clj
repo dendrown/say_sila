@@ -1139,27 +1139,27 @@
   ;;     └── saving (V)
   ;;         ├── energy (N)
   ;;         └── ++important++ (A)
-  (defscr-2 ENERGY "Expressions which refer to energy."
-            CONSERVATION "Expressions which indicate a relationship of convervation.")
+  (defscr-2 ENERGY "Expressions which refer to energy"
+            CONSERVATION "Expressions which indicate a relationship of convervation")
 
   ;; ├── reduces (V)
   ;; :  └── levels (N)
   ;;         └── co2 (^)
-  (defscr-2 CO2 "Expressions which indicate a relationship of convervation."
-            CUT "Expressions which refer to reductions.")
+  (defscr-2 CO2 "Expressions which indicate a relationship of convervation"
+            CUT "Expressions which refer to reductions")
 
 
   ;; └── ++protect++ (V)
   ;; :   ├── environment (N)
   ;;     :   └── the (D)
-  (defscr-2 PROTECT     "Expressions which indicate a relationship of protection."
-            ENVIRONMENT "Expressions which refer to the environment")
+  (defscr-2 ENVIRONMENT "Expressions which refer to the environment"
+            PROTECT     "Expressions which indicate a relationship of protection")
 
   ;; ├── advancing (V)
   ;; :   └── ++growth++ (N)
   ;;         └── economic (A)
-  (defscr-2 ECONOMIC "Expressions which refer to the environment"
-            GROWTH   "Expressions which indicate a relationship of protection.")
+  (defscr-2 ECONOMIC "Expressions which refer to the economy"
+            GROWTH   "Expressions which indicate a relationship of growth")
 
 
   ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
@@ -2379,7 +2379,7 @@
   (doseq [[concept symbols] [["CauseBeliever" ["CAUSE" "HUMAN" "NATURE" "NEGATION"]]
                              ["Conservation"  ["ENERGY" "CONSERVATION"]]
                              ["CutCO2"        ["CUT" "CO2"]]
-                             ["ProtectEnv"    ["PROTECT" "ENVIRONMENT"]]
+                             ["EnvProtect"    ["ENVIRONMENT" "PROTECT"]]
                              ["EconGrowth"    ["ECONOMIC" "GROWTH"]]]]
     ;; Always report to REPL
     (let [pcts (report symbols scr-toks scr-txts "Concept" identity 12)]
@@ -2418,109 +2418,102 @@
 
 
   ([dtag onts fullcnts]
-  ;; Qualify our symbols as our caller may be in another namespace
-  (let [;; The concept map is organized according to the report setup:
-        ;;         LEVEL  CONCEPT            ONTOLOGY SYMBOLS
-        concepts {[:texts "CauseBeliever"]  '[say.sila/HumanAndCauseText
-                                              say.sila/AffirmedHumanCauseText
-                                              say.sila/NegatedHumanCauseText
-                                              ;---------------------------------
-                                              say.sila/NatureAndCauseText
-                                              say.sila/AffirmedNaturalCauseText
-                                              say.sila/NegatedNaturalCauseText]
+  ;; Use local symbols when called from another namespace
+  (binding [*ns* (find-ns 'say.sila)]
+    (let [;; The concept map is organized according to the report setup:
+          ;;         LEVEL  CONCEPT            ONTOLOGY SYMBOLS
+          concepts {[:texts "CauseBeliever"]  '[HumanAndCauseText
+                                                AffirmedHumanCauseText
+                                                NegatedHumanCauseText
+                                                ;---------------------------------
+                                                NatureAndCauseText
+                                                AffirmedNaturalCauseText
+                                                NegatedNaturalCauseText]
 
-                  [:texts "Conservation"]   '[say.sila/WeakEnergyConservationText
-                                              say.sila/StrongEnergyConservationTextAB]
+                    [:texts "Conservation"]   '[WeakEnergyConservationText
+                                                StrongEnergyConservationTextAB]
 
-                  [:users "CauseBeliever"]  '[say.sila/HumanCauseBelieverAccount
-                                              say.sila/GreenHumanCauseBelieverAccount
-                                              say.sila/DenierHumanCauseBelieverAccount
-                                              ;-----------------------------------------
-                                              say.sila/NaturalCauseBelieverAccount
-                                              say.sila/GreenNaturalCauseBelieverAccount
-                                              say.sila/DenierNaturalCauseBelieverAccount]
+                    [:users "CauseBeliever"]  '[HumanCauseBelieverAccount
+                                                GreenHumanCauseBelieverAccount
+                                                DenierHumanCauseBelieverAccount
+                                                ;-----------------------------------------
+                                                NaturalCauseBelieverAccount
+                                                GreenNaturalCauseBelieverAccount
+                                                DenierNaturalCauseBelieverAccount]
 
-                  [:users "Conserv-OLD"]    '[say.sila/EnergyConservationAccountBROKEN1
-                                              say.sila/EnergyConservationAccountBROKEN2]
+                    [:users "Conserv-OLD"]    '[EnergyConservationAccountBROKEN1
+                                                EnergyConservationAccountBROKEN2]
 
-                  [:users "Conservation"]   '[say.sila/WeakEnergyConservationAccount
-                                              say.sila/GreenWeakEnergyConservationAccount
-                                              say.sila/DenierWeakEnergyConservationAccount
-                                              ;-----------------------------------------
-                                              say.sila/StrongEnergyConservationAccountAB
-                                              say.sila/GreenStrongEnergyConservationAccountAB
-                                              say.sila/DenierStrongEnergyConservationAccountAB]
+                    [:users "Conservation"]   '[WeakEnergyConservationAccount
+                                                GreenWeakEnergyConservationAccount
+                                                DenierWeakEnergyConservationAccount
+                                                ;-----------------------------------------
+                                                StrongEnergyConservationAccount
+                                                GreenStrongEnergyConservationAccount
+                                                DenierStrongEnergyConservationAccount
+                                                ;-----------------------------------------
+                                                StrongEnergyConservationAccountAB
+                                                GreenStrongEnergyConservationAccountAB
+                                                DenierStrongEnergyConservationAccountAB]
 
-                  [:users "ProtectEnv"]     '[say.sila/WeakProtectEnvironmentAccount
-                                              say.sila/GreenWeakProtectEnvironmentAccount
-                                              say.sila/DenierWeakProtectEnvironmentAccount
-                                              ;-----------------------------------------
-                                              say.sila/StrongProtectEnvironmentAccount
-                                              say.sila/GreenStrongProtectEnvironmentAccount
-                                              say.sila/DenierStrongProtectEnvironmentAccount
-                                              ;-----------------------------------------
-                                              say.sila/StrongProtectEnvironmentAccountAB
-                                              say.sila/GreenStrongProtectEnvironmentAccountAB
-                                              say.sila/DenierStrongProtectEnvironmentAccountAB
-                                              ;-----------------------------------------
-                                              say.sila/StrongProtectEnvironmentAccountBA
-                                              say.sila/GreenStrongProtectEnvironmentAccountBA
-                                              say.sila/DenierStrongProtectEnvironmentAccountBA]
+                    [:users "ProtectEnv"]     '[WeakEnvironmentProtectAccount
+                                                GreenWeakEnvironmentProtectAccount
+                                                DenierWeakEnvironmentProtectAccount
+                                                ;-----------------------------------------
+                                                StrongEnvironmentProtectAccount
+                                                GreenStrongEnvironmentProtectAccount
+                                                DenierStrongEnvironmentProtectAccount
+                                                ;-----------------------------------------
+                                                StrongEnvironmentProtectAccountAB
+                                                GreenStrongEnvironmentProtectAccountAB
+                                                DenierStrongEnvironmentProtectAccountAB]
 
-                  [:users "EconGrowth"]     '[say.sila/WeakEconomicGrowthAccount
-                                              say.sila/GreenWeakEconomicGrowthAccount
-                                              say.sila/DenierWeakEconomicGrowthAccount
-                                              ;-----------------------------------------
-                                              say.sila/StrongEconomicGrowthAccount
-                                              say.sila/GreenStrongEconomicGrowthAccount
-                                              say.sila/DenierStrongEconomicGrowthAccount
-                                              ;-----------------------------------------
-                                              say.sila/StrongEconomicGrowthAccountAB
-                                              say.sila/GreenStrongEconomicGrowthAccountAB
-                                              say.sila/DenierStrongEconomicGrowthAccountBA
-                                              ;-----------------------------------------
-                                              say.sila/StrongEconomicGrowthAccountBA
-                                              say.sila/GreenStrongEconomicGrowthAccountBA
-                                              say.sila/DenierStrongEconomicGrowthAccountBA]
+                    [:users "EconGrowth"]     '[WeakEconomicGrowthAccount
+                                                GreenWeakEconomicGrowthAccount
+                                                DenierWeakEconomicGrowthAccount
+                                                ;-----------------------------------------
+                                                StrongEconomicGrowthAccount
+                                                GreenStrongEconomicGrowthAccount
+                                                DenierStrongEconomicGrowthAccount
+                                                ;-----------------------------------------
+                                                StrongEconomicGrowthAccountAB
+                                                GreenStrongEconomicGrowthAccountAB
+                                                DenierStrongEconomicGrowthAccountAB]
 
-                  [:users "CO2Cut"]         '[say.sila/WeakCO2CutAccount
-                                              say.sila/GreenWeakCO2CutAccount
-                                              say.sila/DenierWeakCO2CutAccount
-                                              ;-----------------------------------------
-                                              say.sila/StrongCO2CutAccount
-                                              say.sila/GreenStrongCO2CutAccount
-                                              say.sila/DenierStrongCO2CutAccount
-                                              ;-----------------------------------------
-                                              say.sila/StrongCO2CutAccountAB
-                                              say.sila/GreenStrongCO2CutAccountAB
-                                              say.sila/DenierStrongCO2CutAccountAB
-                                              ;-----------------------------------------
-                                              say.sila/StrongCO2CutAccountBA
-                                              say.sila/GreenStrongCO2CutAccountBA
-                                              say.sila/DenierStrongCO2CutAccountBA]}
+                    [:users "CO2Cut"]         '[WeakCO2CutAccount
+                                                GreenWeakCO2CutAccount
+                                                DenierWeakCO2CutAccount
+                                                ;-----------------------------------------
+                                                StrongCO2CutAccount
+                                                GreenStrongCO2CutAccount
+                                                DenierStrongCO2CutAccount
+                                                ;-----------------------------------------
+                                                StrongCO2CutAccountAB
+                                                GreenStrongCO2CutAccountAB
+                                                DenierStrongCO2CutAccountAB]}
 
-        needles (comm/instances onts (mapcat val concepts))
+          needles (comm/instances onts (mapcat val concepts))
 
-        report  (fn [sym what fullcnt]
-                  ;; Report to the REPL console
-                  (let [elms (get needles sym)
-                        cnt  (count elms)
-                        pct  (pctz cnt fullcnt)]
-                    (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
-                                  sym dtag cnt fullcnt what (* 100 pct))
-                    (comment run! #(log/debug "  -" (iri-fragment %)) elms)
-                    pct))
+          report  (fn [sym what fullcnt]
+                    ;; Report to the REPL console
+                    (let [elms (get needles sym)
+                          cnt  (count elms)
+                          pct  (pctz cnt fullcnt)]
+                      (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
+                                    sym dtag cnt fullcnt what (* 100 pct))
+                      (comment run! #(log/debug "  -" (iri-fragment %)) elms)
+                      pct))
 
-        rpt-csv (fn [[[level concept] syms]]
-                  (log/debug)
-                  ;; Report to the the appropriate CSV for this concept
-                  (let [lhead   (str/capitalize (name level))       ; Title case for header/filename
-                        fullcnt (fullcnts level)                    ; Pull text|user count
-                        pcts    (domap #(report % lhead fullcnt) syms)]
-                    (report-to-csv level concept syms fullcnt pcts)))]
+          rpt-csv (fn [[[level concept] syms]]
+                    (log/debug)
+                    ;; Report to the the appropriate CSV for this concept
+                    (let [lhead   (str/capitalize (name level))       ; Title case for header/filename
+                          fullcnt (fullcnts level)                    ; Pull text|user count
+                          pcts    (domap #(report % lhead fullcnt) syms)]
+                      (report-to-csv level concept syms fullcnt pcts)))]
 
-    ;; Log report to the console & file for all targets
-    (run! rpt-csv concepts))))
+      ;; Log report to the console & file for all targets
+      (run! rpt-csv concepts)))))
 
 
 
