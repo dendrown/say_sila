@@ -49,7 +49,7 @@
                                  "ENERGY"       #{"energy"}
                                  "CONSERVATION" #{"conservation" "save"}
                                  ;; ------------------------------------------
-                                 "CUT"          #{"cut"}
+                                 "CUT"          #{"cut" "regulate"}
                                  "CO2"          #{"co2"}})
 
 (defonce Concept-Words          (word/synonym-values Concept-Triggers))     ; Concept expansion
