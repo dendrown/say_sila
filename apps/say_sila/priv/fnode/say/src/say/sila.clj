@@ -418,13 +418,19 @@
 
 
 (defmacro defrule
-  "Adds a Sentiment Composition Rule (component) subclass to the say-sila ontology"
-  [tag descr]
-  `(do (defclass ~tag
-         :super   SurveyConceptRule
-         :label   (str "Survey Concept Rule - " (name '~tag))
-         :comment ~descr)
-       (defpun ~tag)))
+  "Adds a Sentiment Composition Rule subclass (the conceptual component)
+  to the say-sila ontology"
+  [concept descr]
+  (let [rule `~concept]                     ; Ensure single evaluation
+    `(do (def ~rule)
+         (if (bound? #'~rule)
+             (log/debug "Using existing definition of" '~rule)
+             (do (defclass ~rule
+                   :super   SurveyConceptRule
+                   :label   (str "Survey Concept Rule - " '~rule)
+                   :comment ~descr)
+                 (defpun ~rule))))))
+
 
 ;;; Concept indictor rules
 (defrule NEGATION "Expressions which negate other terms.")
@@ -897,10 +903,13 @@
   [concept]
   (let [rule  `~concept
         token (rule-symbol rule "Token")]
-  `(defclass ~token
-     :super pos/Token
-     :equivalent (dl/and pos/Token
-                         (dl/some indicatesRule ~rule)))))
+    `(do (def ~token)
+         (if (bound? #'~token)
+             (log/debug "Using existing definition of" '~token)
+             (defclass ~token
+               :super pos/Token
+               :equivalent (dl/and pos/Token
+                                   (dl/some indicatesRule ~rule)))))))
 
 
 
@@ -1006,39 +1015,39 @@
     (defscr-accounts ~account1->2 ~text1->2)
     (defscr-accounts ~account2->1 ~text2->1))))
 
-  ;; Accounts identified by Survey Concept Rules
-  ;;
-  ;; ├── is (V)
-  ;; :   ├── why (R)
-  ;;     └── saving (V)
-  ;;         ├── energy (N)
-  ;;         └── ++important++ (A)
-  (defscr-2 ENERGY "Expressions which refer to energy"
-            CONSERVATION "Expressions which indicate a relationship of convervation")
+;; Accounts identified by Survey Concept Rules
+;;
+;; ├── is (V)
+;; :   ├── why (R)
+;;     └── saving (V)
+;;         ├── energy (N)
+;;         └── ++important++ (A)
+(defscr-2 ENERGY "Expressions which refer to energy"
+          CONSERVATION "Expressions which indicate a relationship of convervation")
 
-  ;; ├── reduces (V)
-  ;; :  └── levels (N)
-  ;;         └── co2 (^)
-  (defscr-2 CO2 "Expressions which indicate a relationship of convervation"
-            CUT "Expressions which refer to reductions")
+;; ├── reduces (V)
+;; :  └── levels (N)
+;;         └── co2 (^)
+(defscr-2 CO2 "Expressions which indicate a relationship of convervation"
+          CUT "Expressions which refer to reductions")
 
+;; └── ++protect++ (V)
+;; :   ├── environment (N)
+;;     :   └── the (D)
+(defscr-2 ENVIRONMENT "Expressions which refer to the environment"
+          PROTECT     "Expressions which indicate a relationship of protection")
 
-  ;; └── ++protect++ (V)
-  ;; :   ├── environment (N)
-  ;;     :   └── the (D)
-  (defscr-2 ENVIRONMENT "Expressions which refer to the environment"
-            PROTECT     "Expressions which indicate a relationship of protection")
-
-  ;; ├── advancing (V)
-  ;; :   └── ++growth++ (N)
-  ;;         └── economic (A)
-  (defscr-2 ECONOMIC "Expressions which refer to the economy"
-            GROWTH   "Expressions which indicate a relationship of growth")
+;; ├── advancing (V)
+;; :   └── ++growth++ (N)
+;;         └── economic (A)
+(defscr-2 ECONOMIC "Expressions which refer to the economy"
+          GROWTH   "Expressions which indicate a relationship of growth")
 
 (defscr-2 HUMAN  "Expressions which refer to humans or humanity."
           CAUSE  "Expressions which indicate a causal relationship.")
 
-(defrule NATURE "Expressions which refer to the natural world.")
+(defscr-2 NATURE "Expressions which refer to the natural world."
+          CAUSE  "Expressions which indicate a causal relationship.")
 
 
 ;;; --------------------------------------------------------------------------
@@ -2448,9 +2457,18 @@
                                                 ;-----------------------------------------
                                                 StrongHumanCauseAccount
                                                 StrongHumanCauseAccountAB
-                                                StrongHumanCauseAccountBA
+                                               ;StrongHumanCauseAccountBA   ; Small percentage
                                                 GreenStrongHumanCauseAccount
                                                 DenierStrongHumanCauseAccount]
+
+                    [:users "NatureCause"]    '[WeakNatureCauseAccount
+                                                GreenWeakNatureCauseAccount
+                                                DenierWeakNatureCauseAccount
+                                                ;-----------------------------------------
+                                                StrongNatureCauseAccount
+                                                StrongNatureCauseAccountAB
+                                                GreenStrongNatureCauseAccount
+                                                DenierStrongNatureCauseAccount]
 
                     [:users "Conserv-OLD"]    '[EnergyConservationAccountBROKEN1
                                                 EnergyConservationAccountBROKEN2]
