@@ -427,10 +427,6 @@
        (defpun ~tag)))
 
 ;;; Concept indictor rules
-(defrule CAUSE  "Expressions which indicate a causal relationship.")
-(defrule HUMAN  "Expressions which refer to humans or humanity.")
-(defrule NATURE "Expressions which refer to the natural world.")
-
 (defrule NEGATION "Expressions which negate other terms.")
 
 ;; HermiT gives us all kinds of problems at inference-time if we don't
@@ -468,107 +464,6 @@
   :super    SurveyKeyword
   :label    "Beliefs Question Keyword"
   :comment  "A Keyword which is refers to the question on beliefs (Table 5) in the Six America's survey.")
-
-
-;;; --------------------------------------------------------------------------
-(when (cfg/?? :sila :use-tweebo?)
-
-  (defclass HumanCauseToken
-    :super pos/Token
-    :equivalent (dl/and pos/Token
-                        (dl/or
-                          (dl/and
-                            (dl/some indicatesRule HUMAN)
-                            (dl/some indicatesRule CAUSE))
-                          (dl/and
-                            (dl/some indicatesRule HUMAN)
-                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
-
-  (defclass NaturalCauseToken
-    :super pos/Token
-    :equivalent (dl/and pos/Token
-                        (dl/or
-                          (dl/and
-                            (dl/some indicatesRule NATURE)
-                            (dl/some indicatesRule CAUSE))
-                          (dl/and
-                            (dl/some indicatesRule NATURE)
-                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
-
-  ;; Dependency analysis allows us to know whether or not human-cause tokens are negated
-  (as-disjoint
-    (defclass NegatedHumanCauseToken
-      :super HumanCauseToken
-      :equivalent (dl/and HumanCauseToken
-                          (dl/some hasDependent NegationToken)))
-
-    (defclass AffirmedHumanCauseToken
-      :super HumanCauseToken
-      :equivalent (dl/and HumanCauseToken
-                          (dl/some directlyDependsOn NotNegatedCheck))))
-
-  ;; Natural-cause indicators follow the same pattern
-  (as-disjoint
-    (defclass NegatedNaturalCauseToken
-      :super NaturalCauseToken
-      :equivalent (dl/and NaturalCauseToken
-                          (dl/some hasDependent NegationToken)))
-
-    (defclass AffirmedNaturalCauseToken
-      :super NaturalCauseToken
-      :equivalent (dl/and NaturalCauseToken
-                          (dl/some directlyDependsOn NotNegatedCheck))))
-
-  ;; Text-level causality (currently these are used only for data analysis)
-  (defclass HumanAndCauseText
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent (dl/some indicatesRule HUMAN))
-                        (dl/some dul/hasComponent (dl/some indicatesRule CAUSE))))
-
-  (defclass AffirmedHumanCauseText
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent AffirmedHumanCauseToken)))
-
-  (defclass NegatedHumanCauseText
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent NegatedHumanCauseToken)))
-
-
-  (defclass NatureAndCauseText
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent (dl/some indicatesRule NATURE))
-                        (dl/some dul/hasComponent (dl/some indicatesRule CAUSE))))
-
-  (defclass AffirmedNaturalCauseText
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent AffirmedNaturalCauseToken)))
-
-  (defclass NegatedNaturalCauseText
-    :super Text
-    :equivalent (dl/and Text
-                        (dl/some dul/hasComponent NegatedNaturalCauseToken)))
-
-
-  ;; Account-level causality
-  (defclass HumanCauseBelieverAccount
-    :super OnlineAccount
-    :equivalent (dl/and OnlineAccount
-                        (dl/or
-                          (dl/some publishes (dl/some dul/hasComponent AffirmedHumanCauseToken))
-                          (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseToken)))))
-
-  (defclass NaturalCauseBelieverAccount
-    :super OnlineAccount
-    :equivalent (dl/and OnlineAccount
-                        (dl/or
-                          (dl/some publishes (dl/some dul/hasComponent AffirmedNaturalCauseToken))
-                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseToken))))))
-
 
 
 ;;; --------------------------------------------------------------------------
@@ -996,27 +891,6 @@
   :label    "Rogue Account"
   :comment  "An Online Account which does not adhere to the rules of its associated online provider.")
 
-;; Combinations for analysis:
-(as-disjoint
-  (defclass GreenHumanCauseBelieverAccount
-    :super GreenAccount
-    :equivalent (dl/and GreenAccount HumanCauseBelieverAccount))
-
-  (defclass DenierHumanCauseBelieverAccount
-    :super DenierAccount
-    :equivalent (dl/and DenierAccount HumanCauseBelieverAccount)))
-
-
-(as-disjoint
-  (defclass GreenNaturalCauseBelieverAccount
-    :super GreenAccount
-    :equivalent (dl/and GreenAccount NaturalCauseBelieverAccount))
-
-  (defclass DenierNaturalCauseBelieverAccount
-    :super DenierAccount
-    :equivalent (dl/and DenierAccount NaturalCauseBelieverAccount)))
-
-
 ;;; --------------------------------------------------------------------------
 (defmacro defscr-token
   "Defines a class representing a Token that implies a Survey Concept Rule."
@@ -1161,26 +1035,153 @@
   (defscr-2 ECONOMIC "Expressions which refer to the economy"
             GROWTH   "Expressions which indicate a relationship of growth")
 
+(defscr-2 HUMAN  "Expressions which refer to humans or humanity."
+          CAUSE  "Expressions which indicate a causal relationship.")
 
-  ;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
-  ;;
-  ;;        Tawmy-OWL is coding (some oproperty (and obj1 obj2))
-  ;;
-  ;;                         as (and (some oproperty obj1)
-  ;;                                 (some oproperty obj2))
-  ;;
-  ;; Discuss w/ RV and SR; then remove the old versions of theseclasses!
-  (defclass EnergyConservationAccountBROKEN1
+(defrule NATURE "Expressions which refer to the natural world.")
+
+
+;;; --------------------------------------------------------------------------
+;; Original (pre-scr) combinations for analysis:
+(when (cfg/?? :sila :use-tweebo?)
+
+  (defclass HumanCauseTokenAFFNEG
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule HUMAN)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+
+  (defclass NaturalCauseTokenAFFNEG
+    :super pos/Token
+    :equivalent (dl/and pos/Token
+                        (dl/or
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some indicatesRule CAUSE))
+                          (dl/and
+                            (dl/some indicatesRule NATURE)
+                            (dl/some dependsOn (dl/some indicatesRule CAUSE))))))
+
+  ;; Dependency analysis allows us to know whether or not human-cause tokens are negated
+  (as-disjoint
+    (defclass NegatedHumanCauseTokenAFFNEG
+      :super HumanCauseTokenAFFNEG
+      :equivalent (dl/and HumanCauseTokenAFFNEG
+                          (dl/some hasDependent NegationToken)))
+
+    (defclass AffirmedHumanCauseTokenAFFNEG
+      :super HumanCauseTokenAFFNEG
+      :equivalent (dl/and HumanCauseTokenAFFNEG
+                          (dl/some directlyDependsOn NotNegatedCheck))))
+
+  ;; Natural-cause indicators follow the same pattern
+  (as-disjoint
+    (defclass NegatedNaturalCauseTokenAFFNEG
+      :super NaturalCauseTokenAFFNEG
+      :equivalent (dl/and NaturalCauseTokenAFFNEG
+                          (dl/some hasDependent NegationToken)))
+
+    (defclass AffirmedNaturalCauseTokenAFFNEG
+      :super NaturalCauseTokenAFFNEG
+      :equivalent (dl/and NaturalCauseTokenAFFNEG
+                          (dl/some directlyDependsOn NotNegatedCheck))))
+
+  ;; Text-level causality (currently these are used only for data analysis)
+  (defclass HumanAndCauseTextAFFNEG
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent (dl/some indicatesRule HUMAN))
+                        (dl/some dul/hasComponent (dl/some indicatesRule CAUSE))))
+
+  (defclass AffirmedHumanCauseTextAFFNEG
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent AffirmedHumanCauseTokenAFFNEG)))
+
+  (defclass NegatedHumanCauseTextAFFNEG
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent NegatedHumanCauseTokenAFFNEG)))
+
+
+  (defclass NatureAndCauseTextAFFNEG
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent (dl/some indicatesRule NATURE))
+                        (dl/some dul/hasComponent (dl/some indicatesRule CAUSE))))
+
+  (defclass AffirmedNaturalCauseTextAFFNEG
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent AffirmedNaturalCauseTokenAFFNEG)))
+
+  (defclass NegatedNaturalCauseTextAFFNEG
+    :super Text
+    :equivalent (dl/and Text
+                        (dl/some dul/hasComponent NegatedNaturalCauseTokenAFFNEG)))
+
+
+  ;; Account-level causality
+  (defclass HumanCauseAccountAFFNEG
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
-                        (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
-                                                   (dl/some dul/hasComponent ConservationToken))))
-  (defclass EnergyConservationAccountBROKEN2
+                        (dl/or
+                          (dl/some publishes (dl/some dul/hasComponent AffirmedHumanCauseTokenAFFNEG))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedNaturalCauseTokenAFFNEG)))))
+
+  (defclass NaturalCauseAccountAFFNEG
     :super OnlineAccount
     :equivalent (dl/and OnlineAccount
-                        (dl/some publishes (dl/and Text
-                                                   (dl/some dul/hasComponent EnergyToken))
-                                                   (dl/some dul/hasComponent ConservationToken))))
+                        (dl/or
+                          (dl/some publishes (dl/some dul/hasComponent AffirmedNaturalCauseTokenAFFNEG))
+                          (dl/some publishes (dl/some dul/hasComponent NegatedHumanCauseTokenAFFNEG)))))
+
+  (as-disjoint
+    (defclass GreenHumanCauseAccountAFFNEG
+      :super GreenAccount
+      :equivalent (dl/and GreenAccount HumanCauseAccountAFFNEG))
+
+    (defclass DenierHumanCauseAccountAFFNEG
+      :super DenierAccount
+      :equivalent (dl/and DenierAccount HumanCauseAccountAFFNEG)))
+
+
+  (as-disjoint
+    (defclass GreenNaturalCauseAccountAFFNEG
+      :super GreenAccount
+      :equivalent (dl/and GreenAccount NaturalCauseAccountAFFNEG))
+
+    (defclass DenierNaturalCauseAccountAFFNEG
+      :super DenierAccount
+      :equivalent (dl/and DenierAccount NaturalCauseAccountAFFNEG))))
+
+
+;;; --------------------------------------------------------------------------
+;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
+;;
+;;        Tawmy-OWL is coding (some oproperty (and obj1 obj2))
+;;
+;;                         as (and (some oproperty obj1)
+;;                                 (some oproperty obj2))
+;;
+;; Discuss w/ RV and SR; then remove the old versions of theseclasses!
+(defclass EnergyConservationAccountBROKEN1
+  :super OnlineAccount
+  :equivalent (dl/and OnlineAccount
+                      (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
+                                                 (dl/some dul/hasComponent ConservationToken))))
+(defclass EnergyConservationAccountBROKEN2
+  :super OnlineAccount
+  :equivalent (dl/and OnlineAccount
+                      (dl/some publishes (dl/and Text
+                                                 (dl/some dul/hasComponent EnergyToken))
+                                                 (dl/some dul/hasComponent ConservationToken))))
+
 
 
 
@@ -2340,10 +2341,10 @@
                             #(let [tokcnt (get toks %)
                                    txtcnt (get txts %)
                                    pct    (pctz txtcnt fullcnt)]
-                              (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~5,2F%)]"
+                               (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~5,2F%)]"
                                               what dtag width (show %)
                                               tokcnt txtcnt ttype (* 100 pct))
-                              pct)
+                               pct)
                             keyz))
 
         ;; Calculate token & text counts for key elements
@@ -2421,25 +2422,35 @@
   ;; Use local symbols when called from another namespace
   (binding [*ns* (find-ns 'say.sila)]
     (let [;; The concept map is organized according to the report setup:
-          ;;         LEVEL  CONCEPT            ONTOLOGY SYMBOLS
-          concepts {[:texts "CauseBeliever"]  '[HumanAndCauseText
-                                                AffirmedHumanCauseText
-                                                NegatedHumanCauseText
+          ;;         LEVEL  CONCEPT-TAG        ONTOLOGY SYMBOLS
+          concepts {[:texts "CauseAFFNEG"]    '[HumanAndCauseTextAFFNEG
+                                                AffirmedHumanCauseTextAFFNEG
+                                                NegatedHumanCauseTextAFFNEG
                                                 ;---------------------------------
-                                                NatureAndCauseText
-                                                AffirmedNaturalCauseText
-                                                NegatedNaturalCauseText]
+                                                NatureAndCauseTextAFFNEG
+                                                AffirmedNaturalCauseTextAFFNEG
+                                                NegatedNaturalCauseTextAFFNEG]
 
                     [:texts "Conservation"]   '[WeakEnergyConservationText
                                                 StrongEnergyConservationTextAB]
 
-                    [:users "CauseBeliever"]  '[HumanCauseBelieverAccount
-                                                GreenHumanCauseBelieverAccount
-                                                DenierHumanCauseBelieverAccount
+                    [:users "CauseAFFNET"]    '[HumanCauseAccountAFFNEG
+                                                GreenHumanCauseAccountAFFNEG
+                                                DenierHumanCauseAccountAFFNEG
                                                 ;-----------------------------------------
-                                                NaturalCauseBelieverAccount
-                                                GreenNaturalCauseBelieverAccount
-                                                DenierNaturalCauseBelieverAccount]
+                                                NaturalCauseAccountAFFNEG
+                                                GreenNaturalCauseAccountAFFNEG
+                                                DenierNaturalCauseAccountAFFNEG]
+
+                    [:users "HumanCause"]     '[WeakHumanCauseAccount
+                                                GreenWeakHumanCauseAccount
+                                                DenierWeakHumanCauseAccount
+                                                ;-----------------------------------------
+                                                StrongHumanCauseAccount
+                                                StrongHumanCauseAccountAB
+                                                StrongHumanCauseAccountBA
+                                                GreenStrongHumanCauseAccount
+                                                DenierStrongHumanCauseAccount]
 
                     [:users "Conserv-OLD"]    '[EnergyConservationAccountBROKEN1
                                                 EnergyConservationAccountBROKEN2]
