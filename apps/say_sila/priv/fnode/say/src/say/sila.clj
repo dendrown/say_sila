@@ -2478,14 +2478,11 @@
                                                 DenierWeakEnergyConservationAccount
                                                 ;-----------------------------------------
                                                 StrongEnergyConservationAccount
-                                                GreenStrongEnergyConservationAccount
-                                                DenierStrongEnergyConservationAccount
-                                                ;-----------------------------------------
                                                 StrongEnergyConservationAccountAB
-                                                GreenStrongEnergyConservationAccountAB
-                                                DenierStrongEnergyConservationAccountAB]
+                                                GreenStrongEnergyConservationAccount
+                                                DenierStrongEnergyConservationAccount]
 
-                    [:users "ProtectEnv"]     '[WeakEnvironmentProtectAccount
+                    [:users "EnvProtect"]     '[WeakEnvironmentProtectAccount
                                                 GreenWeakEnvironmentProtectAccount
                                                 DenierWeakEnvironmentProtectAccount
                                                 ;-----------------------------------------
