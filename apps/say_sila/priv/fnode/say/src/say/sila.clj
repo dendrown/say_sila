@@ -2388,7 +2388,7 @@
   ;; Survey Concept Rules (show in REPL and add to running CSV files)
   (doseq [[concept symbols] [["CauseBeliever" ["CAUSE" "HUMAN" "NATURE" "NEGATION"]]
                              ["Conservation"  ["ENERGY" "CONSERVATION"]]
-                             ["CutCO2"        ["CUT" "CO2"]]
+                             ["CO2Cut"        ["CO2" "CUT"]]
                              ["EnvProtect"    ["ENVIRONMENT" "PROTECT"]]
                              ["EconGrowth"    ["ECONOMIC" "GROWTH"]]]]
     ;; Always report to REPL
@@ -2490,36 +2490,28 @@
                                                 DenierWeakEnvironmentProtectAccount
                                                 ;-----------------------------------------
                                                 StrongEnvironmentProtectAccount
-                                                GreenStrongEnvironmentProtectAccount
-                                                DenierStrongEnvironmentProtectAccount
-                                                ;-----------------------------------------
                                                 StrongEnvironmentProtectAccountAB
-                                                GreenStrongEnvironmentProtectAccountAB
-                                                DenierStrongEnvironmentProtectAccountAB]
+                                                GreenStrongEnvironmentProtectAccount
+                                                DenierStrongEnvironmentProtectAccount]
 
                     [:users "EconGrowth"]     '[WeakEconomicGrowthAccount
                                                 GreenWeakEconomicGrowthAccount
                                                 DenierWeakEconomicGrowthAccount
                                                 ;-----------------------------------------
                                                 StrongEconomicGrowthAccount
-                                                GreenStrongEconomicGrowthAccount
-                                                DenierStrongEconomicGrowthAccount
-                                                ;-----------------------------------------
                                                 StrongEconomicGrowthAccountAB
-                                                GreenStrongEconomicGrowthAccountAB
-                                                DenierStrongEconomicGrowthAccountAB]
+                                                GreenStrongEconomicGrowthAccount
+                                                DenierStrongEconomicGrowthAccount]
+                                                ;-----------------------------------------
 
                     [:users "CO2Cut"]         '[WeakCO2CutAccount
                                                 GreenWeakCO2CutAccount
                                                 DenierWeakCO2CutAccount
                                                 ;-----------------------------------------
                                                 StrongCO2CutAccount
-                                                GreenStrongCO2CutAccount
-                                                DenierStrongCO2CutAccount
-                                                ;-----------------------------------------
                                                 StrongCO2CutAccountAB
-                                                GreenStrongCO2CutAccountAB
-                                                DenierStrongCO2CutAccountAB]}
+                                                GreenStrongCO2CutAccount
+                                                DenierStrongCO2CutAccount]}
 
           needles (comm/instances onts (mapcat val concepts))
 
