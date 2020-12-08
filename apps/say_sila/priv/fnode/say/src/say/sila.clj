@@ -2606,19 +2606,17 @@
                                                   GreenStrongCO2CutAccount
                                                   DenierStrongCO2CutAccount]
 
-                    [:users "WeakInferred1"]    '[WeakInferredGreenAccount1
+                    [:users "Inferred1"]        '[WeakInferredGreenAccount1
                                                   GreenWeakInferredGreenAccount1
-                                                  DenierWeakInferredGreenAccount1]
-
-                    [:users "WeakInferred2"]    '[WeakInferredGreenAccount2
-                                                  GreenWeakInferredGreenAccount2
-                                                  DenierWeakInferredGreenAccount2]
-
-                    [:users "StrongInferred1"]  '[StrongInferredGreenAccount1
+                                                  DenierWeakInferredGreenAccount1
+                                                  StrongInferredGreenAccount1
                                                   GreenStrongInferredGreenAccount1
                                                   DenierStrongInferredGreenAccount1]
 
-                    [:users "StrongInferred2"]  '[StrongInferredGreenAccount2
+                    [:users "Inferred2"]        '[WeakInferredGreenAccount2
+                                                  GreenWeakInferredGreenAccount2
+                                                  DenierWeakInferredGreenAccount2
+                                                  StrongInferredGreenAccount2
                                                   GreenStrongInferredGreenAccount2
                                                   DenierStrongInferredGreenAccount2]}
 
