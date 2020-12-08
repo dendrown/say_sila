@@ -1049,6 +1049,102 @@
 (defscr-2 NATURE "Expressions which refer to the natural world."
           CAUSE  "Expressions which indicate a causal relationship.")
 
+;; Accout1 uses SCRs we expect to be green
+(defclass WeakInferredGreenAccount1
+  :super    OnlineAccount
+  :label    "Weak Inferred Green Account (type 1)"
+  :equivalent (dl/and OnlineAccount
+                      (dl/or WeakHumanCauseAccount
+                             WeakEnergyConservationAccount
+                             WeakCO2CutAccount
+                             WeakEnvironmentProtectAccount)))
+
+(defclass StrongInferredGreenAccount1
+  :super    OnlineAccount
+  :label    "Strong Inferred Green Account (type 1)"
+  :equivalent (dl/and OnlineAccount
+                      (dl/or StrongHumanCauseAccount
+                             StrongEnergyConservationAccount
+                             StrongCO2CutAccount
+                             StrongEnvironmentProtectAccount)))
+
+
+(defclass GreenWeakInferredGreenAccount1
+  :super    GreenAccount
+  :label    "Green Weak Inferred Green Account (type 1)"
+  :equivalent (dl/and GreenAccount
+                      WeakInferredGreenAccount1))
+
+(defclass GreenStrongInferredGreenAccount1
+  :super    GreenAccount
+  :label    "Green Strong Inferred Green Account (type 1)"
+  :equivalent (dl/and GreenAccount
+                      StrongInferredGreenAccount1))
+
+
+(defclass DenierWeakInferredGreenAccount1
+  :super    DenierAccount
+  :label    "Denier Weak Inferred Green Account (type 1)"
+  :equivalent (dl/and DenierAccount
+                      WeakInferredGreenAccount1))
+
+(defclass DenierStrongInferredGreenAccount1
+  :super    DenierAccount
+  :label    "Denier Strong Inferred Green Account (type 1)"
+  :equivalent (dl/and DenierAccount
+                      StrongInferredGreenAccount1))
+
+
+;; Accout2 uses additional SCRs that represent common denier talking points
+(defclass WeakInferredGreenAccount2
+  :super    OnlineAccount
+  :label    "Weak Inferred Green Account (type 2)"
+  :equivalent (dl/and OnlineAccount
+                      (dl/or WeakHumanCauseAccount
+                             WeakEnergyConservationAccount
+                             WeakCO2CutAccount
+                             WeakEnvironmentProtectAccount
+                             ; Talking about traditional denier stances
+                             WeakNatureCauseAccount
+                             WeakEconomicGrowthAccount)))
+
+(defclass StrongInferredGreenAccount2
+  :super    OnlineAccount
+  :label    "Strong Inferred Green Account (type 2)"
+  :equivalent (dl/and OnlineAccount
+                      (dl/or StrongHumanCauseAccount
+                             StrongEnergyConservationAccount
+                             StrongCO2CutAccount
+                             StrongEnvironmentProtectAccount
+                             ; Talking about traditional denier stances
+                             StrongNatureCauseAccount
+                             StrongEconomicGrowthAccount)))
+
+(defclass GreenWeakInferredGreenAccount2
+  :super    GreenAccount
+  :label    "Green Weak Inferred Green Account (type 2)"
+  :equivalent (dl/and GreenAccount
+                      WeakInferredGreenAccount2))
+
+(defclass GreenStrongInferredGreenAccount2
+  :super    GreenAccount
+  :label    "Green Strong Inferred Green Account (type 2)"
+  :equivalent (dl/and GreenAccount
+                      StrongInferredGreenAccount2))
+
+
+(defclass DenierWeakInferredGreenAccount2
+  :super    DenierAccount
+  :label    "Denier Weak Inferred Green Account (type 2)"
+  :equivalent (dl/and DenierAccount
+                      WeakInferredGreenAccount2))
+
+(defclass DenierStrongInferredGreenAccount2
+  :super    DenierAccount
+  :label    "Denier Strong Inferred Green Account (type 2)"
+  :equivalent (dl/and DenierAccount
+                      StrongInferredGreenAccount2))
+
 
 ;;; --------------------------------------------------------------------------
 ;; Original (pre-scr) combinations for analysis:
@@ -2431,84 +2527,100 @@
   ;; Use local symbols when called from another namespace
   (binding [*ns* (find-ns 'say.sila)]
     (let [;; The concept map is organized according to the report setup:
-          ;;         LEVEL  CONCEPT-TAG        ONTOLOGY SYMBOLS
-          concepts {[:texts "CauseAFFNEG"]    '[HumanAndCauseTextAFFNEG
-                                                AffirmedHumanCauseTextAFFNEG
-                                                NegatedHumanCauseTextAFFNEG
-                                                ;---------------------------------
-                                                NatureAndCauseTextAFFNEG
-                                                AffirmedNaturalCauseTextAFFNEG
-                                                NegatedNaturalCauseTextAFFNEG]
+          ;;         LEVEL  CONCEPT-TAG         ONTOLOGY SYMBOLS
+          concepts {[:texts "CauseAFFNEG"]      '[HumanAndCauseTextAFFNEG
+                                                  AffirmedHumanCauseTextAFFNEG
+                                                  NegatedHumanCauseTextAFFNEG
+                                                  ;---------------------------------
+                                                  NatureAndCauseTextAFFNEG
+                                                  AffirmedNaturalCauseTextAFFNEG
+                                                  NegatedNaturalCauseTextAFFNEG]
 
-                    [:texts "Conservation"]   '[WeakEnergyConservationText
-                                                StrongEnergyConservationTextAB]
+                    [:texts "Conservation"]     '[WeakEnergyConservationText
+                                                  StrongEnergyConservationTextAB]
 
-                    [:users "CauseAFFNET"]    '[HumanCauseAccountAFFNEG
-                                                GreenHumanCauseAccountAFFNEG
-                                                DenierHumanCauseAccountAFFNEG
-                                                ;-----------------------------------------
-                                                NaturalCauseAccountAFFNEG
-                                                GreenNaturalCauseAccountAFFNEG
-                                                DenierNaturalCauseAccountAFFNEG]
+                    [:users "CauseAFFNET"]      '[HumanCauseAccountAFFNEG
+                                                  GreenHumanCauseAccountAFFNEG
+                                                  DenierHumanCauseAccountAFFNEG
+                                                  ;-----------------------------------------
+                                                  NaturalCauseAccountAFFNEG
+                                                  GreenNaturalCauseAccountAFFNEG
+                                                  DenierNaturalCauseAccountAFFNEG]
 
-                    [:users "HumanCause"]     '[WeakHumanCauseAccount
-                                                GreenWeakHumanCauseAccount
-                                                DenierWeakHumanCauseAccount
-                                                ;-----------------------------------------
-                                                StrongHumanCauseAccount
-                                                StrongHumanCauseAccountAB
-                                               ;StrongHumanCauseAccountBA   ; Small percentage
-                                                GreenStrongHumanCauseAccount
-                                                DenierStrongHumanCauseAccount]
+                    [:users "HumanCause"]       '[WeakHumanCauseAccount
+                                                  GreenWeakHumanCauseAccount
+                                                  DenierWeakHumanCauseAccount
+                                                  ;-----------------------------------------
+                                                  StrongHumanCauseAccount
+                                                  StrongHumanCauseAccountAB
+                                                 ;StrongHumanCauseAccountBA   ; Small percentage
+                                                  GreenStrongHumanCauseAccount
+                                                  DenierStrongHumanCauseAccount]
 
-                    [:users "NatureCause"]    '[WeakNatureCauseAccount
-                                                GreenWeakNatureCauseAccount
-                                                DenierWeakNatureCauseAccount
-                                                ;-----------------------------------------
-                                                StrongNatureCauseAccount
-                                                StrongNatureCauseAccountAB
-                                                GreenStrongNatureCauseAccount
-                                                DenierStrongNatureCauseAccount]
+                    [:users "NatureCause"]      '[WeakNatureCauseAccount
+                                                  GreenWeakNatureCauseAccount
+                                                  DenierWeakNatureCauseAccount
+                                                  ;-----------------------------------------
+                                                  StrongNatureCauseAccount
+                                                  StrongNatureCauseAccountAB
+                                                  GreenStrongNatureCauseAccount
+                                                  DenierStrongNatureCauseAccount]
 
-                    [:users "Conserv-OLD"]    '[EnergyConservationAccountBROKEN1
-                                                EnergyConservationAccountBROKEN2]
+                    [:users "Conserv-OLD"]      '[EnergyConservationAccountBROKEN1
+                                                  EnergyConservationAccountBROKEN2]
 
-                    [:users "Conservation"]   '[WeakEnergyConservationAccount
-                                                GreenWeakEnergyConservationAccount
-                                                DenierWeakEnergyConservationAccount
-                                                ;-----------------------------------------
-                                                StrongEnergyConservationAccount
-                                                StrongEnergyConservationAccountAB
-                                                GreenStrongEnergyConservationAccount
-                                                DenierStrongEnergyConservationAccount]
+                    [:users "Conservation"]     '[WeakEnergyConservationAccount
+                                                  GreenWeakEnergyConservationAccount
+                                                  DenierWeakEnergyConservationAccount
+                                                  ;-----------------------------------------
+                                                  StrongEnergyConservationAccount
+                                                  StrongEnergyConservationAccountAB
+                                                  GreenStrongEnergyConservationAccount
+                                                  DenierStrongEnergyConservationAccount]
 
-                    [:users "EnvProtect"]     '[WeakEnvironmentProtectAccount
-                                                GreenWeakEnvironmentProtectAccount
-                                                DenierWeakEnvironmentProtectAccount
-                                                ;-----------------------------------------
-                                                StrongEnvironmentProtectAccount
-                                                StrongEnvironmentProtectAccountAB
-                                                GreenStrongEnvironmentProtectAccount
-                                                DenierStrongEnvironmentProtectAccount]
+                    [:users "EnvProtect"]       '[WeakEnvironmentProtectAccount
+                                                  GreenWeakEnvironmentProtectAccount
+                                                  DenierWeakEnvironmentProtectAccount
+                                                  ;-----------------------------------------
+                                                  StrongEnvironmentProtectAccount
+                                                  StrongEnvironmentProtectAccountAB
+                                                  GreenStrongEnvironmentProtectAccount
+                                                  DenierStrongEnvironmentProtectAccount]
 
-                    [:users "EconGrowth"]     '[WeakEconomicGrowthAccount
-                                                GreenWeakEconomicGrowthAccount
-                                                DenierWeakEconomicGrowthAccount
-                                                ;-----------------------------------------
-                                                StrongEconomicGrowthAccount
-                                                StrongEconomicGrowthAccountAB
-                                                GreenStrongEconomicGrowthAccount
-                                                DenierStrongEconomicGrowthAccount]
-                                                ;-----------------------------------------
+                    [:users "EconGrowth"]       '[WeakEconomicGrowthAccount
+                                                  GreenWeakEconomicGrowthAccount
+                                                  DenierWeakEconomicGrowthAccount
+                                                  ;-----------------------------------------
+                                                  StrongEconomicGrowthAccount
+                                                  StrongEconomicGrowthAccountAB
+                                                  GreenStrongEconomicGrowthAccount
+                                                  DenierStrongEconomicGrowthAccount]
+                                                  ;-----------------------------------------
 
-                    [:users "CO2Cut"]         '[WeakCO2CutAccount
-                                                GreenWeakCO2CutAccount
-                                                DenierWeakCO2CutAccount
-                                                ;-----------------------------------------
-                                                StrongCO2CutAccount
-                                                StrongCO2CutAccountAB
-                                                GreenStrongCO2CutAccount
-                                                DenierStrongCO2CutAccount]}
+                    [:users "CO2Cut"]           '[WeakCO2CutAccount
+                                                  GreenWeakCO2CutAccount
+                                                  DenierWeakCO2CutAccount
+                                                  ;-----------------------------------------
+                                                  StrongCO2CutAccount
+                                                  StrongCO2CutAccountAB
+                                                  GreenStrongCO2CutAccount
+                                                  DenierStrongCO2CutAccount]
+
+                    [:users "WeakInferred1"]    '[WeakInferredGreenAccount1
+                                                  GreenWeakInferredGreenAccount1
+                                                  DenierWeakInferredGreenAccount1]
+
+                    [:users "WeakInferred2"]    '[WeakInferredGreenAccount2
+                                                  GreenWeakInferredGreenAccount2
+                                                  DenierWeakInferredGreenAccount2]
+
+                    [:users "StrongInferred1"]  '[StrongInferredGreenAccount1
+                                                  GreenStrongInferredGreenAccount1
+                                                  DenierStrongInferredGreenAccount1]
+
+                    [:users "StrongInferred2"]  '[StrongInferredGreenAccount2
+                                                  GreenStrongInferredGreenAccount2
+                                                  DenierStrongInferredGreenAccount2]}
 
           needles (comm/instances onts (mapcat val concepts))
 
