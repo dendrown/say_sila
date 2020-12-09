@@ -1484,6 +1484,7 @@
 
   ([{:keys [tid
             polarity
+            stance
             content
             analysis]}
     survey
@@ -1493,10 +1494,10 @@
                     (tw/make-stemmer))
         colourize (fn [[word affect]]
                     (eword word affect survey snowball))
-        pn-code   (Polarity-Markers (Affect-Fragments polarity polarity))
-        etokens   (map colourize (zip content analysis))                ; Mark affect
-        etext     (apply str (interpose \space (conj etokens            ; Tag tweet
-                                                     (log/<> tid pn-code))))]
+        etokens   (map colourize (zip content analysis))        ; Mark affect
+        etext     (apply str (interpose \space
+                                        (conj etokens           ; Tag tweet
+                                              (log/<> tid (name stance)))))]
     ;; The default return is a string tagged with the ID, but they may want the tokens
     (if (some #{:map} opts)
         {:etokens etokens,
