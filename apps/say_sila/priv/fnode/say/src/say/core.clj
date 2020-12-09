@@ -273,11 +273,14 @@
 (defn go!
   "Shortcut to run the experiment current under study.  Expect this function
   to change frequently!"
-  []
+  [& opts]
   (log/notice "Minimum status count:" (cfg/?? :sila :min-statuses))
   (sila/create-world! :env
                       "/srv/say_sila/weka/tweets/tweets.all.env.2019-Q4-2020-Q1Q2.T01.U01.arff"
                       "/srv/say_sila/weka/tweets/tweets.all.env.2019-Q4-2020-Q1Q2.T01.S02.arff")
-  (sila/report-world :no-pos)
-  (sila/report-concepts))
+
+  ;; Do they want console and CSV reports??
+  (when (some #{:report} opts)
+    (sila/report-world :no-pos)
+    (sila/report-concepts)))
 
