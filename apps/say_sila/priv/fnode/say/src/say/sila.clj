@@ -908,6 +908,7 @@
              (log/debug "Using existing definition of" '~token)
              (defclass ~token
                :super pos/Token
+               :label (soc/tokenize '~token :str)
                :equivalent (dl/and pos/Token
                                    (dl/some indicatesRule ~rule)))))))
 
@@ -917,9 +918,10 @@
   "Defines a class representing one Token that is dependent on another."
   [dep-token token1 token2]
   `(defclass ~dep-token
-      :super pos/Token
-      :equivalent (dl/and ~token1
-                          (dl/some dependsOn ~token2))))
+     :super pos/Token
+     :label (soc/tokenize '~dep-token :str)
+     :equivalent (dl/and ~token1
+                         (dl/some dependsOn ~token2))))
 
 
 (defmacro defscr-text-dep
@@ -928,6 +930,7 @@
   [dep-text dep-token rule1 rule2]
   `(defclass ~dep-text
      :super Text
+     :label (soc/tokenize '~dep-text :str)
      :comment (str "A Text with components representing the concepts of " '~rule1 " and " '~rule2
                    "where the " '~rule1 " Token depends syntactically on " '~rule2)
      :equivalent (dl/and Text
@@ -940,19 +943,23 @@
   [acct text]
   (let [account `~acct
         green   (as-symbol "Green"  account)
-        denier  (as-symbol "Denier" account)]
+        denier  (as-symbol "Denier" account)
+        label   (soc/tokenize account :str)]
     `(do
       (defclass ~account
         :super OnlineAccount
+        :label ~label
         :equivalent (dl/and OnlineAccount
                             (dl/some publishes ~text)))
       (as-disjoint
        (defclass ~green
          :super GreenAccount
+         :label (str "Green " ~label)
          :equivalent (dl/and GreenAccount ~account))
 
        (defclass ~denier
          :super DenierAccount
+         :label (str "Denier " ~label)
          :equivalent (dl/and DenierAccount ~account))))))
 
 
@@ -994,6 +1001,7 @@
     ;; Define Text containing the Tokens various relations
     (defclass ~text1++2
       :super Text
+      :label (soc/tokenize '~text1++2 :str)
       :comment (str "A Text with components representing concepts of " ~rule1 " and " ~rule2)
       :equivalent (dl/and Text
                           (dl/some dul/hasComponent ~token1)
@@ -1003,6 +1011,7 @@
     (defscr-text-dep ~text2->1 ~token2->1 ~rule2 ~rule1)
     (defclass ~text1<>2
       :super Text
+      :label (soc/tokenize '~text1<>2 :str)
       :comment (str "A Text with components representing the concepts of " ~rule1 " and " ~rule2
                     "where these concepts are in arelationship of syntactical dependency")
       :equivalent (dl/and Text
