@@ -1844,33 +1844,52 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defun finalize-activity
+  "Populates an ontology community with user profile data from the 'examples'
+  intermediate format. The function returns the ontology maker for the community."
+  ([o activity texts]
+  ;; Wait until we've finished processing ARFF data to create ontologies
+  (log/debug "Finalizing activity" o)
+  (await activity)
+
+  (let [onter (make-ontology-maker o)                   ; Tag|ontology to factory function
+        accts (into #{} (map #(vector (% :screen_name)  ; Find unique [userid stance] pairs
+                                      (% :stance))
+                        texts))]
+    (run! (fn [[sname stance]]
+            (let [ont (onter sname)]
+              ;; Declare the Twitter user account (if we know it)
+              (individual ont sname :type (case stance
+                                            :green  GreenAccount
+                                            :denier DenierAccount
+                                                    OnlineAccount))))
+          accts)
+    ;; Return the ontology maker
+    onter)))
+
+
+;;; --------------------------------------------------------------------------
 (defun populate-profiles
   "Populates an ontology community with user profile data from the 'examples'
   intermediate format. The function returns the ontology maker for the community."
-  ([dtag xmps]
-  (populate-profiles dtag xmps (cfg/? :sila)))
+  ([dtag users]
+  (populate-profiles dtag users (cfg/? :sila)))
 
 
-  ([o xmps sconf]
-  (log/debug "Populating ontology:" o)
+  ([o users sconf]
   (let [onter (make-ontology-maker o)]          ; Tag|ontology to factory function
-    (run! (fn [{:as xmp
-                sname :screen_name
-                descr :description              ; User profile text
-                tid   :tid}]                    ; Text ID is the profile ID
-            (let [ont (onter sname)]
-              ;; Declare the Twitter user account if we know it
-              (individual ont sname :type (case (:stance xmp)
-                                            :green  GreenAccount
-                                            :denier DenierAccount
-                                                    OnlineAccount))
-              ;; Add PoS/senti for the user's profile content
-              (when-not (:skip-profiles sconf)
-                (add-text onter
-                          (individual ont tid :type PersonalProfile)
-                          xmp
-                          sconf))))
-          xmps)
+    (when-not (:skip-profiles sconf)
+      (run! (fn [{:as xmp
+                  sname :screen_name
+                  descr :description              ; User profile text
+                  tid   :tid}]                    ; Text ID is the profile ID
+              (let [ont (onter sname)]
+                ;; Add PoS/senti for the user's profile content
+                  (add-text onter
+                            (individual ont tid :type PersonalProfile)
+                            xmp
+                            sconf)))
+            users))
     ;; Return the ontology maker
     onter)))
 
@@ -2307,11 +2326,11 @@
     sconf]
   ;; This middle arity clause is where we wrap everything up!
   ;; The (pre)world already has users and their texts; create the ontology.
-  (await activity)
   (let [{:as   world
          :keys [users texts]} (filter-by-activity preworld sconf)
 
-        onter (-> (populate-profiles dtag users sconf)
+        onter (-> (finalize-activity dtag activity texts)
+                  (populate-profiles users sconf)
                   (populate-statuses texts sconf))]
 
     ;; Put everything together
