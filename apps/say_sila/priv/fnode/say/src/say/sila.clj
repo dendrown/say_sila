@@ -1058,6 +1058,9 @@
 (defscr-2 NATURE "Expressions which refer to the natural world."
           CAUSE  "Expressions which indicate a causal relationship.")
 
+(defscr-2 HARM   "Expressions which refer to durt or harm."
+          PEOPLE "Expressions which indicate a group of persons.")
+
 ;; Accout1 uses SCRs we expect to be green
 (defclass WeakInferredGreenAccount1
   :super    OnlineAccount
@@ -2453,8 +2456,8 @@
         report          (fn [keyz toks txts what show width]
                           (log/debug)
                           (domap
-                            #(let [tokcnt (get toks %)
-                                   txtcnt (get txts %)
+                            #(let [tokcnt (get toks % 0)
+                                   txtcnt (get txts % 0)
                                    pct    (pctz txtcnt fullcnt)]
                                (log/fmt-debug "~a~a ~va [~4d tokens in ~4d ~a (~5,2F%)]"
                                               what dtag width (show %)
@@ -2496,7 +2499,8 @@
                              ["Conservation"  ["ENERGY" "CONSERVATION"]]
                              ["CO2Cut"        ["CO2" "CUT"]]
                              ["EnvProtect"    ["ENVIRONMENT" "PROTECT"]]
-                             ["EconGrowth"    ["ECONOMIC" "GROWTH"]]]]
+                             ["EconGrowth"    ["ECONOMIC" "GROWTH"]]
+                             ["HarmPeople"    ["HARM" "PEOPLE"]]]]
     ;; Always report to REPL
     (let [pcts (report symbols scr-toks scr-txts "Concept" identity 12)]
 
@@ -2588,6 +2592,16 @@
                                                   GreenStrongEnergyConservationAccount
                                                   DenierStrongEnergyConservationAccount]
 
+                    [:users "CO2Cut"]           '[WeakCO2CutAccount
+                                                  GreenWeakCO2CutAccount
+                                                  DenierWeakCO2CutAccount
+                                                  ;-----------------------------------------
+                                                  StrongCO2CutAccount
+                                                  StrongCO2CutAccountAB
+                                                  GreenStrongCO2CutAccount
+                                                  DenierStrongCO2CutAccount]
+                                                  ;-----------------------------------------
+
                     [:users "EnvProtect"]       '[WeakEnvironmentProtectAccount
                                                   GreenWeakEnvironmentProtectAccount
                                                   DenierWeakEnvironmentProtectAccount
@@ -2607,14 +2621,15 @@
                                                   DenierStrongEconomicGrowthAccount]
                                                   ;-----------------------------------------
 
-                    [:users "CO2Cut"]           '[WeakCO2CutAccount
-                                                  GreenWeakCO2CutAccount
-                                                  DenierWeakCO2CutAccount
+                    [:users "HarmPeople"]       '[WeakHarmPeopleAccount
+                                                  GreenWeakHarmPeopleAccount
+                                                  DenierWeakHarmPeopleAccount
                                                   ;-----------------------------------------
-                                                  StrongCO2CutAccount
-                                                  StrongCO2CutAccountAB
-                                                  GreenStrongCO2CutAccount
-                                                  DenierStrongCO2CutAccount]
+                                                  StrongHarmPeopleAccount
+                                                  StrongHarmPeopleAccountAB
+                                                  GreenStrongHarmPeopleAccount
+                                                  DenierStrongHarmPeopleAccount]
+                                                  ;-----------------------------------------
 
                     [:users "Inferred1"]        '[WeakInferredGreenAccount1
                                                   GreenWeakInferredGreenAccount1
