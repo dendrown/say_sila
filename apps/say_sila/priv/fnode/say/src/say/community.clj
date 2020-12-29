@@ -63,11 +63,12 @@
 
   ([comm who onter]
   ;; Here we create the ontology if it doesn't already exist
-  (get (swap! comm
-              #(if (get % who)
-                   %                                ; Ontology already there!
-                   (conj % [who (onter who)])))     ; New individual ontology
-       who)))
+  (when who
+    (get (swap! comm
+                #(if (get % who)
+                     %                              ; Ontology already there!
+                     (conj % [who (onter who)])))   ; New individual ontology
+         who))))
 
 
 

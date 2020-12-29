@@ -56,7 +56,11 @@
                                  "ENVIRONMENT"  #{"environment"}
                                  ;; ------------------------------------------
                                  "ECONOMIC"     #{"economic"}
-                                 "GROWTH"       #{"growth"}})
+                                 "GROWTH"       #{"growth"}
+                                 ;; ------------------------------------------
+                                 "HARM"         #{"harm"}
+                                 "PEOPLE"       #{"people"}
+                                 })
 
 (defonce Concept-Words          (word/synonym-values Concept-Triggers))     ; Concept expansion
 (defonce Concept-Stems          (update-values Concept-Words #(tw/stem-all % :set)))
