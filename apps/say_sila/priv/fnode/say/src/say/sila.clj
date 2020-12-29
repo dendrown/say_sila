@@ -1058,8 +1058,14 @@
 (defscr-2 NATURE "Expressions which refer to the natural world."
           CAUSE  "Expressions which indicate a causal relationship.")
 
-(defscr-2 HARM   "Expressions which refer to durt or harm."
-          PEOPLE "Expressions which indicate a group of persons.")
+(defscr-2 PEOPLE "Expressions which indicate a group of persons."
+          HARM   "Expressions which refer to hurt or harm.")
+
+(defscr-2 COMPANY "Expressions which indicate..."                   ; TODO: remove (low coverage)
+          REWARD  "Expressions which refer to...")
+
+(defscr-2 COMPANY "Expressions which indicate..."                   ; TODO: remove (low coverage)
+          PUNISH  "Expressions which refer to...")
 
 ;; Accout1 uses SCRs we expect to be green
 (defclass WeakInferredGreenAccount1
@@ -2514,12 +2520,15 @@
           svy-toks svy-txts "Survey" name 12)
 
   ;; Survey Concept Rules (show in REPL and add to running CSV files)
-  (doseq [[concept symbols] [["CauseBeliever" ["CAUSE" "HUMAN" "NATURE" "NEGATION"]]
-                             ["Conservation"  ["ENERGY" "CONSERVATION"]]
-                             ["CO2Cut"        ["CO2" "CUT"]]
-                             ["EnvProtect"    ["ENVIRONMENT" "PROTECT"]]
-                             ["EconGrowth"    ["ECONOMIC" "GROWTH"]]
-                             ["HarmPeople"    ["HARM" "PEOPLE"]]]]
+  (doseq [[concept symbols] [["CauseBeliever"   ["CAUSE" "HUMAN" "NATURE" "NEGATION"]]
+                             ["Conservation"    ["ENERGY" "CONSERVATION"]]
+                             ["CO2Cut"          ["CO2" "CUT"]]
+                             ["EnvProtect"      ["ENVIRONMENT" "PROTECT"]]
+                             ["EconGrowth"      ["ECONOMIC" "GROWTH"]]
+                             ["PeopleHarm"      ["PEOPLE" "HARM"]]
+                             ["CompanyReward"   ["COMPANY" "REWARD"]]   ; TODO: remove (low coverage)
+                             ["CompanyPunish"   ["COMPANY" "PUNISH"]]   ; TODO: remove (low coverage)
+                            ]]
     ;; Always report to REPL
     (let [pcts (report symbols scr-toks scr-txts "Concept" identity 12)]
 
@@ -2640,14 +2649,35 @@
                                                   DenierStrongEconomicGrowthAccount]
                                                   ;-----------------------------------------
 
-                    [:users "HarmPeople"]       '[WeakHarmPeopleAccount
-                                                  GreenWeakHarmPeopleAccount
-                                                  DenierWeakHarmPeopleAccount
+                    [:users "PeopleHarm"]       '[WeakPeopleHarmAccount
+                                                  GreenWeakPeopleHarmAccount
+                                                  DenierWeakPeopleHarmAccount
                                                   ;-----------------------------------------
-                                                  StrongHarmPeopleAccount
-                                                  StrongHarmPeopleAccountAB
-                                                  GreenStrongHarmPeopleAccount
-                                                  DenierStrongHarmPeopleAccount]
+                                                  StrongPeopleHarmAccount
+                                                  StrongPeopleHarmAccountAB
+                                                  GreenStrongPeopleHarmAccount
+                                                  DenierStrongPeopleHarmAccount]
+                                                  ;-----------------------------------------
+                    ;; TODO: Remove trial with low coverage
+                    [:users "CompanyReward"]    '[WeakCompanyRewardAccount
+                                                  GreenWeakCompanyRewardAccount
+                                                  DenierWeakCompanyRewardAccount
+                                                  ;-----------------------------------------
+                                                  StrongCompanyRewardAccount
+                                                  StrongCompanyRewardAccountAB
+                                                  GreenStrongCompanyRewardAccount
+                                                  DenierStrongCompanyRewardAccount]
+                                                  ;-----------------------------------------
+
+                    ;; TODO: Remove trial with low coverage
+                    [:users "CompanyPunish"]    '[WeakCompanyPunishAccount
+                                                  GreenWeakCompanyPunishAccount
+                                                  DenierWeakCompanyPunishAccount
+                                                  ;-----------------------------------------
+                                                  StrongCompanyPunishAccount
+                                                  StrongCompanyPunishAccountAB
+                                                  GreenStrongCompanyPunishAccount
+                                                  DenierStrongCompanyPunishAccount]
                                                   ;-----------------------------------------
 
                     [:users "Inferred1"]        '[WeakInferredGreenAccount1

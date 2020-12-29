@@ -58,9 +58,15 @@
                                  "ECONOMIC"     #{"economic"}
                                  "GROWTH"       #{"growth"}
                                  ;; ------------------------------------------
-                                 "HARM"         #{"harm"}
                                  "PEOPLE"       #{"people"}
-                                 })
+                                 "HARM"         #{"harm"}
+                                 ;; ------------------------------------------
+                                 ;; TODO: Remove trials with low coverage
+                                 ;; ------------------------------------------
+                                 "COMPANY"      #{"company"}
+                                 "REWARD"       #{"reward"}
+                                 "PUNISH"       #{"punish"}
+                                })
 
 (defonce Concept-Words          (word/synonym-values Concept-Triggers))     ; Concept expansion
 (defonce Concept-Stems          (update-values Concept-Words #(tw/stem-all % :set)))
