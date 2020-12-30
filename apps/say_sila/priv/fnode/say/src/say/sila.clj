@@ -2372,14 +2372,35 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn count-affect
+(defn get-user-texts
+  "Returns a sequence of text examples from the user of the specified world.
+  These texts can be tweets (ttype is :texts) or profiles (ttype is :users)."
+  ([user]
+  (get-user-texts user :texts))
+
+
+  ([user ttype]
+  (get-user-texts user ttype @World))
+
+
+  ([user ttype world]
+  (filter #(= user (:screen_name %)) (world ttype))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defun count-affect
   "Returns a map containing the counts of affective words in tweets for the
    following user categories: all, green, denier."
   ([]
   (count-affect @World))
 
 
-  ([{:keys [texts]}]
+  ([world :guard map?]
+  (count-affect (:texts world)))
+
+
+  ([texts]
   (let [;; Initialize map, keyed by affect with zero counts
         zeros (apply zero-hashmap Affect-Names)
 
@@ -2403,6 +2424,42 @@
 
     ;; Now, count all that up!
     (update-values texts-map emote))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn count-user-affect
+  "Returns a map containing the counts of affective words in texts for a single
+  user in the world."
+  ([user]
+  (count-user-affect user :texts))
+
+
+  ([user ttype]
+  (count-user-affect user ttype @World))
+
+
+  ([user ttype world]
+  (:all (count-affect (get-user-texts user ttype world)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn count-world-affect
+  "Returns a map containing the counts of affective words in texts, keyed by
+  the users publishing the texts."
+  ([]
+  (count-world-affect :texts))
+
+
+  ([ttype]
+  (count-world-affect ttype @World))
+
+
+  ([ttype world]
+  (into {} (map #(vector %
+                         (count-user-affect % ttype world))
+                (into #{} (map :screen_name (world ttype)))))))
 
 
 
@@ -2741,23 +2798,6 @@
     (when (some #{:users} opts)
       (log/debug)
       (log/fmt-info "USERS~a: ~a" dtag (map :screen_name users)))))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn get-user-texts
-  "Returns a sequence of text examples from the user of the specified world.
-  These texts can be tweets (ttype is :texts) or profiles (ttype is :users)."
-  ([user]
-  (get-user-texts user :texts))
-
-
-  ([user ttype]
-  (get-user-texts user ttype @World))
-
-
-  ([user ttype world]
-  (filter #(= user (:screen_name %)) (world ttype))))
 
 
 
