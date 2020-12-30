@@ -2745,6 +2745,40 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-user-texts
+  "Returns a sequence of text examples from the user of the specified world.
+  These texts can be tweets (ttype is :texts) or profiles (ttype is :users)."
+  ([user]
+  (get-user-texts user :texts))
+
+
+  ([user ttype]
+  (get-user-texts user ttype @World))
+
+
+  ([user ttype world]
+  (filter #(= user (:screen_name %)) (world ttype))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn get-user-stance
+  "Returns the user's stance on climate change per the recorded Weka analysis
+  of his/her tweets."
+  ([user]
+  (get-user-stance user @World))
+
+
+  ([user world]
+  ;; As a sanity check, make sure the user has only one stance
+  (let [stances (into #{} (map :stance (get-user-texts user :texts world)))]
+    (if (at-most? 1 stances)
+        (first stances)
+        (log/error "User" user "has multiple stances:" stances)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn eprint-user
   "Pretty-prints a user's profile and tweets, highlighting the affect and
   showing a token dependency tree if available."
@@ -2766,7 +2800,7 @@
                                                user
                                                log/Text)
                   (eprint-tweet txt))
-                (filter #(= user (:screen_name %)) (world ttype))))
+                (get-user-texts user ttype world)))
         [:users :texts])))
 
 
