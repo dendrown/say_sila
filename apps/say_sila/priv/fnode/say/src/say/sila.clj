@@ -2457,13 +2457,10 @@
 
 
   ([ttype world]
-  ; Speedup: 5% over (into {} (map ...))
-  (reduce (fn [acc {sname :screen_name}]
-            (if (contains? acc sname)
-                acc
-                (assoc acc sname (count-user-affect sname ttype world))))
-          {}
-          (world ttype))))
+  ;; We get a 3X speedup using pmap over map
+  (into {} (pmap #(vector %
+                         (count-user-affect % ttype world))
+                (into #{} (map :screen_name (world ttype)))))))
 
 
 
