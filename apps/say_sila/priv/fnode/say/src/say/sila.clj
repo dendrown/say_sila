@@ -58,6 +58,9 @@
 
 
 ;;; --------------------------------------------------------------------------
+;;; TODO:
+;;; - defworldfn macro
+;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
 (def ^:const Ont-IStub      "http://www.dendrown.net/uqam/say-sila")
@@ -2372,6 +2375,24 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-accounts
+  "Returns a set of the user accounts in a world.  The users may be pulled
+  with respect to a text type of :texts for tweets (default) or :users for
+  user profiles."
+  ([]
+  (get-accounts :texts))
+
+
+  ([ttype]
+  (get-accounts ttype @World))
+
+
+  ([ttype world]
+  (into #{} (map :screen_name (world ttype)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn get-user-texts
   "Returns a sequence of text examples from the user of the specified world.
   These texts can be tweets (ttype is :texts) or profiles (ttype is :users)."
@@ -2458,9 +2479,57 @@
 
   ([ttype world]
   ;; We get a 3X speedup using pmap over map
+  (into {} (pmap (fn [acct]
+                   [acct (count-user-affect acct ttype world)])
+                 (get-accounts ttype world)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn find-user-indicators
+  "Returns a set containing the ontological symbols representing the say.sila
+  indicator accounts which apply to the specified user."
+  ([user]
+  (find-user-indicators user @World))
+
+
+  ([user {onter :ontology}]
+  (when onter
+    ;; Use local symbols when called from another namespace
+    (inf/with-ns-silence 'say.sila
+      (let [inds '[WeakHumanCauseAccount
+                   WeakNatureCauseAccount
+                   WeakEnergyConservationAccount
+                   WeakCO2CutAccount
+                   WeakEnvironmentProtectAccount
+                   WeakEconomicGrowthAccount]
+            ont  (onter user)
+            hits (reduce #(if (empty? (rsn/instances ont (eval %2)))
+                              %1
+                              (conj %1 %2))
+                         #{}
+                         inds)]
+        (when ont
+          (inf/unreason ont)                        ; Reclaim memory from reasoner
+          (into #{} (filter hits inds))))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn find-indicators
+  ""
+  ([]
+  (find-indicators :texts))
+
+
+  ([ttype]
+  (find-indicators ttype @World))
+
+
+  ([ttype world]
   (into {} (pmap #(vector %
-                         (count-user-affect % ttype world))
-                (into #{} (map :screen_name (world ttype)))))))
+                          (find-user-indicators % world))
+                 (get-accounts ttype world)))))
 
 
 

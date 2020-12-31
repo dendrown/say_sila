@@ -23,11 +23,30 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn silence
+  "Returns an Atom whose value is a silent reasoner progress monitor."
+  []
+  (atom rsn/reasoner-progress-monitor-silent))
+
+
+
+;;; --------------------------------------------------------------------------
 (defmacro with-silence
   "Performs the reasoning operation in the body using a silent reasoner
   progress monitor."
   [& body]
-  `(binding [rsn/*reasoner-progress-monitor* (atom rsn/reasoner-progress-monitor-silent)]
+  `(binding [rsn/*reasoner-progress-monitor* (silence)]
+     ~@body))
+
+
+
+;;; --------------------------------------------------------------------------
+(defmacro with-ns-silence
+  "Performs the reasoning operation in the body within the specified namespace
+  and using a silent reasoner progress monitor."
+  [nspace & body]
+  `(binding [*ns* (find-ns ~nspace)
+             rsn/*reasoner-progress-monitor* (silence)]
      ~@body))
 
 
