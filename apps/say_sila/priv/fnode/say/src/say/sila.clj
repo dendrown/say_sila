@@ -2571,8 +2571,10 @@
   ([ttype world]
   ;; TODO: Adapt and move this function to weka.dataset as Y00
   (let [insts   (weka/load-dataset (str Data-Plan-Dir "/G00.arff") "stance")
-        attrs   (weka/attribute-seq insts)
+        [uid &                                          ; screen name
+         attrs] (butlast (weka/attribute-seq insts))    ; Everything else but target
         attrcnt (.numAttributes insts)
+        target  (dset/col-target :g00)
         relname (str (.relationName insts) "-" (name (:dtag world)))
 
         ;; Combine affect & indicators into a account-keyed map
@@ -2593,10 +2595,10 @@
                       (.setValue inst attr
                                  (double (get data (.name attr) 0.0))))]
         (.setDataset inst insts)
+        (.setClassValue inst (name (stances usr)))
+        (.setValue inst ^Attribute uid
+                        ^String usr)
         (run! setdata attrs)
-        (.setClassValue inst (case (stances usr)
-                               :green  0.0
-                               :denier 1.0))
         (.add insts inst)))
 
     ;; TODO: Determine where the ARFF should go
