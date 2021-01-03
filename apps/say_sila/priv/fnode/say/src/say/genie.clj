@@ -386,6 +386,16 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn p-update-values
+  "Maps the specified function across all the values in a hashmap.
+  The passed fuction is of arity one, accepting the old hashmap value.
+  The mapping effort happens concurrently via pmap."
+  [hmap fun]
+  (into {} (pmap (fn [[k v]] [k (fun v)]) hmap)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn update-keys
   "Maps the specified function across all the elements in a hashmap, updating
   the keys with the value returned by the passed funtion.  This fuction is of

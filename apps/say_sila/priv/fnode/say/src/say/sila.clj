@@ -2578,14 +2578,24 @@
         relname (str (.relationName insts) "-" (name (:dtag world)))
 
         ;; Combine affect & indicators into a account-keyed map
+        _       (log/debug "Counting affect")
         affects (count-world-affect ttype world)
+
+        _       (log/debug "Finding indicators")
         indics  (find-indicators ttype world)
+
+        _       (log/debug "Getting user stances")
         stances (into {} (pmap (fn [acct]
                                  [acct (get-user-stance acct world)])
                                (keys affects)))
-        users   (merge-with merge affects
-                                  (update-values indics #(into {} (map (fn [acct] [(name acct) 1]) %))))]
 
+        _       (log/debug "Merging affect and indicators")
+        users   (merge-with merge affects
+                                  (p-update-values indics
+                                                   #(into {} (map (fn [acct]
+                                                                    ;; Convert set entries to {key=>1}
+                                                                    [(name acct) 1])
+                                                                  %))))]
     ;; Create the new dataset
     (log/notice "Creating ARFF:" relname)
     (.setRelationName insts relname)
