@@ -53,7 +53,9 @@
             (org.semanticweb.owlapi.model   IRI
                                             OWLOntology
                                             OWLOntologyID)
-            (weka.core Instance
+            (weka.core Attribute
+                       DenseInstance
+                       Instance
                        Instances)))
 
 
@@ -69,6 +71,7 @@
 (def ^:const Ont-FStub      "resources/KB/say-sila")
 (def ^:const Emotion-FStub  "resources/world")
 (def ^:const World-FStub    "resources/world")
+(def ^:const Data-Plan-Dir  "resources/data-plan")
 (def ^:const Tmp-Dir        "/tmp/say_sila")                ; Shared with Erlang
 
 (def ^:const Init-Data      {:tag :env, :tracker :all, :source :tweets, :dir Emotion-FStub})
@@ -76,6 +79,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defonce Memory         (agent {:start (jvm/memory-used :MB)})) ; Memory used in megabytes
+
+(defonce Base-Plutchik '[Anger Fear ,, Sadness Joy        ,, Surprise Anticipation ,, Disgust Trust])
+(defonce Base-Ekman    '[Anger Fear    Sadness Happiness     Surprise                 Disgust])
 
 ;;; Word sets which invoke Survey Concept Rules
 (defonce Rule-Triggers  (merge six/Concept-Triggers
@@ -283,8 +289,8 @@
     (when esys
       ;; Create Affect concepts according to the system
       (conj (case esys
-              :plutchik (map emote '[Anger Fear ,, Sadness Joy        ,, Surprise Anticipation ,, Disgust Trust])
-              :ekman    (map emote '[Anger Fear    Sadness Happiness     Surprise                 Disgust])
+              :plutchik (map emote Base-Plutchik)
+              :ekman    (map emote Base-Ekman)
               `((log/fmt-error "Unsupported emotion system: [~a]" ~esys)))
 
             `(log/fmt-info "Creating base emotion set: [~a]" ~esys)       ; Building a do-expr in reverse!
@@ -2534,6 +2540,71 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-user-stance
+  "Returns the user's stance on climate change per the recorded Weka analysis
+  of his/her tweets."
+  ([user]
+  (get-user-stance user @World))
+
+
+  ([user world]
+  ;; As a sanity check, make sure the user has only one stance
+  (let [stances (into #{} (map :stance (get-user-texts user :texts world)))]
+    (if (at-most? 1 stances)
+        (first stances)
+        (log/error "User" user "has multiple stances:" stances)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn world->arff
+  "Creates an ARFF representing the specified world.  The caller may indicate
+  a text type of :text (tweets) :users (profiles) or :all (TODO)."
+  ([]
+  (world->arff :texts))
+
+
+  ([ttype]
+  (world->arff ttype @World))
+
+
+  ([ttype world]
+  ;; TODO: Adapt and move this function to weka.dataset as Y00
+  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/G00.arff") "stance")
+        attrs   (weka/attribute-seq insts)
+        attrcnt (.numAttributes insts)
+        relname (str (.relationName insts) "-" (name (:dtag world)))
+
+        ;; Combine affect & indicators into a account-keyed map
+        affects (count-world-affect ttype world)
+        indics  (find-indicators ttype world)
+        stances (into {} (pmap (fn [acct]
+                                 [acct (get-user-stance acct world)])
+                               (keys affects)))
+        users   (merge-with merge affects
+                                  (update-values indics #(into {} (map (fn [acct] [(name acct) 1]) %))))]
+
+    ;; Create the new dataset
+    (log/notice "Creating ARFF:" relname)
+    (.setRelationName insts relname)
+    (doseq [[usr data] users]
+      (let [inst    (DenseInstance. attrcnt)
+            setdata (fn [^Attribute attr]
+                      (.setValue inst attr
+                                 (double (get data (.name attr) 0.0))))]
+        (.setDataset inst insts)
+        (run! setdata attrs)
+        (.setClassValue inst (case (stances usr)
+                               :green  0.0
+                               :denier 1.0))
+        (.add insts inst)))
+
+    ;; TODO: Determine where the ARFF should go
+    (weka/save-file (str Tmp-Dir "/" relname ".arff") insts))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- report-to-csv
   "Saves the specified information to a CSV file."
   [ctype concept syms fullcnt percents]
@@ -2868,23 +2939,6 @@
     (when (some #{:users} opts)
       (log/debug)
       (log/fmt-info "USERS~a: ~a" dtag (map :screen_name users)))))
-
-
-
-;;; --------------------------------------------------------------------------
-(defn get-user-stance
-  "Returns the user's stance on climate change per the recorded Weka analysis
-  of his/her tweets."
-  ([user]
-  (get-user-stance user @World))
-
-
-  ([user world]
-  ;; As a sanity check, make sure the user has only one stance
-  (let [stances (into #{} (map :stance (get-user-texts user :texts world)))]
-    (if (at-most? 1 stances)
-        (first stances)
-        (log/error "User" user "has multiple stances:" stances)))))
 
 
 

@@ -1,0 +1,22 @@
+@RELATION G00
+
+@ATTRIBUTE screen_name string
+@ATTRIBUTE Anger numeric
+@ATTRIBUTE Fear numeric
+@ATTRIBUTE Sadness numeric
+@ATTRIBUTE Joy numeric
+@ATTRIBUTE Surprise numeric
+@ATTRIBUTE Anticipation numeric
+@ATTRIBUTE Disgust numeric
+@ATTRIBUTE Trust numeric
+@ATTRIBUTE Positive numeric
+@ATTRIBUTE Negative numeric
+@ATTRIBUTE WeakHumanCauseAccount numeric
+@ATTRIBUTE WeakNatureCauseAccount numeric
+@ATTRIBUTE WeakEnergyConservationAccount numeric
+@ATTRIBUTE WeakCO2CutAccount numeric
+@ATTRIBUTE WeakEnvironmentProtectAccount numeric
+@ATTRIBUTE WeakEconomicGrowthAccount numeric
+@ATTRIBUTE stance {green,denier}
+
+@DATA
