@@ -2503,12 +2503,12 @@
   (when onter
     ;; Use local symbols when called from another namespace
     (inf/with-ns-silence 'say.sila
-      (let [inds '[WeakHumanCauseAccount
-                   WeakNatureCauseAccount
-                   WeakEnergyConservationAccount
-                   WeakCO2CutAccount
-                   WeakEnvironmentProtectAccount
-                   WeakEconomicGrowthAccount]
+      (let [inds '[WeakHumanCauseAccount            StrongHumanCauseAccount
+                   WeakNatureCauseAccount           StrongNatureCauseAccount
+                   WeakEnergyConservationAccount    StrongEnergyConservationAccount
+                   WeakCO2CutAccount                StrongCO2CutAccount
+                   WeakEnvironmentProtectAccount    StrongEnvironmentProtectAccount
+                   WeakEconomicGrowthAccount        StrongEconomicGrowthAccount]
             ont  (onter user)
             hits (reduce #(if (empty? (rsn/instances ont (eval %2)))
                               %1
@@ -2570,11 +2570,11 @@
 
   ([ttype world]
   ;; TODO: Adapt and move this function to weka.dataset as Y00
-  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/G00.arff") "stance")
+  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/G01.arff") "stance")
         [uid &                                          ; screen name
          attrs] (butlast (weka/attribute-seq insts))    ; Everything else but target
         attrcnt (.numAttributes insts)
-        target  (dset/col-target :g00)
+        target  (dset/col-target :g)
         relname (str (.relationName insts) "-" (name (:dtag world)))
 
         ;; Combine affect & indicators into a account-keyed map

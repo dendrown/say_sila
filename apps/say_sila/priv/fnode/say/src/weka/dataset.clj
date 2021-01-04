@@ -53,7 +53,7 @@
 ;;; Current dataset layouts; where for the X99 codes:
 ;;; - X is the dataset content code, and
 ;;; - the highest 99 value represents the latest version
-(defonce Datasets   {:g :g00            ; [G]reen/denier machine learning target
+(defonce Datasets   {:g :g01            ; [G]reen/denier machine learning target
                      :s :s02            ; [S]tatus text [s]entiment/emotion
                      :t :t01            ; [T]witter input (from Sila/erl)
                      :u :u01})          ; [U]ser information
@@ -62,7 +62,11 @@
 ;;; Column names generally correspond to Twitter's status (meta)data keys
 (defonce G00-Cols   (col-map [:screen_name
                               ; TODO: affect
-                              ; TODO: indicator accounts
+                              ; TODO: weak indicator accounts
+                              :stance]))
+(defonce G01-Cols   (col-map [:screen_name
+                              ; TODO: affect
+                              ; TODO: indicatork+strong  accounts
                               :stance]))
 
 (defonce S00-Cols   (col-map [:id :text :sentiment]))
@@ -77,6 +81,7 @@
 
 ;;; Column/attribute lookup by dataset
 (defonce Columns    {:g00 G00-Cols
+                     :g01 G01-Cols
                      ;--------------
                      :s00 S00-Cols
                      :s01 S01-Cols
