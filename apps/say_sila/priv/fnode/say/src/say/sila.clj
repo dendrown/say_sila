@@ -2571,8 +2571,9 @@
   ([ttype world]
   ;; TODO: Adapt and move this function to weka.dataset as Y00
   (let [insts   (weka/load-dataset (str Data-Plan-Dir "/G01.arff") "stance")
-        [uid &                                          ; screen name
-         attrs] (butlast (weka/attribute-seq insts))    ; Everything else but target
+        [uid &                                      ; screen name
+         attrs] (weka/attribute-seq insts)          ; Everything else (skips target)
+
         attrcnt (.numAttributes insts)
         target  (dset/col-target :g)
         relname (str (.relationName insts) "-" (name (:dtag world)))
