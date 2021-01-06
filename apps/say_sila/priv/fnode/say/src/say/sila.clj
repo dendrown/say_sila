@@ -2503,21 +2503,25 @@
   (when onter
     ;; Use local symbols when called from another namespace
     (inf/with-ns-silence 'say.sila
-      (let [inds '[WeakHumanCauseAccount            StrongHumanCauseAccount
-                   WeakNatureCauseAccount           StrongNatureCauseAccount
-                   WeakEnergyConservationAccount    StrongEnergyConservationAccount
-                   WeakCO2CutAccount                StrongCO2CutAccount
-                   WeakEnvironmentProtectAccount    StrongEnvironmentProtectAccount
-                   WeakEconomicGrowthAccount        StrongEconomicGrowthAccount]
+      (let [inds '[WeakHumanCauseText           StrongHumanCauseText
+                   WeakNatureCauseText          StrongNatureCauseText
+                   WeakEnergyConservationText   StrongEnergyConservationText
+                   WeakCO2CutText               StrongCO2CutText
+                   WeakEnvironmentProtectText   StrongEnvironmentProtectText
+                   WeakEconomicGrowthText       StrongEconomicGrowthText]
             ont  (onter user)
-            hits (reduce #(if (empty? (rsn/instances ont (eval %2)))
-                              %1
-                              (conj %1 %2))
-                         #{}
+            hits (reduce #(let [txts (rsn/instances ont (eval %2))]
+                            (if (empty? txts)
+                                %1
+                                (conj %1 [%2 (count txts)])))
+                         {}
                          inds)]
+        ;; FIXME:
+        ;; FIXME: Use an outer-level when-let
+        ;; FIXME:
         (when ont
           (inf/unreason ont)                        ; Reclaim memory from reasoner
-          (into #{} (filter hits inds))))))))
+          hits))))))
 
 
 
@@ -2576,14 +2580,17 @@
 
         attrcnt (.numAttributes insts)
         target  (dset/col-target :g)
-        relname (str (.relationName insts) "-" (name (:dtag world)))
+        relname (str (.relationName insts)  "-"
+                     (name (:dtag world))   "-"
+                     (cfg/?? :sila :min-statuses))
 
         ;; Combine affect & indicators into a account-keyed map
         _       (log/debug "Counting affect")
         affects (count-world-affect ttype world)
 
         _       (log/debug "Finding indicators")
-        indics  (find-indicators ttype world)
+        indics  (update-values (find-indicators ttype world)    ; key[acct] val[ind-texts]
+                               #(update-keys % name))           ; sym-keys -> str-keys
 
         _       (log/debug "Getting user stances")
         stances (into {} (pmap (fn [acct]
@@ -2591,12 +2598,8 @@
                                (keys affects)))
 
         _       (log/debug "Merging affect and indicators")
-        users   (merge-with merge affects
-                                  (p-update-values indics
-                                                   #(into {} (map (fn [acct]
-                                                                    ;; Convert set entries to {key=>1}
-                                                                    [(name acct) 1])
-                                                                  %))))]
+        users   (merge-with merge affects indics)]
+
     ;; Create the new dataset
     (log/notice "Creating ARFF:" relname)
     (.setRelationName insts relname)
@@ -2607,8 +2610,8 @@
                                  (double (get data (.name attr) 0.0))))]
         (.setDataset inst insts)
         (.setClassValue inst (name (stances usr)))
-        (.setValue inst ^Attribute uid
-                        ^String usr)
+        ;(.setValue inst ^Attribute uid
+        ;                ^String usr)
         (run! setdata attrs)
         (.add insts inst)))
 

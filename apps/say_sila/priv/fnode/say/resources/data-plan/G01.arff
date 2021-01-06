@@ -11,18 +11,18 @@
 @ATTRIBUTE Trust numeric
 @ATTRIBUTE Positive numeric
 @ATTRIBUTE Negative numeric
-@ATTRIBUTE WeakHumanCauseAccount numeric
-@ATTRIBUTE WeakNatureCauseAccount numeric
-@ATTRIBUTE WeakEnergyConservationAccount numeric
-@ATTRIBUTE WeakCO2CutAccount numeric
-@ATTRIBUTE WeakEnvironmentProtectAccount numeric
-@ATTRIBUTE WeakEconomicGrowthAccount numeric
-@ATTRIBUTE StrongHumanCauseAccount numeric
-@ATTRIBUTE StrongNatureCauseAccount numeric
-@ATTRIBUTE StrongEnergyConservationAccount numeric
-@ATTRIBUTE StrongCO2CutAccount numeric
-@ATTRIBUTE StrongEnvironmentProtectAccount numeric
-@ATTRIBUTE StrongEconomicGrowthAccount numeric
+@ATTRIBUTE WeakHumanCauseText numeric
+@ATTRIBUTE WeakNatureCauseText numeric
+@ATTRIBUTE WeakEnergyConservationText numeric
+@ATTRIBUTE WeakCO2CutText numeric
+@ATTRIBUTE WeakEnvironmentProtectText numeric
+@ATTRIBUTE WeakEconomicGrowthText numeric
+@ATTRIBUTE StrongHumanCauseText numeric
+@ATTRIBUTE StrongNatureCauseText numeric
+@ATTRIBUTE StrongEnergyConservationText numeric
+@ATTRIBUTE StrongCO2CutText numeric
+@ATTRIBUTE StrongEnvironmentProtectText numeric
+@ATTRIBUTE StrongEconomicGrowthText numeric
 @ATTRIBUTE stance {green,denier}
 
 @DATA
