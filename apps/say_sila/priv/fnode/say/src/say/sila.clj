@@ -2576,7 +2576,9 @@
 
         attrcnt (.numAttributes insts)
         target  (dset/col-target :g)
-        relname (str (.relationName insts) "-" (name (:dtag world)))
+        relname (str (.relationName insts) "-"
+                     (name (:dtag world))  "-"
+                     (cfg/?? :sila :min-statuses))
 
         ;; Combine affect & indicators into a account-keyed map
         _       (log/debug "Counting affect")
