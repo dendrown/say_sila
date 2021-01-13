@@ -19,6 +19,7 @@
 -export([start/1,       start/2,
          start_link/1,  start_link/2,
          stop/0,
+         categorize/1,  categorize/2,
          clear_cache/0,
          get_stance/1,  get_stance/2,
          get_stances/0, get_stances/1,
@@ -131,6 +132,35 @@ start_link(Tracker, Options) ->
 stop() ->
     gen_server:call(?MODULE, stop),
     dets:close(?STANCE_CACHE).
+
+
+
+%%--------------------------------------------------------------------
+-spec categorize(UserStances :: #{binary() := stance()}) -> #{stance() := [binary()]}.
+
+-spec categorize(UserStances :: #{binary() := stance()},
+                 Options     :: options()) -> #{stance() := term()}.
+%%
+% @doc  Takes a map of users to stances (e.g., from load_stances/1) and
+%       returns a map of stances to lists of users.  The only option
+%       currently supported is `count' which will count the users for
+%       each stance rather than listing them.
+% @end  --
+categorize(UserStances) ->
+    % Function to flip the input map around: val=>[key, ...]
+    CatUser = fun(User, Stance, Acc) ->
+        Users = maps:get(Stance, Acc, []),
+        Acc#{Stance => [User|Users]}
+    end,
+    maps:fold(CatUser, #{}, UserStances).
+
+
+categorize(UserStances, Options) ->
+    Cats = categorize(UserStances),
+    case pprops:get_value(count, Options) of
+        undefined -> Cats;
+        _         -> maps:map(fun(_,Users) -> length(Users) end, Cats)
+    end.
 
 
 
