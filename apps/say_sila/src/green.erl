@@ -21,6 +21,7 @@
          stop/0,
          categorize/1,  categorize/2,
          clear_cache/0,
+         count_cache/0,
          get_stance/1,  get_stance/2,
          get_stances/0, get_stances/1,
          load_stances/1,
@@ -172,6 +173,20 @@ categorize(UserStances, Options) ->
 % @end  --
 clear_cache() ->
     dets:delete_all_objects(?STANCE_CACHE).
+
+
+
+%%--------------------------------------------------------------------
+-spec count_cache() -> #{stance() => integer()}.
+%%
+% @doc  Reports user counts for the stances cached in DETS.
+% @end  --
+count_cache() ->
+    Counter = fun({_, Stance}, Acc) ->
+        Cnt = maps:get(Stance, Acc, 0),
+        Acc#{Stance => Cnt+1}
+    end,
+    dets:foldl(Counter, #{}, ?STANCE_CACHE).
 
 
 
