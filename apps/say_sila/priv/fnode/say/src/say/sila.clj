@@ -1893,7 +1893,7 @@
 
   ([o users sconf]
   (let [onter (make-ontology-maker o)]          ; Tag|ontology to factory function
-    (when-not (:skip-profiles sconf)
+    (when-not (:skip-profiles? sconf)
       (run! (fn [{:as xmp
                   sname :screen_name
                   descr :description              ; User profile text
@@ -2075,7 +2075,7 @@
   ([o xmps sconf]
   (let [onter (make-ontology-maker o)]
     ;; For testing, we may skip tweets (using only profiles)
-    (when-not (:skip-statuses sconf)
+    (when-not (:skip-statuses? sconf)
       ;; Populate combined|community ontology with the tweet statuses
       (run! #(add-text onter % sconf) xmps)
 
@@ -3098,7 +3098,7 @@
         ;; Set up to skip profiles (0), then statuses, then neither
         [_ skip1 & skips] (for [profs yn??
                                 stats yn??]
-                            {:skip-profiles profs, :skip-statuses stats})]
+                            {:skip-profiles? profs, :skip-statuses? stats})]
 
     (letfn [;; ---------------------------------------------------------------
             (reconf
