@@ -1174,7 +1174,9 @@
 
 
 ;;; --------------------------------------------------------------------------
-;; Original (pre-scr) combinations for analysis:
+;;; Original (pre-scr) combinations for analysis:
+;;; FIXME: Make a decision about the AFFIRM-NEGATE strategy
+;;;        so that we may remove the stragglers!
 (when (cfg/?? :sila :use-tweebo?)
 
   (defclass HumanCauseTokenAFFNEG
@@ -2783,24 +2785,29 @@
   (binding [*ns* (find-ns 'say.sila)]
     (let [;; The concept map is organized according to the report setup:
           ;;         LEVEL  CONCEPT-TAG         ONTOLOGY SYMBOLS
-          concepts {[:texts "CauseAFFNEG"]      '[HumanAndCauseTextAFFNEG
-                                                  AffirmedHumanCauseTextAFFNEG
-                                                  NegatedHumanCauseTextAFFNEG
-                                                  ;---------------------------------
-                                                  NatureAndCauseTextAFFNEG
-                                                  AffirmedNaturalCauseTextAFFNEG
-                                                  NegatedNaturalCauseTextAFFNEG]
+          concepts {[:users "LeaderFollowers"]  '[GreenAccount
+                                                  DenierAccount]
 
                     [:texts "Conservation"]     '[WeakEnergyConservationText
                                                   StrongEnergyConservationTextAB]
 
-                    [:users "CauseAFFNET"]      '[HumanCauseAccountAFFNEG
-                                                  GreenHumanCauseAccountAFFNEG
-                                                  DenierHumanCauseAccountAFFNEG
+                   ; FIXME: Make a decision about the AFFIRM-NEGATE strategy
+                   ;        so that we may remove these stragglers!
+                   ;[:texts "CauseAFFNEG"]      '[HumanAndCauseTextAFFNEG
+                   ;                              AffirmedHumanCauseTextAFFNEG
+                   ;                              NegatedHumanCauseTextAFFNEG
+                                                  ;---------------------------------
+                   ;                              NatureAndCauseTextAFFNEG
+                   ;                              AffirmedNaturalCauseTextAFFNEG
+                   ;                              NegatedNaturalCauseTextAFFNEG]
+
+                   ;[:users "CauseAFFNET"]      '[HumanCauseAccountAFFNEG
+                   ;                              GreenHumanCauseAccountAFFNEG
+                   ;                              DenierHumanCauseAccountAFFNEG
                                                   ;-----------------------------------------
-                                                  NaturalCauseAccountAFFNEG
-                                                  GreenNaturalCauseAccountAFFNEG
-                                                  DenierNaturalCauseAccountAFFNEG]
+                   ;                              NaturalCauseAccountAFFNEG
+                   ;                              GreenNaturalCauseAccountAFFNEG
+                   ;                              DenierNaturalCauseAccountAFFNEG]
 
                     [:users "HumanCause"]       '[WeakHumanCauseAccount
                                                   GreenWeakHumanCauseAccount
