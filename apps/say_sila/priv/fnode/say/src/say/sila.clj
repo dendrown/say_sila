@@ -2965,6 +2965,29 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn eprint-texts
+  "Prints a colourized representions of the specified class of texts with
+  the associated dependency trees."
+  ([txtsym]
+  (eprint-texts txtsym @World))
+
+
+  ([txtsym
+    {:as    world
+     :keys  [dtag texts]}]
+  (log/fmt-info "Searching for ~a across the community..." (if (symbol? txtsym)
+                                                               txtsym
+                                                               (iri-fragment txtsym) ))
+  (let [onts ((:ontology world) :fetch)
+        tids (into #{} (map iri-fragment
+                            (comm/instances onts txtsym)))
+        txts (filter #(contains? tids (:tid %)) texts)]
+
+   (run! eprint-tweet txts))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn eprint-user
   "Pretty-prints a user's profile and tweets, highlighting the affect and
   showing a token dependency tree if available."
