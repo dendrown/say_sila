@@ -2971,21 +2971,28 @@
   "Prints a colourized representions of the specified class of texts with
   the associated dependency trees."
   ([txtsym]
-  (eprint-texts txtsym nil))
+  (eprint-texts txtsym nil nil))
 
+  ([txtsym arg]
+  (cond
+   (string? arg) (eprint-texts txtsym arg nil)      ; (Sequence of) account(s)
+   (number? arg) (eprint-texts txtsym nil arg)))    ; Max tweets to eprint
 
-  ([txtsym n]
-  (eprint-texts txtsym n @World))
-
+  ([txtsym accts n]
+  (eprint-texts txtsym accts n @World))
 
   ([txtsym
+    accts
     n
     {:as    world
      :keys  [dtag texts]}]
   (log/fmt-info "Searching for ~a across the community..." (if (symbol? txtsym)
                                                                txtsym
-                                                               (iri-fragment txtsym) ))
-  (let [onts ((:ontology world) :fetch)
+                                                               (iri-fragment txtsym)))
+  (let [onter (:ontology world)
+        onts  (if accts
+                  (map #(onter %) (seqify accts))
+                  (onter :fetch))
         tids (into #{} (map iri-fragment
                             (comm/instances onts txtsym)))
         txts (filter #(contains? tids (:tid %)) texts)]
