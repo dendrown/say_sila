@@ -1513,6 +1513,7 @@
 
   ([{:keys [tid
             polarity
+            screen_name
             stance
             content
             analysis]}
@@ -1526,7 +1527,8 @@
         etokens   (map colourize (zip content analysis))        ; Mark affect
         etext     (apply str (interpose \space
                                         (conj etokens           ; Tag tweet
-                                              (log/<> tid (name stance)))))]
+                                              "\n"
+                                              (log/<> tid (str screen_name stance)))))]
     ;; The default return is a string tagged with the ID, but they may want the tokens
     (if (some #{:map} opts)
         {:etokens etokens,
@@ -2969,10 +2971,15 @@
   "Prints a colourized representions of the specified class of texts with
   the associated dependency trees."
   ([txtsym]
-  (eprint-texts txtsym @World))
+  (eprint-texts txtsym nil))
+
+
+  ([txtsym n]
+  (eprint-texts txtsym n @World))
 
 
   ([txtsym
+    n
     {:as    world
      :keys  [dtag texts]}]
   (log/fmt-info "Searching for ~a across the community..." (if (symbol? txtsym)
@@ -2983,7 +2990,10 @@
                             (comm/instances onts txtsym)))
         txts (filter #(contains? tids (:tid %)) texts)]
 
-   (run! eprint-tweet txts))))
+    ;; Print the (subset of n) colour-coded tweets & the dependency hierarchy
+    (run! eprint-tweet (sort-by :screen_name (shuffle (if n
+                                                          (take n txts)
+                                                          txts)))))))
 
 
 
