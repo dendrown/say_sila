@@ -2392,13 +2392,25 @@
   ([]
   (get-accounts :texts))
 
-
   ([ttype]
   (get-accounts ttype @World))
 
-
   ([ttype world]
   (into #{} (map :screen_name (world ttype)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn get-accounts-with
+  "Returns a set of the user accounts with the specified stance (:green or
+  :denier) in a world.  Note this function only checks the tweets for users
+  (as apposed to user profiles)."
+  ([param match]
+  (get-accounts-with param match @World))
+
+  ([param match world]
+  (into #{} (map :screen_name
+                 (filter #(= match (get % param)) (world :texts))))))
 
 
 
@@ -3005,6 +3017,23 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn eprint-denier-texts
+  "Prints a colourized representions of the specified class of texts with
+  the associated dependency trees for denier accounts only.
+
+  TODO: This function should be generalized for other targets."
+  ([txtsym]
+  (eprint-denier-texts txtsym nil))
+
+  ([txtsym n]
+  (eprint-denier-texts txtsym n @World))
+
+  ([txtsym n world]
+  (eprint-texts txtsym (get-accounts-with :stance :denier) n world)))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn eprint-user
   "Pretty-prints a user's profile and tweets, highlighting the affect and
   showing a token dependency tree if available."
@@ -3088,6 +3117,20 @@
 
      ;; Just return some information on what we saved
      {fpath (count accts)})))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn save-account-ontology
+  "Saves the ontology for the specified account from the world community."
+  ([acct]
+  (save-account-ontology acct @World))
+
+  ([acct
+    {:keys [dtag ontology]}]
+  (let [fpath (str Ont-FStub "-" (name dtag) "-" acct ".owl")]
+    (save-ontology (ontology acct) fpath :owl)
+    fpath)))
 
 
 
