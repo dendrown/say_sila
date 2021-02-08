@@ -2998,21 +2998,31 @@
     n
     {:as    world
      :keys  [dtag texts]}]
-  (log/fmt-info "Searching for ~a across the community..." (if (symbol? txtsym)
-                                                               txtsym
-                                                               (iri-fragment txtsym)))
+  ;; A much too complicated message to say we're looking at 1, several, or all users
+  (log/fmt-info "Searching for ~a ~a..."
+                (if (symbol? txtsym)
+                     txtsym
+                     (iri-fragment txtsym))
+                (if accts
+                    (if (coll? accts)
+                        (str "across " (count accts) " accounts")
+                        (str "from " accts))
+                    "across the community"))
   (let [onter (:ontology world)
         onts  (if accts
                   (map #(onter %) (seqify accts))
                   (onter :fetch))
-        tids (into #{} (map iri-fragment
-                            (comm/instances onts txtsym)))
-        txts (filter #(contains? tids (:tid %)) texts)]
+        tids  (into #{} (map iri-fragment
+                             (comm/instances onts txtsym)))
+        txts  (shuffle (filter #(contains? tids (:tid %)) texts))
+        tcnt  (count txts)]
 
     ;; Print the (subset of n) colour-coded tweets & the dependency hierarchy
-    (run! eprint-tweet (sort-by :screen_name (shuffle (if n
-                                                          (take n txts)
-                                                          txts)))))))
+    (log/fmt-info "Displaying ~a of ~a tweets:" (if n (min n tcnt) tcnt) tcnt)
+
+    (run! eprint-tweet (sort-by :screen_name (if n
+                                                 (take n txts)
+                                                 txts))))))
 
 
 
@@ -3030,6 +3040,23 @@
 
   ([txtsym n world]
   (eprint-texts txtsym (get-accounts-with :stance :denier) n world)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn eprint-green-texts
+  "Prints a colourized representions of the specified class of texts with
+  the associated dependency trees for green accounts only.
+
+  TODO: This function should be generalized for other targets."
+  ([txtsym]
+  (eprint-green-texts txtsym nil))
+
+  ([txtsym n]
+  (eprint-green-texts txtsym n @World))
+
+  ([txtsym n world]
+  (eprint-texts txtsym (get-accounts-with :stance :green) n world)))
 
 
 
