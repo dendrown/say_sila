@@ -1082,18 +1082,18 @@
   :label    "Weak Inferred Green Account (type 1)"
   :equivalent (dl/and OnlineAccount
                       (dl/or WeakHumanCauseAccount
-                             WeakEnergyConservationAccount
-                             WeakCO2CutAccount
-                             WeakEnvironmentProtectAccount)))
+                             ;WeakEnergyConservationAccount
+                             ;WeakEnvironmentProtectAccount
+                             WeakCO2CutAccount)))
 
 (defclass StrongInferredGreenAccount1
   :super    OnlineAccount
   :label    "Strong Inferred Green Account (type 1)"
   :equivalent (dl/and OnlineAccount
                       (dl/or StrongHumanCauseAccount
-                             StrongEnergyConservationAccount
-                             StrongCO2CutAccount
-                             StrongEnvironmentProtectAccount)))
+                             ;StrongEnergyConservationAccount
+                             ;StrongEnvironmentProtectAccount
+                             StrongCO2CutAccount)))
 
 
 (defclass GreenWeakInferredGreenAccount1
@@ -1128,9 +1128,9 @@
   :label    "Weak Inferred Green Account (type 2)"
   :equivalent (dl/and OnlineAccount
                       (dl/or WeakHumanCauseAccount
-                             WeakEnergyConservationAccount
+                             ;WeakEnergyConservationAccount
+                             ;WeakEnvironmentProtectAccount
                              WeakCO2CutAccount
-                             WeakEnvironmentProtectAccount
                              ; Talking about traditional denier stances
                              WeakNatureCauseAccount
                              WeakEconomicGrowthAccount)))
@@ -1140,9 +1140,9 @@
   :label    "Strong Inferred Green Account (type 2)"
   :equivalent (dl/and OnlineAccount
                       (dl/or StrongHumanCauseAccount
-                             StrongEnergyConservationAccount
+                             ;StrongEnergyConservationAccount
+                             ;StrongEnvironmentProtectAccount
                              StrongCO2CutAccount
-                             StrongEnvironmentProtectAccount
                              ; Talking about traditional denier stances
                              StrongNatureCauseAccount
                              StrongEconomicGrowthAccount)))
@@ -2950,6 +2950,85 @@
 
       ;; Log report to the console & file for all targets
       (run! rpt-csv concepts)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn report-inferred-concepts
+  "Gives instance coverage of inferred concepts from say-sila community ontologies.
+
+  TODO: This function is essentially a copy of report-concepts that only handles
+        the inferred account classes with added statistics.  These functions
+        should be merged or the common code should be extracted out as we move
+        forward with say-sila."
+  ([]
+  (report-inferred-concepts @World))
+
+
+  ([{:keys [dtag ontology texts]
+     :as   world}]
+  ;; TODO: The newer community way is subtly different from the original say-sila world.
+  ;;       Handle non-community mode as a signle-ontology community.
+  (let [[onts
+         usrcnt] (if (cfg/?? :sila :community?)
+                     [(ontology :fetch)     , (ontology :size)]         ; A set of user ontologies
+                     [[((:ontology world))] , (count (:users world))])] ; [big ontology with all users]
+    (log/info "Determining green & denier counts...")
+    (report-inferred-concepts dtag
+                              onts
+                              (into {:users usrcnt}
+                                    (map (fn [[tag sym]]
+                                              [tag (count (comm/instances onts sym))])
+                                            '[[:green  say.sila/GreenAccount]
+                                              [:denier say.sila/DenierAccount]])))))
+
+
+  ([dtag onts cnts]
+  ;; Use local symbols when called from another namespace
+  (binding [*ns* (find-ns 'say.sila)]
+    (let [;; The concept map is organized according to the report setup:
+          ;;        CONCEPT-TAG           WHO<<->>SYMBOL pairs
+          concepts {"Inferred1-GD"      '[:users  WeakInferredGreenAccount1
+                                          :green  GreenWeakInferredGreenAccount1
+                                          :denier DenierWeakInferredGreenAccount1
+                                          :users  StrongInferredGreenAccount1
+                                          :green  GreenStrongInferredGreenAccount1
+                                          :denier DenierStrongInferredGreenAccount1]
+
+                    "Inferred2-GD"      '[:users  WeakInferredGreenAccount2
+                                          :green  GreenWeakInferredGreenAccount2
+                                          :denier DenierWeakInferredGreenAccount2
+                                          :users  StrongInferredGreenAccount2
+                                          :green  GreenStrongInferredGreenAccount2
+                                          :denier DenierStrongInferredGreenAccount2]}
+          fullcnt (:users cnts)
+
+_ (log/warn "ONTS:" onts)
+_ (log/warn "CONC:" (map second (mapcat val concepts)))
+          needles (comm/instances onts (map second                      ; Pull symbols from
+                                            (mapcat val concepts)))     ; ..extracted who-sym pairs
+
+          report  (fn [[who sym]]
+                    ;; Report to the REPL console
+                    (let [elms (get needles sym)
+                          ecnt (count elms)             ; Num users for the [e]lement (symbol)
+                          wcnt (get cnts who)           ; Num [w]ho? total users|greens|deniers
+                          pct  (pctz ecnt wcnt)]
+                      (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
+                                    sym dtag ecnt wcnt (name who) (* 100 pct))
+                      (run! #(log/debug "  -" (iri-fragment %)) elms)
+                      pct))
+
+          rpt-csv (fn [[concept syms]]
+                    (log/debug)
+                    ;; Report to the the appropriate CSV for this concept
+                    (let [pcts (domap report syms)]
+                      (report-to-csv "Users" concept syms fullcnt pcts)))]
+
+      ;; Log report to the console & file for all targets
+      (run! rpt-csv concepts)))))
+
+
 
 
 

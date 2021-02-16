@@ -282,5 +282,5 @@
   ;; Do they want console and CSV reports??
   (when (some #{:report} opts)
     (sila/report-world :no-pos)
-    (sila/report-concepts)))
+    (sila/report-inferred-concepts)))
 
