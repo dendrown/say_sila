@@ -121,6 +121,7 @@
     (->> syns
          (mapcat wnet/words)
          (map :lemma)
+         (remove (cfg/?? :wordnet :omit #{}))
          (into #{}))))
 
 (def synonyms# (memoize synonyms))

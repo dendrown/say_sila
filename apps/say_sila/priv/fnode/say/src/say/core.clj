@@ -280,7 +280,10 @@
                       "/srv/say_sila/weka/tweets/tweets.all.env.2019-Q4-2020-Q1Q2.T01.S02.arff")
 
   ;; Do they want console and CSV reports??
-  (when (some #{:report} opts)
-    (sila/report-world :no-pos)
-    (sila/report-inferred-concepts)))
+  (doseq [[opt fun] [[:report   #(sila/report-world :no-pos)]
+                     [:concepts #(sila/report-concepts)]
+                     [:inferred #(sila/report-inferred-concepts)]]]
+
+    (when (some #{opt} opts)
+      (fun))))
 
