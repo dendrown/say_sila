@@ -2957,10 +2957,13 @@
 (defn report-inferred-concepts
   "Gives instance coverage of inferred concepts from say-sila community ontologies.
 
-  TODO: This function is essentially a copy of report-concepts that only handles
-        the inferred account classes with added statistics.  These functions
-        should be merged or the common code should be extracted out as we move
-        forward with say-sila."
+  TODO: This function started as a tweaked version of report-concepts, meant only
+        to handle the inferred account classes with added statistics. The original
+        intent was that the two functions be merged and the common code extracted
+        out at some point when the best way to move forward becomes a bit better
+        defined.  This function has actually become significantly different from
+        report-concepts; however, the functions *should* still be cleaned up and
+        merged as appropriate at some point in the future."
   ([]
   (report-inferred-concepts @World))
 
@@ -2985,30 +2988,29 @@
 
   ([dtag onts cnts]
   ;; Use local symbols when called from another namespace
+  (log/info "Finding concept instances in the community...")
   (binding [*ns* (find-ns 'say.sila)]
     (let [;; The concept map is organized according to the report setup:
-          ;;        CONCEPT-TAG           WHO<<->>SYMBOL pairs
-          concepts {"Inferred1-GD"      '[:users  WeakInferredGreenAccount1
-                                          :green  GreenWeakInferredGreenAccount1
-                                          :denier DenierWeakInferredGreenAccount1
-                                          :users  StrongInferredGreenAccount1
-                                          :green  GreenStrongInferredGreenAccount1
-                                          :denier DenierStrongInferredGreenAccount1]
+          ;;        CONCEPT-TAG           SYMBOL<<---------[pairs]--------->>WHO
+          concepts {"Inferred1-GD"      '[[WeakInferredGreenAccount1         :users]
+                                          [GreenWeakInferredGreenAccount1    :green]
+                                          [DenierWeakInferredGreenAccount1   :denier]
+                                          [StrongInferredGreenAccount1       :users]
+                                          [GreenStrongInferredGreenAccount1  :green]
+                                          [DenierStrongInferredGreenAccount1 :denier]]
 
-                    "Inferred2-GD"      '[:users  WeakInferredGreenAccount2
-                                          :green  GreenWeakInferredGreenAccount2
-                                          :denier DenierWeakInferredGreenAccount2
-                                          :users  StrongInferredGreenAccount2
-                                          :green  GreenStrongInferredGreenAccount2
-                                          :denier DenierStrongInferredGreenAccount2]}
+                    "Inferred2-GD"      '[[WeakInferredGreenAccount2         :users]
+                                          [GreenWeakInferredGreenAccount2    :green]
+                                          [DenierWeakInferredGreenAccount2   :denier]
+                                          [StrongInferredGreenAccount2       :users]
+                                          [GreenStrongInferredGreenAccount2  :green]
+                                          [DenierStrongInferredGreenAccount2 :denier]]}
           fullcnt (:users cnts)
 
-_ (log/warn "ONTS:" onts)
-_ (log/warn "CONC:" (map second (mapcat val concepts)))
-          needles (comm/instances onts (map second                      ; Pull symbols from
-                                            (mapcat val concepts)))     ; ..extracted who-sym pairs
+          needles (comm/instances onts (map first                   ; Pull symbols from
+                                            (mapcat val concepts))) ; ..extracted who-sym pairs
 
-          report  (fn [[who sym]]
+          report  (fn [[sym who]]
                     ;; Report to the REPL console
                     (let [elms (get needles sym)
                           ecnt (count elms)             ; Num users for the [e]lement (symbol)
@@ -3016,14 +3018,16 @@ _ (log/warn "CONC:" (map second (mapcat val concepts)))
                           pct  (pctz ecnt wcnt)]
                       (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
                                     sym dtag ecnt wcnt (name who) (* 100 pct))
-                      (run! #(log/debug "  -" (iri-fragment %)) elms)
+                      (comment run! #(log/debug "  -" (iri-fragment %)) elms)
                       pct))
 
-          rpt-csv (fn [[concept syms]]
+          rpt-csv (fn [[ctag sympairs]]
                     (log/debug)
+                    (log/info "Concept:" ctag)
                     ;; Report to the the appropriate CSV for this concept
-                    (let [pcts (domap report syms)]
-                      (report-to-csv "Users" concept syms fullcnt pcts)))]
+                    (let [pcts (domap report sympairs)]
+                      ;; The CSV-creator needs just the symbol from the pairs
+                      (report-to-csv "Users" ctag (map first sympairs) fullcnt pcts)))]
 
       ;; Log report to the console & file for all targets
       (run! rpt-csv concepts)))))
