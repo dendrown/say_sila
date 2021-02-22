@@ -2638,7 +2638,7 @@
 ;;; --------------------------------------------------------------------------
 (defn- report-to-csv
   "Saves the specified information to a CSV file."
-  [ctype concept syms fullcnt percents]
+  [ctype concept syms fullcnt values]
     ;; Determine to the the appropriate CSV for this concept
     (let [ctype   (str/capitalize (name ctype))
           ->title #(if (string? %)
@@ -2653,7 +2653,7 @@
           (log/notice "Creating report:" csv)
           (.write wtr (strfmt "Min Tweets,~a~{,~a~}~%" ctype (map ->title syms))))
         ;; Report one line of CSV data
-        (.write wtr (strfmt "~a,~a~{,~a~}~%" minimum fullcnt percents)))))
+        (.write wtr (strfmt "~a,~a~{,~a~}~%" minimum fullcnt values)))))
 
 
 
@@ -3005,7 +3005,9 @@
                                           [StrongInferredGreenAccount2       :users]
                                           [GreenStrongInferredGreenAccount2  :green]
                                           [DenierStrongInferredGreenAccount2 :denier]]}
-          fullcnt (:users cnts)
+          [usrcnt
+           grncnt
+           dnrcnt] (map #(% cnts) [:users :green :denier])
 
           needles (comm/instances onts (map first                   ; Pull symbols from
                                             (mapcat val concepts))) ; ..extracted who-sym pairs
@@ -3019,15 +3021,27 @@
                       (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
                                     sym dtag ecnt wcnt (name who) (* 100 pct))
                       (comment run! #(log/debug "  -" (iri-fragment %)) elms)
-                      pct))
+                      [ecnt pct]))
 
           rpt-csv (fn [[ctag sympairs]]
                     (log/debug)
                     (log/info "Concept:" ctag)
                     ;; Report to the the appropriate CSV for this concept
-                    (let [pcts (domap report sympairs)]
-                      ;; The CSV-creator needs just the symbol from the pairs
-                      (report-to-csv "Users" ctag (map first sympairs) fullcnt pcts)))]
+                    (let [cntpcts (domap report sympairs)
+                          symbols (map first sympairs)
+                          ->csv   (fn [ftag heads values]
+                                    (report-to-csv (str "-acct-" ftag)  ; Suffix for filename
+                                                   ctag                 ; Concept we're handling
+                                                   heads                ; Symbols for CSV headings
+                                                   usrcnt               ; Full count user
+                                                   values))]            ; Subcounts or percents
+                      ;; The count CSV includes all three counts.
+                      (->csv "cnts"
+                            (apply vector "GCNT" "DCNT" symbols)
+                            (apply vector grncnt dnrcnt (map first cntpcts)))
+
+                      ;; The percentage CSV uses is traditional and just uses the full count.
+                      (->csv "pcts" symbols (map second cntpcts))))]
 
       ;; Log report to the console & file for all targets
       (run! rpt-csv concepts)))))
