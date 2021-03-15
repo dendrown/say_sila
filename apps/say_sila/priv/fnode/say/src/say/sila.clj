@@ -1082,18 +1082,18 @@
   :label    "Weak Inferred Green Account (type 1)"
   :equivalent (dl/and OnlineAccount
                       (dl/or WeakHumanCauseAccount
-                             WeakEnergyConservationAccount
-                             WeakCO2CutAccount
-                             WeakEnvironmentProtectAccount)))
+                             ;WeakEnergyConservationAccount
+                             ;WeakEnvironmentProtectAccount
+                             WeakCO2CutAccount)))
 
 (defclass StrongInferredGreenAccount1
   :super    OnlineAccount
   :label    "Strong Inferred Green Account (type 1)"
   :equivalent (dl/and OnlineAccount
                       (dl/or StrongHumanCauseAccount
-                             StrongEnergyConservationAccount
-                             StrongCO2CutAccount
-                             StrongEnvironmentProtectAccount)))
+                             ;StrongEnergyConservationAccount
+                             ;StrongEnvironmentProtectAccount
+                             StrongCO2CutAccount)))
 
 
 (defclass GreenWeakInferredGreenAccount1
@@ -1128,9 +1128,9 @@
   :label    "Weak Inferred Green Account (type 2)"
   :equivalent (dl/and OnlineAccount
                       (dl/or WeakHumanCauseAccount
-                             WeakEnergyConservationAccount
+                             ;WeakEnergyConservationAccount
+                             ;WeakEnvironmentProtectAccount
                              WeakCO2CutAccount
-                             WeakEnvironmentProtectAccount
                              ; Talking about traditional denier stances
                              WeakNatureCauseAccount
                              WeakEconomicGrowthAccount)))
@@ -1140,9 +1140,9 @@
   :label    "Strong Inferred Green Account (type 2)"
   :equivalent (dl/and OnlineAccount
                       (dl/or StrongHumanCauseAccount
-                             StrongEnergyConservationAccount
+                             ;StrongEnergyConservationAccount
+                             ;StrongEnvironmentProtectAccount
                              StrongCO2CutAccount
-                             StrongEnvironmentProtectAccount
                              ; Talking about traditional denier stances
                              StrongNatureCauseAccount
                              StrongEconomicGrowthAccount)))
@@ -2638,7 +2638,7 @@
 ;;; --------------------------------------------------------------------------
 (defn- report-to-csv
   "Saves the specified information to a CSV file."
-  [ctype concept syms fullcnt percents]
+  [ctype concept syms fullcnt values]
     ;; Determine to the the appropriate CSV for this concept
     (let [ctype   (str/capitalize (name ctype))
           ->title #(if (string? %)
@@ -2653,7 +2653,7 @@
           (log/notice "Creating report:" csv)
           (.write wtr (strfmt "Min Tweets,~a~{,~a~}~%" ctype (map ->title syms))))
         ;; Report one line of CSV data
-        (.write wtr (strfmt "~a,~a~{,~a~}~%" minimum fullcnt percents)))))
+        (.write wtr (strfmt "~a,~a~{,~a~}~%" minimum fullcnt values)))))
 
 
 
@@ -2950,6 +2950,103 @@
 
       ;; Log report to the console & file for all targets
       (run! rpt-csv concepts)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn report-inferred-concepts
+  "Gives instance coverage of inferred concepts from say-sila community ontologies.
+
+  TODO: This function started as a tweaked version of report-concepts, meant only
+        to handle the inferred account classes with added statistics. The original
+        intent was that the two functions be merged and the common code extracted
+        out at some point when the best way to move forward becomes a bit better
+        defined.  This function has actually become significantly different from
+        report-concepts; however, the functions *should* still be cleaned up and
+        merged as appropriate at some point in the future."
+  ([]
+  (report-inferred-concepts @World))
+
+
+  ([{:keys [dtag ontology texts]
+     :as   world}]
+  ;; TODO: The newer community way is subtly different from the original say-sila world.
+  ;;       Handle non-community mode as a signle-ontology community.
+  (let [[onts
+         usrcnt] (if (cfg/?? :sila :community?)
+                     [(ontology :fetch)     , (ontology :size)]         ; A set of user ontologies
+                     [[((:ontology world))] , (count (:users world))])] ; [big ontology with all users]
+    (log/info "Determining green & denier counts...")
+    (report-inferred-concepts dtag
+                              onts
+                              (into {:users usrcnt}
+                                    (map (fn [[tag sym]]
+                                              [tag (count (comm/instances onts sym))])
+                                            '[[:green  say.sila/GreenAccount]
+                                              [:denier say.sila/DenierAccount]])))))
+
+
+  ([dtag onts cnts]
+  ;; Use local symbols when called from another namespace
+  (log/info "Finding concept instances in the community...")
+  (binding [*ns* (find-ns 'say.sila)]
+    (let [;; The concept map is organized according to the report setup:
+          ;;        CONCEPT-TAG           SYMBOL<<---------[pairs]--------->>WHO
+          concepts {"Inferred1-GD"      '[[WeakInferredGreenAccount1         :users]
+                                          [GreenWeakInferredGreenAccount1    :green]
+                                          [DenierWeakInferredGreenAccount1   :denier]
+                                          [StrongInferredGreenAccount1       :users]
+                                          [GreenStrongInferredGreenAccount1  :green]
+                                          [DenierStrongInferredGreenAccount1 :denier]]
+
+                    "Inferred2-GD"      '[[WeakInferredGreenAccount2         :users]
+                                          [GreenWeakInferredGreenAccount2    :green]
+                                          [DenierWeakInferredGreenAccount2   :denier]
+                                          [StrongInferredGreenAccount2       :users]
+                                          [GreenStrongInferredGreenAccount2  :green]
+                                          [DenierStrongInferredGreenAccount2 :denier]]}
+          [usrcnt
+           grncnt
+           dnrcnt] (map #(% cnts) [:users :green :denier])
+
+          needles (comm/instances onts (map first                   ; Pull symbols from
+                                            (mapcat val concepts))) ; ..extracted who-sym pairs
+
+          report  (fn [[sym who]]
+                    ;; Report to the REPL console
+                    (let [elms (get needles sym)
+                          ecnt (count elms)             ; Num users for the [e]lement (symbol)
+                          wcnt (get cnts who)           ; Num [w]ho? total users|greens|deniers
+                          pct  (pctz ecnt wcnt)]
+                      (log/fmt-info "~a~a: ~a of ~a ~a (~,2F%)"
+                                    sym dtag ecnt wcnt (name who) (* 100 pct))
+                      (comment run! #(log/debug "  -" (iri-fragment %)) elms)
+                      [ecnt pct]))
+
+          rpt-csv (fn [[ctag sympairs]]
+                    (log/debug)
+                    (log/info "Concept:" ctag)
+                    ;; Report to the the appropriate CSV for this concept
+                    (let [cntpcts (domap report sympairs)
+                          symbols (map first sympairs)
+                          ->csv   (fn [ftag heads values]
+                                    (report-to-csv (str "-acct-" ftag)  ; Suffix for filename
+                                                   ctag                 ; Concept we're handling
+                                                   heads                ; Symbols for CSV headings
+                                                   usrcnt               ; Full count user
+                                                   values))]            ; Subcounts or percents
+                      ;; The count CSV includes all three counts.
+                      (->csv "cnts"
+                            (apply vector "GCNT" "DCNT" symbols)
+                            (apply vector grncnt dnrcnt (map first cntpcts)))
+
+                      ;; The percentage CSV uses is traditional and just uses the full count.
+                      (->csv "pcts" symbols (map second cntpcts))))]
+
+      ;; Log report to the console & file for all targets
+      (run! rpt-csv concepts)))))
+
+
 
 
 
