@@ -262,7 +262,9 @@
                               "harm"
                               "future" "generations" "people"
                               "important" "issue" "personally"
-                              "worried"}})
+                              "worried"}
+
+                     :wild  #{}})
 
 (defonce Stem-Words     (update-values Key-Words #(tw/stem-all % :set)))
 
@@ -321,7 +323,13 @@
 
   ([survey word sball]
   (let [hits  (Stem-Words survey)
-        in?   (in-stems? hits word sball)]
+        in?   (or (= :wild survey)
+                  (in-stems? hits word sball))]
+
+    ;; If we're being wild, update for all tokens even as we process another survey
+    (when (and (not= :wild survey)
+               (= :wild (cfg/?? :survey :survey)))
+      (in-survey? :wild word sball))
 
     ;; Update our survey "hit" reporting
     (when in?
@@ -378,6 +386,7 @@
                           :vertical false)))))
 
     (run! (fn [[stem freq]]
-            (log/fmt-info "~16a: ~4a" stem freq))
+            (when (>= freq hits)
+              (log/fmt-info "~16a: ~4a" stem freq)))
           stems))))
 
