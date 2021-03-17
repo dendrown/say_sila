@@ -930,7 +930,7 @@
      :super pos/Token
      :label (soc/tokenize '~dep-token :str)
      :equivalent (dl/and ~token1
-                         (dl/some dependsOn ~token2))))
+                         (dl/some directlyDependsOn ~token2))))
 
 
 (defmacro defscr-text-dep
