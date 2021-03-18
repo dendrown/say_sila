@@ -8,7 +8,7 @@
 %%
 %% @doc Say-Sila functionality for analysis of environmentalism.
 %%
-%% @copyright 2020 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2020-2021 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(green).
@@ -36,8 +36,11 @@
 -import(proplists, [get_value/2]).
 
 % Quickies for development
--export([go/0,   go/1,
+-export([go/0,   go/1,  go/2,
          opts/0, opts/1]).
+
+-define(INIT_DATASET,   b1_train).
+
 
 %%%-------------------------------------------------------------------
 go() ->
@@ -45,17 +48,25 @@ go() ->
 
 
 go(Tracker) ->
-    start(Tracker, opts(biggies)).
+    go(Tracker, ?INIT_DATASET).
+
+
+go(Tracker, Dataset) ->
+    start(Tracker, opts(Dataset)).
 
 
 %%%-------------------------------------------------------------------
-opts() -> opts(day).                    % TODO: Find mystery period (q1?)
+opts() -> opts(?INIT_DATASET).
 
-opts(green)   -> [no_retweet, {start, {2019, 10, 1}}, {stop, {2020, 7, 1}}];
-opts(q1)      -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
-opts(jan)     -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 2, 1}}];
-opts(day)     -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}];
-opts(biggies) -> [no_retweet| biggies:period(train)].
+
+opts(b1_train)  -> [no_retweet, {start, {2019,  1, 1}}, {stop, {2019, 12, 31}}];
+opts(b1_test)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 12, 31}}];
+
+opts(q1)        -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
+opts(jan)       -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 2, 1}}];
+opts(day)       -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 1, 2}}];
+opts(green)     -> [no_retweet, {start, {2019, 10, 1}}, {stop, {2020, 7, 1}}, {pattern, re_pattern()}];
+opts(biggies)   -> [no_retweet| biggies:period(train)].
 
 
 -include("sila.hrl").
@@ -507,9 +518,7 @@ handle_cast({get_tweets, Options}, State = #state{tracker = Tracker}) ->
     % As they will be servered one-at-a-time, use an appropriate timeout value.
     {Jobs,
      JobCnt} = MakeWork(PeriodStart, {[], 0}),
-    JobOpts  = [{tag, environment},
-                {pattern, re_pattern()},
-                {timeout, JobCnt * ?TWITTER_DB_TIMEOUT} | RunOpts],
+    JobOpts  = [{timeout, JobCnt * ?TWITTER_DB_TIMEOUT} | RunOpts],
 
     % Get the workers started pulling and filtering tweets
     DoWork = fun (Job, Acc) ->
@@ -552,7 +561,7 @@ handle_info({'EXIT', Worker, Why}, State = #state{workers = Workers}) ->
     Job = maps:get(Worker, Workers),
     NewWorkers = case Why of
         normal  ->
-            %?debug("Worker ~p finished: job~p", [Worker, Job]),
+            ?debug("Worker ~p finished: job~p", [Worker, Job]),
             maps:remove(Worker, Workers);
         _ ->
             ?error("Worker ~p failed: why[~p] job~p", [Worker, Why, Job]),
