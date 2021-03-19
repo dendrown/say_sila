@@ -5,7 +5,7 @@ The idea, of course, is to automate the process once we have a final data format
 and once it is clear how the architecture should handle all the moving parts.
 
 ```erlang
-$ ./dev_sila
+bash: ./dev_sila
 Mnesia: "/srv/say_sila/dev/Mnesia.sila@zeus"
 Erlang/OTP 22 [erts-10.7.1] [source] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:1] [hipe]
 
@@ -16,7 +16,7 @@ Eshell V10.7.1  (abort with ^G)
 ...
 09:17:07.711 [info] <twitter> Connecting to sila_tweets database as sila@zeus.dendrown.net
 
-# green:go() is a debug wrapper around green:start/2, which handles tracker and options for you.
+% green:go() is a debug wrapper around green:start/2, which handles tracker and options for you.
 (sila@zeus)2> green:start(gw, [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 12, 31}}]).
 09:22:34.289 [notice] <green> Initializing analysis of enviromentalism
 09:22:34.289 [debug] <green> Reading base deniers: _build/default/lib/say_sila/priv/resources/accounts/deniers.lst
