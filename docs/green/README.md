@@ -30,6 +30,57 @@ Eshell V10.7.1  (abort with ^G)
 (sila@zeus)4>
 ```
 
+We generally change the default `env' tag that the Erlang `green' module gives the file
+to an identifier for the dataset.  For the `b1' 2019 tweets with  #globalwarming, we have:
+
+```bash
+bash: cd /srv/say_sila/weka/tweets
+bash: mv tweets.gw.env.arff tweets.gw.b1.2019.T00.arff
+```
+
+We then need to convert the T00 dataset structure, which is the unlabelled output from the Erlang system,
+to the T01 structure, which includes a target attribute in the ARFF: `@attribute stance {green,denier}'.
+We do this from the Clojure system.  (This part is a quick candidate for better automatation.)
+
+```clojure
+bash: cd fnode/say
+bash: lein repl
+2021-03-22 08:12:07.408  DEBUG: Config: config/say.config
+...
+nREPL server started on port 41681 on host 127.0.0.1 - nrepl://127.0.0.1:41681
+REPL-y 0.4.3, nREPL 0.6.0
+Clojure 1.10.1
+OpenJDK 64-Bit Server VM 1.8.0_272-b10
+    Docs: (doc function-name-here)
+          (find-doc "part-of-name-here")
+  Source: (source function-name-here)
+ Javadoc: (javadoc java-object-or-class-here)
+    Exit: Control+D or (exit) or (quit)
+ Results: Stored in vars *1, *2, *3, an exception in *e
+
+say.core=> (in-ns 'weka.dataset)
+#object[clojure.lang.Namespace 0x159c1d03 "weka.dataset"]
+
+weka.dataset=> (def A "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T00.arff")
+#'weka.dataset/A
+
+weka.dataset=> (def I (weka/load-arff A))
+#'weka.dataset/I
+
+weka.dataset=> (.numAttributes I)
+6
+
+weka.dataset=> (target-stance! I)
+; The function updates the Instances I in place.
+; The return value is the updated I and the REPL spews out the whole dataset.
+
+weka.dataset=> (.numAttributes I)
+7
+
+weka.dataset=> (weka/save-file "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.arff" I)
+"/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.arff"
+
+```
 
 ## Dataset: tweets.all.env.2020-Q1.arff
 
