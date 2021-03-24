@@ -40,7 +40,13 @@ bash: mv tweets.gw.env.arff tweets.gw.b1.2019.T00.arff
 
 We then need to convert the T00 dataset structure, which is the unlabelled output from the Erlang system,
 to the T01 structure, which includes a target attribute in the ARFF: `@attribute stance {green,denier}'.
-We do this from the Clojure system.  (This part is a quick candidate for better automatation.)
+We do this from the Clojure system.  (This part is a quick candidate for better automatation.) 
+
+When considering the dataset codes, note that the T denotes the initial pull of Twitter data, while
+the 00 and 01 are simply the historical revision of the T dataset.  The difference between the 00 and 01
+revisions is only the presence of the target `stance` attribute.  The dataset codes and revisions are
+defined in the Clojure source module
+[dataset.clj](https://github.com/dendrown/say_sila/blob/master/apps/say_sila/priv/fnode/say/src/weka/dataset.clj#L53).
 
 ```clojure
 bash: cd fnode/say
@@ -79,6 +85,47 @@ weka.dataset=> (.numAttributes I)
 
 weka.dataset=> (weka/save-file "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.arff" I)
 "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.arff"
+
+```
+
+For processing tweets on Clojure, we need to convert the T01 (Twitter) dataset we just created
+into an S02 status (tweet) dataset and a U01 user profile dataset.  We continue in the Clojure REPL:
+
+
+```clojure
+weka.dataset=> (t->su "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.arff")
+("/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.S02.arff" "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U01.arff")
+```
+
+Although these are the two dataset formats we need for processing tweet and user profile data.
+The dependent attribute, the stances, is unknown for all the instances.  We also need to TweeboParser
+to generate dependency parse trees for all the tweets and user profiles.  We can get these simply by
+by attempting to create the Say Sila world representation on the Clojure side.
+
+We will have to do this several times as the TweeboParser output has issues with quotes in the tweets,
+and we will need to run a utility to correct these.  Therefore, we generally start with the `:sila -> :min-statuses`
+configuration parameter set to 20.  Also, we are free to restart the Clojure REPL as needed to free
+system memory.
+
+```clojure
+bash: cd fnode/say
+bash: lein repl
+2021-03-22 08:12:07.408  DEBUG: Config: config/say.config
+...
+
+say.core=> (in-ns 'say.sila)
+#object[clojure.lang.Namespace 0x73bf6a7f "say.sila"]
+
+say.sila=> (create-world! :b1 "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U01.arff" "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.S02.arff")
+2021-03-23 08:52:16.528   INFO: Dataset user:b1: /srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U01.arff
+2021-03-23 08:52:16.530   INFO: Dataset text:b1: /srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.S02.arff
+2021-03-23 08:52:17.345   INFO: Using lexicon: affective.core.NRCEmotionLexiconEvaluator
+2021-03-23 08:52:20.143   INFO: Using lexicon: affective.core.NRCEmotionLexiconEvaluator
+2021-03-23 08:52:20.207   INFO: Converting 98081 instances
+2021-03-23 08:52:22.025  DEBUG: Finalizing activity :b1
+2021-03-23 08:52:23.707  DEBUG: Parsing dependencies: cnt[0] fp[/srv/say_sila/tweebo/IK/ProfileOf_IknowNo24994942]
+2021-03-23 08:52:33.400  DEBUG: Tweebo on ProfileOf_IknowNo24994942: Tokenized and tagged 1 tweets (6 tokens) in 0.5 seconds: 1.9 tweets/sec, 11.6 tokens/sec
+...
 
 ```
 
