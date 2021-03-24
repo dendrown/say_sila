@@ -101,10 +101,10 @@ weka.dataset=> (t->su "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.arff")
 Although these are the two dataset formats we need for processing tweet and user profile data.
 The dependent attribute, the stances, is unknown for all the instances.  We also need to TweeboParser
 to generate dependency parse trees for all the tweets and user profiles.  We can get these simply by
-by attempting to create the Say Sila world representation on the Clojure side.
+attempting to create the Say Sila world representation on the Clojure side.
 
 We will have to do this several times as the TweeboParser output has issues with quotes in the tweets,
-and we will need to run a utility to correct these.  Therefore, we generally start with the `:sila -> :min-statuses`
+and we will need to run a utility to correct these.  Therefore, we generally start with the `:sila => :min-statuses`
 configuration parameter set to 20.  Also, we are free to restart the Clojure REPL as needed to free
 system memory.
 
