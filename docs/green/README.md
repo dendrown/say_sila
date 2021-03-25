@@ -39,7 +39,7 @@ bash: mv tweets.gw.env.arff tweets.gw.b1.2019.T00.arff
 ```
 
 We then need to convert the T00 dataset structure, which is the unlabelled output from the Erlang system,
-to the T01 structure, which includes a target attribute in the ARFF: `@attribute stance {green,denier}'.
+to the T01 structure, which includes a target attribute in the ARFF: `@attribute stance {green,denier}`.
 We do this from the Clojure system.  (This part is a quick candidate for better automatation.) 
 
 When considering the dataset codes, note that the T denotes the initial pull of Twitter data, while
@@ -153,7 +153,8 @@ the Clojure csv library is unable to handle, fairly often there will be a sequen
 does not yet know about.  The error in Clojure will give the relative filepath of the offending
 output file.  Ideally, we update the `requote` tool to handle the quote sequence.  If this is not
 feasible for some reason, we may also update the output file manually, replacing the quote sequence
-with the text `QUøTE`.  (The `requote` tool uses the token `QUOTE`, which we change slightly as a
+with the text "QUøTE", taking care not to disturb the tab characters delimiting the columns in the
+file.  (The `requote` tool uses the token "QUOTE", which we change slightly as a
 marker for the manual update, though our Clojure system makes no differentiation when creating the
 ontology.)
 
