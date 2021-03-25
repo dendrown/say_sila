@@ -8,6 +8,7 @@
 (de requoteln (Ln)
   (match '(@Ndx "^I" @Tok "^I" @Rest) (chop Ln))
   (when (or (= @Tok '("\""))
+            (= @Tok '( "\"" "'"))
             (= @Tok '("\"" "‘")))
     (append @Ndx '("^I" "QUOTE" "^I") @Rest)))
 

@@ -1,3 +1,6 @@
 #!/bin/bash
 
+# Two regexs to handle various combinations involving single & double quotes
 /bin/grep -rl '.\s\"\s\|\"“\s\|"‘\s' | /bin/grep '\.predict$' | ./requote.l
+
+/bin/grep -rl "\"'\s" | /bin/grep '\.predict$' | ./requote.l
