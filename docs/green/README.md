@@ -1,4 +1,4 @@
-## Creating a Dataset:
+# Creating a Dataset:
 The process to creating a new dataset of tweets is (currently) at best semi-automated.
 There is a fair amount of back-and-forth between the Erlang and the Clojure sides.
 The idea, of course, is to automate the process once we have a final data format,
@@ -130,7 +130,65 @@ say.sila=> (create-world! :b1 "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U
 
 ```
 
-## Dataset: tweets.all.env.2020-Q1.arff
+Depending on the size of the dataset and the `:min-statuses` configuration setting, this process will
+generally take a number of hours or days.  When complete, it will try to create the Say Sila ontology,
+but will likely error out because of a rogue quote sequence in the Tweebo dependency parse output for
+a tweet.  We have a `requote` tool which searches for these problematic quote sequences and corrects
+them in the dependency parse files.
+
+```bash
+    bash: cd /srv/say_sila/tweebo
+    bash: ./requote
+    Processing: 248/t1164317335185973248.predict
+    ...
+    Processing: PO/ProfileOf_pomeinnz.predict
+    Processing: 928/t1088189032541052928.predict
+    ...
+```
+
+After running requote, we go back into Clojure to ensure that `say.sila/create-world!` is now able
+to create the world ontology.
+Although we continually update the `requote` utility to fix newly discovered quote sequences which
+the Clojure csv library is unable to handle, fairly often there will be a sequence which the tool
+does not yet know about.  The error in Clojure will give the relative filepath of the offending
+output file.  Ideally, we update the `requote` tool to handle the quote sequence.  If this is not
+feasible for some reason, we may also update the output file manually, replacing the quote sequence
+with the text `QUøTE`.  (The `requote` tool uses the token `QUOTE`, which we change slightly as a
+marker for the manual update, though our Clojure system makes no differentiation when creating the
+ontology.)
+
+Once `say.sila/create-world!` is able to successfully process all the tweets for a given minimum
+status level, we need to save the associated accounts so that we may attempt to determine the
+green/denier stance of each account.
+
+```clojure
+say.sila=> (create-world! :b1 "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U01.arff" "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.S02.arff")
+...
+:b1
+
+say.sila=> (save-accounts)
+{"/tmp/say_sila/accounts.lst" 1307}
+```
+
+
+# TopN20 Big Players for green run
+
+For a human to make a decision:
+1. Read name/profile (keywords, known entity)
+2. Search for climate (re)tweets (keywords)
+3. Search for liberal (re)tweets (keywords)
+4. Look at followers (known entities)
+5. Look at geo-location
+6. Follow link off Twitter
+7. Compare w/ beliefs about covid-19
+8. Who is user retweeting?
+9. "Green" emoji in screen-name/profile (ex. [Nick Bridge](https://twitter.com/FCOClimate))
+
+Use tweet metadata:
+- entities->user_mentions
+
+
+# Dataset: tweets.all.env.2020-Q1.arff
 
 - **Tweets**: 57368
 - **Users**:  25524
@@ -146,7 +204,7 @@ say.sila=> (create-world! :b1 "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U
 | 03| ≈50KB | ≈1000  | Individual ontologies |
 
 
-### Minimum tweet activity
+## Minimum tweet activity
 ```clojure
 ;; Tweets & Profiles
 2020-10-22 19:17:03.024   INFO: Minimum status count: 1
@@ -179,7 +237,7 @@ say.sila=> (create-world! :b1 "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U
 2020-10-23 15:49:00.152   INFO: NaturalCauseBelieverAccount:env: 30 of 1884 (0.02%)
 ```
 
-### WordNet synset constraints + Energy Conservation Account
+## WordNet synset constraints + Energy Conservation Account
 ```clojure
 ;; Min tweet count: 1
 2020-10-25 21:37:19.338   INFO: EnergyConservationAccount:env: 1240 of 25682 (0.05%)
@@ -206,20 +264,4 @@ say.sila=> (create-world! :b1 "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U
 2020-10-28 20:10:41.934   INFO: say.sila/HumanCauseBelieverAccount:env: 7 of 226 (0.03%)
 2020-10-28 20:10:41.935   INFO: say.sila/NaturalCauseBelieverAccount:env: 4 of 226 (0.02%)
 ```
-
-## TopN20 Big Players for green run
-
-For a human to make a decision:
-1. Read name/profile (keywords, known entity)
-2. Search for climate (re)tweets (keywords)
-3. Search for liberal (re)tweets (keywords)
-4. Look at followers (known entities)
-5. Look at geo-location
-6. Follow link off Twitter
-7. Compare w/ beliefs about covid-19
-8. Who is user retweeting?
-9. "Green" emoji in screen-name/profile (ex. [Nick Bridge](https://twitter.com/FCOClimate))
-
-Use tweet metadata:
-- entities->user_mentions
 
