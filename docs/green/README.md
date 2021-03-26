@@ -171,6 +171,53 @@ say.sila=> (save-accounts)
 {"/tmp/say_sila/accounts.lst" 1307}
 ```
 
+- Copy
+- Link
+- Sort
+
+```erlang
+(sila@zeus)28> G07 = green:load_stances("/tmp/b1-min07.lst").
+08:35:57.570 [info] <green> alice: undefined
+08:37:15.834 [info] <green> bob: undefined
+08:38:34.045 [info] <green> charlie: denier
+08:39:52.444 [info] <green> dave: green
+...
+#{<<"alice">> => undefined,
+  <<"bob">> => undefined,
+  <<"charlie">> => denier,
+  <<"dave">> => green,...}
+```
+
+- Manual checks for accounts following both
+
+```erlang
+(sila@zeus)35> green:set_stance("bob", green).
+ok
+08:05:48.457 [info] <green> Setting user bob stance: undefined -> green
+```
+
+- Create labelled dataset
+
+```erlang
+(sila@zeus)40> green:get_stances(uqam).
+08:18:03.081 [info] <green> Saving stances to /tmp/say_sila/stances.json
+<<"{\"denier\":[\"charlie\",...,],{\"green\":[\"bob\", \"dave\",...]}>>
+```
+
+
+```clojure
+bash: cd /srv/say_sila/weka/tweets
+bash: cp tweets.gw.b1.2019.arff tweets.gw.b1.2019.min05.arff
+
+say.sila=> (in-ns 'weka.dataset)
+#object[clojure.lang.Namespace 0x68eab0be "weka.dataset"]
+
+weka.dataset=> (label! :t00 "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.min05.arff")
+"/srv/say_sila/weka/tweets/tweets.gw.b1.2019.min05.T01.arff"
+
+weka.dataset=> (t->su "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.min05.T01.arff")
+("/srv/say_sila/weka/tweets/tweets.gw.b1.2019.min05.T01.S02.arff" "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.min05.T01.U01.arff")
+```
 
 # TopN20 Big Players for green run
 
