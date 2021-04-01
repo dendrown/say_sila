@@ -922,7 +922,6 @@
                                    (dl/some indicatesRule ~rule)))))))
 
 
-
 (defmacro defscr-token-dep
   "Defines a class representing one Token that is dependent on another."
   [dep-token token1 token2]
@@ -931,6 +930,16 @@
      :label (soc/tokenize '~dep-token :str)
      :equivalent (dl/and ~token1
                          (dl/some dependsOn ~token2))))
+
+
+(defmacro defscr-token-direct-dep
+  "Defines a class representing one Token that is directly dependent on another."
+  [dep-token token1 token2]
+  `(defclass ~dep-token
+     :super pos/Token
+     :label (soc/tokenize '~dep-token :str)
+     :equivalent (dl/and ~token1
+                         (dl/some directlyDependsOn ~token2))))
 
 
 (defmacro defscr-text-dep
@@ -972,10 +981,11 @@
          :equivalent (dl/and DenierAccount ~account))))))
 
 
-(defmacro defscr-2
+(defmacro defscr-2-aux
   "Defines all necessary elements for a two-concept survey concept rule."
   [concept1 descr1
-   concept2 descr2]
+   concept2 descr2
+   make-dependency]
   ;; We need all the symbols ready for insertion in the quasiquote code.
   ;; NOTE:  and : token1 & token2 are both present (but not necessarily dependent)
   ;;        dep : token1 depends on token2
@@ -1004,8 +1014,8 @@
     ;; Token definitions
     (defscr-token ~rule1)
     (defscr-token ~rule2)
-    (defscr-token-dep ~token1->2 ~token1 ~token2)
-    (defscr-token-dep ~token2->1 ~token2 ~token1)
+    (~make-dependency ~token1->2 ~token1 ~token2)
+    (~make-dependency ~token2->1 ~token2 ~token1)
 
     ;; Define Text containing the Tokens various relations
     (defclass ~text1++2
@@ -1032,6 +1042,22 @@
     (defscr-accounts ~account1<>2 ~text1<>2)
     (defscr-accounts ~account1->2 ~text1->2)
     (defscr-accounts ~account2->1 ~text2->1))))
+
+
+(defmacro defscr-2
+  "Defines all necessary elements for a two-concept survey concept dependency rule."
+  [concept1 descr1
+   concept2 descr2]
+  `(defscr-2-aux ~concept1 ~descr1 ~concept2 ~descr2 defscr-token-dep))
+
+
+(defmacro defscr-2-direct
+  "Defines all necessary elements for a two-concept survey concept rule
+  using direct dependency."
+  [concept1 descr1
+   concept2 descr2]
+  `(defscr-2-aux ~concept1 ~descr1 ~concept2 ~descr2 defscr-token-direct-dep))
+
 
 ;; Accounts identified by Survey Concept Rules
 ;;
@@ -1171,6 +1197,31 @@
   :label    "Denier Strong Inferred Green Account (type 2)"
   :equivalent (dl/and DenierAccount
                       StrongInferredGreenAccount2))
+
+
+;;; --------------------------------------------------------------------------
+;;; Third person references to find denier accounts
+;; ├── believes (V)
+;; :   └── she (O)
+(defscr-2-direct ThirdPerson "A marker indicating someone who is not the author of a Text"
+                 Reference "A mention of another entity")
+
+;; FIXME: We're inferring deniers from accounts already inferred to be green
+(defclass InferredThirdPersonReferenceDenierAccount2
+  :super StrongInferredGreenAccount2
+  :equivalent (dl/and StrongInferredGreenAccount2
+                      StrongThirdpersonReferenceAccountAB))
+
+(defclass GreenInferredThirdPersonReferenceDenierAccount2
+  :super InferredThirdPersonReferenceDenierAccount2
+  :equivalent (dl/and GreenAccount
+                      InferredThirdPersonReferenceDenierAccount2))
+
+
+(defclass DenierInferredThirdPersonReferenceDenierAccount2
+  :super InferredThirdPersonReferenceDenierAccount2
+  :equivalent (dl/and DenierAccount
+                      InferredThirdPersonReferenceDenierAccount2))
 
 
 ;;; --------------------------------------------------------------------------
@@ -3004,7 +3055,11 @@
                                           [DenierWeakInferredGreenAccount2   :denier]
                                           [StrongInferredGreenAccount2       :users]
                                           [GreenStrongInferredGreenAccount2  :green]
-                                          [DenierStrongInferredGreenAccount2 :denier]]}
+                                          [DenierStrongInferredGreenAccount2 :denier]]
+
+                    "Inf-3rdRef2-GD"    '[[InferredThirdPersonReferenceDenierAccount2       :users]
+                                          [GreenInferredThirdPersonReferenceDenierAccount2  :green]
+                                          [DenierInferredThirdPersonReferenceDenierAccount2 :denier]]}
           [usrcnt
            grncnt
            dnrcnt] (map #(% cnts) [:users :green :denier])

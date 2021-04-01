@@ -68,7 +68,15 @@
                                  "PUNISH"       #{"punish"}
                                 })
 
-(defonce Concept-Words          (word/synonym-values Concept-Triggers))     ; Concept expansion
+(defonce Mention-Words          {"ThirdPerson"       #{"he" "she" "they"}
+                                 "Reference"         #{;speak_of             ; TODO: bigrams
+                                                       "believe" "prefer"
+                                                       "protect" "support"
+                                                       "push"}})
+
+(defonce Concept-Words          (merge Mention-Words
+                                       (word/synonym-values Concept-Triggers)))     ; Concept expansion
+
 (defonce Concept-Stems          (update-values Concept-Words #(tw/stem-all % :set)))
 
 
