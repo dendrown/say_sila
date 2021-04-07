@@ -85,9 +85,11 @@
 
 ;;; Word sets which invoke Survey Concept Rules
 (defonce Rule-Triggers  (merge six/Concept-Triggers
-                               {"NEGATION"     #{"not"}}))          ; Syntactical adjusters
+                               {"NEGATION" #{"not"}}))                  ; Syntactical adjusters
 
-(defonce Rule-Words     (word/synonym-values Rule-Triggers))        ; Rule trigger expansion
+(defonce Rule-Words     (merge six/Mention-Words                        ; No synonyms (yet?)
+                               (word/synonym-values Rule-Triggers)))    ; Rule trigger expansion
+
 (defonce Rule-Stems     (update-values Rule-Words
                                        #(tw/stem-all % :set)))
 
@@ -1203,25 +1205,26 @@
 ;;; Third person references to find denier accounts
 ;; ├── believes (V)
 ;; :   └── she (O)
-(defscr-2-direct ThirdPerson "A marker indicating someone who is not the author of a Text"
+;defscr-2-direct ...
+(defscr-2        Thirdperson "A Token indicating someone other than the author of a Text"
                  Reference "A mention of another entity")
 
 ;; FIXME: We're inferring deniers from accounts already inferred to be green
-(defclass InferredThirdPersonReferenceDenierAccount2
+(defclass InferredThirdpersonReferenceDenierAccount2
   :super StrongInferredGreenAccount2
   :equivalent (dl/and StrongInferredGreenAccount2
                       StrongThirdpersonReferenceAccountAB))
 
-(defclass GreenInferredThirdPersonReferenceDenierAccount2
-  :super InferredThirdPersonReferenceDenierAccount2
+(defclass GreenInferredThirdpersonReferenceDenierAccount2
+  :super InferredThirdpersonReferenceDenierAccount2
   :equivalent (dl/and GreenAccount
-                      InferredThirdPersonReferenceDenierAccount2))
+                      InferredThirdpersonReferenceDenierAccount2))
 
 
-(defclass DenierInferredThirdPersonReferenceDenierAccount2
-  :super InferredThirdPersonReferenceDenierAccount2
+(defclass DenierInferredThirdpersonReferenceDenierAccount2
+  :super InferredThirdpersonReferenceDenierAccount2
   :equivalent (dl/and DenierAccount
-                      InferredThirdPersonReferenceDenierAccount2))
+                      InferredThirdpersonReferenceDenierAccount2))
 
 
 ;;; --------------------------------------------------------------------------
@@ -2771,9 +2774,9 @@
                             keyz))
 
         ;; Calculate token & text counts for key elements
-        [aff-toks aff-txts] (count-all :affect  Affect-Names)           ; Pos/neg & emotions
-        [svy-toks svy-txts] (count-all :surveys (keys Surveys))         ; Six Americas surveys
-        [scr-toks scr-txts] (count-all :rules   (keys Rule-Triggers))   ; Survey Concept Rules
+        [aff-toks aff-txts] (count-all :affect  Affect-Names)       ; Pos/neg & emotions
+        [svy-toks svy-txts] (count-all :surveys (keys Surveys))     ; Six Americas surveys
+        [scr-toks scr-txts] (count-all :rules   (keys Rule-Stems))  ; Survey concepts & mentions
 
         ;; Now get a sequence of part-of-speech tags for the Texts.
         [pos-tags                                               ; POS tags for all Texts
@@ -2800,14 +2803,16 @@
           svy-toks svy-txts "Survey" name 12)
 
   ;; Survey Concept Rules (show in REPL and add to running CSV files)
-  (doseq [[concept symbols] [["CauseBeliever"   ["CAUSE" "HUMAN" "NATURE" "NEGATION"]]
-                             ["Conservation"    ["ENERGY" "CONSERVATION"]]
-                             ["CO2Cut"          ["CO2" "CUT"]]
-                             ["EnvProtect"      ["ENVIRONMENT" "PROTECT"]]
-                             ["EconGrowth"      ["ECONOMIC" "GROWTH"]]
-                             ["PeopleHarm"      ["PEOPLE" "HARM"]]
-                             ["CompanyReward"   ["COMPANY" "REWARD"]]   ; TODO: remove (low coverage)
-                             ["CompanyPunish"   ["COMPANY" "PUNISH"]]   ; TODO: remove (low coverage)
+  (doseq [[concept symbols] [["CauseBeliever"        ["CAUSE" "HUMAN" "NATURE" "NEGATION"]]
+                             ["Conservation"         ["ENERGY" "CONSERVATION"]]
+                             ["CO2Cut"               ["CO2" "CUT"]]
+                             ["EnvProtect"           ["ENVIRONMENT" "PROTECT"]]
+                             ["EconGrowth"           ["ECONOMIC" "GROWTH"]]
+                             ["PeopleHarm"           ["PEOPLE" "HARM"]]
+                             ["CompanyReward"        ["COMPANY" "REWARD"]]  ; TODO: remove (low coverage)
+                             ["CompanyPunish"        ["COMPANY" "PUNISH"]]  ; TODO: remove (low coverage)
+                             ["PeopleHarm"           ["PEOPLE" "HARM"]]
+                             ["ThirdpersonReference" ["Thirdperson" "Reference"]]
                             ]]
     ;; Always report to REPL
     (let [pcts (report symbols scr-toks scr-txts "Concept" identity 12)]
@@ -2943,6 +2948,15 @@
                                                   GreenStrongPeopleHarmAccount
                                                   DenierStrongPeopleHarmAccount]
                                                   ;-----------------------------------------
+
+                    ;; Pseudo-survey-concept
+                    [:users "ThirdpersonRef"]   '[StrongThirdpersonReferenceAccount
+                                                  StrongThirdpersonReferenceAccountAB
+                                                  StrongThirdpersonReferenceAccountBA
+                                                  GreenStrongThirdpersonReferenceAccount
+                                                  DenierStrongThirdpersonReferenceAccount]
+                                                  ;-----------------------------------------
+
                     ;; TODO: Remove trial with low coverage
                     [:users "CompanyReward"]    '[WeakCompanyRewardAccount
                                                   GreenWeakCompanyRewardAccount
@@ -3057,9 +3071,9 @@
                                           [GreenStrongInferredGreenAccount2  :green]
                                           [DenierStrongInferredGreenAccount2 :denier]]
 
-                    "Inf-3rdRef2-GD"    '[[InferredThirdPersonReferenceDenierAccount2       :users]
-                                          [GreenInferredThirdPersonReferenceDenierAccount2  :green]
-                                          [DenierInferredThirdPersonReferenceDenierAccount2 :denier]]}
+                    "Inf-ThirdRef2-GD"  '[[InferredThirdpersonReferenceDenierAccount2       :users]
+                                          [GreenInferredThirdpersonReferenceDenierAccount2  :green]
+                                          [DenierInferredThirdpersonReferenceDenierAccount2 :denier]]}
           [usrcnt
            grncnt
            dnrcnt] (map #(% cnts) [:users :green :denier])

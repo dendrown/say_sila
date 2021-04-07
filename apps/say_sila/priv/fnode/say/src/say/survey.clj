@@ -38,6 +38,12 @@
                       ;"globalwarming"   ["global" "warming"]
                      })
 
+(defonce Mention-Words          {"Thirdperson"       #{"he" "she" "they"}
+                                 "Reference"         #{;speak_of             ; TODO: bigrams
+                                                       "believe" "prefer"
+                                                       "protect" "support"
+                                                       "push"}})
+
 ;;; Six Americas Surveys:
 ;;;
 ;;; Word sets which invoke essential concepts
@@ -68,14 +74,7 @@
                                  "PUNISH"       #{"punish"}
                                 })
 
-(defonce Mention-Words          {"ThirdPerson"       #{"he" "she" "they"}
-                                 "Reference"         #{;speak_of             ; TODO: bigrams
-                                                       "believe" "prefer"
-                                                       "protect" "support"
-                                                       "push"}})
-
-(defonce Concept-Words          (merge Mention-Words
-                                       (word/synonym-values Concept-Triggers)))     ; Concept expansion
+(defonce Concept-Words          (word/synonym-values Concept-Triggers))             ; Synonym expansion
 
 (defonce Concept-Stems          (update-values Concept-Words #(tw/stem-all % :set)))
 
@@ -370,7 +369,7 @@
 ;;; --------------------------------------------------------------------------
 (defn report-survey
   "Reports word (stem) coverage for words checked against surveys associated
-  with this  namespace."
+  with this namespace."
   ([]
   (run! report-survey (keys Stem-Words)))
 
