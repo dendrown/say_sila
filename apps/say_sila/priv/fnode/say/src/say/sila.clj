@@ -1349,29 +1349,6 @@
       :equivalent (dl/and DenierAccount NaturalCauseAccountAFFNEG))))
 
 
-;;; --------------------------------------------------------------------------
-;; FIXME: Identifying energy conservation accounts works differently via EnergyConservationText
-;;
-;;        Tawmy-OWL is coding (some oproperty (and obj1 obj2))
-;;
-;;                         as (and (some oproperty obj1)
-;;                                 (some oproperty obj2))
-;;
-;; Discuss w/ RV and SR; then remove the old versions of theseclasses!
-(defclass EnergyConservationAccountBROKEN1
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/some publishes (dl/and (dl/some dul/hasComponent EnergyToken))
-                                                 (dl/some dul/hasComponent ConservationToken))))
-(defclass EnergyConservationAccountBROKEN2
-  :super OnlineAccount
-  :equivalent (dl/and OnlineAccount
-                      (dl/some publishes (dl/and Text
-                                                 (dl/some dul/hasComponent EnergyToken))
-                                                 (dl/some dul/hasComponent ConservationToken))))
-
-
-
 
 ;;; --------------------------------------------------------------------------
 ;;; Align our class hierarchy with FOAF if configured to do so
@@ -2897,9 +2874,6 @@
                                                   StrongNatureCauseAccountAB
                                                   GreenStrongNatureCauseAccount
                                                   DenierStrongNatureCauseAccount]
-
-                    [:users "Conserv-OLD"]      '[EnergyConservationAccountBROKEN1
-                                                  EnergyConservationAccountBROKEN2]
 
                     [:users "Conservation"]     '[WeakEnergyConservationAccount
                                                   GreenWeakEnergyConservationAccount
