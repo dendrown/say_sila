@@ -8,6 +8,7 @@ apps/say_sila/www/status/*.etf
 apps/say_sila/priv/plot/*.dat
 apps/say_sila/priv/plot/*.png
 apps/say_sila/priv/resources/accounts/*.lst
+docs/green/survey-wild*.txt
 docs/green/accounts/
 docs/green/csv/csv-*/
 rebar.lock
