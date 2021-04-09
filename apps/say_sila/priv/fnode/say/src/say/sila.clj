@@ -983,6 +983,19 @@
          :equivalent (dl/and DenierAccount ~account))))))
 
 
+(defmacro defscr-stance-account
+  "Creates an Online Account subclass where the user represents an SCR account
+  and has been determined to be a member of a specific class of stance account."
+  [stance scr-acct]
+  (let [stance-acct     (as-symbol `~stance "Account")
+        stance-scr-acct (as-symbol `~stance `~scr-acct)]
+  `(defclass ~stance-scr-acct
+      :super ~stance-acct
+      :label (soc/tokenize '~stance-scr-acct :str)
+      :equivalent (dl/and ~stance-acct
+                          ~scr-acct))))
+
+
 (defmacro defscr-2-aux
   "Defines all necessary elements for a two-concept survey concept rule."
   [concept1 descr1
@@ -1043,8 +1056,13 @@
     (defscr-accounts ~account1++2 ~text1++2)
     (defscr-accounts ~account1<>2 ~text1<>2)
     (defscr-accounts ~account1->2 ~text1->2)
-    (defscr-accounts ~account2->1 ~text2->1))))
+    (defscr-accounts ~account2->1 ~text2->1)
 
+    (defscr-stance-account Green ~account1++2)
+    (defscr-stance-account Green ~account1<>2)
+
+    (defscr-stance-account Denier ~account1++2)
+    (defscr-stance-account Denier ~account1<>2))))
 
 (defmacro defscr-2
   "Defines all necessary elements for a two-concept survey concept dependency rule."
@@ -1104,14 +1122,12 @@
 (defscr-2 COMPANY "Expressions which indicate..."                   ; TODO: remove (low coverage)
           PUNISH  "Expressions which refer to...")
 
-;; Accout1 uses SCRs we expect to be green
+;; Account1 uses SCRs we expect to be green
 (defclass WeakInferredGreenAccount1
   :super    OnlineAccount
   :label    "Weak Inferred Green Account (type 1)"
   :equivalent (dl/and OnlineAccount
                       (dl/or WeakHumanCauseAccount
-                             ;WeakEnergyConservationAccount
-                             ;WeakEnvironmentProtectAccount
                              WeakCO2CutAccount)))
 
 (defclass StrongInferredGreenAccount1
@@ -1119,8 +1135,6 @@
   :label    "Strong Inferred Green Account (type 1)"
   :equivalent (dl/and OnlineAccount
                       (dl/or StrongHumanCauseAccount
-                             ;StrongEnergyConservationAccount
-                             ;StrongEnvironmentProtectAccount
                              StrongCO2CutAccount)))
 
 
@@ -1150,14 +1164,13 @@
                       StrongInferredGreenAccount1))
 
 
-;; Accout2 uses additional SCRs that represent common denier talking points
+;; Account2 uses additional SCRs that represent common denier talking points
 (defclass WeakInferredGreenAccount2
   :super    OnlineAccount
   :label    "Weak Inferred Green Account (type 2)"
   :equivalent (dl/and OnlineAccount
-                      (dl/or WeakHumanCauseAccount
-                             ;WeakEnergyConservationAccount
-                             ;WeakEnvironmentProtectAccount
+                      (dl/or ; Talking about traditional GREEN stances
+                             WeakHumanCauseAccount
                              WeakCO2CutAccount
                              ; Talking about traditional denier stances
                              WeakNatureCauseAccount
@@ -1199,6 +1212,59 @@
   :label    "Denier Strong Inferred Green Account (type 2)"
   :equivalent (dl/and DenierAccount
                       StrongInferredGreenAccount2))
+
+
+;; Account3 includes two more green-themed SCRs
+(defclass WeakInferredGreenAccount3
+  :super    OnlineAccount
+  :label    "Weak Inferred Green Account (type 3)"
+  :equivalent (dl/and OnlineAccount
+                      (dl/or ; Talking about traditional GREEN stances
+                             WeakHumanCauseAccount
+                             WeakCO2CutAccount
+                             WeakEnergyConservationAccount
+                             WeakEnvironmentProtectAccount
+                             ; Talking about traditional DENIER stances
+                             WeakNatureCauseAccount
+                             WeakEconomicGrowthAccount)))
+
+(defclass StrongInferredGreenAccount3
+  :super    OnlineAccount
+  :label    "Strong Inferred Green Account (type 3)"
+  :equivalent (dl/and OnlineAccount
+                      (dl/or ; Talking about traditional GREEN stances
+                             StrongHumanCauseAccount
+                             StrongCO2CutAccount
+                             StrongEnergyConservationAccount
+                             StrongEnvironmentProtectAccount
+                             ; Talking about traditional denier stances
+                             StrongNatureCauseAccount
+                             StrongEconomicGrowthAccount)))
+
+(defclass GreenWeakInferredGreenAccount3
+  :super    GreenAccount
+  :label    "Green Weak Inferred Green Account (type 3)"
+  :equivalent (dl/and GreenAccount
+                      WeakInferredGreenAccount3))
+
+(defclass GreenStrongInferredGreenAccount3
+  :super    GreenAccount
+  :label    "Green Strong Inferred Green Account (type 3)"
+  :equivalent (dl/and GreenAccount
+                      StrongInferredGreenAccount3))
+
+
+(defclass DenierWeakInferredGreenAccount3
+  :super    DenierAccount
+  :label    "Denier Weak Inferred Green Account (type 3)"
+  :equivalent (dl/and DenierAccount
+                      WeakInferredGreenAccount3))
+
+(defclass DenierStrongInferredGreenAccount3
+  :super    DenierAccount
+  :label    "Denier Strong Inferred Green Account (type 3)"
+  :equivalent (dl/and DenierAccount
+                      StrongInferredGreenAccount3))
 
 
 ;;; --------------------------------------------------------------------------
@@ -3031,7 +3097,49 @@
   (binding [*ns* (find-ns 'say.sila)]
     (let [;; The concept map is organized according to the report setup:
           ;;        CONCEPT-TAG           SYMBOL<<---------[pairs]--------->>WHO
-          concepts {"Inferred1-GD"      '[[WeakInferredGreenAccount1         :users]
+          concepts {"EngCons-GD"        '[[WeakEnergyConservationAccount         :users]
+                                          [GreenWeakEnergyConservationAccount    :green]
+                                          [DenierWeakEnergyConservationAccount   :denier]
+                                          [StrongEnergyConservationAccount       :users]
+                                          [GreenStrongEnergyConservationAccount  :green]
+                                          [DenierStrongEnergyConservationAccount :denier]]
+
+                    "CO2Cut-GD"         '[[WeakCO2CutAccount         :users]
+                                          [GreenWeakCO2CutAccount    :green]
+                                          [DenierWeakCO2CutAccount   :denier]
+                                          [StrongCO2CutAccount       :users]
+                                          [GreenStrongCO2CutAccount  :green]
+                                          [DenierStrongCO2CutAccount :denier]]
+
+                    "EnvProtect-GD"     '[[WeakEnvironmentProtectAccount         :users]
+                                          [GreenWeakEnvironmentProtectAccount    :green]
+                                          [DenierWeakEnvironmentProtectAccount   :denier]
+                                          [StrongEnvironmentProtectAccount       :users]
+                                          [GreenStrongEnvironmentProtectAccount  :green]
+                                          [DenierStrongEnvironmentProtectAccount :denier]]
+
+                    "EconGrowth-GD"     '[[WeakEconomicGrowthAccount         :users]
+                                          [GreenWeakEconomicGrowthAccount    :green]
+                                          [DenierWeakEconomicGrowthAccount   :denier]
+                                          [StrongEconomicGrowthAccount       :users]
+                                          [GreenStrongEconomicGrowthAccount  :green]
+                                          [DenierStrongEconomicGrowthAccount :denier]]
+
+                    "HumanCause-GD"     '[[WeakHumanCauseAccount         :users]
+                                          [GreenWeakHumanCauseAccount    :green]
+                                          [DenierWeakHumanCauseAccount   :denier]
+                                          [StrongHumanCauseAccount       :users]
+                                          [GreenStrongHumanCauseAccount  :green]
+                                          [DenierStrongHumanCauseAccount :denier]]
+
+                    "NatureCause-GD"     '[[WeakNatureCauseAccount         :users]
+                                          [GreenWeakNatureCauseAccount    :green]
+                                          [DenierWeakNatureCauseAccount   :denier]
+                                          [StrongNatureCauseAccount       :users]
+                                          [GreenStrongNatureCauseAccount  :green]
+                                          [DenierStrongNatureCauseAccount :denier]]
+
+                    "Inferred1-GD"      '[[WeakInferredGreenAccount1         :users]
                                           [GreenWeakInferredGreenAccount1    :green]
                                           [DenierWeakInferredGreenAccount1   :denier]
                                           [StrongInferredGreenAccount1       :users]
@@ -3044,6 +3152,13 @@
                                           [StrongInferredGreenAccount2       :users]
                                           [GreenStrongInferredGreenAccount2  :green]
                                           [DenierStrongInferredGreenAccount2 :denier]]
+
+                    "Inferred3-GD"      '[[WeakInferredGreenAccount3         :users]
+                                          [GreenWeakInferredGreenAccount3    :green]
+                                          [DenierWeakInferredGreenAccount3   :denier]
+                                          [StrongInferredGreenAccount3       :users]
+                                          [GreenStrongInferredGreenAccount3  :green]
+                                          [DenierStrongInferredGreenAccount3 :denier]]
 
                     "Inf-ThirdRef2-GD"  '[[InferredThirdpersonReferenceDenierAccount2       :users]
                                           [GreenInferredThirdpersonReferenceDenierAccount2  :green]
