@@ -1,25 +1,25 @@
 say.survey=> (report-survey :six36 :chart)
-2021-04-09 09:03:35.426   INFO: climat          : 2295
-2021-04-09 09:03:35.427   INFO: global          : 2118
-2021-04-09 09:03:35.427   INFO: warm            : 2086
-2021-04-09 09:03:35.428   INFO: chang           : 1946
+2021-04-09 09:03:35.426   INFO: climat          : 2295  ;
+2021-04-09 09:03:35.427   INFO: global          : 2118  ;
+2021-04-09 09:03:35.427   INFO: warm            : 2086  ;
+2021-04-09 09:03:35.428   INFO: chang           : 1946  ;
 2021-04-09 09:03:35.428   INFO: us              : 1394
-2021-04-09 09:03:35.428   INFO: year            : 1386
-2021-04-09 09:03:35.428   INFO: now             : 1122
+2021-04-09 09:03:35.428   INFO: year            : 1386  **
+2021-04-09 09:03:35.428   INFO: now             : 1122  **
 2021-04-09 09:03:35.428   INFO: time            : 1088
 2021-04-09 09:03:35.429   INFO: #climat         : 930 
 2021-04-09 09:03:35.429   INFO: world           : 925 
 2021-04-09 09:03:35.429   INFO: new             : 754 
 2021-04-09 09:03:35.429   INFO: today           : 736 
 2021-04-09 09:03:35.430   INFO: daili           : 712 
-2021-04-09 09:03:35.430   INFO: human           : 698 
-2021-04-09 09:03:35.430   INFO: caus            : 671 
-2021-04-09 09:03:35.430   INFO: #environ        : 653 
-2021-04-09 09:03:35.430   INFO: scientist       : 628 
+2021-04-09 09:03:35.430   INFO: human           : 698   ; HumanCause
+2021-04-09 09:03:35.430   INFO: caus            : 671   ; HumanCause            NatureCause
+2021-04-09 09:03:35.430   INFO: #environ        : 653   ; EnvironmentProtect
+2021-04-09 09:03:35.430   INFO: scientist       : 628   **
 2021-04-09 09:03:35.431   INFO: peopl           : 599 
 2021-04-09 09:03:35.431   INFO: record          : 593 
 2021-04-09 09:03:35.431   INFO: news            : 581 
-2021-04-09 09:03:35.431   INFO: carbon          : 562 
+2021-04-09 09:03:35.431   INFO: carbon          : 562   ; CO2Cut
 2021-04-09 09:03:35.431   INFO: take            : 520 
 2021-04-09 09:03:35.432   INFO: save            : 481 
 2021-04-09 09:03:35.432   INFO: weather         : 461 
@@ -31,7 +31,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.433   INFO: visit           : 384 
 2021-04-09 09:03:35.433   INFO: contact         : 382 
 2021-04-09 09:03:35.433   INFO: help            : 378 
-2021-04-09 09:03:35.433   INFO: natur           : 377 
+2021-04-09 09:03:35.433   INFO: natur           : 377   ; NatureCause
 2021-04-09 09:03:35.434   INFO: winter          : 370 
 2021-04-09 09:03:35.434   INFO: action          : 369 
 2021-04-09 09:03:35.434   INFO: money           : 363 
@@ -52,7 +52,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.436   INFO: job             : 258 
 2021-04-09 09:03:35.436   INFO: follow          : 257 
 2021-04-09 09:03:35.437   INFO: pollut          : 254 
-2021-04-09 09:03:35.437   INFO: energi          : 248 
+2021-04-09 09:03:35.437   INFO: energi          : 248   ; EnergyConservation
 2021-04-09 09:03:35.437   INFO: plant           : 246 
 2021-04-09 09:03:35.437   INFO: countri         : 237 
 2021-04-09 09:03:35.437   INFO: never           : 231 
@@ -61,21 +61,21 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.438   INFO: question        : 215 
 2021-04-09 09:03:35.438   INFO: nation          : 214 
 2021-04-09 09:03:35.438   INFO: cost            : 211 
-2021-04-09 09:03:35.438   INFO: reduc           : 211 
+2021-04-09 09:03:35.438   INFO: reduc           : 211   ; CO2Cut
 2021-04-09 09:03:35.439   INFO: view            : 208 
 2021-04-09 09:03:35.439   INFO: import          : 205 
 2021-04-09 09:03:35.439   INFO: warmer          : 204 
-2021-04-09 09:03:35.439   INFO: #carbon         : 203 
-2021-04-09 09:03:35.439   INFO: econom          : 200 
+2021-04-09 09:03:35.439   INFO: #carbon         : 203   ; CO2Cut
+2021-04-09 09:03:35.439   INFO: econom          : 200   ; EconomicGrowth
 2021-04-09 09:03:35.439   INFO: state           : 198 
 2021-04-09 09:03:35.440   INFO: industri        : 197 
 2021-04-09 09:03:35.440   INFO: start           : 194 
 2021-04-09 09:03:35.440   INFO: inform          : 193 
-2021-04-09 09:03:35.440   INFO: environment     : 193 
+2021-04-09 09:03:35.440   INFO: environment     : 193   ; EnvironmentProtect
 2021-04-09 09:03:35.440   INFO: govern          : 190 
 2021-04-09 09:03:35.440   INFO: expert          : 188 
 2021-04-09 09:03:35.441   INFO: problem         : 188 
-2021-04-09 09:03:35.441   INFO: conserv         : 181 
+2021-04-09 09:03:35.441   INFO: conserv         : 181   ; EnergyConservation
 2021-04-09 09:03:35.441   INFO: averag          : 180 
 2021-04-09 09:03:35.441   INFO: develop         : 178 
 2021-04-09 09:03:35.441   INFO: degre           : 174 
@@ -87,7 +87,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.443   INFO: worri           : 164 
 2021-04-09 09:03:35.443   INFO: gas             : 160 
 2021-04-09 09:03:35.443   INFO: person          : 160 
-2021-04-09 09:03:35.443   INFO: environ         : 155 
+2021-04-09 09:03:35.443   INFO: environ         : 155   ; EnvironmentProtect
 2021-04-09 09:03:35.443   INFO: american        : 155 
 2021-04-09 09:03:35.443   INFO: interest        : 151 
 2021-04-09 09:03:35.444   INFO: public          : 151 
@@ -98,11 +98,11 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.445   INFO: event           : 140 
 2021-04-09 09:03:35.445   INFO: media           : 138 
 2021-04-09 09:03:35.445   INFO: summer          : 136 
-2021-04-09 09:03:35.445   INFO: protect         : 134 
+2021-04-09 09:03:35.445   INFO: protect         : 134   ; EnvironmentProtect
 2021-04-09 09:03:35.445   INFO: post            : 132 
 2021-04-09 09:03:35.446   INFO: releas          : 129 
 2021-04-09 09:03:35.446   INFO: stori           : 128 
-2021-04-09 09:03:35.446   INFO: #energi         : 127 
+2021-04-09 09:03:35.446   INFO: #energi         : 127   ; EnergyConservation
 2021-04-09 09:03:35.446   INFO: watch           : 127 
 2021-04-09 09:03:35.446   INFO: u.s.            : 126 
 2021-04-09 09:03:35.447   INFO: leader          : 122 
@@ -130,7 +130,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.451   INFO: small           : 108 
 2021-04-09 09:03:35.451   INFO: opinion         : 106 
 2021-04-09 09:03:35.451   INFO: month           : 105 
-2021-04-09 09:03:35.451   INFO: economi         : 102 
+2021-04-09 09:03:35.451   INFO: economi         : 102   ; EconomicGrowth
 2021-04-09 09:03:35.452   INFO: vote            : 102 
 2021-04-09 09:03:35.452   INFO: contribut       : 101 
 2021-04-09 09:03:35.452   INFO: bill            : 100 
@@ -173,23 +173,23 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.459   INFO: friend          : 65  
 2021-04-09 09:03:35.459   INFO: local           : 65  
 2021-04-09 09:03:35.460   INFO: clean           : 65  
-2021-04-09 09:03:35.460   INFO: #environment    : 64  
+2021-04-09 09:03:35.460   INFO: #environment    : 64    ; EnvironmentProtect
 2021-04-09 09:03:35.460   INFO: #tax            : 64  
 2021-04-09 09:03:35.460   INFO: purchas         : 63  
 2021-04-09 09:03:35.460   INFO: movement        : 63  
 2021-04-09 09:03:35.461   INFO: effici          : 62  
 2021-04-09 09:03:35.461   INFO: expand          : 61  
 2021-04-09 09:03:35.461   INFO: effort          : 61  
-2021-04-09 09:03:35.461   INFO: growth          : 59  
+2021-04-09 09:03:35.461   INFO: growth          : 59    ; EconomicGrowth
 2021-04-09 09:03:35.461   INFO: #polit          : 57  
 2021-04-09 09:03:35.461   INFO: fund            : 55  
 2021-04-09 09:03:35.462   INFO: #new            : 55  
 2021-04-09 09:03:35.462   INFO: contain         : 55  
-2021-04-09 09:03:35.462   INFO: #conserv        : 54  
+2021-04-09 09:03:35.462   INFO: #conserv        : 54  ; EnergyConservation
 2021-04-09 09:03:35.462   INFO: light           : 53  
 2021-04-09 09:03:35.462   INFO: #futur          : 53  
 2021-04-09 09:03:35.462   INFO: provid          : 53  
-2021-04-09 09:03:35.463   INFO: trust           : 53  
+2021-04-09 09:03:35.463   INFO: trust           : 53  **
 2021-04-09 09:03:35.463   INFO: donat           : 52  
 2021-04-09 09:03:35.463   INFO: #recycl         : 51  
 2021-04-09 09:03:35.463   INFO: discuss         : 51  
@@ -209,7 +209,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.466   INFO: #greenhous      : 43  
 2021-04-09 09:03:35.466   INFO: individu        : 43  
 2021-04-09 09:03:35.466   INFO: beverag         : 42  
-2021-04-09 09:03:35.466   INFO: #human          : 41  
+2021-04-09 09:03:35.466   INFO: #human          : 41    ; HumanCause
 2021-04-09 09:03:35.466   INFO: #oil            : 40  
 2021-04-09 09:03:35.467   INFO: influenc        : 40  
 2021-04-09 09:03:35.467   INFO: internet        : 39  
@@ -239,7 +239,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.471   INFO: hurt            : 29  
 2021-04-09 09:03:35.471   INFO: york            : 26  
 2021-04-09 09:03:35.471   INFO: channel         : 26  
-2021-04-09 09:03:35.471   INFO: #economi        : 25  
+2021-04-09 09:03:35.471   INFO: #economi        : 25    ; EconomicGrowth
 2021-04-09 09:03:35.472   INFO: #hope           : 25  
 2021-04-09 09:03:35.472   INFO: teach           : 25  
 2021-04-09 09:03:35.472   INFO: tv              : 25  
@@ -256,7 +256,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.474   INFO: #anim           : 22  
 2021-04-09 09:03:35.474   INFO: #polici         : 21  
 2021-04-09 09:03:35.474   INFO: establish       : 21  
-2021-04-09 09:03:35.475   INFO: #econom         : 21  
+2021-04-09 09:03:35.475   INFO: #econom         : 21    ; EconomicGrowth
 2021-04-09 09:03:35.475   INFO: feder           : 21  
 2021-04-09 09:03:35.475   INFO: afford          : 21  
 2021-04-09 09:03:35.475   INFO: prioriti        : 21  
@@ -274,7 +274,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.477   INFO: #warm           : 18  
 2021-04-09 09:03:35.477   INFO: mainstream      : 18  
 2021-04-09 09:03:35.478   INFO: snowstorm       : 17  
-2021-04-09 09:03:35.478   INFO: human-caus      : 17  
+2021-04-09 09:03:35.478   INFO: human-caus      : 17    ; HumanCause
 2021-04-09 09:03:35.478   INFO: #plant          : 17  
 2021-04-09 09:03:35.478   INFO: #cnn            : 17  
 2021-04-09 09:03:35.478   INFO: punish          : 17  
@@ -359,7 +359,7 @@ say.survey=> (report-survey :six36 :chart)
 2021-04-09 09:03:35.492   INFO: gasolin         : 6   
 2021-04-09 09:03:35.492   INFO: certainti       : 6   
 2021-04-09 09:03:35.492   INFO: #nbc            : 5   
-2021-04-09 09:03:35.492   INFO: #protect        : 5   
+2021-04-09 09:03:35.492   INFO: #protect        : 5     ; EnvironmentProtect
 2021-04-09 09:03:35.493   INFO: #npr            : 5   
 2021-04-09 09:03:35.493   INFO: #taxpay         : 5   
 2021-04-09 09:03:35.493   INFO: compact         : 5   
