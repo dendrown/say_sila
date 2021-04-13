@@ -47,6 +47,10 @@
     "SID-02470006-V"}   ;gloss "refrain from harming"
 
  ;; --------------------------------------------------------------------------
+  "carbon"
+  #{"SID-14657384-N"}   ;gloss "an abundant nonmetallic tetravalent element occurring in three allotropic forms..."
+
+ ;; --------------------------------------------------------------------------
   "cut"
   #{"SID-00430013-V"    ;gloss "cut down on; make a reduction in; 'reduce your daily fat intake'"
     "SID-00244786-V"}   ;gloss "reduce in scope while retaining essential elements; 'The manuscript must be shortened'"

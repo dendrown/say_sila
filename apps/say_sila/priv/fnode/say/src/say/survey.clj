@@ -56,7 +56,7 @@
                                  "CONSERVATION" #{"conservation" "save"}
                                  ;; ------------------------------------------
                                  "CUT"          #{"cut" "regulate"}
-                                 "CO2"          #{"co2"}
+                                 "CO2"          #{"co2" "carbon"}
                                  ;; ------------------------------------------
                                  "PROTECT"      #{"protect"}
                                  "ENVIRONMENT"  #{"environment"}
