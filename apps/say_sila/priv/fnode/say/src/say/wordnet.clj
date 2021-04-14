@@ -69,6 +69,11 @@
 
   "growth"
   #{"SID-13518338-N"}   ;gloss "a process of becoming larger or longer or more numerous or more important"
+
+ ;; --------------------------------------------------------------------------
+  "year"
+  #{"SID-15228587-N"    ;gloss "a period of time containing 365 (or 366) days"
+    "SID-15226340-N"}   ;gloss "the period of time that it takes for a planet to make a complete revolution around the sun"
 })
 
 ;;; --------------------------------------------------------------------------

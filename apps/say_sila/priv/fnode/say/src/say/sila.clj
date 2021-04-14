@@ -1116,6 +1116,12 @@
 (defscr-2 PEOPLE "Expressions which indicate a group of persons."
           HARM   "Expressions which refer to hurt or harm.")
 
+(defscr-2 YEAR   "Expressions which indicate calendar years (365 days)."
+          PEOPLE "Expressions which indicate a group of persons.")
+
+(defscr-2 YEAR   "Expressions which indicate calendar years (365 days)."
+          HARM   "Expressions which refer to hurt or harm.")
+
 (defscr-2 COMPANY "Expressions which indicate..."                   ; TODO: remove (low coverage)
           REWARD  "Expressions which refer to...")
 
@@ -1237,6 +1243,7 @@
                              StrongCO2CutAccount
                              StrongEnergyConservationAccount
                              StrongEnvironmentProtectAccount
+                             StrongYearPeopleAccount
                              ; Talking about traditional denier stances
                              StrongNatureCauseAccount
                              StrongEconomicGrowthAccount)))
@@ -2855,6 +2862,8 @@
                              ["CompanyReward"        ["COMPANY" "REWARD"]]  ; TODO: remove (low coverage)
                              ["CompanyPunish"        ["COMPANY" "PUNISH"]]  ; TODO: remove (low coverage)
                              ["PeopleHarm"           ["PEOPLE" "HARM"]]
+                             ["YearHarm"             ["YEAR" "HARM"]]
+                             ["YearPeople"           ["YEAR" "PEOPLE"]]
                              ["ThirdpersonReference" ["Thirdperson" "Reference"]]
                             ]]
     ;; Always report to REPL
@@ -2989,6 +2998,24 @@
                                                   DenierStrongPeopleHarmAccount]
                                                   ;-----------------------------------------
 
+                    [:users "YearHarm"]         '[WeakYearHarmAccount
+                                                  GreenWeakYearHarmAccount
+                                                  DenierWeakYearHarmAccount
+                                                  ;-----------------------------------------
+                                                  StrongYearHarmAccount
+                                                  StrongYearHarmAccountAB
+                                                  GreenStrongYearHarmAccount
+                                                  DenierStrongYearHarmAccount]
+
+                    [:users "YearPeople"]       '[WeakYearPeopleAccount
+                                                  GreenWeakYearPeopleAccount
+                                                  DenierWeakYearPeopleAccount
+                                                  ;-----------------------------------------
+                                                  StrongYearPeopleAccount
+                                                  StrongYearPeopleAccountAB
+                                                  GreenStrongYearPeopleAccount
+                                                  DenierStrongYearPeopleAccount]
+
                     ;; Pseudo-survey-concept
                     [:users "ThirdpersonRef"]   '[StrongThirdpersonReferenceAccount
                                                   StrongThirdpersonReferenceAccountAB
@@ -2997,27 +3024,27 @@
                                                   DenierStrongThirdpersonReferenceAccount]
                                                   ;-----------------------------------------
 
-                    ;; TODO: Remove trial with low coverage
-                    [:users "CompanyReward"]    '[WeakCompanyRewardAccount
-                                                  GreenWeakCompanyRewardAccount
-                                                  DenierWeakCompanyRewardAccount
-                                                  ;-----------------------------------------
-                                                  StrongCompanyRewardAccount
-                                                  StrongCompanyRewardAccountAB
-                                                  GreenStrongCompanyRewardAccount
-                                                  DenierStrongCompanyRewardAccount]
+                   ;;; TODO: Remove trial with low coverage
+                   ;[:users "CompanyReward"]    '[WeakCompanyRewardAccount
+                   ;                              GreenWeakCompanyRewardAccount
+                   ;                              DenierWeakCompanyRewardAccount
+                   ;                              ;-----------------------------------------
+                   ;                              StrongCompanyRewardAccount
+                   ;                              StrongCompanyRewardAccountAB
+                   ;                              GreenStrongCompanyRewardAccount
+                   ;                              DenierStrongCompanyRewardAccount]
                                                   ;-----------------------------------------
 
-                    ;; TODO: Remove trial with low coverage
-                    [:users "CompanyPunish"]    '[WeakCompanyPunishAccount
-                                                  GreenWeakCompanyPunishAccount
-                                                  DenierWeakCompanyPunishAccount
-                                                  ;-----------------------------------------
-                                                  StrongCompanyPunishAccount
-                                                  StrongCompanyPunishAccountAB
-                                                  GreenStrongCompanyPunishAccount
-                                                  DenierStrongCompanyPunishAccount]
-                                                  ;-----------------------------------------
+                   ;;; TODO: Remove trial with low coverage
+                   ;[:users "CompanyPunish"]    '[WeakCompanyPunishAccount
+                   ;                              GreenWeakCompanyPunishAccount
+                   ;                              DenierWeakCompanyPunishAccount
+                   ;                              ;-----------------------------------------
+                   ;                              StrongCompanyPunishAccount
+                   ;                              StrongCompanyPunishAccountAB
+                   ;                              GreenStrongCompanyPunishAccount
+                   ;                              DenierStrongCompanyPunishAccount]
+                   ;                              ;-----------------------------------------
 
                     [:users "Inferred1"]        '[WeakInferredGreenAccount1
                                                   GreenWeakInferredGreenAccount1
@@ -3031,7 +3058,15 @@
                                                   DenierWeakInferredGreenAccount2
                                                   StrongInferredGreenAccount2
                                                   GreenStrongInferredGreenAccount2
-                                                  DenierStrongInferredGreenAccount2]}
+                                                  DenierStrongInferredGreenAccount2]
+
+
+                    [:users "Inferred3"]        '[WeakInferredGreenAccount3
+                                                  GreenWeakInferredGreenAccount3
+                                                  DenierWeakInferredGreenAccount3
+                                                  StrongInferredGreenAccount3
+                                                  GreenStrongInferredGreenAccount3
+                                                  DenierStrongInferredGreenAccount3]}
 
           needles (comm/instances onts (mapcat val concepts))
 
