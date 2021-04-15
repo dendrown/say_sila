@@ -280,7 +280,7 @@
                       "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.S02.arff")
 
   ;; Do they want console and CSV reports??
-  (doseq [[opt fun] [[:report   #(sila/report-world :no-pos)]
+  (doseq [[opt fun] [[:report   #(sila/report-world)]
                      [:concepts #(sila/report-concepts)]
                      [:inferred #(sila/report-inferred-concepts)]]]
 

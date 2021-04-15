@@ -1047,7 +1047,7 @@
       :super Text
       :label (soc/tokenize '~text1<>2 :str)
       :comment (str "A Text with components representing the concepts of " ~rule1 " and " ~rule2
-                    "where these concepts are in arelationship of syntactical dependency")
+                    "where these concepts are in a relationship of syntactical dependency")
       :equivalent (dl/and Text
                           (dl/some dul/hasComponent (dl/or ~token1->2
                                                            ~token2->1))))
@@ -1128,7 +1128,54 @@
 (defscr-2 COMPANY "Expressions which indicate..."                   ; TODO: remove (low coverage)
           PUNISH  "Expressions which refer to...")
 
-;; Account1 uses SCRs we expect to be green
+;;; --------------------------------------------------------------------------
+;;; Dependency combinations between SCRs and POS elements
+(defclass NumeralToken
+  :super pos/Token
+  :label "Numeral Token"
+  :equivalent (dl/and pos/Token
+                      (dl/some dul/hasQuality pos/Numeral)))
+
+;;; We can make use of the SCR macros from here
+(defscr-token-dep NumeralYearTokenAB NumeralToken YearToken)
+(defscr-token-dep NumeralYearTokenBA YearToken NumeralToken)
+
+(defclass WeakNumeralYearText
+  :super Text
+  :label "Weak Numeral Year Text"
+  :comment "A Text with components representing a Numeral as a part of speech and the concept of Year"
+  :equivalent (dl/and Text
+                      (dl/some dul/hasComponent NumeralToken)
+                      (dl/some dul/hasComponent YearToken)))
+
+(defscr-text-dep StrongNumeralYearTextAB NumeralYearTokenAB "Numeral" "Year")
+(defscr-text-dep StrongNumeralYearTextBA NumeralYearTokenBA "Year" "Numeral")
+
+(defclass StrongNumeralYearText
+  :super Text
+  :label "Strong Numeral Year Text"
+  :comment (str "A Text with components representing a Numeral as a part of speech and the concept of Year"
+                "where these concepts are in a relationship of syntactical dependency")
+  :equivalent (dl/and Text
+                      (dl/some dul/hasComponent (dl/or StrongNumeralYearTextAB
+                                                       StrongNumeralYearTextBA))))
+
+(defscr-accounts WeakNumeralYearAccount WeakNumeralYearText)
+(defscr-accounts StrongNumeralYearAccount StrongNumeralYearText)
+(defscr-accounts StrongNumeralYearAccountAB StrongNumeralYearTextAB)
+(defscr-accounts StrongNumeralYearAccountBA StrongNumeralYearTextBA)
+
+(defscr-stance-account Green WeakNumeralYearAccount)
+(defscr-stance-account Green StrongNumeralYearAccount)
+
+(defscr-stance-account Denier WeakNumeralYearAccount)
+(defscr-stance-account Denier StrongNumeralYearAccount)
+
+
+;;; --------------------------------------------------------------------------
+;;; Collecting the above into inferred accounts (FIXME: macroize these!)
+;;;
+;;; Account1 uses SCRs we expect to be green
 (defclass WeakInferredGreenAccount1
   :super    OnlineAccount
   :label    "Weak Inferred Green Account (type 1)"
@@ -1170,7 +1217,7 @@
                       StrongInferredGreenAccount1))
 
 
-;; Account2 uses additional SCRs that represent common denier talking points
+;;; Account2 uses additional SCRs that represent common denier talking points
 (defclass WeakInferredGreenAccount2
   :super    OnlineAccount
   :label    "Weak Inferred Green Account (type 2)"
@@ -1220,7 +1267,7 @@
                       StrongInferredGreenAccount2))
 
 
-;; Account3 includes two more green-themed SCRs
+;;; Account3 includes two more green-themed SCRs
 (defclass WeakInferredGreenAccount3
   :super    OnlineAccount
   :label    "Weak Inferred Green Account (type 3)"
@@ -1272,6 +1319,64 @@
   :label    "Denier Strong Inferred Green Account (type 3)"
   :equivalent (dl/and DenierAccount
                       StrongInferredGreenAccount3))
+
+
+;;; Account4 includes combines SCRs with POS components
+(defclass WeakInferredGreenAccount4
+  :super    OnlineAccount
+  :label    "Weak Inferred Green Account (type 4)"
+  :equivalent (dl/and OnlineAccount
+                      (dl/or ; Talking about traditional GREEN stances
+                             WeakHumanCauseAccount
+                             WeakCO2CutAccount
+                             WeakEnergyConservationAccount
+                             WeakEnvironmentProtectAccount
+                             ; Talking about traditional DENIER stances
+                             WeakNatureCauseAccount
+                             WeakEconomicGrowthAccount
+                             ; SCR + POS elements
+                             WeakNumeralYearAccount)))
+
+(defclass StrongInferredGreenAccount4
+  :super    OnlineAccount
+  :label    "Strong Inferred Green Account (type 4)"
+  :equivalent (dl/and OnlineAccount
+                      (dl/or ; Talking about traditional GREEN stances
+                             StrongHumanCauseAccount
+                             StrongCO2CutAccount
+                             StrongEnergyConservationAccount
+                             StrongEnvironmentProtectAccount
+                             StrongYearPeopleAccount
+                             ; Talking about traditional denier stances
+                             StrongNatureCauseAccount
+                             StrongEconomicGrowthAccount
+                             ; SCR + POS elements
+                             StrongNumeralYearAccount)))
+
+(defclass GreenWeakInferredGreenAccount4
+  :super    GreenAccount
+  :label    "Green Weak Inferred Green Account (type 4)"
+  :equivalent (dl/and GreenAccount
+                      WeakInferredGreenAccount4))
+
+(defclass GreenStrongInferredGreenAccount4
+  :super    GreenAccount
+  :label    "Green Strong Inferred Green Account (type 4)"
+  :equivalent (dl/and GreenAccount
+                      StrongInferredGreenAccount4))
+
+
+(defclass DenierWeakInferredGreenAccount4
+  :super    DenierAccount
+  :label    "Denier Weak Inferred Green Account (type 4)"
+  :equivalent (dl/and DenierAccount
+                      WeakInferredGreenAccount4))
+
+(defclass DenierStrongInferredGreenAccount4
+  :super    DenierAccount
+  :label    "Denier Strong Inferred Green Account (type 4)"
+  :equivalent (dl/and DenierAccount
+                      StrongInferredGreenAccount4))
 
 
 ;;; --------------------------------------------------------------------------
@@ -3016,6 +3121,15 @@
                                                   GreenStrongYearPeopleAccount
                                                   DenierStrongYearPeopleAccount]
 
+                    [:users "NumeralYear"]       '[WeakNumeralYearAccount
+                                                  GreenWeakNumeralYearAccount
+                                                  DenierWeakNumeralYearAccount
+                                                  ;-----------------------------------------
+                                                  StrongNumeralYearAccount
+                                                  StrongNumeralYearAccountAB
+                                                  GreenStrongNumeralYearAccount
+                                                  DenierStrongNumeralYearAccount]
+
                     ;; Pseudo-survey-concept
                     [:users "ThirdpersonRef"]   '[StrongThirdpersonReferenceAccount
                                                   StrongThirdpersonReferenceAccountAB
@@ -3060,13 +3174,20 @@
                                                   GreenStrongInferredGreenAccount2
                                                   DenierStrongInferredGreenAccount2]
 
-
                     [:users "Inferred3"]        '[WeakInferredGreenAccount3
                                                   GreenWeakInferredGreenAccount3
                                                   DenierWeakInferredGreenAccount3
                                                   StrongInferredGreenAccount3
                                                   GreenStrongInferredGreenAccount3
-                                                  DenierStrongInferredGreenAccount3]}
+                                                  DenierStrongInferredGreenAccount3]
+
+                    [:users "Inferred4"]        '[WeakInferredGreenAccount4
+                                                  GreenWeakInferredGreenAccount4
+                                                  DenierWeakInferredGreenAccount4
+                                                  StrongInferredGreenAccount4
+                                                  GreenStrongInferredGreenAccount4
+                                                  DenierStrongInferredGreenAccount4]
+                                                  }
 
           needles (comm/instances onts (mapcat val concepts))
 
@@ -3194,6 +3315,13 @@
                                           [StrongInferredGreenAccount3       :users]
                                           [GreenStrongInferredGreenAccount3  :green]
                                           [DenierStrongInferredGreenAccount3 :denier]]
+
+                    "Inferred4-GD"      '[[WeakInferredGreenAccount4         :users]
+                                          [GreenWeakInferredGreenAccount4    :green]
+                                          [DenierWeakInferredGreenAccount4   :denier]
+                                          [StrongInferredGreenAccount4       :users]
+                                          [GreenStrongInferredGreenAccount4  :green]
+                                          [DenierStrongInferredGreenAccount4 :denier]]
 
                     "Inf-ThirdRef2-GD"  '[[InferredThirdpersonReferenceDenierAccount2       :users]
                                           [GreenInferredThirdpersonReferenceDenierAccount2  :green]
