@@ -117,13 +117,53 @@
 (defn predict
   "Prepares a TweeboParser (predicted) dependency tree for later use."
   [tid]
-  (try
-    (with-open [rdr (io/reader (get-fpath tid :predict))]
-      (doall (csv/read-csv rdr :separator \tab)))
-    (catch Exception ex
-      (log/error "Cannot read predicted dependencies:" tid)
-      (throw ex))))
+  (when-let [lines (try
+                    (with-open [rdr (io/reader (get-fpath tid :predict))]
+                      (doall (csv/read-csv rdr :separator \tab)))
+                    (catch Exception ex
+                      ;(log/error "Cannot read predicted dependencies:" tid)
+                      nil))]
+    ;; There's a pesky empty line at the end of the Tweebo output
+    (remove #(= % [""]) lines)))
 
+
+;;; --------------------------------------------------------------------------
+(defn get-terms
+  "Returns a lazy sequence of tbe terms, as parsed by Tweebo, for a given
+  tweet ID.  If the tweet has not previously been parsed by Tweebo, the
+  function returns an empty list."
+  [tid]
+  ;; Filter out the nil from the final empty line in the the tweebo output
+  (map second (predict tid)))
+
+
+;;; --------------------------------------------------------------------------
+(defn get-pos
+  "Returns a lazy sequence of part of speech tags, as parsed by Tweebo, for
+  a given tweet ID.  If the tweet has not previously been parsed by Tweebo,
+  the function returns an empty list."
+  [tid]
+  ;; Filter out the nil from the final empty line in the the tweebo output
+  (map #(nth % 3) (predict tid)))
+
+
+;;; --------------------------------------------------------------------------
+(defn get-pos-terms
+  "For a given tweet ID, returns a lazy sequence of vectors, each containing
+  the part of speech tag of a term and the term itself.  If the tweet has not
+  previously been parsed by Tweebo, the function returns an empty list."
+  [tid & opts]
+  ;; Filter out the nil from the final empty line in the the tweebo output
+  (when-let [parse (predict tid)]
+    (let [pairs (map (fn [[_ term _ pos]]
+                       [pos term])
+                     parse)]
+      (if (some #{:side-by-side} opts)
+          (reduce (fn [[poss terms] [p t]]
+                    [(conj poss p) (conj terms t)])
+                  [[] []]
+                  pairs)
+          pairs))))
 
 
 ;;; --------------------------------------------------------------------------

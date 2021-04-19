@@ -2163,6 +2163,7 @@
                               entity)))]
 
     ;; Run through our example and the Tweebo parse, token by token
+    ;; TODO: This code can be simplified with tweebo/get-pos-terms
     (loop [[tok1                              & content*]   content     ; Tweet tokens
            [pos1                              & pos-tags*]  pos-tags    ; Parts of Speech
            [[sub tok2 _ pos2 pos3 _ obj ling] & tweebo*]    tweebo      ; Tweebo output
@@ -2177,12 +2178,9 @@
               dep?    (pos? obj-num)
               build   #(conj % (if dep? obj-num nil))]
           ;; Complain if the POS analysis doesn't match up (uncommon)
-          ;; TODO: This actually is more common than we'd like for large batches of tweets.
-          ;;       We're not currently doing anything about it, and multiple warnings can hide
-          ;;       the more serious tokenization error (below).  Therefore, it's currently OFF.
-          (comment when (not= pos1 pos2 pos3)
-              (log/fmt-warn "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
-                            tid tok1 tok2 pos1 pos2 pos3))
+          (when (not= pos1 pos2 pos3)
+              (log/fmt-error "Part-of-speech mismatch on ~a: token[~a/~a] pos[~a~a~a]"
+                             tid tok1 tok2 pos1 pos2 pos3))
           (if (equiv? tok1 tok2)
             (do
               ;; We're looking from the leaf (subject) up to the parent node (object).
@@ -2358,13 +2356,17 @@
       :sense    #(tw/analyze-token+- lex % Affect-Fragments)    ; Lexicon lookup for P/N rules
 
       :scr      #(reduce (fn [acc [scr terms]]                  ; Match terms for Sentiment Composite Rules
-                             (if (six/in-stems? terms % sball some)
-                                 (conj acc scr)
-                                 acc))
+                           ;; Nothing has broken upstream, eh?
+                           (when-not %
+                             (log/warn "No tokens:" %))
+                           (if (six/in-stems? terms % sball some)
+                               (conj acc scr)
+                               acc))
                            #{}
                            Rule-Stems)
 
       :surveys  #(reduce (fn [acc s]                            ; Link Six Americas surveys
+                           ;; Nils fail, but we check in :scr
                            (if (six/in-survey? s % sball)
                                (conj acc s)
                                acc))
@@ -2383,27 +2385,24 @@
 
 
   ([tools tid sname elements stance]
-  (let [pairs   (map #(str/split % #"_" 2)                      ; Separate elements: [PoS token]
-                      (str/split elements #" "))
-
-        terms   (map #(-> % (second)                            ; FIXME: Get terms using
-                            (str/lower-case)                    ;  affective.core.Utils/tokenize
-                            (.replaceAll "([a-z])\\1+" "$1$1")) ;  repeated letters
-                      pairs)
-
+  ;; NOTE: we're no longer using the tweet elements from the ARFF.
+  ;;       Rather, we use the Tweebo output from pre-processing.
+  (let [[poss
+         terms] (twbo/get-pos-terms tid :side-by-side)
         affect  (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
         rules   (map (:scr tools) terms)]            ; Set of match-term rules per term
 
     ;; Put all that together to build the example
-    {:screen_name sname
-     :stance      (keyword stance)
-     :tid         tid
-     :content     terms
-     :affect      affect
-     :rules       rules
-     :pos-tags    (map first pairs)
-     :surveys     (map (:surveys tools) terms)
-     :analysis    (map set/union affect rules)})))
+    (when-not (empty? terms)
+      {:screen_name sname
+       :stance      (keyword stance)
+       :tid         tid
+       :content     (map #(.replaceAll % "([a-z])\\1+" "$1$1") terms)   ; Reduce repeated letters
+       :affect      affect
+       :rules       rules
+       :pos-tags    poss
+       :surveys     (map (:surveys tools) terms)
+       :analysis    (map set/union affect rules)}))))
 
 
 
@@ -2431,8 +2430,9 @@
                    xmp   (make-example tools tid sname                          ; Check emotion
                                        (avals :description)
                                        (avals target))]
-             ;; Add on hashmap with attribute data plus emotion analysis
-             (conj acc (merge avals xmp))))
+             (if xmp
+                 (conj acc (merge avals xmp))   ; Add on hashmap with attribute data plus emotion analysis
+                 acc)))                         ; Don't use tweet that hasn't had the necessary pre-processing
          '()
          (weka/instance-seq insts)))))
 
@@ -2470,16 +2470,20 @@
     (hash-map
      :dtag dtag
      :activity activity
-     :texts (domap (fn [^Instance inst]
-                     (let [tid    (lbl/label-text (.stringValue inst (int col-id)))
+     :texts (reduce (fn [acc ^Instance inst]
+                      (let [tid   (lbl/label-text (.stringValue inst (int col-id)))
                            sname  (.stringValue inst (int col-sname))
                            stance (.stringValue inst (int col-target))  ; ARFF target is "stance"
                            elms   (.stringValue inst (int col-text))]   ; Text elements are "PoS_term"
 
-                       (send activity #(update % sname (fnil inc 0)))   ; Prepare for filtering
-                       (make-example tools tid sname elms stance)))     ; Example as a hashmap
-
-                   (weka/instance-seq insts)))))                        ; SEQ: Weka instances
+                       (if-let [xmp (make-example tools tid sname elms stance)]
+                         ;; Prepare for filtering & include example as a hashmap
+                         (do (send activity #(update % sname (fnil inc 0)))
+                             (conj acc xmp))
+                         ;; Skip the (singleton) tweet that has not been preprocessed
+                         acc)))
+                    '()
+                    (weka/instance-seq insts)))))                        ; SEQ: Weka instances
 
 
 
