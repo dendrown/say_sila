@@ -1,0 +1,2 @@
+GDa : add carbon synonym to CO2
+GDb : use Tweebo tokenization/POS
