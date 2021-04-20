@@ -2163,7 +2163,7 @@
                               entity)))]
 
     ;; Run through our example and the Tweebo parse, token by token
-    ;; TODO: This code can be simplified with tweebo/get-pos-terms
+    ;; TODO: This code can now be simplified with tweebo/get-pos-terms
     (loop [[tok1                              & content*]   content     ; Tweet tokens
            [pos1                              & pos-tags*]  pos-tags    ; Parts of Speech
            [[sub tok2 _ pos2 pos3 _ obj ling] & tweebo*]    tweebo      ; Tweebo output
