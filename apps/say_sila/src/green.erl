@@ -39,7 +39,8 @@
 -export([go/0,   go/1,  go/2,
          opts/0, opts/1]).
 
--define(INIT_DATASET,   b1_train).
+-define(DATA_TAG,       c1).
+-define(INIT_DATASET,   c1_train).
 
 
 %%%-------------------------------------------------------------------
@@ -59,8 +60,8 @@ go(Tracker, Dataset) ->
 opts() -> opts(?INIT_DATASET).
 
 
-opts(b1_train)  -> [no_retweet, {start, {2019,  1, 1}}, {stop, {2019, 12, 31}}];
-opts(b1_test)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 12, 31}}];
+opts(c1_train)  -> [no_retweet, {start, {2019,  1, 1}}, {stop, {2019, 12, 31}}];
+opts(c1_test)   -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 12, 31}}];
 
 opts(q1)        -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 4, 1}}];
 opts(jan)       -> [no_retweet, {start, {2020,  1, 1}}, {stop, {2020, 2, 1}}];
@@ -478,7 +479,7 @@ handle_call(make_arff, _From, State = #state{tracker = Tracker,
                                              options = Options}) ->
     Response = case Tweets of
         [] -> none;
-        _  -> arff:from_tweets(?str_fmt("tweets.~s.env", [Tracker]),
+        _  -> arff:from_tweets(?str_fmt("tweets.~s.~s", [Tracker, ?DATA_TAG]),
                                Tweets,
                                [{comment, ?str_fmt("~s: ~p", [?MODULE, Options])}])
     end,

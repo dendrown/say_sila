@@ -18,7 +18,7 @@
 -export([add/3,
          date_str/1,    date_str/2,
          date_STR/1,    date_STR/2,
-         day/1,
+         day/1,         day/2,
          dayize/1,      dayize/2,
          earlier/2,
          hourize/1,
@@ -118,6 +118,9 @@ date_STR(DTS1970, Unit) ->
 
 %%--------------------------------------------------------------------
 -spec day(DateTime :: datetime()) -> date().
+
+-spec day(DTS1970 :: integer(),
+          Unit    :: atom()) -> date().
 %
 % @doc  Strips off the time portion from a datetime tuple.
 % @end  --
@@ -129,8 +132,13 @@ day({Day = {_, _, _}, {_, _, _}}) ->
     Day.
 
 
+day(DTS1970, Unit) ->
+    day(to_datetime(DTS1970, Unit)).
+
+
+
 %%--------------------------------------------------------------------
--spec dayize(DateTime :: tuple()) -> tuple().
+-spec dayize(DateTime :: datetime()) -> datetime().
 %
 % @doc  Zeros out the time portion from a datetime tuple.
 % @end  --

@@ -274,7 +274,7 @@ from_tweets(Name, Tweets, Opts) ->
         end,
 
         ?put_attr(Out, id,          string),
-        ?put_attr(Out, lang,        string),
+        ?put_attr(Out, date,        "date 'yyyy-MM-dd'"),
         ?put_attr(Out, screen_name, string),
         ?put_attr(Out, name,        string),
         ?put_attr(Out, description, string),
@@ -452,12 +452,13 @@ write_tweets(Out, [Tweet|Rest], Target) ->
         end
     end,
 
-    ?io_fmt(Out, "'~s','~s','~s','~s','~s','~s'", [TwRec#tweet.id,
-                                                   TwRec#tweet.lang,
-                                                   TwRec#tweet.screen_name,
-                                                   Clean(TwRec#tweet.name),
-                                                   Clean(TwRec#tweet.description),
-                                                   Clean(TwRec#tweet.full_text)]),
+    {Year, Month, Day} = dts:day(TwRec#tweet.timestamp_ms, millisecond),
+    ?io_fmt(Out, "'~s','~B-~B-~B','~s','~s','~s','~s'", [TwRec#tweet.id,
+                                                         Year, Month, Day,
+                                                         TwRec#tweet.screen_name,
+                                                         Clean(TwRec#tweet.name),
+                                                         Clean(TwRec#tweet.description),
+                                                         Clean(TwRec#tweet.full_text)]),
 
     % Currently, a Target attribute requires the map form
     case Target of
