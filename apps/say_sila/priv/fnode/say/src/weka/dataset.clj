@@ -44,6 +44,15 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- warn-if-not-dataset
+  "Logs a warning if the given dataset is not the needed dataset"
+  [needed given]
+  (when (not= needed given)
+    (log/fmt-warn "Dataset ~a is not currently supported (only ~a)"
+                  (KEYSTR given) (KEYSTR needed))))
+
+
+;;; --------------------------------------------------------------------------
 (defn- col-map
   "Create 0-based column map for an ARFF format. For example:
     {:id 0, :lang 1, :screen_name 2, :name 3, :description 4, :text 5}"
@@ -54,8 +63,8 @@
 ;;; - X is the dataset content code, and
 ;;; - the highest 99 value represents the latest version
 (defonce Datasets   {:g :g01            ; [G]reen/denier machine learning target
-                     :s :s02            ; [S]tatus text [s]entiment/emotion
-                     :t :t01            ; [T]witter input (from Sila/erl)
+                     :s :s03            ; [S]tatus text [s]entiment/emotion
+                     :t :t02            ; [T]witter input (from Sila/erl)
                      :u :u01})          ; [U]ser information
 
 
@@ -72,9 +81,11 @@
 (defonce S00-Cols   (col-map [:id :text :sentiment]))
 (defonce S01-Cols   (col-map [:id :screen_name :text :sentiment]))
 (defonce S02-Cols   (col-map [:id :screen_name :text :stance]))
+(defonce S03-Cols   (col-map [:id :date :screen_name :text :stance]))
 
-(defonce T00-Cols   (col-map [:id :lang :screen_name :name :description :text]))
+(defonce T00-Cols   (col-map [:id :lang :screen_name :name :description :text]))        ; NOTE: lang may be date
 (defonce T01-Cols   (col-map [:id :lang :screen_name :name :description :text :stance]))
+(defonce T02-Cols   (col-map [:id :date :screen_name :name :description :text :stance]))
 
 (defonce U00-Cols   (col-map [:screen_name :name :description :environmentalist]))
 (defonce U01-Cols   (col-map [:screen_name :name :description :stance]))
@@ -86,9 +97,11 @@
                      :s00 S00-Cols
                      :s01 S01-Cols
                      :s02 S02-Cols
+                     :s03 S03-Cols
                      ;--------------
                      :t00 T00-Cols
                      :t01 T01-Cols
+                     :t02 T02-Cols
                      ;--------------
                      :u00 U00-Cols
                      :u01 U01-Cols})
@@ -149,6 +162,8 @@
   (let [[akeys
          bkeys] (map #(keys (Columns %)) [a b])]
     ;; The order will probably need to be reversed, but we don't do it here.
+    ;(log/debug a ":" akeys)
+    ;(log/debug b ":" bkeys)
     (remove (into #{} bkeys) akeys)))
 
 
@@ -236,10 +251,20 @@
 ;;; --------------------------------------------------------------------------
 (defn- ^Instances t01->s02
   "Converts the T01 tweet format to the S02 say-senti format.  The function
-  creates a copy of the specified dataset whose filename is tagged with «S00»."
+  creates a copy of the specified dataset whose filename is tagged with «S02»."
   [insts]
   (-> (prep-dataset insts :t01 :s02)
       (process-text :s02)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^Instances t02->s03
+  "Converts the T02 tweet format to the S03 say-senti format.  The function
+  creates a copy of the specified dataset whose filename is tagged with «S03»."
+  [insts]
+  (-> (prep-dataset insts :t02 :s03)
+      (process-text :s03)))
 
 
 
@@ -306,7 +331,7 @@
        (transform arff# insts# ~d99 ~xform)))))
 
 (defn-transform :s)     ; fn: t->s
-(defn-transform :u)     ; fn: t->u
+;(defn-transform :u)    ; fn: t->u ; TODO: reinstate U99
 
 
 
@@ -318,8 +343,10 @@
   ;; Load the ARFF once and create copies for the transformations
   ;; FIXME: Results with pmap are showing weird look-alike differences.
   (let [insts (weka/load-arff arff)]
-    (map #(% arff (Instances. insts)) [t->s             ; TODO: pmap
-                                       t->u])))
+    (log/info "Not currently creating the" (KEYSTR (Datasets :u)) "dataset")
+    (map #(% arff (Instances. insts)) [t->s         ; TODO: pmap
+                                      ;t->u         ; TODO: reinstate U99
+                                       ])))
 
 
 
@@ -395,9 +422,7 @@
 
 
   ([dset data stances]
-  (when (not= dset :t00)
-    (log/warn "Dataset code" dset "is not currently supported"))
-
+  (warn-if-not-dataset :t00 dset)
   (let [arff?   (string? data)
         stances (if (map? stances)
                     stances                             ; KV: stance => screen_name
