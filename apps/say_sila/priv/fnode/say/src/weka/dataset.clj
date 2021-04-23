@@ -30,6 +30,7 @@
             [clojure.string     :as str]
             [clojure.pprint     :refer [pp]])
   (:import  (weka.core  Attribute
+                        DenseInstance
                         Instance
                         Instances)
             (weka.filters.unsupervised.instance RemoveDuplicates
@@ -136,7 +137,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn col-index
+(defn ^Long col-index
   "Returns the column index for the specified dataset format and column tag."
   [dset col & opts]
   (let [col (get-in Columns [dset col])]
@@ -458,4 +459,59 @@
         fpath)
       ;; Data IN, so data OUT
       insts))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn combine-days
+  ""
+  [dset data]
+  (warn-if-not-dataset :s03 dset)
+  (let [arff?   (string? data)
+        target  (col-target dset)
+        iinsts  (if arff?
+                    (weka/load-arff data (name target))     ; Load for our use
+                    (Instances. ^Instances data ))          ; Copy of original
+        oinsts  (Instances. iinsts 0)                       ; Output w/ headers
+        start   (inc (col-index dset target))               ; Start of emo attrs
+        stop+1  (.numAttributes iinsts)                     ; No more emo attrs
+        date    (col-index dset :date)
+
+        ;; Returns an instance with the combined affect attributes of the input instances
+        combine (fn [^Instance i1
+                     ^Instance i2]
+                  ;; Sum all the affect attributes
+                  (reduce (fn [^Instance inst
+                               ^Long ndx]
+                            (.setValue inst ndx (+ (.value i1 ndx)
+                                                   (.value i2 ndx)))
+                            inst)
+                          (DenseInstance. i1)
+                          (range start stop+1)))
+
+        ;; Create a map, keyed by the date, of instances combined by day
+        combs   (reduce (fn [acc ii]
+                          (let [inst (.get iinsts (int ii))
+                                day  (.stringValue inst date)]   ; Key to instance map (acc)
+                            (if (contains? acc day)
+                                (update acc day combine inst)
+                                (assoc acc day inst))))
+                        (sorted-map)
+                        (range (.numInstances iinsts)))]
+
+    ;; Fill in the output dataset with the instances from our map
+    (doseq [[_ inst] combs]
+      (.add oinsts inst))
+
+    ;; Tweet id/text and user names make no sense when combining users
+    ;;
+    ;; NOTE: it *might* be more efficient to remove these columns before combining
+    ;;       the instances, though this would add a bit of complexity unless we
+    ;;       formalize the output dataset format up at the top.
+    (run! #(delete-col oinsts :s03 %) [:text :screen_name :id])     ; Remove in reverse order
+
+    ;; Return filenames|instances according to what we got as parameters
+    (if arff?
+        (weka/save-results data "DAYS" oinsts)
+        oinsts)))
 

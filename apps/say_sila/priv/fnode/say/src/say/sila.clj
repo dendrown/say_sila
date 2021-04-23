@@ -2397,7 +2397,7 @@
       {:screen_name sname
        :stance      (keyword stance)
        :tid         tid
-       :content     (map #(.replaceAll % "([a-z])\\1+" "$1$1") terms)   ; Reduce repeated letters
+       :content     (map #(.replaceAll ^String % "([a-z])\\1+" "$1$1") terms)   ; Reduce repeated letters
        :affect      affect
        :rules       rules
        :pos-tags    poss
