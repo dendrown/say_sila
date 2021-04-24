@@ -465,10 +465,14 @@
 ;;; --------------------------------------------------------------------------
 (defn combine-days
   ""
-  [dset data]
+  ([dset data]
+  (combine-days dset data nil))
+
+  ([dset data n]
   (warn-if-not-dataset :s03 dset)
   (let [arff?   (string? data)
         target  (col-target dset)
+        sname   (col-index dset :screen_name)
         iinsts  (if arff?
                     (weka/load-arff data (name target))     ; Load for our use
                     (Instances. ^Instances data ))          ; Copy of original
@@ -490,17 +494,35 @@
                           (range start stop+1)))
 
         ;; Create a map, keyed by the date, of instances combined by day
-        combs   (reduce (fn [acc ii]
-                          (let [inst (.get iinsts (int ii))
-                                day  (.stringValue inst date)]   ; Key to instance map (acc)
-                            (if (contains? acc day)
-                                (update acc day combine inst)
-                                (assoc acc day inst))))
-                        (sorted-map)
-                        (range (.numInstances iinsts)))]
+        [users
+         combs] (reduce (fn [[users combs] ii]
+                          (let [inst   (.get iinsts (int ii))
+                                day    (.stringValue inst date)    ; Key to instance map
+                                users* (conj users (.stringValue inst sname))
+                                combs* (if (contains? combs day)
+                                           (update combs day combine inst)
+                                           (assoc combs day inst))]
+                            [users* combs*]))
+                        [#{} (sorted-map)]
+                        (range (.numInstances iinsts)))
+
+        ;; Normalize the affect levels with respect to the user count
+        num-users (count users)
+        non-users (filter empty? users)
+        norm      (if n n num-users)
+        normalize (fn [^Instance inst]
+                    (doseq [^Long a (range start stop+1)]
+                      (.setValue inst a (/ (.value inst a)
+                                           norm))))]
+
+    (log/info "Combining affect across days for" num-users "users")
+    (log/info "Normalization factor:" norm)
+    (when (not-empty non-users)
+      (log/fmt-warn "Dataset contains ~a non-users: ~a" (count non-users) non-users))
 
     ;; Fill in the output dataset with the instances from our map
     (doseq [[_ inst] combs]
+      (normalize inst)
       (.add oinsts inst))
 
     ;; Tweet id/text and user names make no sense when combining users
@@ -513,5 +535,5 @@
     ;; Return filenames|instances according to what we got as parameters
     (if arff?
         (weka/save-results data "DAYS" oinsts)
-        oinsts)))
+        oinsts))))
 
