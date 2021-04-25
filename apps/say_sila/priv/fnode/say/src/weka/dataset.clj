@@ -29,7 +29,10 @@
             [clojure.data.json  :as json]
             [clojure.string     :as str]
             [clojure.pprint     :refer [pp]])
-  (:import  (weka.core  Attribute
+  (:import  (java.time ZonedDateTime
+                       ZoneOffset)
+            (java.time.temporal WeekFields)
+            (weka.core  Attribute
                         DenseInstance
                         Instance
                         Instances)
@@ -463,12 +466,28 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn combine-days
-  ""
-  ([dset data]
-  (combine-days dset data nil))
+(defn week-of-year
+  "Returns the ISO week of the year for a date string of the form «YYYY-MM-DD»."
+  ([dt]
+  (apply week-of-year (map #(Long/valueOf %) (str/split dt #"-"))))
 
-  ([dset data n]
+  ([year month day]
+  (let [zdt (ZonedDateTime/of year month day 0 0 0 0 ZoneOffset/UTC)]
+   ;(.get zdt (.weekOfWeekBasedYear WeekFields/SUNDAY_START))
+    (.get zdt (.weekOfWeekBasedYear WeekFields/ISO)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- combine-datewise
+  "Takes an dataset (ARFF or Instances) and outputs a transformed dataset in
+  which the affect values for all the instances which fall into the date grouping
+  dictated by the grouper function are combined in one instance  The output dataset
+  is returned as as an ARFF pathname or an Instances object to match the input."
+  ([dset data period grouper]
+  (combine-datewise dset data period grouper nil))
+
+  ([dset data period grouper n]
   (warn-if-not-dataset :s03 dset)
   (let [arff?   (string? data)
         target  (col-target dset)
@@ -493,15 +512,15 @@
                           (DenseInstance. i1)
                           (range start stop+1)))
 
-        ;; Create a map, keyed by the date, of instances combined by day
+        ;; Create a map, keyed by the date, of instances combined by the date grouper
         [users
          combs] (reduce (fn [[users combs] ii]
                           (let [inst   (.get iinsts (int ii))
-                                day    (.stringValue inst date)    ; Key to instance map
+                                group  (grouper (.stringValue inst date))   ; Key to instance map
                                 users* (conj users (.stringValue inst sname))
-                                combs* (if (contains? combs day)
-                                           (update combs day combine inst)
-                                           (assoc combs day inst))]
+                                combs* (if (contains? combs group)
+                                           (update combs group combine inst)
+                                           (assoc combs group inst))]
                             [users* combs*]))
                         [#{} (sorted-map)]
                         (range (.numInstances iinsts)))
@@ -515,7 +534,7 @@
                       (.setValue inst a (/ (.value inst a)
                                            norm))))]
 
-    (log/info "Combining affect across days for" num-users "users")
+    (log/info "Combining affect across" (name period) "for" num-users "users")
     (log/info "Normalization factor:" norm)
     (when (not-empty non-users)
       (log/fmt-warn "Dataset contains ~a non-users: ~a" (count non-users) non-users))
@@ -534,6 +553,28 @@
 
     ;; Return filenames|instances according to what we got as parameters
     (if arff?
-        (weka/save-results data "DAYS" oinsts)
+        (weka/save-results data (KEYSTR period) oinsts)
         oinsts))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn combine-days
+  "Takes an dataset (ARFF or Instances) and outputs a transformed dataset in
+  which the affect values for all the instances occurring on the same day are
+  combined in one instance for that day.  The output dataset is returned as
+  as an ARFF pathname or an Instances object according to the input type."
+  ([dset data]
+  (combine-datewise dset data :days identity)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn combine-weeks
+  "Takes an dataset (ARFF or Instances) and outputs a transformed dataset in
+  which the affect values for all the instances occurring on the same week are
+  combined in one instance for that week  The output dataset is returned as
+  as an ARFF pathname or an Instances object according to the input type."
+  ([dset data]
+  (combine-datewise dset data :weeks week-of-year)))
 
