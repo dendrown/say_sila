@@ -277,7 +277,10 @@
   (log/notice "Minimum status count:" (cfg/?? :sila :min-statuses))
   (sila/create-world! :env
                       "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.U01.arff"
-                      "/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.S02.arff")
+                     ;"/srv/say_sila/weka/tweets/tweets.gw.b1.2019.T01.S02.arff"
+                      "/srv/say_sila/weka/tweets/tweets.gw.c1.2019.T01.S02.jan30-31.arff"
+                     ;"/srv/say_sila/weka/tweets/tweets.gw.c1.2019.T01.S02.sep23-26.arff"
+                      )
 
   ;; Do they want console and CSV reports??
   (doseq [[opt fun] [[:report   #(sila/report-world)]

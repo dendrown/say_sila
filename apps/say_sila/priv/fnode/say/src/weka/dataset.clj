@@ -67,8 +67,8 @@
 ;;; - X is the dataset content code, and
 ;;; - the highest 99 value represents the latest version
 (defonce Datasets   {:g :g01            ; [G]reen/denier machine learning target
-                     :s :s03            ; [S]tatus text [s]entiment/emotion
-                     :t :t02            ; [T]witter input (from Sila/erl)
+                     :s :s02            ; [S]tatus text [s]entiment/emotion
+                     :t :t01            ; [T]witter input (from Sila/erl)
                      :u :u01})          ; [U]ser information
 
 
