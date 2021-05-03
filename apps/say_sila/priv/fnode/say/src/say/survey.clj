@@ -418,3 +418,14 @@
             {}
             (vals saff)))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn get-table-hits
+  "Returns the a hashmap with the counts of Six Americas table hits."
+  [words]
+  (let [wstems (tw/stem-all words :set)]
+    (update-values Question-Stems
+                   (fn [qstems]
+                     (set/intersection qstems wstems)))))
+

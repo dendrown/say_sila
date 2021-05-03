@@ -3549,6 +3549,18 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-survey-hits
+  "Returns the a sequence with the counts of Six Americas table hits for all
+  the example texts in the world."
+  ([]
+  (get-survey-hits @World))
+
+
+  ([{:keys [dtag texts]}]
+  (map #(six/get-table-hits (:content %)) texts)))
+
+
+;;; --------------------------------------------------------------------------
 (defn save-accounts
   "Saves a list of the accounts in the specified world."
   ([]
