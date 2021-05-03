@@ -130,11 +130,15 @@
                               (L# :nrc  "-L" NRCEmotionLexiconEvaluator NRC10_FILE_NAME)
                               (L# :swn  "-Q" SWN3LexiconEvaluator       SENTIWORDNET_FILE_NAME)]))
 
-(defonce Stoic      (into {} (map #(vector % 0) [:positive :negative
-                                                 :anger    :fear
-                                                 :sadness  :joy
-                                                 :surprise :anticipation
-                                                 :disgust  :trust])))
+(defonce Affect [:positive :negative
+                 :anger    :fear
+                 :sadness  :joy
+                 :surprise :anticipation
+                 :disgust  :trust])
+
+(defonce Affect-Namer (into {} (map #(vector % (str/capitalize (name %))) Affect)))
+
+(defonce Stoic (into {} (map #(vector % 0) Affect)))
 
 
 ;;; --------------------------------------------------------------------------

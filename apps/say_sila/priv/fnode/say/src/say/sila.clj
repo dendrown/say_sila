@@ -307,6 +307,10 @@
                                            (rsn/instances Affect))))
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
 
+;;; What we have extracted from the ontology should match the definitions from weka.tweet
+(if (not= Affect-Fragments tw/Affect-Namer)
+  (log/error "Ontology affect names do not match those used with Weka!"))
+
 
 ;;; We must declare the different types of Aspect to be disjoint for the reasoner
 ;;; to handle equivalency classes based on the complement of a given Aspect.
@@ -2340,7 +2344,7 @@
   []
   ;; Create a closure for a configuration-based analysis
   (let [all-pn? (cfg/?? :sila :skip-neutrals?)
-        lex     (tw/make-lexicon (cfg/?? :sila :lexicon :liu))  ; TODO: Capture lex change on config update
+        lex     (tw/make-lexicon (cfg/?? :sila :lexicon :nrc))  ; TODO: Capture lex change on config update
         sball   (tw/make-stemmer)]                              ; Weka Affective Tweets plus Snowball stemmer
 
     ;; Bundle everything up
