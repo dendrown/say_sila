@@ -2394,18 +2394,20 @@
   (let [[poss
          terms] (twbo/get-pos-terms tid :side-by-side)
         affect  (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
-        rules   (map (:scr tools) terms)]            ; Set of match-term rules per term
+        rules   (map (:scr tools) terms)             ; Set of match-term rules per term
+        content (map #(.replaceAll ^String % "([a-z])\\1+" "$1$1") terms)]  ; Reduce repeated letters
 
     ;; Put all that together to build the example
     (when-not (empty? terms)
       {:screen_name sname
        :stance      (keyword stance)
        :tid         tid
-       :content     (map #(.replaceAll ^String % "([a-z])\\1+" "$1$1") terms)   ; Reduce repeated letters
+       :content     content
        :affect      affect
        :rules       rules
        :pos-tags    poss
-       :surveys     (map (:surveys tools) terms)
+       :survey-hits (six/get-table-hits content)        ; Six36 survey question/table indicators
+       :surveys     (map (:surveys tools) terms)        ; By-word indicators for all surveys
        :analysis    (map set/union affect rules)}))))
 
 
@@ -3559,6 +3561,23 @@
   ([{:keys [dtag texts]}]
   (map #(six/get-table-hits (:content %)) texts)))
 
+
+;;; --------------------------------------------------------------------------
+(defn by-user
+  "Make user-based status map with elements needed for C2 dataset."
+  ([]
+  (by-user @World))
+
+
+  ([{:keys [dtag texts]}]
+  (reduce (fn [acc {:keys [screen_name
+                           survey-hits]}]
+            (let [hits (update-values survey-hits count)]
+              (assoc acc screen_name
+                          (merge-with + (get acc screen_name) hits))))
+          {}
+          texts)))
+    
 
 ;;; --------------------------------------------------------------------------
 (defn save-accounts
