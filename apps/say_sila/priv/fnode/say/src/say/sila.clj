@@ -3570,13 +3570,20 @@
 
 
   ([{:keys [dtag texts]}]
-  (reduce (fn [acc {:keys [screen_name
-                           survey-hits]}]
-            (let [hits (update-values survey-hits count)]
-              (assoc acc screen_name
-                          (merge-with + (get acc screen_name) hits))))
-          {}
-          texts)))
+  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))]    ; {"Anger" 0, ...}
+    (reduce (fn [acc {:keys [screen_name
+                             affect
+                             survey-hits]}]
+              (let [curr (get acc screen_name)
+                    affs (reduce (fn [acc aff]
+                                   (update-values acc aff inc))
+                                 stoic
+                                 affect)
+                    hits (update-values survey-hits count)]
+                (assoc acc screen_name (merge (merge-with + curr affs)
+                                              (merge-with + curr hits)))))
+            {}
+            texts))))
     
 
 ;;; --------------------------------------------------------------------------
