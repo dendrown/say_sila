@@ -84,48 +84,48 @@
 ;;; - Model Key-Words as #{general alarmed ... dismissive}
 ;;; - handle bigrams & trigrams
 
-(defonce Question-Words {:t2  #{"change" "mind" "global" "warming" "issues"             ; Table 2
+(defonce Question-Words {:T2  #{"change" "mind" "global" "warming" "issues"             ; Table 2
                                 "information" "opinion"}
 
-                         :t3  #{"experts" "global" "warming" "really" "happening"       ; Table 3
+                         :T3  #{"experts" "global" "warming" "really" "happening"       ; Table 3
                                 "cause" "harm" "United" "States" "reduce"}
 
-                         :t4  #{"global" "warming" "conserving" "energy"}               ; Table 4
+                         :T4  #{"global" "warming" "conserving" "energy"}               ; Table 4
 
-                         :t5  #{"caused" "human" "activities" "natural"                 ; Table 5
+                         :T5  #{"caused" "human" "activities" "natural"                 ; Table 5
                                 "changes" "environment" "happening"
                                 "scientists" "global" "warming"
                                 "disagreement" "informed"}
 
-                         :t6  #{"interested" "disgusted" "helpless" "hopeful"           ; Table 6
+                         :T6  #{"interested" "disgusted" "helpless" "hopeful"           ; Table 6
                                 "sad" "angry" "afraid" "guilty" "depressed"}
 
-                         :t7  #{"important" "issue" "global" "warming" "today"          ; Table 7
+                         :T7  #{"important" "issue" "global" "warming" "today"          ; Table 7
                                 "worried"}
 
-                         :t8a #{"global" "warming" "harm" "personally" "family"         ; Table 8a
+                         :T8a #{"global" "warming" "harm" "personally" "family"         ; Table 8a
                                 "community" "people" "United" "States"
                                 "modern" "industrialized" "countries" "developing"
                                 "future" "generations" "plant" "animal" "species"}
 
-                         :t8b #{"global" "warming" "start" "harm" "people" "United"     ; Table 8b
+                         :T8b #{"global" "warming" "start" "harm" "people" "United"     ; Table 8b
                                 "States" "now" "years" "never" "world"}
 
-                         :t9  #{"personally" "experienced" "effects" "global"           ; Table 9
+                         :T9  #{"personally" "experienced" "effects" "global"           ; Table 9
                                 "warming" "record" "snowstorms" "winter" "eastern"
                                 "United" "States" "question" "occurring" "local"
                                 "area" "snow" "rain" "different" "normal" "warmer"
                                 "colder"}
 
-                         :t10 #{"economic" "downturn" "country" "hurt" "family"         ; Table 10
+                         :T10 #{"economic" "downturn" "country" "hurt" "family"         ; Table 10
                                 "economy" "bad" "shape" "US" "afford" "reduce"
                                 "global" "warming"}
 
-                         :t11 #{"protecting" "environment" "economic" "growth"          ; Table 11
+                         :T11 #{"protecting" "environment" "economic" "growth"          ; Table 11
                                 "provides" "jobs" "reduces" "conflict"
                                 "environmental" "protection" "important" "problems"}
 
-                         :t12 #{; BIGRAMS: "turn off" "air conditioning"                ; Tables 12,13,17,18
+                         :T12 #{; BIGRAMS: "turn off" "air conditioning"                ; Tables 12,13,17,18
                                 ;          "brush teeth" "wash dishes"
                                 ;          "power strips" "surge protectors"
                                 ;          "light bulbs" "compact fluorescent"
@@ -141,17 +141,17 @@
                                 "carpool" "light" "bulbs" "energy-efficient"
                                 "compact" "fluorescent" "CFLs"}
 
-                         :t14 #{; BIGRAMS: "United States"                              ; Table 14
+                         :T14 #{; BIGRAMS: "United States"                              ; Table 14
                                 "energy-saving" "actions" "months" "reduce"
                                 "personal" "contribution" "global" "warming"
                                 "United" "States" "people" "modern" "industrialized"
                                 "countries" "world"}
 
-                         :t15 #{; BIGRAMS: "taking steps"                               ; Table 15
+                         :T15 #{; BIGRAMS: "taking steps"                               ; Table 15
                                 "rewarde" "companies" "steps" "reduce" "global"
                                 "warming" "buy" "products" "punish" "opposing"}
 
-                         :t16 #{; BIGRAMS:                                              ; Table 16
+                         :T16 #{; BIGRAMS:                                              ; Table 16
                                 "volunteere" "donate" "money" "organization"
                                 "working" "reduce" "global" "warming" "posted"
                                 "comment" "online" "response" "news" "story" "blog"
@@ -159,36 +159,36 @@
                                 "officials" "contacted" "urged" "take" "action"
                                 "volunteer"}
 
-                         :t19 #{; BIGRAMS:                                              ; Table 19
+                         :T19 #{; BIGRAMS:                                              ; Table 19
                                 "home" "family" "friends" "people" "global" "warming"
                                 "spoken" "share" "views"}
 
-                         :t20 #{; BIGRAMS: "saving energy"                              ; Table 20
+                         :T20 #{; BIGRAMS: "saving energy"                              ; Table 20
                                 "discuss" "global" "warming" "children" "agree"
                                 "saving" "energy"}
 
-                         :t21 #{; BIGRAMS:                                              ; Table 21
+                         :T21 #{; BIGRAMS:                                              ; Table 21
                                 "people" "spoken" "global" "warming" "information"
                                 "advice"}
 
-                         :t22 #{; BIGRAMS:                                              ; Table 22
+                         :T22 #{; BIGRAMS:                                              ; Table 22
                                 "view" "humans" "reduce" "global" "warming"
                                 "successfully" "unclear" "change" "behavior"
                                 "happening" "actions" "single" "individual"
                                 "difference"}
 
-                         :t23 #{; BIGRAMS: "United States"                              ; Table 23
+                         :T23 #{; BIGRAMS: "United States"                              ; Table 23
                                 "countries" "industrialized" "England" "Germany"
                                 "Japan" "reduce" "emissions" "developing" "China"
                                 "India" "Brazil" "US" "United" "States" "large-scale"
                                 "effort" "large" "economic" "costs" "medium-scale"
                                 "moderate" "small-scale" "small"}
 
-                         :t24 #{; BIGRAMS:                                              ; Table 24
+                         :T24 #{; BIGRAMS:                                              ; Table 24
                                 "low" "medium" "high" "priority" "president"
                                 "congress" "developing" "sources" "clean" "energy"}
 
-                         :t25 #{; BIGRAMS : "tax rebates" "solar panels"                ; Table 25
+                         :T25 #{; BIGRAMS : "tax rebates" "solar panels"                ; Table 25
                                 ;            "carbon dioxide" "greenhouse gas"
                                 ;            "offshore drilling" "natural gas"
                                 ;            "renewable energy" "energy sources"
@@ -213,27 +213,27 @@
                                 "return" "revenues" "taxpayers" "reducing" "federal"
                                 "income"}
 
-                         :t26 #{; BIGRAMS: "news organizations"                          ; Table 26,27
+                         :T26 #{; BIGRAMS: "news organizations"                          ; Table 26,27
                                 "news" "controversial" "emails" "climate" "scientists"
                                 "England" "US" "organizations" "release" "Climategate"
                                 "followed" "stories" "closely" "certain" "global" "warming"
                                 "happening" "influence" "trust" "errors" "Intergovernmental"
                                 "Panel" "Climate" "Change" "IPCC" "report" "certainty"}
 
-                         :t28 #{; BIGRAMS : "mainstream news" "religious leaders"        ; Table 28
+                         :T28 #{; BIGRAMS : "mainstream news" "religious leaders"        ; Table 28
                                 ; TRIGRAMS: "mainstream news media"
                                 "trust" "distrust" "source" "information" "global"
                                 "warming" "scientists" "mainstream" "news" "media"
                                 "television" "weather" "reporters" "religious" "leaders"}
 
-                         :t29 #{; BIGRAMS : "media sources" "world events"               ; Table 29
+                         :T29 #{; BIGRAMS : "media sources" "world events"               ; Table 29
                                 ; TRIGRAMS: "point of view"
                                 "media" "sources" "current" "news" "world" "events"
                                 "television" "internet" "email" "radio" "print"
                                 "newspapers" "magazines" "political" "point" "view"
                                 "share"}
 
-                         :t30 #{; BIGRAMS : "TV news" "Weather Channel" "Fox News"       ; Table 30
+                         :T30 #{; BIGRAMS : "TV news" "Weather Channel" "Fox News"       ; Table 30
                                 ;           "OReilly Factor" "Bill OReilly" "Glenn Beck"
                                 ;           "Daily Show" "Jon Stewart" "Sean Hannity"
                                 ;           "Rush Limbaugh" "Keith Olbermann"
@@ -251,7 +251,7 @@
                                 "Countdown" "Keith" "Olbermann" "Rachel" "Maddow"
                                 "Colbert" "Report" "Stephen" "Wall" "Street" "Journal"}
 
-                         :t31 #{; BIGRAMS : "Tea Party"                                  ; Table 31
+                         :T31 #{; BIGRAMS : "Tea Party"                                  ; Table 31
                                 ; TRIGRAMS: "middle of the road"
                                 "Republican" "Democrat" "Independent" "party" "interested"
                                 "politics" "liberal" "moderate" "conservative" "Tea" "Party"

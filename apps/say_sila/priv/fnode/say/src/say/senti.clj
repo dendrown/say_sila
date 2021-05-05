@@ -21,6 +21,7 @@
 ;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.senti
+  {:deprecated "0.2.0"}
   (:require [say.genie          :refer :all]
             [say.ontology       :refer :all]
             [say.config         :as cfg]

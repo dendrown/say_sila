@@ -2792,15 +2792,15 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn world->arff
+(defn ^:deprecated world->G01
   "Creates an ARFF representing the specified world.  The caller may indicate
   a text type of :text (tweets) :users (profiles) or :all (TODO)."
   ([]
-  (world->arff :texts))
+  (world->G01 :texts))
 
 
   ([ttype]
-  (world->arff ttype @World))
+  (world->G01 ttype @World))
 
 
   ([ttype world]
@@ -2851,7 +2851,6 @@
 
     ;; TODO: Determine where the ARFF should go
     (weka/save-file (str Tmp-Dir "/" relname ".arff") insts))))
-
 
 
 ;;; --------------------------------------------------------------------------
@@ -3564,14 +3563,16 @@
 
 ;;; --------------------------------------------------------------------------
 (defn by-user
-  "Make user-based status map with elements needed for C2 dataset."
+  "Make user-based status map with elements needed for the c2 dataset.  All keys
+  except the target (:stance) are converted to strings to facilitate ARFF creation."
   ([]
   (by-user @World))
 
 
   ([{:keys [dtag texts]}]
-  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))]    ; {"Anger" 0, ...}
+  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))]        ; {"Anger" 0, ...}
     (reduce (fn [acc {:keys [screen_name
+                             stance
                              affect
                              survey-hits]}]
               (let [curr (get acc screen_name)
@@ -3579,12 +3580,55 @@
                                    (update-values acc aff inc))
                                  stoic
                                  affect)
-                    hits (update-values survey-hits count)]
-                (assoc acc screen_name (merge (merge-with + curr affs)
+                    hits (update-keys (update-values survey-hits count) ; Accumulate values
+                                      name)]                            ; String keys "T2", ...
+                (assoc acc screen_name (merge {:stance stance}
+                                              (merge-with + curr affs)
                                               (merge-with + curr hits)))))
             {}
             texts))))
     
+
+
+;;; --------------------------------------------------------------------------
+(defn world->arff
+  "Creates an ARFF representing the specified world."
+  ([]
+  (world->arff @World))
+
+
+  ([{:keys  [dtag texts]
+     :as    world}]
+  ;; TODO: Adapt and move this function to weka.dataset
+  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.c2.arff") "stance")
+        [uid &                                      ; screen name
+         attrs] (weka/attribute-seq insts)          ; Everything else (skips target)
+
+        attrcnt (.numAttributes insts)
+        relname (str (.relationName insts)  "-"
+                     (name dtag)            "-"
+                     (cfg/?? :sila :min-statuses))
+
+        users   (by-user world)]                    ; Account-keyed affect & survey hits
+
+    ;; Create the new dataset
+    (log/notice "Creating ARFF:" relname)
+    (.setRelationName insts relname)
+    (doseq [[usr data] users]
+      (let [inst    (DenseInstance. attrcnt)
+            setdata (fn [^Attribute attr]
+                      (.setValue inst attr
+                                 (double (get data (.name attr) 0.0))))]
+        (.setDataset inst insts)
+        (.setClassValue inst (name (:stance data)))
+        (.setValue inst ^Attribute uid
+                        ^String usr)
+        (run! setdata attrs)
+        (.add insts inst)))
+
+    ;; TODO: Determine where the ARFF should go
+    (weka/save-file (str Tmp-Dir "/" relname ".arff") insts))))
+
 
 ;;; --------------------------------------------------------------------------
 (defn save-accounts

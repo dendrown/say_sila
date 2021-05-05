@@ -3,6 +3,7 @@
 /checkouts
 pom.xml
 pom.xml.asc
+*.arffs.tar.gz
 *.jar
 *.class
 /.lein-*
