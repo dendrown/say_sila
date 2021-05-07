@@ -2727,6 +2727,50 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn count-user-text-indicators
+  "Returns a map of the counts the various indicator texts for the specified
+  user, keyed by the indicator text."
+  ([user]
+  (count-user-text-indicators user @World))
+
+
+  ([user {onter :ontology}]
+  (when onter
+    ;; Use local symbols when called from another namespace
+    (inf/with-ns-silence 'say.sila
+      (let [inds '[WeakHumanCauseText           StrongHumanCauseText
+                   WeakNatureCauseText          StrongNatureCauseText
+                   WeakEnergyConservationText   StrongEnergyConservationText
+                   WeakCO2CutText               StrongCO2CutText
+                   WeakEnvironmentProtectText   StrongEnvironmentProtectText
+                   WeakEconomicGrowthText       StrongEconomicGrowthText]
+            ont  (onter user)]
+        (when ont
+          (inf/unreason ont)                        ; Reclaim memory from reasoner
+          (reduce (fn [acc ind]
+                    (if (empty? (rsn/instances ont (eval ind)))
+                        acc
+                        (update acc (name ind) inc)))
+                  (into {} (zip (map name inds)
+                                (repeat 0)))
+                  inds)))))))
+
+
+;;; --------------------------------------------------------------------------
+(defn count-text-indicators
+  "Returns a map containing the counts of the various indicator texts keyed by user."
+  ([]
+  (count-text-indicators @World))
+
+
+  ([world]
+  (into {} (pmap #(vector %
+                         (count-user-text-indicators % world))
+                 (get-accounts)))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn find-user-indicators
   "Returns a set containing the ontological symbols representing the say.sila
   indicator accounts which apply to the specified user."
@@ -3600,17 +3644,17 @@
   ([{:keys  [dtag texts]
      :as    world}]
   ;; TODO: Adapt and move this function to weka.dataset
-  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.c2.arff") "stance")
-        [uid &                                      ; screen name
-         attrs] (weka/attribute-seq insts)          ; Everything else (skips target)
+  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.c3.arff") "stance")
+        [uid &                                          ; screen name
+         attrs] (weka/attribute-seq insts)              ; Everything else (skips target)
 
         attrcnt (.numAttributes insts)
         relname (str (.relationName insts)  "-"
                      (name dtag)            "-"
                      (cfg/?? :sila :min-statuses))
 
-        users   (by-user world)]                    ; Account-keyed affect & survey hits
-
+        users   (merge-with merge (by-user world)                   ; Affect & survey hits
+                                  (count-text-indicators world))]   ; Green indicator texts
     ;; Create the new dataset
     (log/notice "Creating ARFF:" relname)
     (.setRelationName insts relname)
