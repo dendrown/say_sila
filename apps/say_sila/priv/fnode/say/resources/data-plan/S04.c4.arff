@@ -1,0 +1,56 @@
+@RELATION S04.c4
+
+@ATTRIBUTE screen_name string
+@ATTRIBUTE Anger numeric
+@ATTRIBUTE Anticipation numeric
+@ATTRIBUTE Disgust numeric
+@ATTRIBUTE Fear numeric
+@ATTRIBUTE Joy numeric
+@ATTRIBUTE Sadness numeric
+@ATTRIBUTE Surprise numeric
+@ATTRIBUTE Trust numeric
+@ATTRIBUTE Negative numeric
+@ATTRIBUTE Positive numeric
+@ATTRIBUTE T2 numeric
+@ATTRIBUTE T3 numeric
+@ATTRIBUTE T4 numeric
+@ATTRIBUTE T5 numeric
+@ATTRIBUTE T6 numeric
+@ATTRIBUTE T7 numeric
+@ATTRIBUTE T8a numeric
+@ATTRIBUTE T8b numeric
+@ATTRIBUTE T9 numeric
+@ATTRIBUTE T10 numeric
+@ATTRIBUTE T11 numeric
+@ATTRIBUTE T12 numeric
+@ATTRIBUTE T14 numeric
+@ATTRIBUTE T15 numeric
+@ATTRIBUTE T16 numeric
+@ATTRIBUTE T19 numeric
+@ATTRIBUTE T20 numeric
+@ATTRIBUTE T21 numeric
+@ATTRIBUTE T22 numeric
+@ATTRIBUTE T23 numeric
+@ATTRIBUTE T24 numeric
+@ATTRIBUTE T25 numeric
+@ATTRIBUTE T26 numeric
+@ATTRIBUTE T28 numeric
+@ATTRIBUTE T29 numeric
+@ATTRIBUTE T30 numeric
+@ATTRIBUTE T31 numeric
+@ATTRIBUTE WeakHumanCauseText numeric
+@ATTRIBUTE WeakCO2CutText numeric
+@ATTRIBUTE WeakNatureCauseText numeric
+@ATTRIBUTE WeakEconomicGrowthText numeric
+@ATTRIBUTE WeakEnergyConservationText numeric
+@ATTRIBUTE WeakEnvironmentProtectText numeric
+@ATTRIBUTE StrongHumanCauseText numeric
+@ATTRIBUTE StrongCO2CutText numeric
+@ATTRIBUTE StrongNatureCauseText numeric
+@ATTRIBUTE StrongEconomicGrowthText numeric
+@ATTRIBUTE StrongEnergyConservationText numeric
+@ATTRIBUTE StrongEnvironmentProtectText numeric
+@ATTRIBUTE Count numeric
+@ATTRIBUTE stance {green,denier}
+
+@DATA

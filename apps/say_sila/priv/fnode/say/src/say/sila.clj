@@ -3619,7 +3619,7 @@
                              stance
                              affect
                              survey-hits]}]
-              (let [curr (get acc screen_name)
+              (let [curr (update (get acc screen_name) "Count" (fnil inc 0))
                     affs (reduce (fn [acc aff]
                                    (update-values acc aff inc))
                                  stoic
@@ -3644,7 +3644,7 @@
   ([{:keys  [dtag texts]
      :as    world}]
   ;; TODO: Adapt and move this function to weka.dataset
-  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.c3.arff") "stance")
+  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.c4.arff") "stance")
         [uid &                                          ; screen name
          attrs] (weka/attribute-seq insts)              ; Everything else (skips target)
 

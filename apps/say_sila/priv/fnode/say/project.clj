@@ -13,7 +13,7 @@
   :license {:name "BSD 3-clause License"
             :url "https://spdx.org/licenses/BSD-3-Clause.html"}
   :main say.core
-  :jvm-opts ["-Xmx10G"]
+  :jvm-opts ["-Xmx16G"]
   :aot [weka.classifiers.rules.DLRules
         weka.filters.unsupervised.attribute.TweetToGenderFeatures]
   :java-source-paths ["java/src"]
