@@ -3618,16 +3618,22 @@
     (reduce (fn [acc {:keys [screen_name
                              stance
                              affect
+                             pos-tags
                              survey-hits]}]
               (let [curr (update (get acc screen_name) "Count" (fnil inc 0))
                     affs (reduce (fn [acc aff]
                                    (update-values acc aff inc))
                                  stoic
                                  affect)
+                    poss (reduce (fn [acc pos]
+                                   (update acc pos (fnil inc 0)))
+                                 {}
+                                 (map pos/POS-Fragments pos-tags))
                     hits (update-keys (update-values survey-hits count) ; Accumulate values
                                       name)]                            ; String keys "T2", ...
                 (assoc acc screen_name (merge {:stance stance}
                                               (merge-with + curr affs)
+                                              (merge-with + curr poss)
                                               (merge-with + curr hits)))))
             {}
             texts))))

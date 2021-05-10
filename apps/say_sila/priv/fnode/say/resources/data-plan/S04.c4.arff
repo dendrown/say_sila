@@ -51,6 +51,31 @@
 @ATTRIBUTE StrongEnergyConservationText numeric
 @ATTRIBUTE StrongEnvironmentProtectText numeric
 @ATTRIBUTE Count numeric
+@ATTRIBUTE CommonNoun numeric
+@ATTRIBUTE Pronoun numeric
+@ATTRIBUTE NominalPossessive numeric
+@ATTRIBUTE ProperNoun numeric
+@ATTRIBUTE ProperNounPlusPossessive numeric
+@ATTRIBUTE NominalVerbal numeric
+@ATTRIBUTE ProperNounPlusVerbal numeric
+@ATTRIBUTE Verb numeric
+@ATTRIBUTE Adjective numeric
+@ATTRIBUTE Adverb numeric
+@ATTRIBUTE Interjection numeric
+@ATTRIBUTE Determiner numeric
+@ATTRIBUTE CoordinatingConjunction numeric
+@ATTRIBUTE VerbParticle numeric
+@ATTRIBUTE ExistentialThere numeric
+@ATTRIBUTE ExistentialPlusVerbal numeric
+@ATTRIBUTE Preposition numeric
+@ATTRIBUTE Hashtag numeric
+@ATTRIBUTE Address numeric
+@ATTRIBUTE Emoticon numeric
+@ATTRIBUTE AtMention numeric
+@ATTRIBUTE Continuation numeric
+@ATTRIBUTE Numeral numeric
+@ATTRIBUTE Punctuation numeric
+@ATTRIBUTE Other numeric
 @ATTRIBUTE stance {green,denier}
 
 @DATA
