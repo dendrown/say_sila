@@ -8,7 +8,7 @@
 ;;;;
 ;;;; The say-sila ontology and associtated functionality.
 ;;;;
-;;;; @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2021 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
   (:refer-clojure :exclude [==])
@@ -3614,10 +3614,12 @@
 
 
   ([{:keys [dtag texts]}]
-  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))]        ; {"Anger" 0, ...}
+  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))         ; {"Anger" 0, ...}
+        sball (tw/make-stemmer)]
     (reduce (fn [acc {:keys [screen_name
                              stance
                              affect
+                             content
                              pos-tags
                              survey-hits]}]
               (let [curr (update (get acc screen_name) "Count" (fnil inc 0))
@@ -3629,8 +3631,8 @@
                                    (update acc pos (fnil inc 0)))
                                  {}
                                  (map pos/POS-Fragments pos-tags))
-                    hits (update-keys (update-values survey-hits count) ; Accumulate values
-                                      name)]                            ; String keys "T2", ...
+                    hits (update-keys (six/get-word-hits content sball)
+                                      #(str "KW-" %))]                  ; Prefix keys "KW-global", ...
                 (assoc acc screen_name (merge {:stance stance}
                                               (merge-with + curr affs)
                                               (merge-with + curr poss)
@@ -3650,7 +3652,7 @@
   ([{:keys  [dtag texts]
      :as    world}]
   ;; TODO: Adapt and move this function to weka.dataset
-  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.c4.arff") "stance")
+  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.d1.arff") "stance")
         [uid &                                          ; screen name
          attrs] (weka/attribute-seq insts)              ; Everything else (skips target)
 

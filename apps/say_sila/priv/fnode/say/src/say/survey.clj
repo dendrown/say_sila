@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Climate survey modelling (i.e., the Six Americas)
 ;;;;
-;;;; @copyright 2020 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2020-2021 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.survey
   (:require [say.genie          :refer :all]
@@ -257,7 +257,9 @@
                                 "politics" "liberal" "moderate" "conservative" "Tea" "Party"
                                 "movement" "registered" "vote"}})
 
-(defonce Question-Stems (update-values Question-Words #(tw/stem-all % :set)))
+(defonce Question-Stems     (update-values Question-Words #(tw/stem-all % :set)))
+(defonce Question-Stem-Set  (into #{} (mapcat val Question-Stems)))
+
 
 (defonce Key-Words  {:six36 (apply set/union (vals Question-Words))
                      :sassy #{"think"
@@ -429,3 +431,27 @@
                    (fn [qstems]
                      (set/intersection qstems wstems)))))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn get-word-hits
+  "Returns the a hashmap with the counts of Six Americas table hits."
+  ([words]
+  (get-word-hits words (tw/make-stemmer)))
+
+
+  ([words sball]
+  (let [wstems (tw/stem-all words)
+        check  (fn [word]
+                 ;; We return a keyword hit, so check the keywords [one] at a time
+                 (some #(when (in-stems? [%] word sball some)
+                          %)
+                       Question-Stem-Set))]
+
+    (reduce (fn [acc word]
+              (if-let [hit (check word)]
+                (update acc hit inc)
+                acc))
+            (into {} (map vector Question-Stem-Set      ; Zero counts for all keywords
+                                 (repeat 0)))
+            wstems))))
