@@ -258,6 +258,7 @@
                                 "movement" "registered" "vote"}})
 
 (defonce Question-Stems (update-values Question-Words #(tw/stem-all % :set)))
+(defonce Questions      (into #{} (map name (keys Question-Words))))                    ; #{"T2" "T3" ...}
 
 (defonce Key-Words  {:six36 (apply set/union (vals Question-Words))
                      :sassy #{"think"

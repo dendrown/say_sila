@@ -3612,7 +3612,6 @@
   ([]
   (by-user @World))
 
-
   ([{:keys [dtag texts]}]
   (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))]        ; {"Anger" 0, ...}
     (reduce (fn [acc {:keys [screen_name
@@ -3641,11 +3640,42 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn by-question
+  "Returns a question-based status map for the specified world."
+  ([]
+  (by-question @World))
+
+  ([world]
+  (let [users (by-user world)
+        u->q  (fn [[usr stats]]
+                (reduce (fn [acc [k v]]
+                          (if-let [q (contains? six/Questions k)]   ; Question stat?
+                            (conj acc [k {usr v}])                  ; -> add it
+                            acc))                                   ; -> ignore it
+                        {}
+                        stats))]
+    ;; Big merge across a {q {u cnt}} maps for all [u]sers
+    (reduce #(merge-with merge %1 %2)
+            (map u->q users)))))
+
+
+;;; --------------------------------------------------------------------------
+(defn question-hits
+  "Returns a map with total hit counts for each survey question."
+  ([]
+  (question-hits @World))
+
+  ([world]
+  (sort-by second > (update-values (by-question)
+                                   #(reduce + (vals %))))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn world->arff
   "Creates an ARFF representing the specified world."
   ([]
   (world->arff @World))
-
 
   ([{:keys  [dtag texts]
      :as    world}]
