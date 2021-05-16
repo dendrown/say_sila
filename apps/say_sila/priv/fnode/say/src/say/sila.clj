@@ -3614,7 +3614,8 @@
   (by-user @World))
 
   ([{:keys [dtag texts]}]
-  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))]        ; {"Anger" 0, ...}
+  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))         ; {"Anger" 0, ...}
+        hit+1 #(if (not-empty %) 1 0)]
     (reduce (fn [acc {:keys [screen_name
                              stance
                              affect
@@ -3629,7 +3630,7 @@
                                    (update acc pos (fnil inc 0)))
                                  {}
                                  (map pos/POS-Fragments pos-tags))
-                    hits (update-keys (update-values survey-hits count) ; Accumulate values
+                    hits (update-keys (update-values survey-hits hit+1) ; One hit for one or more keywords
                                       name)]                            ; String keys "T2", ...
                 (assoc acc screen_name (merge {:stance stance}
                                               (merge-with + curr affs)
@@ -3637,7 +3638,6 @@
                                               (merge-with + curr hits)))))
             {}
             texts))))
-    
 
 
 ;;; --------------------------------------------------------------------------
