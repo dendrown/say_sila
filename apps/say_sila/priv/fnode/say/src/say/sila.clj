@@ -35,6 +35,7 @@
             [clojure.java.io    :as io]
             [clojure.set        :as set]
             [clojure.string     :as str]
+            [clojure.data.priority-map :refer [priority-map priority-map-by]]
             [clojure.pprint     :refer [pp]]
             [defun.core         :refer [defun]]
             [incanter.core      :refer [dataset $data view with-data]]
@@ -3666,8 +3667,9 @@
   (question-hits @World))
 
   ([world]
-  (sort-by second > (update-values (by-question)
-                                   #(reduce + (vals %))))))
+  (into (priority-map-by >)
+        (update-values (by-question)
+                        #(reduce + (vals %))))))
 
 
 

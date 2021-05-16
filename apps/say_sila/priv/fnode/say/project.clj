@@ -27,6 +27,7 @@
                  [org.clojure/data.csv "0.1.4"]
                  [org.clojure/data.json "0.2.6"]
                  [org.clojure/core.match "1.0.0"]
+                 [org.clojure/data.priority-map "1.0.0"]
                  [clojusc/wordnet "1.2.0"]
                  [clj-time "0.14.2"]
                  [defun "0.3.1"]
