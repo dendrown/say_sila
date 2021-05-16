@@ -39,7 +39,7 @@
             [clojure.pprint     :refer [pp]]
             [defun.core         :refer [defun]]
             [incanter.core      :refer [dataset $data view with-data]]
-            [incanter.charts    :refer [stacked-bar-chart set-stroke-color]]
+            [incanter.charts    :refer [bar-chart stacked-bar-chart set-stroke-color]]
             [me.raynes.fs       :as fs]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
@@ -3670,6 +3670,20 @@
   (into (priority-map-by >)
         (update-values (by-question)
                         #(reduce + (vals %))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn chart-question-hits
+  "Displays a chart with descending total hit counts for each survey question."
+  ([]
+  (chart-question-hits @World))
+
+  ([world]
+  (with-data (dataset [:question :hits] (seq (question-hits world)))
+    (view (incanter.charts/bar-chart :question :hits
+            :x-label "Question (Table no.) from Six Americas'"
+            :y-label "Tweets")))))
 
 
 
