@@ -2319,13 +2319,23 @@
   (:dtag world)))
 
 
-
 ;;; --------------------------------------------------------------------------
 (defn which-edn
   "Returns the filepath for a user/text examples file."
   [dtag rsrc]
   (strfmt "~a/~a-~a.edn" World-FStub (name rsrc) (name dtag)))
 
+
+;;; --------------------------------------------------------------------------
+(defn world-texts
+  "Returns a map representing the  world."
+  [fltr]
+  (let [world @World]
+    {:dtag  (:dtag world)
+     :texts (filter fltr (:texts world))}))
+
+(defn green-world-texts []    (world-texts #(= (:stance %) :green)))
+(defn denier-world-texts []   (world-texts #(= (:stance %) :denier)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -3668,7 +3678,7 @@
 
   ([world]
   (into (priority-map-by >)
-        (update-values (by-question)
+        (update-values (by-question world)
                         #(reduce + (vals %))))))
 
 
