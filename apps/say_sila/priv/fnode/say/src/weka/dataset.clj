@@ -233,6 +233,16 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- ^Instances t00->t01
+  "Converts the T00 tweet format to the T01 format, which is the same except
+  that it has a dependent attribute, stance. Instances will all have an
+  unknown ( ? ) value for the new attribute."
+  [insts]
+  (prep-dataset insts :t00 :t01 :stance))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn- ^:deprecated ^Instances t00->s00
   "Converts the T00 tweet format to the S00 say-senti format.  The function
   creates a copy of the specified dataset whose filename is tagged with «S02»."
