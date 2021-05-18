@@ -307,6 +307,7 @@
                                              [(lower-keyword a) a])
                                            (rsn/instances Affect))))
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
+(defonce Affect-Zeros       (apply zero-hashmap Affect-Names))              ; Zero-count initializer
 
 ;;; What we have extracted from the ontology should match the definitions from weka.tweet
 (if (not= Affect-Fragments tw/Affect-Namer)
@@ -2662,6 +2663,21 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defun emote-text
+  "Returns a map containing the counts of affective words in a given tweet.
+  You may use this function with a count accumulator for reductions. "
+  ([txt]
+  (emote-text Affect-Zeros txt))
+
+  ([acc txt]
+  (let [emote-token (fn [cnts emos]
+                      ;; count affect at any level: word -> tweet -> series
+                      (update-values cnts (map str emos) inc))]
+
+    (reduce emote-token acc (:affect txt)))))
+
+
+;;; --------------------------------------------------------------------------
 (defun count-affect
   "Returns a map containing the counts of affective words in tweets for the
    following user categories: all, green, denier."
@@ -2674,18 +2690,8 @@
 
 
   ([texts]
-  (let [;; Initialize map, keyed by affect with zero counts
-        zeros (apply zero-hashmap Affect-Names)
-
-        ;; Functions to count affect at each level: word -> tweet -> series
-        emote-token (fn [cnts emos]
-                      (update-values cnts (map str emos) inc))
-
-        emote-text  (fn [cnts txt]
-                      (reduce emote-token cnts (:affect txt)))
-
-        emote       (fn [txts]
-                      (reduce emote-text zeros txts))
+  (let [emote (fn [txts]
+                (reduce emote-text Affect-Zeros txts))
 
         ;; Filter tweet sequences by user type
         flt-stance  (fn [s]
@@ -3616,6 +3622,17 @@
   (map #(six/get-table-hits (:content %)) texts)))
 
 
+
+
+;;; --------------------------------------------------------------------------
+(defn question-hit-zone?
+  "Returns true if the 'hit' word set contains enough hits to qualify as
+  referring to the question."
+  [t]
+  (boolean
+    (not-empty t)))
+
+
 ;;; --------------------------------------------------------------------------
 (defn by-user
   "Make user-based status map with elements needed for the c2 dataset.  All keys
@@ -3625,7 +3642,7 @@
 
   ([{:keys [dtag texts]}]
   (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))         ; {"Anger" 0, ...}
-        hit+1 #(if (not-empty %) 1 0)]
+        hit+1 #(if (question-hit-zone? %) 1 0)]
     (reduce (fn [acc {:keys [screen_name
                              stance
                              affect
@@ -3695,6 +3712,26 @@
             :x-label "Question (Table no.) from Six Americas'"
             :y-label "Tweets")))))
 
+
+;;; --------------------------------------------------------------------------
+(defn emote-questions
+  "Returns a map with affect values for each survey question."
+  ([]
+  (emote-questions @World))
+
+  ([{:keys [dtag texts]}]
+  (let [sum-inner (partial merge-with +)
+        emote-q   #(let [emos (emote-text %)]
+                     (reduce (fn [acc [k v]]
+                               (if (question-hit-zone? v)
+                                   (assoc acc k emos)
+                                   acc))
+                             {}
+                             (:survey-hits %)))]
+    (reduce (fn [acc txt]
+              (merge-with sum-inner acc (emote-q txt)))
+            {}
+            texts))))
 
 
 ;;; --------------------------------------------------------------------------
