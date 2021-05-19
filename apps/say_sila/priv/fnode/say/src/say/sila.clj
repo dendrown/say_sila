@@ -308,6 +308,17 @@
                                            (rsn/instances Affect))))
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
 (defonce Affect-Zeros       (apply zero-hashmap Affect-Names))              ; Zero-count initializer
+(defonce Affect-Colours     [["Anger"        Color/red]
+                             ["Fear"         (new Color 000 153 000)]
+                             ["Sadness"      (new Color 148 000 211)]
+                             ["Joy"          (new Color 255 215 000)]
+                             ["Surprise"     (new Color 051 255 255)]
+                             ["Anticipation" (new Color 255 140 000)]
+                             ["Disgust"      (new Color 204 051 204)]
+                             ["Trust"        (new Color 051 255 102)]
+                             ["Positive"     Color/yellow]
+                             ["Negative"     (new Color 051 051 204)]])
+
 
 ;;; What we have extracted from the ontology should match the definitions from weka.tweet
 (if (not= Affect-Fragments tw/Affect-Namer)
@@ -1610,56 +1621,52 @@
   (select-keys (sum-analysis txt) Affect-Names))
 
 
+;;; --------------------------------------------------------------------------
+(defn- get-echart-colours
+  "Produces an affect stacked bar chart for all given text/profiles."
+  []
+  ;; Set colour order for echarts
+  (map (fn [[emo _]] ["" emo 0])
+       Affect-Colours))
+
 
 ;;; --------------------------------------------------------------------------
 (defn echart-affect
   "Produces an affect stacked bar chart for all given text/profiles."
   [texts & opts]
   ;; Match affect colours to Incanter/jFree charting
-  (let [affect [["Anger"        Color/red]
-                ["Fear"         (new Color 000 153 000)]
-                ["Sadness"      (new Color 148 000 211)]
-                ["Joy"          (new Color 255 215 000)]
-                ["Surprise"     (new Color 051 255 255)]
-                ["Anticipation" (new Color 255 140 000)]
-                ["Disgust"      (new Color 204 051 204)]
-                ["Trust"        (new Color 051 255 102)]
-                ["Positive"     Color/yellow]
-                ["Negative"     (new Color 051 051 204)]]
-
-        emote   (fn [[sname txts]]
+  (let [emote   (fn [[sname txts]]
                   ;; Affect levels across all texts for one user
                   (map (fn [[emo cnt]] [sname emo cnt])
-                    (sum-affect txts)))
+                       (sum-affect txts)))
 
         ;; Group tweets by user, ordered by Z..A text count
         tcount  #(- (count (second %)))
         utexts  (sort-by tcount (group-by :screen_name texts))]
 
-  (with-data (dataset [:user :emotion :level]                   ; dataset columns
-                      (concat (map (fn [[emo _]] ["" emo 0])    ; Set colour order
-                                   affect)
-                       (mapcat emote utexts)))                  ; User affect levels
+    (with-data (dataset [:user :emotion :level]               ; dataset columns
+                        (concat (get-echart-colours)          ; Set colour order
+                                (mapcat emote utexts)))       ; User affect levels
 
-    (let [^JFreeChart chart (stacked-bar-chart
-                             :user :level :group-by :emotion :legend true
-                             :x-label "Users by decreasing activity"
-                             :y-label "Emotion level")
+      (let [^JFreeChart chart (stacked-bar-chart
+                               :user :level :group-by :emotion :legend true
+                               :x-label "Users by decreasing activity"
+                               :y-label "Emotion level")
 
-          ^StackedBarRenderer rndr (-> chart
-                                       .getCategoryPlot
-                                       .getRenderer)]
-      ;(view $data)
+            ^StackedBarRenderer rndr (-> chart
+                                         .getCategoryPlot
+                                         .getRenderer)]
+        ;(view $data)
 
-      ;; Set the colours for the order we made with the :sync rows
-      (run! #(set-stroke-color chart (second (affect %)) :series %)
-            (range (count affect)))
+        ;; Set the colours for the order we made with the :sync rows
+        (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
+              (range (count Affect-Colours)))
 
-      ;; Render and go!
-      (when (some #{:p100 :%} opts)
-        (.setRenderAsPercentages rndr true))
+        ;; Render and go!
+        (when (some #{:p100 :%} opts)
+          (.setRenderAsPercentages rndr true))
 
-      (view chart)))))
+        (view chart)))))
 
 
 
@@ -3724,7 +3731,7 @@
         emote-q   #(let [emos (emote-text %)]
                      (reduce (fn [acc [k v]]
                                (if (question-hit-zone? v)
-                                   (assoc acc k emos)
+                                   (assoc acc (name k) emos)    ; String key for charts, etc.
                                    acc))
                              {}
                              (:survey-hits %)))]
@@ -3732,6 +3739,44 @@
               (merge-with sum-inner acc (emote-q txt)))
             {}
             texts))))
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-questions
+  "Produces an affect stacked bar chart for survey questions."
+  [& opts]
+  ;; Match affect colours to Incanter/jFree charting
+  (let [affcnts (emote-questions)
+        emote   (fn [q]
+                  ;; Create vector entries for each emotion for question q
+                  (map (fn [[emo cnt]]
+                         [q emo cnt])
+                       (get affcnts q)))]
+
+  (with-data (dataset [:question :emotion :level]               ; dataset columns
+                      (concat (get-echart-colours)              ; Set colour order
+                              (mapcat emote                     ; User affect levels
+                                      (keys (question-hits))))) ; Ordered Z..A by hit count
+
+    (let [^JFreeChart chart (stacked-bar-chart
+                             :question :level :group-by :emotion :legend true
+                             :x-label "Questions by decreasing hit count"
+                             :y-label "Level of affect")
+
+          ^StackedBarRenderer rndr (-> chart
+                                       .getCategoryPlot
+                                       .getRenderer)]
+      ;(view $data)
+
+      ;; Set the colours for the order we made with the :sync rows
+      (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
+            (range (count Affect-Colours)))
+
+      ;; Render and go!
+      (when (some #{:p100 :%} opts)
+        (.setRenderAsPercentages rndr true))
+
+      (view chart)))))
 
 
 ;;; --------------------------------------------------------------------------
