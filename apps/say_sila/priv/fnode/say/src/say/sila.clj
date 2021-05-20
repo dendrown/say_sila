@@ -3746,7 +3746,11 @@
   "Produces an affect stacked bar chart for survey questions."
   [& opts]
   ;; Match affect colours to Incanter/jFree charting
-  (let [affcnts (emote-questions)
+  (let [world   (cond
+                  (some #{:green} opts)  (green-world-texts)
+                  (some #{:denier} opts) (denier-world-texts)
+                  :else                  @World)
+        affcnts (emote-questions world)
         emote   (fn [q]
                   ;; Create vector entries for each emotion for question q
                   (map (fn [[emo cnt]]
@@ -3760,7 +3764,7 @@
 
     (let [^JFreeChart chart (stacked-bar-chart
                              :question :level :group-by :emotion :legend true
-                             :x-label "Questions by decreasing hit count"
+                             :x-label "Question (Table no.) from Six Americas'"
                              :y-label "Level of affect")
 
           ^StackedBarRenderer rndr (-> chart
