@@ -181,8 +181,8 @@
   "Helper function to handle the common case of creating a full affect
   analysis for a LexiconEvaluator that only deals with sentiment polarity."
   [lex tok retvals]
-  (let [pole   (polarize-token+- lex tok :positive :negative)
-        affect (merge Stoic {pole 1})]
+  (let [poles  (polarize-token+- lex tok :positive :negative)
+        affect (merge Stoic (into {} (zip poles (repeat 1))))]
     (affect-set+- affect retvals)))
 
 
@@ -194,10 +194,11 @@
 
   (polarize-token+- [lex tok pos neg]
     (case (.retrieveValue lex tok)
-      "positive"  pos
-      "negative"  neg
+      "positive"  #{pos}
+      "negative"  #{neg}
       "neutral"   nil
-      "not_found" nil))
+      "not_found" nil
+      "both"      #{pos neg}))
 
 
   NRCEmotionLexiconEvaluator
@@ -211,9 +212,9 @@
     (let [affect (analyze-token+- lex tok nil)]
       (case [(:positive affect)
              (:negative affect)]
-        [1 0] pos
-        [0 1] neg
-        [1 1] (log/fmt-warn "Token analysis shows '~a' is positive AND negative" tok)
+        [1 0] #{pos}
+        [0 1] #{neg}
+        [1 1] #{pos neg}
               nil)))
 
 
