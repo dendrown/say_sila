@@ -228,15 +228,19 @@
            nval "swn-negScore"} (.evaluateTweet lex [tok])
            score                (+ pval nval)]
 
-      ;; TODO: We need to handle dual-polarity
+      ;; FIXME We need to handle dual-polarity AND level-based analysis
       (when-not (or (zero? pval)
                     (zero? nval))
         (log/fmt-warn "Token '~a' has dual-polarity: p[~a] n[a] score[~a]"
                       tok pval nval score))
-      (cond
-        (pos? score) pos
-        (neg? score) neg))))
-
+      (reduce (fn [acc [aff v]]
+                ;; Check that value > 0 (NOT positive sentiment)
+                (if (pos? v)
+                    (conj acc aff)
+                    acc))
+                #{}
+                [[pos pval]
+                 [neg (Math/abs nval)]]))))
 
 
 ;;; --------------------------------------------------------------------------
