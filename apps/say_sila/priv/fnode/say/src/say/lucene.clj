@@ -13,6 +13,7 @@
 (ns say.lucene
   (:require [say.genie          :refer :all]
             [say.log            :as log]
+            [say.wordnet        :as word]
             [clojure.string     :as str])
   (:import  (java.nio.file Paths)
             (org.apache.lucene LucenePackage)
@@ -31,19 +32,25 @@
                                         FieldType
                                         StringField
                                         TextField)
-            (org.apache.lucene.index IndexOptions
+            (org.apache.lucene.index DirectoryReader
+                                     IndexOptions
                                      IndexWriter
                                      IndexWriterConfig
                                      IndexWriterConfig$OpenMode)
+            (org.apache.lucene.queryparser.classic QueryParser)
+            (org.apache.lucene.search IndexSearcher
+                                      Query
+                                      ScoreDoc)
             (org.apache.lucene.search.similarities ClassicSimilarity)
-            (org.apache.lucene.store FSDirectory)
-  ))
+            (org.apache.lucene.store FSDirectory)))
 
 
 ;;; --------------------------------------------------------------------------
 (set! *warn-on-reflection* true)
 
-(def ^:const Index-Dir "resources/lucene-ndx")
+(def ^:const Index-Dir      "resources/lucene-ndx")
+(def ^:const Problem-Text   #"&equals;|&lsqb;|&plus;|&rsqb|&")
+(def ^:const Problem-Fix    "-")
 
 
 ;;; --------------------------------------------------------------------------
@@ -61,6 +68,17 @@
     (if (some #{:uri} opts)
         (.toUri path)
         path)))
+
+
+;;; --------------------------------------------------------------------------
+(defn- make-repo-path
+  "Creates a path to the Lucene index repository."
+  [repo opts]
+  (let [tags (str/join "-" (map name
+                                (filter #{:baseline :english :porter :substd}
+                                        opts)))]
+    (log/debug "TAGS:" tags)
+    (make-local-path [Index-Dir (str (name repo) "-" tags)] opts)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -98,9 +116,8 @@
 (defn- make-indexer
   "Creates an index writer for a document store."
   ([repo opts]
-    (let [path (make-local-path [Index-Dir
-                                 (name repo)
-                                 (str/join "-" (map name opts))])
+    (log/debug "OPTS:" opts)
+    (let [path (make-repo-path repo opts)
           dir  (FSDirectory/open path)
           ann  (make-analyzer opts)
           cfg  (IndexWriterConfig. ann)]
@@ -145,7 +162,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn index-doc
+(defn- index-doc
   "Convert an XML document map into Lucene fields for a Document, added to
   the specified index writer."
   [indexer id text]
@@ -183,4 +200,103 @@
 
       (doseq [field (.getFieldNames indexer)]
         (log/debug field)))))
+
+
+;;; --------------------------------------------------------------------------
+(defn boost
+  "Accepts a string, containing a space-separated series of words, and returns an
+  expanded series, representing members of the synsets for all the input words."
+  [words]
+  (log/debug "BOOST:" words)
+
+  (letfn [(alpha-num? [preword]
+            ; Slashes kill Lucene, but we may want to keep the word
+            (let [word (str/replace preword #"/" Problem-Fix)]
+
+            ; Allow alpha/numeric/hyphen and nothing else
+            (if (re-find #"[^a-zA-Z\-\d:]" word)
+                false
+                word)))
+
+          (scrub [words]
+             ;; Remove non alpha-numeric terms
+             (filter identity (map alpha-num? words)))]
+
+       (into #{} (scrub (mapcat word/synonyms words)))))
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^Query make-query
+  "Returns a Lucene query, boosted if the appropriate option is included in opts.
+  Of course, the only currently recognized boosting option is :wordnet"
+  [^QueryParser parser
+                words
+                opts]
+
+  ; Build a first-pass for the query so that Lucene can remove stop words, etc.
+  (let [prequery (.parse parser (str/join " " words))]
+
+    (if (some #{:wordnet} opts)
+
+      ; They want a WordNet boost
+      (let [qwords (str/split (.toString prequery "TEXT") #" ")
+            qboost (apply str (interpose " " (boost qwords)))]
+
+        (log/debug "BOOST:" qboost)
+        (.parse parser qboost))
+
+      ; No boost requested, so just go with the preliminary step.
+      prequery)))
+
+
+;;; --------------------------------------------------------------------------
+(defn- run-search
+  "Performs the one query against the specified index.  This function may call
+  itself to repeat a query after expanding it, adding terms from the top document
+  results from the first request."
+  [^DirectoryReader reader
+   ^IndexSearcher   searcher
+   ^QueryParser     parser
+                    qwords
+                    opts]
+  (let [query    (make-query parser qwords opts)
+        top-docs (.search searcher query 1)]
+
+    (log/debug "QUERY" (.toString query))
+    (log/debug "QUERY" (.toString query "TEXT"))
+
+    ;; Return the ID of the best document
+    (when (pos? (.-totalHits top-docs))
+      (let [hit ^ScoreDoc (first (.-scoreDocs top-docs))
+            ndx (.-doc hit)
+            doc (.document reader ndx)
+            id  (.get doc "ID")]
+        (log/fmt-info "Found document ~a: ndx[~a] score[~a]" id ndx (.-score hit))
+        id))))
+
+
+;;; --------------------------------------------------------------------------
+(defn run-searches
+  "Runs a series of requests (queries) for the specified repository (directory).
+  The create-index function must have already been called for the repository."
+  [repo queries opts]
+  (with-open [path   (make-repo-path repo opts)
+              dir    (FSDirectory/open path)
+              reader (DirectoryReader/open dir)]
+
+    (let [searcher (IndexSearcher. reader)
+          parser   (QueryParser. "TEXT" (make-analyzer opts))]
+
+      ; BM25 is the default similarity, check for an override
+      (when (some #{:tfidf} opts)
+        (.setSimilarity searcher (ClassicSimilarity.)))
+      (log/info (log/<> "SEARCH" (.getSimilarity searcher true)) "Querying against" repo)
+
+      ; Run one query, or the whole set?
+      (doseq [query (if (some #{:one} opts)
+                        (list (first queries))
+                        queries)]
+        (run-search reader searcher parser query opts)
+        (log/debug "----------------------------------------------------------------")))))
+
 

@@ -46,6 +46,7 @@
                  ; Lucene
                  [org.apache.lucene/lucene-core "7.7.3"]
                  [org.apache.lucene/lucene-analyzers-common "7.7.3"]
+                 [org.apache.lucene/lucene-queryparser "7.7.3"]
                  ; Ontologies
                 ;[org.dllearner/components-core "1.4.0"]                        ; TODO: Enable
                  [net.sourceforge.owlapi/org.semanticweb.hermit "1.4.5.456"]    ; Override Tawny's dep
