@@ -8,12 +8,13 @@
 ;;;;
 ;;;; Climate survey modelling (i.e., the Six Americas)
 ;;;;
-;;;; @copyright 2020 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2020-2021 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.survey
   (:require [say.genie          :refer :all]
             [say.config         :as cfg]
             [say.log            :as log]
+            [say.lucene         :as ir]
             [say.social         :as soc]
             [say.wordnet        :as word]
             [weka.tweet         :as tw]

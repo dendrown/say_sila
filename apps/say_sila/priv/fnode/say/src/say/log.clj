@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Logging utilities
 ;;;;
-;;;; @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2017-2021 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.log
   (:require [clj-time.local     :as dts]
@@ -64,6 +64,9 @@
 (def ^:const Lt-Salmon1     "\033[38;5;216m")
 (def ^:const Gold1          "\033[38;5;220m")
 (def ^:const Yellow1        "\033[38;5;226m")
+
+(def ^:const Brief-Length  60)
+
 
 ;;; --------------------------------------------------------------------------
 (defmacro deflevel [lvl prompt colour]
@@ -125,6 +128,17 @@
 (defmacro notice [& args] `(log NOTICE ~@args))
 (defmacro info   [& args] `(log INFO   ~@args))
 (defmacro debug  [& args] `(log DEBUG  ~@args))
+
+
+;;; --------------------------------------------------------------------------
+(defn brief
+  "Only print the first few characters of a longer string."
+  ([text] (brief Brief-Length text))
+
+  ([len text]
+  (if (<= (count text)  len)
+      text
+      (str (subs text 0 len) "..."))))
 
 
 ;;; --------------------------------------------------------------------------

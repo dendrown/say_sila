@@ -3,7 +3,7 @@
 ;;; - DL-Learner:
 ;;;      davidsoergel.releases: http://dev.davidsoergel.com/nexus/content/repositories/releases
 (comment require 'cemerick.pomegranate.aether)
-(cemerick.pomegranate.aether/register-wagon-factory!
+(comment cemerick.pomegranate.aether/register-wagon-factory!
   "http" #(org.apache.maven.wagon.providers.http.HttpWagon.))
 
 
@@ -42,7 +42,10 @@
                  [it.unimi.dsi/fastutil "7.0.13"]
                  [uk.ac.wlv/sentistrength "0.1.0"]
                  [affective/affectivetweets "1.0.2"]
-                 [org.tartarus/snowball "1.0.0"]
+                ;[org.tartarus/snowball "1.0.0"]                                ; We get Snowball with Lucene
+                 ; Lucene
+                 [org.apache.lucene/lucene-core "7.7.3"]
+                 [org.apache.lucene/lucene-analyzers-common "7.7.3"]
                  ; Ontologies
                 ;[org.dllearner/components-core "1.4.0"]                        ; TODO: Enable
                  [net.sourceforge.owlapi/org.semanticweb.hermit "1.4.5.456"]    ; Override Tawny's dep

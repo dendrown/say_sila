@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion and Tweet functionality for Weka
 ;;;;
-;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2019-2021 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns weka.tweet
   (:require [say.genie       :refer :all]
@@ -240,7 +240,7 @@
                     acc))
                 #{}
                 [[pos pval]
-                 [neg (Math/abs nval)]]))))
+                 [neg (Math/abs (double nval))]]))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -317,9 +317,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^SnowballStemmer make-stemmer
-  "Returns a Snowball stemmer for the specified language (default: english)."
+  "Returns a Snowball stemmer for the specified language (default: English)."
   ([]
-  (make-stemmer "english"))
+  (make-stemmer "English"))
 
 
   ([lang]
@@ -553,7 +553,7 @@
       (doto emoter
            ;(.setReduceRepeatedLetters true)
             (.setStopwordsHandler stoplist)
-            (.setStemmer (SnowballStemmer. "english")))))
+            (.setStemmer (SnowballStemmer. "English")))))
 
   ;; Set our standard options for both the NLP and default modes
   (doto emoter
@@ -581,7 +581,7 @@
   ;; Our only defined NLP option is English-Stoplist-Porter
   (when (= nlp :english)
     (let [lexer (doto (ArffLexiconEvaluator.)
-                      (.setStemmer (SnowballStemmer. "english")))]
+                      (.setStemmer (SnowballStemmer. "English")))]
 
       ;; Prepare the filter for English texts
       (doto emoter
