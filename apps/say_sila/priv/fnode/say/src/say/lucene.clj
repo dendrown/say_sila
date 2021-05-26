@@ -234,7 +234,11 @@
                 opts]
 
   ; Build a first-pass for the query so that Lucene can remove stop words, etc.
-  (let [prequery (.parse parser (str/join " " words))]
+  (log/debug "QUERY WORDS:" words)
+  (let [qtext (if (string? words)
+                  words
+                  (str/join " " words))
+        prequery (.parse parser qtext)]
 
     (if (some #{:wordnet} opts)
 
@@ -279,9 +283,11 @@
 (defn run-searches
   "Runs a series of requests (queries) for the specified repository (directory).
   The create-index function must have already been called for the repository."
-  [repo queries opts]
-  (with-open [path   (make-repo-path repo opts)
-              dir    (FSDirectory/open path)
+  ([repo queries]
+  (run-searches repo queries [:baseline]))
+
+  ([repo queries opts]
+  (with-open [dir    (FSDirectory/open (make-repo-path repo opts))
               reader (DirectoryReader/open dir)]
 
     (let [searcher (IndexSearcher. reader)
@@ -293,10 +299,10 @@
       (log/info (log/<> "SEARCH" (.getSimilarity searcher true)) "Querying against" repo)
 
       ; Run one query, or the whole set?
-      (doseq [query (if (some #{:one} opts)
-                        (list (first queries))
-                        queries)]
+      (doseq [[tag query] (if (map? queries)
+                              queries
+                              [[:query queries]])]
         (run-search reader searcher parser query opts)
-        (log/debug "----------------------------------------------------------------")))))
+        (log/debug "----------------------------------------------------------------"))))))
 
 
