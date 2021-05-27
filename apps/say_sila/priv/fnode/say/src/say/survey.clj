@@ -421,7 +421,6 @@
             (vals saff)))))
 
 
-
 ;;; --------------------------------------------------------------------------
 (defn get-table-hits
   "Returns the a hashmap with the counts of Six Americas table hits."
@@ -430,4 +429,17 @@
     (update-values Question-Stems
                    (fn [qstems]
                      (set/intersection qstems wstems)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn index-questions
+  "Creates a Lucene index for the Six Americas questions."
+  ([]
+  (index-questions :b1))
+
+  ([dtag]
+  (ir/create-index :six6
+                   (update-values Question-Words #(str/join " " %))
+                   [:english dtag])))
 

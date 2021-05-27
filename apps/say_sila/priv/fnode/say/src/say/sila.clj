@@ -24,6 +24,7 @@
             [say.infer          :as inf]
             [say.jvm            :as jvm]
             [say.label          :as lbl]
+            [say.lucene         :as ir]
             [say.social         :as soc]
             [say.survey         :as six]
             [say.tweebo         :as twbo]

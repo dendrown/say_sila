@@ -49,7 +49,6 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const Index-Dir      "resources/lucene-ndx")
-(def ^:const Problem-Text   #"&equals;|&lsqb;|&plus;|&rsqb|&")
 (def ^:const Problem-Fix    "-")
 
 
@@ -199,7 +198,7 @@
                 (.toString (.getDirectory indexer)))
 
       (doseq [field (.getFieldNames indexer)]
-        (log/debug field)))))
+        (log/debug "Field:" field)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -234,10 +233,18 @@
                 opts]
 
   ; Build a first-pass for the query so that Lucene can remove stop words, etc.
-  (log/debug "QUERY WORDS:" words)
-  (let [qtext (if (string? words)
+  ;(log/debug "WORDS:" words)
+  (let [qline (if (string? words)
                   words
                   (str/join " " words))
+
+        qtext    (-> qline
+                     (str/replace #"(?:http)[^\s]+" " ")
+                     (str/replace #"QUOTE|QUøTE|\"|&|/|:|\?|\!|\{|\}|\[|\]|\(|\)|\.|\*|\+" " ")
+                     (str/replace #"-+" "-")
+                     (str/trim)
+                     (str/replace #"^-|-$" ""))
+        _        (log/debug "SHINY:" qtext)
         prequery (.parse parser qtext)]
 
     (if (some #{:wordnet} opts)
@@ -266,8 +273,8 @@
   (let [query    (make-query parser qwords opts)
         top-docs (.search searcher query 1)]
 
-    (log/debug "QUERY" (.toString query))
-    (log/debug "QUERY" (.toString query "TEXT"))
+   ;(log/debug "QUERY" (.toString query))
+   ;(log/debug "QUERY" (.toString query "TEXT"))
 
     ;; Return the ID of the best document
     (when (pos? (.-totalHits top-docs))
@@ -276,6 +283,7 @@
             doc (.document reader ndx)
             id  (.get doc "ID")]
         (log/fmt-info "Found document ~a: ndx[~a] score[~a]" id ndx (.-score hit))
+        (log/debug "----------------------------------------------------------------")
         id))))
 
 
@@ -291,18 +299,20 @@
               reader (DirectoryReader/open dir)]
 
     (let [searcher (IndexSearcher. reader)
-          parser   (QueryParser. "TEXT" (make-analyzer opts))]
+          parser   (QueryParser. "TEXT" (make-analyzer opts))
+          qmap?    (map? queries)]
 
-      ; BM25 is the default similarity, check for an override
+      ;; BM25 is the default similarity, check for an override
       (when (some #{:tfidf} opts)
         (.setSimilarity searcher (ClassicSimilarity.)))
       (log/info (log/<> "SEARCH" (.getSimilarity searcher true)) "Querying against" repo)
 
-      ; Run one query, or the whole set?
-      (doseq [[tag query] (if (map? queries)
-                              queries
-                              [[:query queries]])]
-        (run-search reader searcher parser query opts)
-        (log/debug "----------------------------------------------------------------"))))))
+      (into (if qmap? {} '())
+            (map (fn [[tag query]]
+                   (log/debug "Running query:" tag)
+                   [tag (run-search reader searcher parser query opts)])
+            (if qmap?
+                queries                     ; We have a batch to run
+                [[:query queries]])))))))   ; We have a singleton  query
 
 
