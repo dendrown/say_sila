@@ -3619,7 +3619,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn get-survey-hits
+(defn ^:deprecated get-survey-hits
   "Returns the a sequence with the counts of Six Americas table hits for all
   the example texts in the world."
   ([]
@@ -3650,23 +3650,26 @@
 
   ([{:keys [dtag texts]}]
   (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))         ; {"Anger" 0, ...}
+        qmap  (ir/run-searches :six6
+                               (into {} (map #(vector (:tid %) (:content %)) texts))
+                               [:english])
         hit+1 #(if (question-hit-zone? %) 1 0)]
-    (reduce (fn [acc {:keys [screen_name
+    (reduce (fn [acc {:keys [tid
+                             screen_name
                              stance
                              affect
-                             pos-tags
-                             survey-hits]}]
+                             pos-tags]}]
               (let [curr (update (get acc screen_name) "Count" (fnil inc 0))
-                    affs (reduce (fn [acc aff]
+                    affs (reduce (fn [acc aff]                          ; Affect for this tweet
                                    (update-values acc aff inc))
                                  stoic
                                  affect)
-                    poss (reduce (fn [acc pos]
+                    poss (reduce (fn [acc pos]                          ; Parts-of-speech for this tweet
                                    (update acc pos (fnil inc 0)))
                                  {}
                                  (map pos/POS-Fragments pos-tags))
-                    hits (update-keys (update-values survey-hits hit+1) ; One hit for one or more keywords
-                                      name)]                            ; String keys "T2", ...
+                    hits (when-let [q (get qmap tid)]
+                           {q 1})]
                 (assoc acc screen_name (merge {:stance stance}
                                               (merge-with + curr affs)
                                               (merge-with + curr poss)
@@ -3676,7 +3679,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn by-question
+(defn- by-question
   "Returns a question-based status map for the specified world."
   ([]
   (by-question @World))
