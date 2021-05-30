@@ -3720,7 +3720,7 @@
   ([world]
   (with-data (dataset [:question :hits] (seq (question-hits world)))
     (view (incanter.charts/bar-chart :question :hits
-            :x-label "Question (Table no.) from Six Americas'"
+            :x-label "Question (Table no.) from Six Americas"
             :y-label "Tweets")))))
 
 
