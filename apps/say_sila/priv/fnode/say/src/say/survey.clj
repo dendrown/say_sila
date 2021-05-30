@@ -18,9 +18,11 @@
             [say.social         :as soc]
             [say.wordnet        :as word]
             [weka.tweet         :as tw]
+            [clojure.java.io    :as io]
             [clojure.set        :as set]
             [clojure.string     :as str]
             [clojure.pprint     :refer [pp]]
+            [me.raynes.fs       :as fs]
             [incanter.core      :refer [dataset view with-data $where]]
             [incanter.charts    :refer [bar-chart]])
   (:import  [weka.core.stemmers SnowballStemmer]))
@@ -30,7 +32,7 @@
 (set! *warn-on-reflection* true)
 
 (def ^:const Init-Survey    :sassy)
-
+(def ^:const Survey-Dir      "resources/survey")
 
 ;;; Handle words that are usually run together without camelOrPascalCase (generally to make a hashtag)
 (defonce Word-Splits {;; NOTE: We're not including the hashtags used for tweet collection
@@ -439,7 +441,16 @@
   (index-questions :b1))
 
   ([dtag]
+  (let [read-question #(let [qname (name %)
+                             fpath (strfmt "~a/six-americas.~a.txt" Survey-Dir
+                                                                    qname)]
+                         ;; KV vector so they can create a map
+                         [% (if (fs/exists? fpath)
+                                (do (log/fmt-info "Indexing ~4a: ~a" qname fpath)
+                                    (slurp fpath))
+                                (do (log/warn "No survey text for" qname)
+                                    ""))])]
   (ir/create-index :six6
-                   (update-values Question-Words #(str/join " " %))
-                   [:english dtag])))
+                   (into {} (map read-question (keys Question-Words)))
+                   [:english dtag]))))
 

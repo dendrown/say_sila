@@ -162,8 +162,8 @@
 
 ;;; --------------------------------------------------------------------------
 (defn- index-doc
-  "Convert an XML document map into Lucene fields for a Document, added to
-  the specified index writer."
+  "Convert text into Lucene fields for a Document, added to the specified
+  index writer."
   [indexer id text]
   (let [id  (name id)      ; Un-keywordize
         doc (Document.)]
@@ -173,12 +173,10 @@
       (.add doc fld))
 
     ;; We support a test mode that doesn't really create an index
-    (if (= indexer :test)
-        (log/debug (log/<> "ID" id) (log/brief text))
-        (do
-          (.addDocument ^IndexWriter indexer doc)
-           (log/debug (log/<> "DOC" (.get doc "ID"))
-                      (log/fmt "~2d fields" (count (.getFields doc))))))))
+    ;(log/debug (log/<> "TXT" id) text)
+    (.addDocument ^IndexWriter indexer doc)
+    (log/debug (log/<> "DOC" (.get doc "ID"))
+               (log/fmt "~2d fields" (count (.getFields doc))))))
 
 
 ;;; --------------------------------------------------------------------------
