@@ -3768,7 +3768,7 @@
 
     (let [^JFreeChart chart (stacked-bar-chart
                              :question :level :group-by :emotion :legend true
-                             :x-label "Question (Table no.) from Six Americas'"
+                             :x-label "Question (Table no.) from Six Americas"
                              :y-label "Level of affect")
 
           ^StackedBarRenderer rndr (-> chart
