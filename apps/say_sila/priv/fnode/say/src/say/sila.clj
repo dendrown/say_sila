@@ -2337,7 +2337,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn world-texts
-  "Returns a map representing the  world."
+  "Returns a map representing the world."
   [fltr]
   (let [world @World]
     {:dtag  (:dtag world)
@@ -2345,6 +2345,12 @@
 
 (defn green-world-texts []    (world-texts #(= (:stance %) :green)))
 (defn denier-world-texts []   (world-texts #(= (:stance %) :denier)))
+
+(defn user-world-texts [users]
+  "Returns a map representing a world with only the specified users."
+  (let [uset (into #{} users)]
+    (world-texts #(contains? uset (:screen_name %)))))
+
 
 
 ;;; --------------------------------------------------------------------------
@@ -3753,8 +3759,16 @@
   (let [world   (cond
                   (some #{:green} opts)  (green-world-texts)
                   (some #{:denier} opts) (denier-world-texts)
-                  :else                  @World)
-        affcnts (emote-questions world)
+                  :else                  @World)]
+    (apply echart-world-questions world opts)))
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-world-questions
+  "Produces an affect stacked bar chart for survey questions."
+  [world & opts]
+  ;; Match affect colours to Incanter/jFree charting
+  (let [affcnts (emote-questions world)
         emote   (fn [q]
                   ;; Create vector entries for each emotion for question q
                   (map (fn [[emo cnt]]
