@@ -2338,13 +2338,31 @@
 ;;; --------------------------------------------------------------------------
 (defn world-texts
   "Returns a map representing the world."
-  [fltr]
-  (let [world @World]
-    {:dtag  (:dtag world)
-     :texts (filter fltr (:texts world))}))
+  ([fltr]
+  (world-texts @World fltr))
 
-(defn green-world-texts []    (world-texts #(= (:stance %) :green)))
-(defn denier-world-texts []   (world-texts #(= (:stance %) :denier)))
+  ([world fltr]
+  {:dtag  (:dtag world)
+   :texts (filter fltr (:texts world))}))
+
+
+(defn green-world-texts
+  "Returns a map representing the world with only green individuals."
+  ([]
+  (green-world-texts @World))
+
+  ([world]
+  (world-texts world #(= (:stance %) :green))))
+
+
+(defn denier-world-texts
+  "Returns a map representing the world with only denier individuals."
+  ([]
+  (denier-world-texts @World))
+
+  ([world]
+  (world-texts world #(= (:stance %) :denier))))
+
 
 (defn user-world-texts [users]
   "Returns a map representing a world with only the specified users."
@@ -3752,18 +3770,6 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn echart-questions
-  "Produces an affect stacked bar chart for survey questions."
-  [& opts]
-  ;; Match affect colours to Incanter/jFree charting
-  (let [world   (cond
-                  (some #{:green} opts)  (green-world-texts)
-                  (some #{:denier} opts) (denier-world-texts)
-                  :else                  @World)]
-    (apply echart-world-questions world opts)))
-
-
-;;; --------------------------------------------------------------------------
 (defn echart-world-questions
   "Produces an affect stacked bar chart for survey questions."
   [world & opts]
@@ -3783,6 +3789,63 @@
     (let [^JFreeChart chart (stacked-bar-chart
                              :question :level :group-by :emotion :legend true
                              :x-label "Question (Table no.) from Six Americas"
+                             :y-label "Level of affect")
+
+          ^StackedBarRenderer rndr (-> chart
+                                       .getCategoryPlot
+                                       .getRenderer)]
+      ;(view $data)
+
+      ;; Set the colours for the order we made with the :sync rows
+      (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
+            (range (count Affect-Colours)))
+
+      ;; Render and go!
+      (when (some #{:p100 :%} opts)
+        (.setRenderAsPercentages rndr true))
+
+      (view chart)))))
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-questions
+  "Produces an affect stacked bar chart for survey questions."
+  [& opts]
+  ;; Match affect colours to Incanter/jFree charting
+  (let [world   (cond
+                  (some #{:green} opts)  (green-world-texts)
+                  (some #{:denier} opts) (denier-world-texts)
+                  :else                  @World)]
+    (apply echart-world-questions world opts)))
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-world-question
+  "Produces an affect stacked bar chart for the specified survey question."
+  [qnum & opts]
+  ;; TODO [1] support sub-worlds instead of just global World
+  ;;      [2] wrap this function to generate charts based on one (by-question)
+  (let [qname   (name qnum)                     ; Our calls need the string key
+        quests  (by-question)                   ; ["T11" {"Alice" 24, "Bob" 1, ...} ...]
+        quest   (get quests qname)
+        gdworld (user-world-texts (keys quest)) ; Greens+Deniers for this questions
+        affcnts (zip ["All" "Greens" "Deniers"]
+                     (map emote-questions [gdworld
+                                           (green-world-texts gdworld)
+                                           (denier-world-texts gdworld)]))
+        emote   (fn [[who affs]]
+                  ;; Create vector entries for each emotion for the sub-worlds
+                  (map (fn [[emo cnt]]
+                         [who emo cnt])         ; This is the dataset line
+                       (get affs qname)))]      ; {"Anger" 16, "Joy" 11, ...}
+
+  (with-data (dataset [:question :emotion :level]               ; dataset columns
+                      (concat (get-echart-colours)              ; Set colour order
+                              (mapcat emote affcnts)))          ; Sub-world affect levels
+
+    (let [^JFreeChart chart (stacked-bar-chart
+                             :question :level :group-by :emotion :legend true
+                             :x-label (str "Question (Table) " qname " from Six Americas")
                              :y-label "Level of affect")
 
           ^StackedBarRenderer rndr (-> chart
