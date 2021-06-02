@@ -2678,6 +2678,40 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-users
+  "Returns a set of the users in the specified world."
+  ([]
+  (get-users @World))
+
+  ([world]
+  (reduce (fn [acc xmp]
+            (conj acc (:screen_name xmp)))
+          #{}
+          (:texts world))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn count-users
+  "Returns a set of the number of users in the specified world."
+  ([]
+  (count-users @World))
+
+  ([world]
+  (count (get-users world))))
+
+
+;;; --------------------------------------------------------------------------
+(defn count-texts
+  "Returns a set of the number of texts in the specified world."
+  ([]
+  (count-texts @World))
+
+  ([world]
+  (count (:texts world))))
+
+
+;;; --------------------------------------------------------------------------
 (defn get-user-texts
   "Returns a sequence of text examples from the user of the specified world.
   These texts can be tweets (ttype is :texts) or profiles (ttype is :users)."
@@ -3829,15 +3863,18 @@
         quests  (by-question)                   ; ["T11" {"Alice" 24, "Bob" 1, ...} ...]
         quest   (get quests qname)
         gdworld (user-world-texts (keys quest)) ; Greens+Deniers for this questions
+        worlds  [gdworld
+                 (green-world-texts gdworld)
+                 (denier-world-texts gdworld)]
         affcnts (zip ["All" "Greens" "Deniers"]
-                     (map emote-questions [gdworld
-                                           (green-world-texts gdworld)
-                                           (denier-world-texts gdworld)]))
-        emote   (fn [[who affs]]
+                     (map count-users worlds)
+                     (map emote-questions worlds))
+        emote   (fn [[who usrcnt affs]]
                   ;; Create vector entries for each emotion for the sub-worlds
-                  (map (fn [[emo cnt]]
-                         [who emo cnt])         ; This is the dataset line
-                       (get affs qname)))]      ; {"Anger" 16, "Joy" 11, ...}
+                  (map (fn [[emo affcnt]]
+                         ;; Create a dataset line
+                         [(strfmt "~a (~a)" who usrcnt) emo usrcnt affcnt])
+                       (get affs qname)))]          ; {"Anger" 16, "Joy" 11, ...}
 
   (with-data (dataset [:question :emotion :level]               ; dataset columns
                       (concat (get-echart-colours)              ; Set colour order
