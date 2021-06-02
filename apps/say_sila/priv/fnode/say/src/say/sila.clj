@@ -3784,7 +3784,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defn emote-questions
-  "Returns a map with affect values for each survey question."
+  "Returns a map with affect values for each survey question.
+  FIXME: Question hits are still determined by keyword matches
+         (stored as :survey-hits when examples are created)."
   ([]
   (emote-questions @World))
 
@@ -3871,9 +3873,10 @@
                      (map emote-questions worlds))
         emote   (fn [[who usrcnt affs]]
                   ;; Create vector entries for each emotion for the sub-worlds
-                  (map (fn [[emo affcnt]]
+                  (map (fn [[aff affcnt]]
                          ;; Create a dataset line
-                         [(strfmt "~a (~a)" who usrcnt) emo usrcnt affcnt])
+                         (log/debug who ":" aff "=" affcnt)
+                         [(strfmt "~a (~a)" who usrcnt) aff affcnt])
                        (get affs qname)))]          ; {"Anger" 16, "Joy" 11, ...}
 
   (with-data (dataset [:question :emotion :level]               ; dataset columns
