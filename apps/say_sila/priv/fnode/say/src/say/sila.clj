@@ -51,7 +51,9 @@
   (:import  (java.awt Color)
             (java.util Random)
             (org.jfree.chart JFreeChart)
-            (org.jfree.chart.renderer.category StackedBarRenderer)
+            (org.jfree.chart.labels StandardCategoryItemLabelGenerator)
+            (org.jfree.chart.renderer.category StackedBarRenderer
+                                               StandardBarPainter)
             (org.semanticweb.owlapi.model   IRI
                                             OWLOntology
                                             OWLOntologyID)
@@ -3689,14 +3691,17 @@
 
 
 
-
 ;;; --------------------------------------------------------------------------
-(defn question-hit-zone?
-  "Returns true if the 'hit' word set contains enough hits to qualify as
-  referring to the question."
-  [t]
-  (boolean
-    (not-empty t)))
+(defn by-text
+  "Make user-based status map with elements needed for the c2 dataset.  All keys
+  except the target (:stance) are converted to strings to facilitate ARFF creation."
+  ([]
+  (by-text @World))
+
+  ([{:keys [texts]}]
+  (ir/run-searches :six6
+                   (into {} (map #(vector (:tid %) (:content %)) texts))
+                   [:english])))
 
 
 ;;; --------------------------------------------------------------------------
@@ -3706,12 +3711,11 @@
   ([]
   (by-user @World))
 
-  ([{:keys [dtag texts]}]
-  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))         ; {"Anger" 0, ...}
-        qmap  (ir/run-searches :six6
-                               (into {} (map #(vector (:tid %) (:content %)) texts))
-                               [:english])
-        hit+1 #(if (question-hit-zone? %) 1 0)]
+  ([world]
+  (by-user world (by-text world)))
+
+  ([{:keys [dtag texts]} qmap]
+  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))]        ; {"Anger" 0, ...}
     (reduce (fn [acc {:keys [tid
                              screen_name
                              stance
@@ -3743,7 +3747,10 @@
   (by-question @World))
 
   ([world]
-  (let [users (by-user world)
+  (by-question world (by-text world)))
+
+  ([world qmap]
+  (let [users (by-user world qmap)
         u->q  (fn [[usr stats]]
                 (reduce (fn [acc [k v]]
                           (if-let [q (contains? six/Questions k)]   ; Question stat?
@@ -3790,15 +3797,13 @@
   ([]
   (emote-questions @World))
 
-  ([{:keys [dtag texts]}]
+  ([world]
+  (emote-questions world (by-text world)))
+
+  ([{:keys [texts]} qmap]
   (let [sum-inner (partial merge-with +)
-        emote-q   #(let [emos (emote-text %)]
-                     (reduce (fn [acc [k v]]
-                               (if (question-hit-zone? v)
-                                   (assoc acc (name k) emos)    ; String key for charts, etc.
-                                   acc))
-                             {}
-                             (:survey-hits %)))]
+        emote-q   #(when-let [q (get qmap (:tid %))]
+                     {q (emote-text %)})]
     (reduce (fn [acc txt]
               (merge-with sum-inner acc (emote-q txt)))
             {}
@@ -3861,8 +3866,10 @@
   [qnum & opts]
   ;; TODO [1] support sub-worlds instead of just global World
   ;;      [2] wrap this function to generate charts based on one (by-question)
-  (let [qname   (name qnum)                     ; Our calls need the string key
-        quests  (by-question)                   ; ["T11" {"Alice" 24, "Bob" 1, ...} ...]
+  (let [world   @World
+        qname   (name qnum)                     ; Our calls need the string key
+        qmap    (by-text world)
+        quests  (by-question world qmap)        ; ["T11" {"Alice" 24, "Bob" 1, ...} ...]
         quest   (get quests qname)
         gdworld (user-world-texts (keys quest)) ; Greens+Deniers for this questions
         worlds  [gdworld
@@ -3870,13 +3877,13 @@
                  (denier-world-texts gdworld)]
         affcnts (zip ["All" "Greens" "Deniers"]
                      (map count-users worlds)
-                     (map emote-questions worlds))
+                     (map #(emote-questions % qmap) worlds))
         emote   (fn [[who usrcnt affs]]
                   ;; Create vector entries for each emotion for the sub-worlds
                   (map (fn [[aff affcnt]]
                          ;; Create a dataset line
                          (log/debug who ":" aff "=" affcnt)
-                         [(strfmt "~a (~a)" who usrcnt) aff affcnt])
+                         [(strfmt "~a (~a users)" who usrcnt) aff affcnt])
                        (get affs qname)))]          ; {"Anger" 16, "Joy" 11, ...}
 
   (with-data (dataset [:question :emotion :level]               ; dataset columns
@@ -3899,7 +3906,14 @@
 
       ;; Render and go!
       (when (some #{:p100 :%} opts)
-        (.setRenderAsPercentages rndr true))
+        (doto rndr
+              (.setRenderAsPercentages true)
+              (.setBarPainter (StandardBarPainter.))
+              (.setBaseItemLabelGenerator (StandardCategoryItemLabelGenerator.))
+              (.setBaseItemLabelsVisible true))
+
+        (doto (-> chart .getCategoryPlot .getRangeAxis)
+              (.setRange 0.0 1.0)))
 
       (view chart)))))
 
