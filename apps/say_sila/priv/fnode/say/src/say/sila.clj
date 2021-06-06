@@ -3871,13 +3871,16 @@
         qmap    (by-text world)
         quests  (by-question world qmap)        ; ["T11" {"Alice" 24, "Bob" 1, ...} ...]
         quest   (get quests qname)
+        emote   (if (some #{:users} opts)
+                    #(hash-map qname (:all (count-affect %)))   ; All tweets for %world
+                    #(emote-questions % qmap))                  ; Question tweets for %world
         gdworld (user-world-texts (keys quest)) ; Greens+Deniers for this questions
         worlds  [gdworld
                  (green-world-texts gdworld)
                  (denier-world-texts gdworld)]
         affcnts (zip ["All" "Greens" "Deniers"]
                      (map count-users worlds)
-                     (map #(emote-questions % qmap) worlds))
+                     (map emote worlds))
         emote   (fn [[who usrcnt affs]]
                   ;; Create vector entries for each emotion for the sub-worlds
                   (map (fn [[aff affcnt]]
