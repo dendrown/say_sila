@@ -153,6 +153,12 @@
    (conj (map #(list % obj) meths) arg1 meth)))
 
 
+;;; --------------------------------------------------------------------------
+(defn ^String capname
+  "Works like clojure.string/capitalize, but removes the colon from keywords."
+  [x]
+  (str/capitalize (name x)))
+
 
 ;;; --------------------------------------------------------------------------
 (defn ^String keystr
@@ -163,7 +169,6 @@
   (if (keyword? k)
       (name k)
       (str k)))
-
 
 
 ;;; --------------------------------------------------------------------------

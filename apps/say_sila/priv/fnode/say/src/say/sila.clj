@@ -321,6 +321,7 @@
                              ["Trust"        (new Color 051 255 102)]
                              ["Positive"     Color/yellow]
                              ["Negative"     (new Color 051 051 204)]])
+(defonce Affect-Order       (map first Affect-Colours))
 
 
 ;;; What we have extracted from the ontology should match the definitions from weka.tweet
@@ -3861,11 +3862,10 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn echart-world-question
-  "Produces an affect stacked bar chart for the specified survey question."
+(defn calc-world-question
+  "Produces a table reporting affect signatures for the specified survey question."
   [qnum & opts]
-  ;; TODO [1] support sub-worlds instead of just global World
-  ;;      [2] wrap this function to generate charts based on one (by-question)
+  ;; TODO: support sub-worlds instead of just global World
   (let [world   @World
         qname   (name qnum)                     ; Our calls need the string key
         qmap    (by-text world)
@@ -3875,40 +3875,91 @@
                     #(hash-map qname (:all (count-affect %)))   ; All tweets for %world
                     #(emote-questions % qmap))                  ; Question tweets for %world
         gdworld (user-world-texts (keys quest)) ; Greens+Deniers for this questions
-        worlds  [gdworld
-                 (green-world-texts gdworld)
-                 (denier-world-texts gdworld)]
-        affcnts (zip ["All" "Greens" "Deniers"]
+        worlds  [(green-world-texts gdworld)
+                 (denier-world-texts gdworld)
+                 gdworld]
+        affcnts (zip [:greens :deniers :all]
                      (map count-users worlds)
                      (map emote worlds))
+        reorder (fn [affmap]
+                  ;; Note that we get a map and return a lazy-seq of vectors
+                  (map #(vector % (get affmap %))
+                       Affect-Order))
         emote   (fn [[who usrcnt affs]]
                   ;; Create vector entries for each emotion for the sub-worlds
                   (map (fn [[aff affcnt]]
-                         ;; Create a dataset line
-                         (log/debug who ":" aff "=" affcnt)
-                         [(strfmt "~a (~a users)" who usrcnt) aff affcnt])
-                       (get affs qname)))]          ; {"Anger" 16, "Joy" 11, ...}
+                         (log/fmt-debug "~a:~a = ~a" who aff affcnt)
+                         [who usrcnt aff affcnt])
+                       (reorder (get affs qname))))]    ; Reorder {"Anger" 16, "Joy" 11, ...}
 
-  (with-data (dataset [:question :emotion :level]               ; dataset columns
-                      (concat (get-echart-colours)              ; Set colour order
-                              (mapcat emote affcnts)))          ; Sub-world affect levels
+    ;; Return lazy-seq of (([:all 33 "Anger" 16] ...) ([...]...)...)
+    (map emote affcnts)))
+
+
+;;; --------------------------------------------------------------------------
+(defn tabulate-world-question
+  "Produces a table reporting affect signatures for the specified survey question."
+  [qnum & opts]
+  (let [bundle #(vector (first (first %))
+                        (reduce (fn [acc [users ucnt aff acnt]]
+                                  (assoc acc "Users" ucnt aff acnt))
+                                {}
+                                %))
+        affcnts (into {} (map bundle
+                              (apply calc-world-question qnum opts)))
+        cols    [:greens :deniers :all]
+        rows    (conj (map first Affect-Colours) "Users")]  ; Users, Anger, ...
+
+    (println "\\begin{tabular}{l | r | r | r}")
+    (doseq [col cols]
+      (log/fmt! "& \\textbf{~a} " (capname col)))
+    (println "\\\\")
+
+    (dotimes [_ 2]
+      (println "\\hline %----------------------------------------------------------------------"))
+
+    (doseq [row rows]
+      (log/fmt! "~12a" row)
+      (doseq [col cols]
+        (log/fmt! " & ~6:d" (get (col affcnts) row)))
+      (println " \\\\"))
+    (println "\\end{tabular}")))
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-world-question
+  "Produces an affect stacked bar chart for the specified survey question."
+  [qnum & opts]
+  ;; TODO [1] support sub-worlds instead of just global World
+  ;;      [2] wrap this function to generate charts based on one (by-question)
+  (let [affcnts (apply calc-world-question qnum opts)
+        p100?   (some #{:p100 :%} opts)
+        ->dline (fn [[who usrcnt aff affcnt]]
+                  ;; Create a dataset line
+                  [(strfmt "~a (~a users)" (capname who) usrcnt) aff affcnt])]
+
+  (with-data (dataset [:question :emotion :level]          ; dataset columns
+;                      (concat (get-echart-colours)             ; Set colour order
+                               (map ->dline                  ; Sub-world affect levels
+                                    (apply concat affcnts)))
+                                    ;)
 
     (let [^JFreeChart chart (stacked-bar-chart
                              :question :level :group-by :emotion :legend true
-                             :x-label (str "Question (Table) " qname " from Six Americas")
-                             :y-label "Level of affect")
+                             :x-label (str "User group for Question (Table no.) " (name qnum))
+                             :y-label (str (if p100? "Percentage" "Level") " of affect"))
 
           ^StackedBarRenderer rndr (-> chart
                                        .getCategoryPlot
                                        .getRenderer)]
-      ;(view $data)
+      (view $data)
 
       ;; Set the colours for the order we made with the :sync rows
       (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
             (range (count Affect-Colours)))
 
       ;; Render and go!
-      (when (some #{:p100 :%} opts)
+      (when p100?
         (doto rndr
               (.setRenderAsPercentages true)
               (.setBarPainter (StandardBarPainter.))
@@ -3916,7 +3967,8 @@
               (.setBaseItemLabelsVisible true))
 
         (doto (-> chart .getCategoryPlot .getRangeAxis)
-              (.setRange 0.0 1.0)))
+              (.setRange 0.0 1.0)
+              (.setMinorTickCount 10)))
 
       (view chart)))))
 
