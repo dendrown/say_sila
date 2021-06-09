@@ -67,8 +67,8 @@
 ;;; - X is the dataset content code, and
 ;;; - the highest 99 value represents the latest version
 (defonce Datasets   {:g :g01            ; [G]reen/denier machine learning target
-                     :s :s03            ; [S]tatus text [s]entiment/emotion
-                     :t :t02            ; [T]witter input (from Sila/erl)
+                     :s :s02            ; [S]tatus text [s]entiment/emotion
+                     :t :t01            ; [T]witter input (from Sila/erl)
                      :u :u01})          ; [U]ser information
 
 
@@ -229,6 +229,16 @@
             dataset
             [(tw/make-lexicon-filter lex-tag txt-ndx)       ; Senti/emo
              (tw/make-tagging-filter txt-ndx)]))))          ; POS tags
+
+
+
+;;; --------------------------------------------------------------------------
+(defn- ^Instances t00->t01
+  "Converts the T00 tweet format to the T01 format, which is the same except
+  that it has a dependent attribute, stance. Instances will all have an
+  unknown ( ? ) value for the new attribute."
+  [insts]
+  (prep-dataset insts :t00 :t01 :stance))
 
 
 

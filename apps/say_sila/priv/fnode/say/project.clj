@@ -3,7 +3,7 @@
 ;;; - DL-Learner:
 ;;;      davidsoergel.releases: http://dev.davidsoergel.com/nexus/content/repositories/releases
 (comment require 'cemerick.pomegranate.aether)
-(cemerick.pomegranate.aether/register-wagon-factory!
+(comment cemerick.pomegranate.aether/register-wagon-factory!
   "http" #(org.apache.maven.wagon.providers.http.HttpWagon.))
 
 
@@ -13,7 +13,7 @@
   :license {:name "BSD 3-clause License"
             :url "https://spdx.org/licenses/BSD-3-Clause.html"}
   :main say.core
-  :jvm-opts ["-Xmx10G"]
+  :jvm-opts ["-Xmx16G"]
   :aot [weka.classifiers.rules.DLRules
         weka.filters.unsupervised.attribute.TweetToGenderFeatures]
   :java-source-paths ["java/src"]
@@ -27,6 +27,7 @@
                  [org.clojure/data.csv "0.1.4"]
                  [org.clojure/data.json "0.2.6"]
                  [org.clojure/core.match "1.0.0"]
+                 [org.clojure/data.priority-map "1.0.0"]
                  [clojusc/wordnet "1.2.0"]
                  [clj-time "0.14.2"]
                  [defun "0.3.1"]
@@ -41,7 +42,11 @@
                  [it.unimi.dsi/fastutil "7.0.13"]
                  [uk.ac.wlv/sentistrength "0.1.0"]
                  [affective/affectivetweets "1.0.2"]
-                 [org.tartarus/snowball "1.0.0"]
+                ;[org.tartarus/snowball "1.0.0"]                                ; We get Snowball with Lucene
+                 ; Lucene
+                 [org.apache.lucene/lucene-core "7.7.3"]
+                 [org.apache.lucene/lucene-analyzers-common "7.7.3"]
+                 [org.apache.lucene/lucene-queryparser "7.7.3"]
                  ; Ontologies
                 ;[org.dllearner/components-core "1.4.0"]                        ; TODO: Enable
                  [net.sourceforge.owlapi/org.semanticweb.hermit "1.4.5.456"]    ; Override Tawny's dep

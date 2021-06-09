@@ -1,0 +1,28 @@
+Party Identification, Political Ideology, and Voter Registration
+Generally speaking, do
+you think of yourself
+as a...
+Republican
+Democrat
+Independent
+Other; Please specify:
+No party/not interested in politics
+In general, do you
+think of yourself as...
+Very liberal
+Somewhat liberal
+Moderate, middle of the road
+Somewhat conservative
+Very conservative
+Do you consider
+yourself part of the
+Tea Party movement
+or not?
+Yes
+No
+Don't know
+Are you registered to
+vote?
+Yes
+No
+Not sure

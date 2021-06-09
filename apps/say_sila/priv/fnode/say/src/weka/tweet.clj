@@ -8,7 +8,7 @@
 ;;;;
 ;;;; Emotion and Tweet functionality for Weka
 ;;;;
-;;;; @copyright 2019-2020 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2019-2021 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns weka.tweet
   (:require [say.genie       :refer :all]
@@ -130,11 +130,15 @@
                               (L# :nrc  "-L" NRCEmotionLexiconEvaluator NRC10_FILE_NAME)
                               (L# :swn  "-Q" SWN3LexiconEvaluator       SENTIWORDNET_FILE_NAME)]))
 
-(defonce Stoic      (into {} (map #(vector % 0) [:positive :negative
-                                                 :anger    :fear
-                                                 :sadness  :joy
-                                                 :surprise :anticipation
-                                                 :disgust  :trust])))
+(defonce Affect [:positive :negative
+                 :anger    :fear
+                 :sadness  :joy
+                 :surprise :anticipation
+                 :disgust  :trust])
+
+(defonce Affect-Namer (into {} (map #(vector % (str/capitalize (name %))) Affect)))
+
+(defonce Stoic (into {} (map #(vector % 0) Affect)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -177,8 +181,8 @@
   "Helper function to handle the common case of creating a full affect
   analysis for a LexiconEvaluator that only deals with sentiment polarity."
   [lex tok retvals]
-  (let [pole   (polarize-token+- lex tok :positive :negative)
-        affect (merge Stoic {pole 1})]
+  (let [poles  (polarize-token+- lex tok :positive :negative)
+        affect (merge Stoic (into {} (zip poles (repeat 1))))]
     (affect-set+- affect retvals)))
 
 
@@ -190,10 +194,11 @@
 
   (polarize-token+- [lex tok pos neg]
     (case (.retrieveValue lex tok)
-      "positive"  pos
-      "negative"  neg
+      "positive"  #{pos}
+      "negative"  #{neg}
       "neutral"   nil
-      "not_found" nil))
+      "not_found" nil
+      "both"      #{pos neg}))
 
 
   NRCEmotionLexiconEvaluator
@@ -207,9 +212,9 @@
     (let [affect (analyze-token+- lex tok nil)]
       (case [(:positive affect)
              (:negative affect)]
-        [1 0] pos
-        [0 1] neg
-        [1 1] (log/fmt-warn "Token analysis shows '~a' is positive AND negative" tok)
+        [1 0] #{pos}
+        [0 1] #{neg}
+        [1 1] #{pos neg}
               nil)))
 
 
@@ -223,15 +228,19 @@
            nval "swn-negScore"} (.evaluateTweet lex [tok])
            score                (+ pval nval)]
 
-      ;; TODO: We need to handle dual-polarity
+      ;; FIXME We need to handle dual-polarity AND level-based analysis
       (when-not (or (zero? pval)
                     (zero? nval))
         (log/fmt-warn "Token '~a' has dual-polarity: p[~a] n[a] score[~a]"
                       tok pval nval score))
-      (cond
-        (pos? score) pos
-        (neg? score) neg))))
-
+      (reduce (fn [acc [aff v]]
+                ;; Check that value > 0 (NOT positive sentiment)
+                (if (pos? v)
+                    (conj acc aff)
+                    acc))
+                #{}
+                [[pos pval]
+                 [neg (Math/abs (double nval))]]))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -308,9 +317,9 @@
 
 ;;; --------------------------------------------------------------------------
 (defn ^SnowballStemmer make-stemmer
-  "Returns a Snowball stemmer for the specified language (default: english)."
+  "Returns a Snowball stemmer for the specified language (default: English)."
   ([]
-  (make-stemmer "english"))
+  (make-stemmer "English"))
 
 
   ([lang]
@@ -544,7 +553,7 @@
       (doto emoter
            ;(.setReduceRepeatedLetters true)
             (.setStopwordsHandler stoplist)
-            (.setStemmer (SnowballStemmer. "english")))))
+            (.setStemmer (SnowballStemmer. "English")))))
 
   ;; Set our standard options for both the NLP and default modes
   (doto emoter
@@ -572,7 +581,7 @@
   ;; Our only defined NLP option is English-Stoplist-Porter
   (when (= nlp :english)
     (let [lexer (doto (ArffLexiconEvaluator.)
-                      (.setStemmer (SnowballStemmer. "english")))]
+                      (.setStemmer (SnowballStemmer. "English")))]
 
       ;; Prepare the filter for English texts
       (doto emoter

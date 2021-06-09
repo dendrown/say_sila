@@ -24,6 +24,7 @@
             [say.infer          :as inf]
             [say.jvm            :as jvm]
             [say.label          :as lbl]
+            [say.lucene         :as ir]
             [say.social         :as soc]
             [say.survey         :as six]
             [say.tweebo         :as twbo]
@@ -35,10 +36,11 @@
             [clojure.java.io    :as io]
             [clojure.set        :as set]
             [clojure.string     :as str]
+            [clojure.data.priority-map :refer [priority-map priority-map-by]]
             [clojure.pprint     :refer [pp]]
             [defun.core         :refer [defun]]
             [incanter.core      :refer [dataset $data view with-data]]
-            [incanter.charts    :refer [stacked-bar-chart set-stroke-color]]
+            [incanter.charts    :refer [bar-chart stacked-bar-chart set-stroke-color]]
             [me.raynes.fs       :as fs]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
@@ -49,7 +51,9 @@
   (:import  (java.awt Color)
             (java.util Random)
             (org.jfree.chart JFreeChart)
-            (org.jfree.chart.renderer.category StackedBarRenderer)
+            (org.jfree.chart.labels StandardCategoryItemLabelGenerator)
+            (org.jfree.chart.renderer.category StackedBarRenderer
+                                               StandardBarPainter)
             (org.semanticweb.owlapi.model   IRI
                                             OWLOntology
                                             OWLOntologyID)
@@ -306,6 +310,23 @@
                                              [(lower-keyword a) a])
                                            (rsn/instances Affect))))
 (defonce Affect-Names       (into #{} (vals Affect-Fragments)))
+(defonce Affect-Zeros       (apply zero-hashmap Affect-Names))              ; Zero-count initializer
+(defonce Affect-Colours     [["Anger"        Color/red]
+                             ["Fear"         (new Color 000 153 000)]
+                             ["Sadness"      (new Color 148 000 211)]
+                             ["Joy"          (new Color 255 215 000)]
+                             ["Surprise"     (new Color 051 255 255)]
+                             ["Anticipation" (new Color 255 140 000)]
+                             ["Disgust"      (new Color 204 051 204)]
+                             ["Trust"        (new Color 051 255 102)]
+                             ["Positive"     Color/yellow]
+                             ["Negative"     (new Color 051 051 204)]])
+(defonce Affect-Order       (map first Affect-Colours))
+
+
+;;; What we have extracted from the ontology should match the definitions from weka.tweet
+(if (not= Affect-Fragments tw/Affect-Namer)
+  (log/error "Ontology affect names do not match those used with Weka!"))
 
 
 ;;; We must declare the different types of Aspect to be disjoint for the reasoner
@@ -1604,56 +1625,52 @@
   (select-keys (sum-analysis txt) Affect-Names))
 
 
+;;; --------------------------------------------------------------------------
+(defn- get-echart-colours
+  "Produces an affect stacked bar chart for all given text/profiles."
+  []
+  ;; Set colour order for echarts
+  (map (fn [[emo _]] ["" emo 0])
+       Affect-Colours))
+
 
 ;;; --------------------------------------------------------------------------
 (defn echart-affect
   "Produces an affect stacked bar chart for all given text/profiles."
   [texts & opts]
   ;; Match affect colours to Incanter/jFree charting
-  (let [affect [["Anger"        Color/red]
-                ["Fear"         (new Color 000 153 000)]
-                ["Sadness"      (new Color 148 000 211)]
-                ["Joy"          (new Color 255 215 000)]
-                ["Surprise"     (new Color 051 255 255)]
-                ["Anticipation" (new Color 255 140 000)]
-                ["Disgust"      (new Color 204 051 204)]
-                ["Trust"        (new Color 051 255 102)]
-                ["Positive"     Color/yellow]
-                ["Negative"     (new Color 051 051 204)]]
-
-        emote   (fn [[sname txts]]
+  (let [emote   (fn [[sname txts]]
                   ;; Affect levels across all texts for one user
                   (map (fn [[emo cnt]] [sname emo cnt])
-                    (sum-affect txts)))
+                       (sum-affect txts)))
 
         ;; Group tweets by user, ordered by Z..A text count
         tcount  #(- (count (second %)))
         utexts  (sort-by tcount (group-by :screen_name texts))]
 
-  (with-data (dataset [:user :emotion :level]                   ; dataset columns
-                      (concat (map (fn [[emo _]] ["" emo 0])    ; Set colour order
-                                   affect)
-                       (mapcat emote utexts)))                  ; User affect levels
+    (with-data (dataset [:user :emotion :level]               ; dataset columns
+                        (concat (get-echart-colours)          ; Set colour order
+                                (mapcat emote utexts)))       ; User affect levels
 
-    (let [^JFreeChart chart (stacked-bar-chart
-                             :user :level :group-by :emotion :legend true
-                             :x-label "Users by decreasing activity"
-                             :y-label "Emotion level")
+      (let [^JFreeChart chart (stacked-bar-chart
+                               :user :level :group-by :emotion :legend true
+                               :x-label "Users by decreasing activity"
+                               :y-label "Emotion level")
 
-          ^StackedBarRenderer rndr (-> chart
-                                       .getCategoryPlot
-                                       .getRenderer)]
-      ;(view $data)
+            ^StackedBarRenderer rndr (-> chart
+                                         .getCategoryPlot
+                                         .getRenderer)]
+        ;(view $data)
 
-      ;; Set the colours for the order we made with the :sync rows
-      (run! #(set-stroke-color chart (second (affect %)) :series %)
-            (range (count affect)))
+        ;; Set the colours for the order we made with the :sync rows
+        (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
+              (range (count Affect-Colours)))
 
-      ;; Render and go!
-      (when (some #{:p100 :%} opts)
-        (.setRenderAsPercentages rndr true))
+        ;; Render and go!
+        (when (some #{:p100 :%} opts)
+          (.setRenderAsPercentages rndr true))
 
-      (view chart)))))
+        (view chart)))))
 
 
 
@@ -2314,12 +2331,46 @@
   (:dtag world)))
 
 
-
 ;;; --------------------------------------------------------------------------
 (defn which-edn
   "Returns the filepath for a user/text examples file."
   [dtag rsrc]
   (strfmt "~a/~a-~a.edn" World-FStub (name rsrc) (name dtag)))
+
+
+;;; --------------------------------------------------------------------------
+(defn world-texts
+  "Returns a map representing the world."
+  ([fltr]
+  (world-texts @World fltr))
+
+  ([world fltr]
+  {:dtag  (:dtag world)
+   :texts (filter fltr (:texts world))}))
+
+
+(defn green-world-texts
+  "Returns a map representing the world with only green individuals."
+  ([]
+  (green-world-texts @World))
+
+  ([world]
+  (world-texts world #(= (:stance %) :green))))
+
+
+(defn denier-world-texts
+  "Returns a map representing the world with only denier individuals."
+  ([]
+  (denier-world-texts @World))
+
+  ([world]
+  (world-texts world #(= (:stance %) :denier))))
+
+
+(defn user-world-texts [users]
+  "Returns a map representing a world with only the specified users."
+  (let [uset (into #{} users)]
+    (world-texts #(contains? uset (:screen_name %)))))
 
 
 
@@ -2340,7 +2391,7 @@
   []
   ;; Create a closure for a configuration-based analysis
   (let [all-pn? (cfg/?? :sila :skip-neutrals?)
-        lex     (tw/make-lexicon (cfg/?? :sila :lexicon :liu))  ; TODO: Capture lex change on config update
+        lex     (tw/make-lexicon (cfg/?? :sila :lexicon :nrc))  ; TODO: Capture lex change on config update
         sball   (tw/make-stemmer)]                              ; Weka Affective Tweets plus Snowball stemmer
 
     ;; Bundle everything up
@@ -2390,18 +2441,20 @@
   (let [[poss
          terms] (twbo/get-pos-terms tid :side-by-side)
         affect  (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
-        rules   (map (:scr tools) terms)]            ; Set of match-term rules per term
+        rules   (map (:scr tools) terms)             ; Set of match-term rules per term
+        content (map #(.replaceAll ^String % "([a-z])\\1+" "$1$1") terms)]  ; Reduce repeated letters
 
     ;; Put all that together to build the example
     (when-not (empty? terms)
       {:screen_name sname
        :stance      (keyword stance)
        :tid         tid
-       :content     (map #(.replaceAll ^String % "([a-z])\\1+" "$1$1") terms)   ; Reduce repeated letters
+       :content     content
        :affect      affect
        :rules       rules
        :pos-tags    poss
-       :surveys     (map (:surveys tools) terms)
+       :survey-hits (six/get-table-hits content)        ; Six36 survey question/table indicators
+       :surveys     (map (:surveys tools) terms)        ; By-word indicators for all surveys
        :analysis    (map set/union affect rules)}))))
 
 
@@ -2628,6 +2681,40 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn get-users
+  "Returns a set of the users in the specified world."
+  ([]
+  (get-users @World))
+
+  ([world]
+  (reduce (fn [acc xmp]
+            (conj acc (:screen_name xmp)))
+          #{}
+          (:texts world))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn count-users
+  "Returns a set of the number of users in the specified world."
+  ([]
+  (count-users @World))
+
+  ([world]
+  (count (get-users world))))
+
+
+;;; --------------------------------------------------------------------------
+(defn count-texts
+  "Returns a set of the number of texts in the specified world."
+  ([]
+  (count-texts @World))
+
+  ([world]
+  (count (:texts world))))
+
+
+;;; --------------------------------------------------------------------------
 (defn get-user-texts
   "Returns a sequence of text examples from the user of the specified world.
   These texts can be tweets (ttype is :texts) or profiles (ttype is :users)."
@@ -2645,6 +2732,21 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defun emote-text
+  "Returns a map containing the counts of affective words in a given tweet.
+  You may use this function with a count accumulator for reductions. "
+  ([txt]
+  (emote-text Affect-Zeros txt))
+
+  ([acc txt]
+  (let [emote-token (fn [cnts emos]
+                      ;; count affect at any level: word -> tweet -> series
+                      (update-values cnts (map str emos) inc))]
+
+    (reduce emote-token acc (:affect txt)))))
+
+
+;;; --------------------------------------------------------------------------
 (defun count-affect
   "Returns a map containing the counts of affective words in tweets for the
    following user categories: all, green, denier."
@@ -2657,18 +2759,8 @@
 
 
   ([texts]
-  (let [;; Initialize map, keyed by affect with zero counts
-        zeros (apply zero-hashmap Affect-Names)
-
-        ;; Functions to count affect at each level: word -> tweet -> series
-        emote-token (fn [cnts emos]
-                      (update-values cnts (map str emos) inc))
-
-        emote-text  (fn [cnts txt]
-                      (reduce emote-token cnts (:affect txt)))
-
-        emote       (fn [txts]
-                      (reduce emote-text zeros txts))
+  (let [emote (fn [txts]
+                (reduce emote-text Affect-Zeros txts))
 
         ;; Filter tweet sequences by user type
         flt-stance  (fn [s]
@@ -2717,6 +2809,50 @@
   (into {} (pmap (fn [acct]
                    [acct (count-user-affect acct ttype world)])
                  (get-accounts ttype world)))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn count-user-text-indicators
+  "Returns a map of the counts the various indicator texts for the specified
+  user, keyed by the indicator text."
+  ([user]
+  (count-user-text-indicators user @World))
+
+
+  ([user {onter :ontology}]
+  (when onter
+    ;; Use local symbols when called from another namespace
+    (inf/with-ns-silence 'say.sila
+      (let [inds '[WeakHumanCauseText           StrongHumanCauseText
+                   WeakNatureCauseText          StrongNatureCauseText
+                   WeakEnergyConservationText   StrongEnergyConservationText
+                   WeakCO2CutText               StrongCO2CutText
+                   WeakEnvironmentProtectText   StrongEnvironmentProtectText
+                   WeakEconomicGrowthText       StrongEconomicGrowthText]
+            ont  (onter user)]
+        (when ont
+          (inf/unreason ont)                        ; Reclaim memory from reasoner
+          (reduce (fn [acc ind]
+                    (if (empty? (rsn/instances ont (eval ind)))
+                        acc
+                        (update acc (name ind) inc)))
+                  (into {} (zip (map name inds)
+                                (repeat 0)))
+                  inds)))))))
+
+
+;;; --------------------------------------------------------------------------
+(defn count-text-indicators
+  "Returns a map containing the counts of the various indicator texts keyed by user."
+  ([]
+  (count-text-indicators @World))
+
+
+  ([world]
+  (into {} (pmap #(vector %
+                         (count-user-text-indicators % world))
+                 (get-accounts)))))
 
 
 
@@ -2786,15 +2922,15 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn world->arff
+(defn ^:deprecated world->G01
   "Creates an ARFF representing the specified world.  The caller may indicate
   a text type of :text (tweets) :users (profiles) or :all (TODO)."
   ([]
-  (world->arff :texts))
+  (world->G01 :texts))
 
 
   ([ttype]
-  (world->arff ttype @World))
+  (world->G01 ttype @World))
 
 
   ([ttype world]
@@ -2845,7 +2981,6 @@
 
     ;; TODO: Determine where the ARFF should go
     (weka/save-file (str Tmp-Dir "/" relname ".arff") insts))))
-
 
 
 ;;; --------------------------------------------------------------------------
@@ -3542,6 +3677,339 @@
     ;; Chart just those texts for the users
     (apply echart-affect (filter #(contains? tids (:tid %)) texts) opts)))
 
+
+
+;;; --------------------------------------------------------------------------
+(defn ^:deprecated get-survey-hits
+  "Returns the a sequence with the counts of Six Americas table hits for all
+  the example texts in the world."
+  ([]
+  (get-survey-hits @World))
+
+
+  ([{:keys [dtag texts]}]
+  (map #(six/get-table-hits (:content %)) texts)))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn by-text
+  "Make user-based status map with elements needed for the c2 dataset.  All keys
+  except the target (:stance) are converted to strings to facilitate ARFF creation."
+  ([]
+  (by-text @World))
+
+  ([{:keys [texts]}]
+  (ir/run-searches :six6
+                   (into {} (map #(vector (:tid %) (:content %)) texts))
+                   [:english])))
+
+
+;;; --------------------------------------------------------------------------
+(defn by-user
+  "Make user-based status map with elements needed for the c2 dataset.  All keys
+  except the target (:stance) are converted to strings to facilitate ARFF creation."
+  ([]
+  (by-user @World))
+
+  ([world]
+  (by-user world (by-text world)))
+
+  ([{:keys [dtag texts]} qmap]
+  (let [stoic (update-keys tw/Stoic #(str/capitalize (name %)))]        ; {"Anger" 0, ...}
+    (reduce (fn [acc {:keys [tid
+                             screen_name
+                             stance
+                             affect
+                             pos-tags]}]
+              (let [curr (update (get acc screen_name) "Count" (fnil inc 0))
+                    affs (reduce (fn [acc aff]                          ; Affect for this tweet
+                                   (update-values acc aff inc))
+                                 stoic
+                                 affect)
+                    poss (reduce (fn [acc pos]                          ; Parts-of-speech for this tweet
+                                   (update acc pos (fnil inc 0)))
+                                 {}
+                                 (map pos/POS-Fragments pos-tags))
+                    hits (when-let [q (get qmap tid)]
+                           {q 1})]
+                (assoc acc screen_name (merge {:stance stance}
+                                              (merge-with + curr affs)
+                                              (merge-with + curr poss)
+                                              (merge-with + curr hits)))))
+            {}
+            texts))))
+
+
+;;; --------------------------------------------------------------------------
+(defn- by-question
+  "Returns a question-based status map for the specified world."
+  ([]
+  (by-question @World))
+
+  ([world]
+  (by-question world (by-text world)))
+
+  ([world qmap]
+  (let [users (by-user world qmap)
+        u->q  (fn [[usr stats]]
+                (reduce (fn [acc [k v]]
+                          (if-let [q (contains? six/Questions k)]   ; Question stat?
+                            (conj acc [k {usr v}])                  ; -> add it
+                            acc))                                   ; -> ignore it
+                        {}
+                        stats))]
+    ;; Big merge across a {q {u cnt}} maps for all [u]sers
+    (reduce #(merge-with merge %1 %2)
+            (map u->q users)))))
+
+
+;;; --------------------------------------------------------------------------
+(defn question-hits
+  "Returns a map with total hit counts for each survey question."
+  ([]
+  (question-hits @World))
+
+  ([world]
+  (into (priority-map-by >)
+        (update-values (by-question world)
+                        #(reduce + (vals %))))))
+
+
+
+;;; --------------------------------------------------------------------------
+(defn chart-question-hits
+  "Displays a chart with descending total hit counts for each survey question."
+  ([]
+  (chart-question-hits @World))
+
+  ([world]
+  (with-data (dataset [:question :hits] (seq (question-hits world)))
+    (view (incanter.charts/bar-chart :question :hits
+            :x-label "Question (Table no.) from Six Americas"
+            :y-label "Tweets")))))
+
+
+;;; --------------------------------------------------------------------------
+(defn emote-questions
+  "Returns a map with affect values for each survey question.
+  FIXME: Question hits are still determined by keyword matches
+         (stored as :survey-hits when examples are created)."
+  ([]
+  (emote-questions @World))
+
+  ([world]
+  (emote-questions world (by-text world)))
+
+  ([{:keys [texts]} qmap]
+  (let [sum-inner (partial merge-with +)
+        emote-q   #(when-let [q (get qmap (:tid %))]
+                     {q (emote-text %)})]
+    (reduce (fn [acc txt]
+              (merge-with sum-inner acc (emote-q txt)))
+            {}
+            texts))))
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-world-questions
+  "Produces an affect stacked bar chart for survey questions."
+  [world & opts]
+  ;; Match affect colours to Incanter/jFree charting
+  (let [affcnts (emote-questions world)
+        emote   (fn [q]
+                  ;; Create vector entries for each emotion for question q
+                  (map (fn [[emo cnt]]
+                         [q emo cnt])
+                       (get affcnts q)))]
+
+  (with-data (dataset [:question :emotion :level]               ; dataset columns
+                      (concat (get-echart-colours)              ; Set colour order
+                              (mapcat emote                     ; User affect levels
+                                      (keys (question-hits))))) ; Ordered Z..A by hit count
+
+    (let [^JFreeChart chart (stacked-bar-chart
+                             :question :level :group-by :emotion :legend true
+                             :x-label "Question (Table no.) from Six Americas"
+                             :y-label "Level of affect")
+
+          ^StackedBarRenderer rndr (-> chart
+                                       .getCategoryPlot
+                                       .getRenderer)]
+      ;(view $data)
+
+      ;; Set the colours for the order we made with the :sync rows
+      (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
+            (range (count Affect-Colours)))
+
+      ;; Render and go!
+      (when (some #{:p100 :%} opts)
+        (.setRenderAsPercentages rndr true))
+
+      (view chart)))))
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-questions
+  "Produces an affect stacked bar chart for survey questions."
+  [& opts]
+  ;; Match affect colours to Incanter/jFree charting
+  (let [world   (cond
+                  (some #{:green} opts)  (green-world-texts)
+                  (some #{:denier} opts) (denier-world-texts)
+                  :else                  @World)]
+    (apply echart-world-questions world opts)))
+
+
+;;; --------------------------------------------------------------------------
+(defn calc-world-question
+  "Produces a table reporting affect signatures for the specified survey question."
+  [qnum & opts]
+  ;; TODO: support sub-worlds instead of just global World
+  (let [world   @World
+        qname   (name qnum)                     ; Our calls need the string key
+        qmap    (by-text world)
+        quests  (by-question world qmap)        ; ["T11" {"Alice" 24, "Bob" 1, ...} ...]
+        quest   (get quests qname)
+        emote   (if (some #{:users} opts)
+                    #(hash-map qname (:all (count-affect %)))   ; All tweets for %world
+                    #(emote-questions % qmap))                  ; Question tweets for %world
+        gdworld (user-world-texts (keys quest)) ; Greens+Deniers for this questions
+        worlds  [(green-world-texts gdworld)
+                 (denier-world-texts gdworld)
+                 gdworld]
+        affcnts (zip [:greens :deniers :all]
+                     (map count-users worlds)
+                     (map emote worlds))
+        reorder (fn [affmap]
+                  ;; Note that we get a map and return a lazy-seq of vectors
+                  (map #(vector % (get affmap %))
+                       Affect-Order))
+        emote   (fn [[who usrcnt affs]]
+                  ;; Create vector entries for each emotion for the sub-worlds
+                  (map (fn [[aff affcnt]]
+                         (log/fmt-debug "~a:~a = ~a" who aff affcnt)
+                         [who usrcnt aff affcnt])
+                       (reorder (get affs qname))))]    ; Reorder {"Anger" 16, "Joy" 11, ...}
+
+    ;; Return lazy-seq of (([:all 33 "Anger" 16] ...) ([...]...)...)
+    (map emote affcnts)))
+
+
+;;; --------------------------------------------------------------------------
+(defn tabulate-world-question
+  "Produces a table reporting affect signatures for the specified survey question."
+  [qnum & opts]
+  (let [bundle #(vector (first (first %))
+                        (reduce (fn [acc [users ucnt aff acnt]]
+                                  (assoc acc "Users" ucnt aff acnt))
+                                {}
+                                %))
+        affcnts (into {} (map bundle
+                              (apply calc-world-question qnum opts)))
+        cols    [:greens :deniers :all]
+        rows    (conj (map first Affect-Colours) "Users")]  ; Users, Anger, ...
+
+    (println "\\begin{tabular}{l | r | r | r}")
+    (doseq [col cols]
+      (log/fmt! "& \\textbf{~a} " (capname col)))
+    (println "\\\\")
+
+    (dotimes [_ 2]
+      (println "\\hline %----------------------------------------------------------------------"))
+
+    (doseq [row rows]
+      (log/fmt! "~12a" row)
+      (doseq [col cols]
+        (log/fmt! " & ~6:d" (get (col affcnts) row)))
+      (println " \\\\"))
+    (println "\\end{tabular}")))
+
+
+;;; --------------------------------------------------------------------------
+(defn echart-world-question
+  "Produces an affect stacked bar chart for the specified survey question."
+  [qnum & opts]
+  ;; TODO [1] support sub-worlds instead of just global World
+  ;;      [2] wrap this function to generate charts based on one (by-question)
+  (let [affcnts (apply calc-world-question qnum opts)
+        p100?   (some #{:p100 :%} opts)
+        ->dline (fn [[who usrcnt aff affcnt]]
+                  ;; Create a dataset line
+                  [(strfmt "~a (~a users)" (capname who) usrcnt) aff affcnt])]
+
+  (with-data (dataset [:question :emotion :level]          ; dataset columns
+;                      (concat (get-echart-colours)             ; Set colour order
+                               (map ->dline                  ; Sub-world affect levels
+                                    (apply concat affcnts)))
+                                    ;)
+
+    (let [^JFreeChart chart (stacked-bar-chart
+                             :question :level :group-by :emotion :legend true
+                             :x-label (str "User group for Question (Table no.) " (name qnum))
+                             :y-label (str (if p100? "Percentage" "Level") " of affect"))
+
+          ^StackedBarRenderer rndr (-> chart
+                                       .getCategoryPlot
+                                       .getRenderer)]
+      (view $data)
+
+      ;; Set the colours for the order we made with the :sync rows
+      (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
+            (range (count Affect-Colours)))
+
+      ;; Render and go!
+      (when p100?
+        (doto rndr
+              (.setRenderAsPercentages true)
+              (.setBarPainter (StandardBarPainter.))
+              (.setBaseItemLabelGenerator (StandardCategoryItemLabelGenerator.))
+              (.setBaseItemLabelsVisible true))
+
+        (doto (-> chart .getCategoryPlot .getRangeAxis)
+              (.setRange 0.0 1.0)
+              (.setMinorTickCount 10)))
+
+      (view chart)))))
+
+
+;;; --------------------------------------------------------------------------
+(defn world->arff
+  "Creates an ARFF representing the specified world."
+  ([]
+  (world->arff @World))
+
+  ([{:keys  [dtag texts]
+     :as    world}]
+  ;; TODO: Adapt and move this function to weka.dataset
+  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.c4.arff") "stance")
+        [uid &                                          ; screen name
+         attrs] (weka/attribute-seq insts)              ; Everything else (skips target)
+
+        attrcnt (.numAttributes insts)
+        relname (str (.relationName insts)  "-"
+                     (name dtag)            "-"
+                     (cfg/?? :sila :min-statuses))
+
+        users   (merge-with merge (by-user world)                   ; Affect & survey hits
+                                  (count-text-indicators world))]   ; Green indicator texts
+    ;; Create the new dataset
+    (log/notice "Creating ARFF:" relname)
+    (.setRelationName insts relname)
+    (doseq [[usr data] users]
+      (let [inst    (DenseInstance. attrcnt)
+            setdata (fn [^Attribute attr]
+                      (.setValue inst attr
+                                 (double (get data (.name attr) 0.0))))]
+        (.setDataset inst insts)
+        (.setClassValue inst (name (:stance data)))
+        (.setValue inst ^Attribute uid
+                        ^String usr)
+        (run! setdata attrs)
+        (.add insts inst)))
+
+    ;; TODO: Determine where the ARFF should go
+    (weka/save-file (str Tmp-Dir "/" relname ".arff") insts))))
 
 
 ;;; --------------------------------------------------------------------------
