@@ -3784,10 +3784,13 @@
   (chart-question-hits @World))
 
   ([world]
-  (with-data (dataset [:question :hits] (seq (question-hits world)))
+  (chart-question-hits @World (question-hits world)))
+
+  ([world qhits]
+  (with-data (dataset [:question :hits] (seq qhits))
     (view (incanter.charts/bar-chart :question :hits
             :x-label "Question (Table no.) from Six Americas"
-            :y-label "Tweets")))))
+            :y-label "Tweet Count")))))
 
 
 ;;; --------------------------------------------------------------------------
