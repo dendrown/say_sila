@@ -261,8 +261,8 @@
                                 "movement" "registered" "vote"}})
 
 (defonce Question-Stems (update-values Question-Words #(tw/stem-all % :set)))
-(defonce Questions      (into #{} (map name (keys Question-Words))))                    ; #{"T2" "T3" ...}
-
+(defonce Questions      (into #{} (map name (concat (keys Question-Words)               ; #{"T2" "T3" ...
+                                                    [:T13 :T17 :T18 :T27]))))           ;  + missing/combo}
 (defonce Key-Words  {:six36 (apply set/union (vals Question-Words))
                      :sassy #{"think"
                               "global" "warming"
@@ -451,6 +451,6 @@
                                 (do (log/warn "No survey text for" qname)
                                     ""))])]
   (ir/create-index :six6
-                   (into {} (map read-question (keys Question-Words)))
+                   (into {} (map read-question Questions))
                    [:english dtag]))))
 

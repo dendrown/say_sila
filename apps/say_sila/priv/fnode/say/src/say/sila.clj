@@ -3753,6 +3753,7 @@
   ([world qmap]
   (let [users (by-user world qmap)
         u->q  (fn [[usr stats]]
+                ;(log/fmt-debug "Checking ~a: ~a" usr stats)
                 (reduce (fn [acc [k v]]
                           (if-let [q (contains? six/Questions k)]   ; Question stat?
                             (conj acc [k {usr v}])                  ; -> add it
