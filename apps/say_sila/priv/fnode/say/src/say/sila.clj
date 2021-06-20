@@ -60,7 +60,8 @@
             (weka.core Attribute
                        DenseInstance
                        Instance
-                       Instances)))
+                       Instances)
+            (weka.filters.unsupervised.instance RemoveDuplicates)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -2438,8 +2439,18 @@
   ([tools tid sname elements stance]
   ;; NOTE: we're no longer using the tweet elements from the ARFF.
   ;;       Rather, we use the Tweebo output from pre-processing.
-  (let [[poss
+  (let [;; Old method where we parse and hope we match tweebo
+        ;pairs   (map #(str/split % #"_" 2)                      ; Separate elements: [PoS token]
+        ;              (str/split elements #" "))
+        ;poss    (map first pairs)
+        ;terms   (map #(-> % (second)                            ; FIXME: Get terms using
+        ;                    (str/lower-case)                    ;  affective.core.Utils/tokenize
+        ;                    (.replaceAll "([a-z])\\1+" "$1$1")) ; Reduce repeated letters
+        ;              pairs)
+        ;; FIXME: Reinstate full-tweebo HERE!
+        [poss
          terms] (twbo/get-pos-terms tid :side-by-side)
+
         affect  (map (:sense tools) terms)           ; Affect: pos|neg|emo or nil per term
         rules   (map (:scr tools) terms)             ; Set of match-term rules per term
         content (map #(.replaceAll ^String % "([a-z])\\1+" "$1$1") terms)]  ; Reduce repeated letters
@@ -2502,7 +2513,7 @@
   in the intermediate format."
   [dtag data]
   ;; Keep track of how many examples to create, as per the configured 'balance' setting
-  (let [insts        (weka/load-dataset data (dset/col-target :s))
+  (let [insts        (weka/load-dataset data (dset/col-target :s) (RemoveDuplicates.))
         columns      (dset/columns :s)
         [col-id
          col-sname
@@ -2534,7 +2545,8 @@
                          (do (send activity #(update % sname (fnil inc 0)))
                              (conj acc xmp))
                          ;; Skip the (singleton) tweet that has not been preprocessed
-                         acc)))
+                         (do (log/debug "Skipping" tid)
+                             acc))))
                     '()
                     (weka/instance-seq insts)))))                        ; SEQ: Weka instances
 
