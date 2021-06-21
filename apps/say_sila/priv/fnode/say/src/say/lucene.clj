@@ -238,7 +238,7 @@
 
         qtext    (-> qline
                      (str/replace #"(?:http)[^\s]+" " ")
-                     (str/replace #"QUOTE|QUøTE|\"|&|/|:|~|\?|\!|\{|\}|\[|\]|\(|\)|\.|\*|\+|\^" " ")
+                     (str/replace #"QUOTE|QUøTE|\"|&|/|:|~|\?|\!|\{|\}|\[|\]|\(|\)|\.|\*|\+|\^|\|" " ")
                      (str/replace #"-+" "-")
                      (str/trim)
                      (str/replace #"^-|-$" ""))

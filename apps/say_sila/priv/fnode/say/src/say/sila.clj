@@ -8,7 +8,7 @@
 ;;;;
 ;;;; The say-sila ontology and associtated functionality.
 ;;;;
-;;;; @copyright 2018-2020 Dennis Drown et l'Université du Québec à Montréal
+;;;; @copyright 2018-2021 Dennis Drown et l'Université du Québec à Montréal
 ;;;; -------------------------------------------------------------------------
 (ns say.sila
   (:refer-clojure :exclude [==])
@@ -48,9 +48,11 @@
             [tawny.repl         :as repl]                   ; <= debug
             [tawny.owl          :refer :all]
             [clojure.core.logic :refer :all :exclude [annotate is run]])
-  (:import  (java.awt Color)
+  (:import  (java.awt Color
+                      Font)
             (java.util Random)
             (org.jfree.chart JFreeChart)
+            (org.jfree.chart.axis Axis)
             (org.jfree.chart.labels StandardCategoryItemLabelGenerator)
             (org.jfree.chart.renderer.category StackedBarRenderer
                                                StandardBarPainter)
@@ -931,6 +933,16 @@
   :comment  "An Online Account which does not adhere to the rules of its associated online provider.")
 
 ;;; --------------------------------------------------------------------------
+;;; SCR indicator texts/accounts ALL depend on TweeboParser
+;;;
+;;; FIXME: Tweebo has become such an intricate part of the ontology creation
+;;;        procedure that switching it off in the config will cause the code
+;;;        not to compile.  To disable Tweebo, we currently have to (re)invoke
+;;;        the (comment ...) block below AND use the non-tweebo creation code
+;;;        for poss and terms in make-examples.
+;;;
+;(comment when (cfg/?? :sila :use-tweebo?)
+;;; --------------------------------------------------------------------------
 (defmacro defscr-token
   "Defines a class representing a Token that implies a Survey Concept Rule."
   [concept]
@@ -1547,7 +1559,9 @@
     (defclass DenierNaturalCauseAccountAFFNEG
       :super DenierAccount
       :equivalent (dl/and DenierAccount NaturalCauseAccountAFFNEG))))
-
+;;; --------------------------------------------------------------------------
+;;; ) :sila :use-tweebo?
+;;; --------------------------------------------------------------------------
 
 
 ;;; --------------------------------------------------------------------------
@@ -2447,7 +2461,8 @@
         ;                    (str/lower-case)                    ;  affective.core.Utils/tokenize
         ;                    (.replaceAll "([a-z])\\1+" "$1$1")) ; Reduce repeated letters
         ;              pairs)
-        ;; FIXME: Reinstate full-tweebo HERE!
+
+        ;; Full Tweebo parsing
         [poss
          terms] (twbo/get-pos-terms tid :side-by-side)
 
@@ -3801,9 +3816,20 @@
 
   ([world qhits]
   (with-data (dataset [:question :hits] (seq qhits))
-    (view (incanter.charts/bar-chart :question :hits
-            :x-label "Question (Table no.) from Six Americas"
-            :y-label "Tweet Count")))))
+    (let [chart (incanter.charts/bar-chart
+                  :question :hits
+                  :x-label "Question (Table no.) from Six Americas"
+                  :y-label "Tweet Count")
+          font  (Font. "Dialog" Font/PLAIN 18)
+          plot  (.getCategoryPlot ^JFreeChart chart)]
+
+      ;; Make the font bigger for when the chart makes it to paper
+      (doseq [^Axis axis [(.getDomainAxis plot)
+                          (.getRangeAxis plot)]]
+        (.setLabelFont axis font)
+        (.setTickLabelFont axis font))
+
+      (view chart)))))
 
 
 ;;; --------------------------------------------------------------------------
