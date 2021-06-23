@@ -3854,7 +3854,7 @@
 
 
 ;;; --------------------------------------------------------------------------
-(defn echart-world-questions
+(defn- echart-world-questions
   "Produces an affect stacked bar chart for survey questions."
   [world & opts]
   ;; Match affect colours to Incanter/jFree charting
