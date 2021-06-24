@@ -51,7 +51,8 @@
   (:import  (java.awt Color
                       Font)
             (java.util Random)
-            (org.jfree.chart JFreeChart)
+            (org.jfree.chart JFreeChart
+                             StandardChartTheme)
             (org.jfree.chart.axis Axis)
             (org.jfree.chart.labels StandardCategoryItemLabelGenerator)
             (org.jfree.chart.renderer.category StackedBarRenderer
@@ -1560,7 +1561,7 @@
       :super DenierAccount
       :equivalent (dl/and DenierAccount NaturalCauseAccountAFFNEG))))
 ;;; --------------------------------------------------------------------------
-;;; ) :sila :use-tweebo?
+;);:sila :use-tweebo?
 ;;; --------------------------------------------------------------------------
 
 
@@ -1638,6 +1639,44 @@
   "Returns affect total counts for all the tokens in a text/profile."
   [txt]
   (select-keys (sum-analysis txt) Affect-Names))
+
+
+;;; --------------------------------------------------------------------------
+(defn- pump-chart-fonts
+  "Increases the font size for chart axis labels and tick markers."
+  [^JFreeChart chart]
+    (let [theme ^StandardChartTheme (StandardChartTheme/createJFreeTheme)
+          font  #(Font. "Dialog" Font/PLAIN %)]
+
+      ;; Make the font bigger for when the chart makes it to paper
+      (doto theme
+            (.setExtraLargeFont (font 16))
+            (.setLargeFont      (font 18))
+            (.setRegularFont    (font 20))
+            (.setSmallFont      (font 22)))
+      (.apply theme chart)
+      chart))
+
+
+;;; --------------------------------------------------------------------------
+(defn percentize-bar-chart
+  "Sets the chart up to show percentages."
+  [^JFreeChart chart & opts]
+    (let [^StackedBarRenderer rndr (-> chart
+                                       .getCategoryPlot
+                                       .getRenderer)]
+
+      (.setRenderAsPercentages rndr true)
+      (doto (-> chart .getCategoryPlot .getRangeAxis)
+            (.setRange 0.0 1.0)
+            (.setMinorTickCount 10))
+
+      ;; Do they want (user) counts inside the bar segments?
+      (when (some #{:counts} opts)
+        (doto rndr
+              (.setBarPainter (StandardBarPainter.))
+              (.setBaseItemLabelGenerator (StandardCategoryItemLabelGenerator.))
+              (.setBaseItemLabelsVisible true)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -3824,6 +3863,7 @@
           plot  (.getCategoryPlot ^JFreeChart chart)]
 
       ;; Make the font bigger for when the chart makes it to paper
+      ;; FIXME: use pump-chart-fonts
       (doseq [^Axis axis [(.getDomainAxis plot)
                           (.getRangeAxis plot)]]
         (.setLabelFont axis font)
@@ -3873,12 +3913,10 @@
     (let [^JFreeChart chart (stacked-bar-chart
                              :question :level :group-by :emotion :legend true
                              :x-label "Question (Table no.) from Six Americas"
-                             :y-label "Level of affect")
+                             :y-label "Level of affect")]
 
-          ^StackedBarRenderer rndr (-> chart
-                                       .getCategoryPlot
-                                       .getRenderer)]
       ;(view $data)
+      (pump-chart-fonts chart)
 
       ;; Set the colours for the order we made with the :sync rows
       (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
@@ -3886,7 +3924,7 @@
 
       ;; Render and go!
       (when (some #{:p100 :%} opts)
-        (.setRenderAsPercentages rndr true))
+        (percentize-bar-chart chart))
 
       (view chart)))))
 
@@ -3980,21 +4018,16 @@
                   ;; Create a dataset line
                   [(strfmt "~a (~a users)" (capname who) usrcnt) aff affcnt])]
 
-  (with-data (dataset [:question :emotion :level]          ; dataset columns
-;                      (concat (get-echart-colours)             ; Set colour order
-                               (map ->dline                  ; Sub-world affect levels
+  (with-data (dataset [:question :emotion :level]               ; dataset columns
+                               (map ->dline                     ; Sub-world affect levels
                                     (apply concat affcnts)))
-                                    ;)
 
     (let [^JFreeChart chart (stacked-bar-chart
                              :question :level :group-by :emotion :legend true
-                             :x-label (str "User group for Question (Table no.) " (name qnum))
-                             :y-label (str (if p100? "Percentage" "Level") " of affect"))
-
-          ^StackedBarRenderer rndr (-> chart
-                                       .getCategoryPlot
-                                       .getRenderer)]
-      (view $data)
+                             :x-label (str "User groups for Question (Table no.) " (name qnum))
+                             :y-label (str (if p100? "Percentage" "Level") " of affect"))]
+      ;(view $data)
+      (pump-chart-fonts chart)
 
       ;; Set the colours for the order we made with the :sync rows
       (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
@@ -4002,15 +4035,7 @@
 
       ;; Render and go!
       (when p100?
-        (doto rndr
-              (.setRenderAsPercentages true)
-              (.setBarPainter (StandardBarPainter.))
-              (.setBaseItemLabelGenerator (StandardCategoryItemLabelGenerator.))
-              (.setBaseItemLabelsVisible true))
-
-        (doto (-> chart .getCategoryPlot .getRangeAxis)
-              (.setRange 0.0 1.0)
-              (.setMinorTickCount 10)))
+        (percentize-bar-chart chart :counts))
 
       (view chart)))))
 
