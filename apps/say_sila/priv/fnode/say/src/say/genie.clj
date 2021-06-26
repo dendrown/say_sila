@@ -391,6 +391,15 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn remap
+  "Returns a map with the key-value pairs from the input hash map whose
+  values are passed by the filter function."
+  [hmap fun]
+  (into {} (into {} (filter (fn [[_ v]] (fun v)) hmap))))
+
+
+
+;;; --------------------------------------------------------------------------
 (defn p-update-values
   "Maps the specified function across all the values in a hashmap.
   The passed fuction is of arity one, accepting the old hashmap value.

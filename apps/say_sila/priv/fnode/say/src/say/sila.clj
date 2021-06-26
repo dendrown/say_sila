@@ -940,7 +940,7 @@
 ;;;        procedure that switching it off in the config will cause the code
 ;;;        not to compile.  To disable Tweebo, we currently have to (re)invoke
 ;;;        the (comment ...) block below AND use the non-tweebo creation code
-;;;        for poss and terms in make-examples.
+;;;        for poss and terms in make-example.
 ;;;
 ;(comment when (cfg/?? :sila :use-tweebo?)
 ;;; --------------------------------------------------------------------------
@@ -1680,12 +1680,24 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- get-affect-colours
+  "Returns a colour map for the affect elements in use with the configured lexicon."
+  []
+  ;; TODO: Abstract emo/senti attribute lookup for the lexica
+  (if (get #{:liu :mpqa :swn} (cfg/?? :sila :lexicon))
+       (filter (fn [[aff _]]
+                 (#{"Positive" "Negative"} aff))
+               Affect-Colours)
+       Affect-Colours))
+
+
+;;; --------------------------------------------------------------------------
 (defn- get-echart-colours
   "Produces an affect stacked bar chart for all given text/profiles."
   []
   ;; Set colour order for echarts
   (map (fn [[emo _]] ["" emo 0])
-       Affect-Colours))
+       (get-affect-colours)))
 
 
 ;;; --------------------------------------------------------------------------
@@ -3874,9 +3886,7 @@
 
 ;;; --------------------------------------------------------------------------
 (defn emote-questions
-  "Returns a map with affect values for each survey question.
-  FIXME: Question hits are still determined by keyword matches
-         (stored as :survey-hits when examples are created)."
+  "Returns a map with affect values for each survey question."
   ([]
   (emote-questions @World))
 
@@ -3898,7 +3908,9 @@
   "Produces an affect stacked bar chart for survey questions."
   [world & opts]
   ;; Match affect colours to Incanter/jFree charting
-  (let [affcnts (emote-questions world)
+  (let [affcnts (update-values (emote-questions world)  ; {"T11" {"Disgust" 0, ...}, ...}
+                               #(remap % pos?))         ; Remove zero-value affect
+        colours (into [] (get-affect-colours))
         emote   (fn [q]
                   ;; Create vector entries for each emotion for question q
                   (map (fn [[emo cnt]]
@@ -3919,8 +3931,8 @@
       (pump-chart-fonts chart)
 
       ;; Set the colours for the order we made with the :sync rows
-      (run! #(set-stroke-color chart (second (Affect-Colours %)) :series %)
-            (range (count Affect-Colours)))
+      (run! #(set-stroke-color chart (second (colours %)) :series %)
+            (range (count colours)))
 
       ;; Render and go!
       (when (some #{:p100 :%} opts)
