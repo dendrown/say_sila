@@ -1692,6 +1692,14 @@
 
 
 ;;; --------------------------------------------------------------------------
+(defn- get-affect-order
+  "Returns the names of the affect elements in use with the configured lexicon.
+  The order is the same as that used in echarting."
+  []
+  (map first (get-affect-colours)))
+
+
+;;; --------------------------------------------------------------------------
 (defn- get-echart-colours
   "Produces an affect stacked bar chart for all given text/profiles."
   []
@@ -2431,6 +2439,16 @@
 
   ([world]
   (world-texts world #(= (:stance %) :denier))))
+
+
+(defn get-world-texts
+  "Returns a map representing the world with :green or :denier individuals
+  according to the specified option, or all users if no options are specified."
+  [& opts]
+  (cond
+    (some #{:green} opts)  (green-world-texts)
+    (some #{:denier} opts) (denier-world-texts)
+    :else                  @World))
 
 
 (defn user-world-texts [users]
@@ -3896,11 +3914,13 @@
   ([{:keys [texts]} qmap]
   (let [sum-inner (partial merge-with +)
         emote-q   #(when-let [q (get qmap (:tid %))]
-                     {q (emote-text %)})]
-    (reduce (fn [acc txt]
-              (merge-with sum-inner acc (emote-q txt)))
-            {}
-            texts))))
+                     {q (emote-text %)})
+        aff-cnts  (reduce (fn [acc txt]
+                            (merge-with sum-inner acc (emote-q txt)))
+                          {}
+                          texts)]
+    ;; Remove zero-value affect
+    (update-values aff-cnts #(remap % pos?)))))
 
 
 ;;; --------------------------------------------------------------------------
@@ -3908,8 +3928,7 @@
   "Produces an affect stacked bar chart for survey questions."
   [world & opts]
   ;; Match affect colours to Incanter/jFree charting
-  (let [affcnts (update-values (emote-questions world)  ; {"T11" {"Disgust" 0, ...}, ...}
-                               #(remap % pos?))         ; Remove zero-value affect
+  (let [affcnts (emote-questions world)             ; {"T11" {"Disgust" 40, ...}, ...}
         colours (into [] (get-affect-colours))
         emote   (fn [q]
                   ;; Create vector entries for each emotion for question q
@@ -3946,11 +3965,55 @@
   "Produces an affect stacked bar chart for survey questions."
   [& opts]
   ;; Match affect colours to Incanter/jFree charting
-  (let [world   (cond
-                  (some #{:green} opts)  (green-world-texts)
-                  (some #{:denier} opts) (denier-world-texts)
-                  :else                  @World)]
+  (let [world   (apply get-world-texts opts)]
     (apply echart-world-questions world opts)))
+
+
+;;; --------------------------------------------------------------------------
+(defn- tabulate-world-questions
+  "Produces a LaTeX table for survey questions."
+  [world & opts]
+  ;; Report affective elements  in the same order we use with the Incanter/jFree charting
+  (let [affcnts (emote-questions world)             ; {"T11" {"Disgust" 0, ...}, ...}
+        affelms (get-affect-order)
+        ->trow  (fn [q]
+                  (let [qcnts (get affcnts q)
+                        qsum  (reduce + (vals qcnts))]
+                    ;; Create a table line
+                    (log/fmt! "~4a" q)
+                    (run! #(let [lvl (get qcnts % 0)]
+                             (log/fmt!  " & ~4a & ~5,1f\\% "
+                                        lvl
+                                        (* 100 (/ lvl qsum))))
+                          affelms)
+                    (println "\\\\")))]
+
+    ;; Do a semi-sort of the question order to facilitate table creation in LaTeX
+    (print "\\begin{tabular}{c")
+    (doseq [_ affelms]
+      (print " | r r"))
+    (println "}\n")
+
+    (println "\\textbf{Question}")
+    (doseq [aff affelms]
+        (log/fmt! "& \\HD{2}{c}{~a}\n" aff))
+    (println "\\\\")
+
+    (dotimes [_ 2]
+      (println "\\hline %----------------------------------------------------------------------"))
+
+    (run! ->trow (sort (keys affcnts)))
+
+    (println "\\end{tabular}")))
+
+
+;;; --------------------------------------------------------------------------
+(defn tabulate-questions
+  "Produces an affect stacked bar chart for survey questions."
+  [& opts]
+  ;; Match affect colours to Incanter/jFree charting
+  (let [world (apply get-world-texts opts)]
+    (apply tabulate-world-questions world opts)))
 
 
 ;;; --------------------------------------------------------------------------
