@@ -3994,9 +3994,9 @@
                     (println "\\\\")))]
 
     ;; Do a semi-sort of the question order to facilitate table creation in LaTeX
-    (print "\\begin{tabular}{c")
+    (print "\\begin{tabular}{ c")
     (doseq [_ affelms]
-      (print " | r r"))
+      (print "\n| r @{\\hspace{1.5\\tabcolsep}} r"))
     (println "}\n")
 
     (println "\\textbf{Question}")
