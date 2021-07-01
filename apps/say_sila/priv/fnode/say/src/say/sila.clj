@@ -3976,15 +3976,20 @@
   ;; Report affective elements  in the same order we use with the Incanter/jFree charting
   (let [affcnts (emote-questions world)             ; {"T11" {"Disgust" 0, ...}, ...}
         affelms (get-affect-order)
+        affavgs (agent {})                          ; Collect averages as we build the table
+        average #(/ (reduce + %)                    ; O(2*31), could be more efficient
+                    (count %))
         ->trow  (fn [q]
                   (let [qcnts (get affcnts q)
                         qsum  (reduce + (vals qcnts))]
                     ;; Create a table line
                     (log/fmt! "~4a" q)
-                    (run! #(let [lvl (get qcnts % 0)]
-                             (log/fmt!  " & ~4a & ~5,1f\\% "
-                                        lvl
-                                        (* 100 (/ lvl qsum))))
+                    (run! #(let [lvl (get qcnts % 0)
+                                 avg (* 100 (/ lvl qsum))]
+                             (log/fmt!  " & ~4a & ~5,1f\\% " lvl avg)
+                             (send affavgs (fn [acc]
+                                             (merge-with concat acc {% [avg]})
+                                             )))
                           affelms)
                     (println "\\\\")))]
 
@@ -4003,6 +4008,12 @@
       (println "\\hline %----------------------------------------------------------------------"))
 
     (run! ->trow (sort (keys affcnts)))
+
+    (println "\\hline %----------------------------------------------------------------------")
+    (print "MEAN")
+    (await affavgs)
+    (run! #(log/fmt! " &      & ~5,1f\\% " (average (get @affavgs %))) affelms)
+    (println)
 
     (println "\\end{tabular}")))
 
