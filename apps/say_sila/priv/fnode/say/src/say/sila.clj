@@ -41,6 +41,7 @@
             [defun.core         :refer [defun]]
             [incanter.core      :refer [dataset $data view with-data]]
             [incanter.charts    :refer [bar-chart stacked-bar-chart set-stroke-color]]
+            [incanter.stats     :as stats]
             [me.raynes.fs       :as fs]
             [tawny.english      :as dl]
             [tawny.reasoner     :as rsn]
@@ -3977,8 +3978,6 @@
   (let [affcnts (emote-questions world)             ; {"T11" {"Disgust" 0, ...}, ...}
         affelms (get-affect-order)
         affavgs (agent {})                          ; Collect averages as we build the table
-        average #(/ (reduce + %)                    ; O(2*31), could be more efficient
-                    (count %))
         ->trow  (fn [q]
                   (let [qcnts (get affcnts q)
                         qsum  (reduce + (vals qcnts))]
@@ -3999,7 +3998,7 @@
       (print "\n| r @{\\hspace{1.5\\tabcolsep}} r"))
     (println "}\n")
 
-    (println "\\textbf{Question}")
+    (println "  \\HD{1}{c}{Question}")
     (doseq [aff affelms]
         (log/fmt! "& \\HD{2}{c}{~a}\n" aff))
     (println "\\\\")
@@ -4010,10 +4009,14 @@
     (run! ->trow (sort (keys affcnts)))
 
     (println "\\hline %----------------------------------------------------------------------")
-    (print "MEAN")
+    (print "\\textbf{MEAN}\n    ")
     (await affavgs)
-    (run! #(log/fmt! " &      & ~5,1f\\% " (average (get @affavgs %))) affelms)
-    (println)
+    (run! #(log/fmt! " &      & ~5,1f\\% " (stats/mean (get @affavgs %))) affelms)
+    (println "\\\\")
+
+    (print "\\textrm{STD-DEV}\n    ")
+    (run! #(log/fmt! " &      &  ~5,2f  " (stats/sd (get @affavgs %))) affelms)
+    (println "\\\\")
 
     (println "\\end{tabular}")))
 
