@@ -4074,23 +4074,37 @@
                                   (assoc acc "Users" ucnt aff acnt))
                                 {}
                                 %))
-        affcnts (into {} (map bundle
+        affcnts (into {} (map bundle                                    ; {:greens {"Anger" 99,...}...}
                               (apply calc-world-question qnum opts)))
-        cols    [:greens :deniers :all]
-        rows    (conj (map first Affect-Colours) "Users")]  ; Users, Anger, ...
+        affsums (update-values affcnts #(reduce + (vals %)))            ; {:greens 5804, ...}
+        affavgs (update-kv-values affcnts (fn [who affs]
+                                            (let [sum (affsums who)]
+                                              (update-values affs #(* 100 (/ % sum))))))
+        cols    [:greens :deniers :all]]
 
-    (println "\\begin{tabular}{l | r | r | r}")
+    (println "\\begin{tabular}{l r @{\\hspace{1.5\\tabcolsep}} r ")
+    (dotimes [_ (dec (count cols))]
+      (println "                | r @{\\hspace{1.5\\tabcolsep}} r "))
+    (println "               }")
+
     (doseq [col cols]
-      (log/fmt! "& \\textbf{~a} " (capname col)))
+      (log/fmt! "& \\HD{2}{c}{~a}\n" (capname col)))
     (println "\\\\")
 
     (dotimes [_ 2]
       (println "\\hline %----------------------------------------------------------------------"))
 
-    (doseq [row rows]
+    (log/fmt! "~12a\n" "Users")
+    (doseq [col cols]
+      (log/fmt! "& \\multicolumn{2}{c}{~a}\n" (get (col affcnts) "Users")))
+    (println "\\\\")
+    (println "\\hline %----------------------------------------------------------------------")
+
+    (doseq [row Affect-Order]
       (log/fmt! "~12a" row)
       (doseq [col cols]
-        (log/fmt! " & ~6:d" (get (col affcnts) row)))
+        (log/fmt! " & ~6:d & ~5,1f\\% " (get (col affcnts) row)
+                                        (get (col affavgs) row)))
       (println " \\\\"))
     (println "\\end{tabular}")))
 
