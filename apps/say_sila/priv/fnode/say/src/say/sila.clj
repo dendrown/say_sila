@@ -4069,23 +4069,29 @@
 (defn tabulate-world-question
   "Produces a table reporting affect signatures for the specified survey question."
   [qnum & opts]
-  (let [bundle #(vector (first (first %))
-                        (reduce (fn [acc [users ucnt aff acnt]]
-                                  (assoc acc "Users" ucnt aff acnt))
-                                {}
-                                %))
-        affcnts (into {} (map bundle                                    ; {:greens {"Anger" 99,...}...}
-                              (apply calc-world-question qnum opts)))
-        affsums (update-values affcnts #(reduce + (vals %)))            ; {:greens 5804, ...}
+  (let [quest   (apply calc-world-question qnum opts)
+        who     #(-> % first first)
+        bundleu #(vector (who %)
+                         (-> % first second ))
+        bundleq #(vector (who %)
+                         (reduce (fn [acc [users ucnt aff acnt]]
+                                   (assoc acc aff acnt))
+                                 {}
+                                 %))
+        [usrcnts
+         affcnts] (map #(into {} (map % quest)) [bundleu
+                                                 bundleq])          ; {:greens {"Anger" 99,...}...}
+        affsums (update-values affcnts #(reduce + (vals %)))        ; {:greens 5804, ...}
         affavgs (update-kv-values affcnts (fn [who affs]
                                             (let [sum (affsums who)]
+                                              ;(println "Sum for" who "is" sum)
                                               (update-values affs #(* 100 (/ % sum))))))
         cols    [:greens :deniers :all]]
 
-    (println "\\begin{tabular}{l r @{\\hspace{1.5\\tabcolsep}} r ")
+    (print "\\begin{tabular}{l r @{\\hspace{1.5\\tabcolsep}} r")
     (dotimes [_ (dec (count cols))]
-      (println "                | r @{\\hspace{1.5\\tabcolsep}} r "))
-    (println "               }")
+      (print " \n                | r @{\\hspace{1.5\\tabcolsep}} r"))
+    (println "}")
 
     (doseq [col cols]
       (log/fmt! "& \\HD{2}{c}{~a}\n" (capname col)))
@@ -4096,7 +4102,7 @@
 
     (log/fmt! "~12a\n" "Users")
     (doseq [col cols]
-      (log/fmt! "& \\multicolumn{2}{c}{~a}\n" (get (col affcnts) "Users")))
+      (log/fmt! "& \\multicolumn{2}{c}{~a}\n" (col usrcnts)))
     (println "\\\\")
     (println "\\hline %----------------------------------------------------------------------")
 
