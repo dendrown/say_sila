@@ -16,7 +16,7 @@ pom.xml.asc
 .settings/
 bin/
 config/*.config
-resources/gw-2019/*.arff
+resources/gw-2019/
 resources/emo-sa/*.*.arff
 resources/emo-sa/*.csv
 resources/emo-sa/*.edn
