@@ -65,6 +65,7 @@
                        DenseInstance
                        Instance
                        Instances)
+            (weka.filters.unsupervised.attribute Remove)
             (weka.filters.unsupervised.instance RemoveDuplicates)))
 
 
@@ -82,6 +83,7 @@
 (def ^:const World-FStub    "resources/world")
 (def ^:const Data-Plan-Dir  "resources/data-plan")
 (def ^:const Tmp-Dir        "/tmp/say_sila")                ; Shared with Erlang
+(def ^:const GW2019-Data   "S04.c4")                        ; Code for 2019 #globalwarming
 
 (def ^:const Init-Data      {:tag :env, :tracker :all, :source :tweets, :dir Emotion-FStub})
 
@@ -106,6 +108,16 @@
                                :texts {}
                                :ontology {}
                                :community {}}))
+
+(defonce Ind-Texts      '[WeakHumanCauseText        StrongHumanCauseText
+                          WeakNatureCauseText       StrongNatureCauseText
+                          WeakCO2CutText            StrongCO2CutText
+                          WeakEconomicGrowthText    StrongEconomicGrowthText])
+
+(defonce Ind-Texts-+    '[WeakEnvironmentProtectText  StrongEnvironmentProtectText
+                          WeakEnergyConservationText  StrongEnergyConservationText])
+
+(defonce Ind-Texts-Plus (concat Ind-Texts Ind-Texts-+))
 
 (defontology say-sila
   :iri    Ont-IRI
@@ -2921,12 +2933,7 @@
   (when onter
     ;; Use local symbols when called from another namespace
     (inf/with-ns-silence 'say.sila
-      (let [inds '[WeakHumanCauseText           StrongHumanCauseText
-                   WeakNatureCauseText          StrongNatureCauseText
-                   WeakEnergyConservationText   StrongEnergyConservationText
-                   WeakCO2CutText               StrongCO2CutText
-                   WeakEnvironmentProtectText   StrongEnvironmentProtectText
-                   WeakEconomicGrowthText       StrongEconomicGrowthText]
+      (let [inds Ind-Texts-Plus
             ont  (onter user)]
         (when ont
           (inf/unreason ont)                        ; Reclaim memory from reasoner
@@ -4158,14 +4165,17 @@
   ([{:keys  [dtag texts]
      :as    world}]
   ;; TODO: Adapt and move this function to weka.dataset
-  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/S04.c4.arff") "stance")
+  (let [insts   (weka/load-dataset (str Data-Plan-Dir "/" GW2019-Data ".arff") "stance")
         [uid &                                          ; screen name
          attrs] (weka/attribute-seq insts)              ; Everything else (skips target)
 
         attrcnt (.numAttributes insts)
+        minstat (cfg/?? :sila :min-statuses)
         relname (str (.relationName insts)  "-"
                      (name dtag)            "-"
-                     (cfg/?? :sila :min-statuses))
+                     (if (< minstat 10)
+                         (str "0" minstat)
+                         minstat))
 
         users   (merge-with merge (by-user world)                   ; Affect & survey hits
                                   (count-text-indicators world))]   ; Green indicator texts
@@ -4186,6 +4196,49 @@
 
     ;; TODO: Determine where the ARFF should go
     (weka/save-file (str Tmp-Dir "/" relname ".arff") insts))))
+
+
+;;; --------------------------------------------------------------------------
+(defn make-gw2019
+  "This is a function with very specific purpose: to take the ARFF datasets
+  created by say-sila/world->arff and create breakout datasets for several
+  attribute subsets."
+  []
+  (let [padn    #(if (< % 10) (str 0 %) (str %))
+        datafn  (fn [tag n]
+                  (str Tmp-Dir "/" GW2019-Data "-" (name tag) "-" (padn n) ".arff"))
+        fmtrm   (fn [^Instances dset attrs]
+                  (apply str (interpose "," (sort (map #(inc (.index (.attribute dset (name %))))
+                                                       attrs)))))
+        agroups {:drop  [:screen_name]
+                ;:tgt   [:stance]                   ; Never remove target attribute
+                 :cnt   [:Count]
+                 :emo   Affect-Order
+                 :qst   six/Questions
+                 :ont   Ind-Texts
+                 :pls   Ind-Texts-+
+                 :pos   pos/POS-Names}
+        dsets   {:big [:cnt]
+                 :emo [:cnt :emo]
+                 :qst [:cnt :qst]
+                 :pos [:cnt :pos]
+                 :all [:cnt :pos :qst :emo]}]
+    ;; Run through minimum tweet levels
+    (doseq [n (range 2 (inc 20))]
+      (let [iname   (datafn :env n)                 ; [i]nput filename
+            iinsts  (weka/load-dataset iname)]
+        (log/notice "----------------------------------------------------------------")
+        (log/notice "Activity level:" n)
+        ;; Run through the dataset groups
+        (doseq [[dkey grps] dsets]
+          (let [rmattrs (as-> grps A
+                              (apply dissoc agroups A)  ; Attribute groups to be removed
+                              (apply concat (vals A))   ; Attributes to be removed
+                              (fmtrm iinsts A))
+                oname   (str/replace iname #"-env-" (str "-" (KEYSTR dkey) "-"))
+                oinsts  (weka/filter-instances iinsts (Remove.) ["-R" rmattrs])]
+            (log/info "FN:" iname "=>" oname)
+            (weka/save-file oname oinsts)))))))
 
 
 ;;; --------------------------------------------------------------------------

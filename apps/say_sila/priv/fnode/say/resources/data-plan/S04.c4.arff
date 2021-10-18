@@ -23,9 +23,12 @@
 @ATTRIBUTE T10 numeric
 @ATTRIBUTE T11 numeric
 @ATTRIBUTE T12 numeric
+@ATTRIBUTE T13 numeric
 @ATTRIBUTE T14 numeric
 @ATTRIBUTE T15 numeric
 @ATTRIBUTE T16 numeric
+@ATTRIBUTE T17 numeric
+@ATTRIBUTE T18 numeric
 @ATTRIBUTE T19 numeric
 @ATTRIBUTE T20 numeric
 @ATTRIBUTE T21 numeric
@@ -34,6 +37,7 @@
 @ATTRIBUTE T24 numeric
 @ATTRIBUTE T25 numeric
 @ATTRIBUTE T26 numeric
+@ATTRIBUTE T27 numeric
 @ATTRIBUTE T28 numeric
 @ATTRIBUTE T29 numeric
 @ATTRIBUTE T30 numeric
