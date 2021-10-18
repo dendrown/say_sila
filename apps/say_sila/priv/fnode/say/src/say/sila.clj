@@ -4205,6 +4205,7 @@
   attribute subsets."
   []
   (let [padn    #(if (< % 10) (str 0 %) (str %))
+        reltag  #(str/replace %1 #"-env-" (str "-" (KEYSTR %2) "-"))
         datafn  (fn [tag n]
                   (str Tmp-Dir "/" GW2019-Data "-" (name tag) "-" (padn n) ".arff"))
         fmtrm   (fn [^Instances dset attrs]
@@ -4218,11 +4219,12 @@
                  :ont   Ind-Texts
                  :pls   Ind-Texts-+
                  :pos   pos/POS-Names}
-        dsets   {:big [:cnt]
-                 :emo [:cnt :emo]
-                 :qst [:cnt :qst]
-                 :pos [:cnt :pos]
-                 :all [:cnt :pos :qst :emo]}]
+        dsets   {:1-big [:cnt]
+                 :2-pos [:cnt :pos]
+                 :3-emo [:cnt :emo]
+                 :4-ont [:cnt :ont]
+                 :5-qst [:cnt :qst]
+                 :9-all [:cnt :pos :qst :emo]}]
     ;; Run through minimum tweet levels
     (doseq [n (range 2 (inc 20))]
       (let [iname   (datafn :env n)                 ; [i]nput filename
@@ -4235,8 +4237,9 @@
                               (apply dissoc agroups A)  ; Attribute groups to be removed
                               (apply concat (vals A))   ; Attributes to be removed
                               (fmtrm iinsts A))
-                oname   (str/replace iname #"-env-" (str "-" (KEYSTR dkey) "-"))
+                oname   (reltag iname dkey)
                 oinsts  (weka/filter-instances iinsts (Remove.) ["-R" rmattrs])]
+            (.setRelationName oinsts (reltag (.relationName iinsts) dkey))
             (log/info "FN:" iname "=>" oname)
             (weka/save-file oname oinsts)))))))
 
