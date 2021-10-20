@@ -4212,22 +4212,23 @@
                   (apply str (interpose "," (sort (map #(inc (.index (.attribute dset (name %))))
                                                        attrs)))))
         agroups {:drop  [:screen_name]
-                ;:tgt   [:stance]                   ; Never remove target attribute
+                ;:tgt   [:stance]                       ; Never remove target attribute
                  :cnt   [:Count]
                  :emo   Affect-Order
                  :qst   six/Questions
                  :ont   Ind-Texts
                  :pls   Ind-Texts-+
                  :pos   pos/POS-Names}
-        dsets   {:1-big [:cnt]
-                 :2-pos [:cnt :pos]
-                 :3-emo [:cnt :emo]
-                 :4-ont [:cnt :ont]
-                 :5-qst [:cnt :qst]
-                 :9-all [:cnt :pos :qst :emo]}]
+        dsets   {;1-big  [:cnt]
+                 :2-pos  [:cnt :pos]
+                 :3-emo  [:cnt :emo]
+                 :4-ont  [:cnt :ont]
+                 ;5-ont+ [:cnt :ont :pls]
+                 :6-qst  [:cnt :qst]
+                 :9-all  [:cnt :pos :ont :qst :emo]}]   ; Not using PLS (ont+)
     ;; Run through minimum tweet levels
     (doseq [n (range 2 (inc 20))]
-      (let [iname   (datafn :env n)                 ; [i]nput filename
+      (let [iname   (datafn :env n)                     ; [i]nput filename
             iinsts  (weka/load-dataset iname)]
         (log/notice "----------------------------------------------------------------")
         (log/notice "Activity level:" n)
