@@ -1,8 +1,11 @@
 say_sila
 =====
 
-Analysis of Sentiment in Tweets on Climate Change.  This project is the core of the research portion
-of my PhD studies in _Informatique Cognitive_ at the _Université du Québec à Montréal_.
+Analysis of Sentiment in Tweets on Climate Change.
+This project is the core of the research portion of my PhD studies in cognitive computing.
+
+The program is called [Doctorat en informatique cognitive](https://dic.uqam.ca/)
+at [l'Université du Québec à Montréal](https://uqam.ca/).
 
 Build
 -----
