@@ -8,7 +8,10 @@
 %%
 %% @doc R/Erlang bridge for Sila
 %%
-%% @copyright 2017 Dennis Drown et l'Université du Québec à Montréal
+%% NOTE: This module is DEPRECATED and disconnected from the main supervisor,
+%%       pending a replacement reporting system in the next phase of the project.
+%%
+%% @copyright 2017-2022 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(r).

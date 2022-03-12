@@ -10,7 +10,7 @@
 %%      high level look at the emotions surrounding Climate Change
 %%      using Twitter.
 %%
-%% @copyright 2017-2020 Dennis Drown et l'Université du Québec à Montréal
+%% @copyright 2017-2022 Dennis Drown et l'Université du Québec à Montréal
 %% @end
 %%%-------------------------------------------------------------------
 -module(raven).
@@ -485,8 +485,8 @@ handle_call(reset, _From, State) ->
 
 
 handle_call({report, Period}, _From, State = #state{emo_report  = undefined,
-                                                    tracker     = Tracker,
-                                                    big_percent = BigP100,
+                                                   %tracker     = Tracker,      % R reporting
+                                                   %big_percent = BigP100,      % R reporting
                                                     tweet_slots = SlotMap}) ->
     % Create two sets of three reports:
     %   (1) big-player<full, TT, RT>,
@@ -499,9 +499,12 @@ handle_call({report, Period}, _From, State = #state{emo_report  = undefined,
                          end,
                      [big, reg]),
     RptMap = maps:from_list(Rpts),
-    r:report_emotions(wui:get_tag(Tracker, BigP100, Period),
-                      Period,
-                      RptMap),
+
+    % TODO: Replace with new reporting methods in next phase of project
+    ?warning("R-based reporting is no longer supported."),
+    %r:report_emotions(wui:get_tag(Tracker, BigP100, Period),
+    %                  Period,
+    %                  RptMap),
     {reply, RptMap, State#state{emo_report = RptMap}};
 
 

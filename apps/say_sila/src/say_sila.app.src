@@ -8,7 +8,7 @@
   {env,[]},
   {modules, [arff, biggies, daily, daily_tweets, dllearner, dts,
              emo, fnode, fp, green, influence, ioo, pan, period,
-             player, plot, pprops, r, raven, return, sila, twitter,
+             player, plot, pprops, raven, return, sila, twitter,
              types, weka, wui, wui_emote, wui_player, wui_report]},
   {maintainers, []},
   {licenses, []},
