@@ -79,7 +79,15 @@
                           %-------------------------------------------
                           q1_2020 => <<"tbl_statuses_2020_q1">>,
                           q2_2020 => <<"tbl_statuses_2020_q2">>,
-                          q3_2020 => <<"tbl_statuses_2020_q3">>}).
+                          q3_2020 => <<"tbl_statuses_2020_q3">>,
+                          q4_2020 => <<"tbl_statuses_2020_q4">>,
+                          %-------------------------------------------
+                          q1_2021 => <<"tbl_statuses_2021_q1">>,
+                          q2_2021 => <<"tbl_statuses_2021_q2">>,
+                          q3_2021 => <<"tbl_statuses_2021_q3">>,
+                          q4_2021 => <<"tbl_statuses_2021_q4">>,
+                          %-------------------------------------------
+                          q1_2022 => <<"tbl_statuses_2022_q1">>}).
 -define(status_table(X), maps:get(X, ?STATUS_TABLES, ?STATUS_TABLE)).
 
 -define(TWITTER_API_URL,         "https://api.twitter.com/1.1/").
@@ -822,7 +830,7 @@ handle_call({api_get, API, Cmd, Body, Opts}, _From, State = #state{consumer     
 
     URL = make_api_url(API, Cmd),
     %?debug("GET ~s: ~p", [URL, Body]),
-    Reply = case oauth:get(URL, Body, Consumer, Token, Secret, [{body_format, binary}]) of
+    Reply = case oauth:get(URL, Body, Consumer, Token, Secret, [{<<"body_format">>, <<"binary">>}]) of
 
         {ok, {{_, 200, _}, _, DataIn}} ->
 
@@ -849,7 +857,8 @@ handle_call({authenticate, PIN}, _From, State = #state{consumer    = Consumer,
                                                        oauth_token = ReqToken}) ->
 
     NewState = case oauth:post(?twitter_oauth_url("access_token"),
-                               [{ oauth_verifier, PIN}, { oauth_token, ReqToken}],
+                               [{<<"oauth_verifier">>, PIN},
+                                {<<"oauth_token">>,    ReqToken}],
                                Consumer) of
 
         {ok, Resp = {{_, 200, _}, _, _}} ->
@@ -993,14 +1002,14 @@ handle_call(Msg, _From, State) ->
 % @doc  Process async messages
 % @end  --
 handle_cast(login, State = #state{oauth_token = Token}) ->
-    URL = oauth:uri(?twitter_oauth_url("authenticate"), [{oauth_token, Token}]),
+    URL = oauth:uri(?twitter_oauth_url("authenticate"), [{<<"oauth_token">>, Token}]),
     ?notice("Please retrieve your PIN from ~s~n", [URL]),
     {noreply, State};
 
 
 handle_cast({request_token, AccessKey, AccessSecret}, State = #state{consumer = Consumer}) ->
     {ok, Resp} = oauth:post(?twitter_oauth_url("request_token"),
-                            [{oauth_callback, oob}],
+                            [{<<"oauth_callback">>, <<"oob">>}],
                             Consumer,
                             AccessKey,
                             AccessSecret),
@@ -1149,6 +1158,7 @@ handle_info(Msg, State) ->
 %       handshake, as we might get cut off after so many failed attempts.
 % @end  --
 check_twitter_config(TwappCfg) ->
+    %?debug("Twitter: ~p", [TwappCfg]),
     case lists:map(fun(Param) -> proplists:get_value(Param, TwappCfg, nak) end,
                    [consumer_key,
                     consumer_secret,
@@ -1221,7 +1231,7 @@ track(KeyWords, #state{consumer     = Consumer,
                        oauth_token  = Token,
                        oauth_secret = Secret}) ->
     case oauth:post(?twitter_stream_url("statuses/filter.json"),
-                    [{track, KeyWords}],
+                    [{<<"track">>, KeyWords}],
                     Consumer,
                     Token,
                     Secret,
