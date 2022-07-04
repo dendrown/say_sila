@@ -607,8 +607,10 @@ pull_tweet(ID, Opts) ->
 %%
 % @doc  Retreives historical tweets via the Twitter API.
 %
-%       The one available Option is:
-%       - `no_pull'     : Just frame and report, do not pull tweets or update the DB
+%       Available Options are:
+%       - `no_pull' :   Just frame and report, do not pull tweets or update the DB.
+%       - `forward' :   No Stop tweet is required from the DB.  Use this option
+%                       with dts:now(datetime) for Stop to pull tweets up to now.
 % @end  --
 pull_tweets(Tracker, Start, Stop) ->
     pull_tweets(Tracker, Start, Stop, []).
@@ -628,7 +630,7 @@ pull_tweets(Tracker, Start, Stop, Options) ->
     PullPush = fun Recur(Max, Body, Cnt) ->
         % Allow Twitter a little extra time to do the job, lest we have timeouts
         Rsp = gen_server:call(?MODULE,
-                              {api_get, search, tweets, [{max_id, Max}|Body], [return_maps]},
+                              {api_get, search, tweets, [{<<"max_id">>, Max}|Body], [return_maps]},
                               10000),
         ?debug("RSP: ~p", [Rsp]),
         NewCnt = lists:foldl(Inserter, Cnt, maps:get(<<"statuses">>, Rsp, [])),
@@ -652,36 +654,46 @@ pull_tweets(Tracker, Start, Stop, Options) ->
         end
     end,
 
+    % Function to (pre)report our intent and launch our tweet-puller
+    Launcher = fun(Left, Right) ->
+        #tweet{id = SinceID,  timestamp_ms = SinceMillis} = Left,
+        #tweet{id = MaxPlus1, timestamp_ms = UntilMillis} = Right,
+
+        MaxID = binary_to_integer(MaxPlus1) - 1,
+        ?info("Since GMT ~s: id[~s]", [dts:str(SinceMillis, millisecond), SinceID]),
+        ?info("Until GMT ~s: id[~B]", [dts:str(UntilMillis, millisecond), MaxID]),
+        ?info("Period: ~.1f hours", [(UntilMillis-SinceMillis)/(60*60*1000)]),
+
+        case pprops:get_value(no_pull, Options, false)  of
+            true  -> no_pull;
+            false ->
+                TwCnt = PullPush(integer_to_binary(MaxID),
+                                 [{<<"q">>,                ?hashtag(Tracker)},
+                                  {<<"include_entities">>, <<"true">>},
+                                  {<<"since_id">>,         SinceID},
+                                  {<<"count">>,            <<"100">>}],
+                                 0),
+                ?notice("Inserted ~B tweets", [TwCnt])
+        end
+    end,
+
     % Determine the tweet IDs that frame the time period we need (DB results are chronological)
     case frame_hole(Tracker, Start, Stop) of
 
-        {[], _}      -> bad_start;
         {bad_dst, _} -> bad_start;
-
-        {_, []}      -> bad_stop;
         {_, bad_dst} -> bad_stop;
 
+        {[], _}      -> bad_start;
+
+        {Lefts, []}  ->
+            case pprops:get_value(forward, Options, false) of
+                false -> bad_stop;
+                true -> Launcher(lists:last(Lefts),             % Latest on the left
+                                 tweet:pseudo_at(Stop))         % End pseudo-tweet on right
+            end;
+
         {Lefts, [Right|_]} ->
-            #tweet{id = SinceID,  timestamp_ms = SinceMillis} = lists:last(Lefts),  % Latest on the left
-            #tweet{id = MaxPlus1, timestamp_ms = UntilMillis} = Right,              % Earliest on the right
-
-            % Yes, the datatypes for since_id and max_id are different. The oauth library doesn't care.
-            MaxID = binary_to_integer(MaxPlus1) - 1,
-            ?info("Since GMT ~s: id[~s]", [dts:str(SinceMillis, millisecond), SinceID]),
-            ?info("Until GMT ~s: id[~B]", [dts:str(UntilMillis, millisecond), MaxID]),
-            ?info("Period: ~.1f hours", [(UntilMillis-SinceMillis)/(60*60*1000)]),
-
-            case pprops:get_value(no_pull, Options, false)  of
-                true  -> no_pull;
-                false ->
-                    TwCnt = PullPush(MaxID,
-                                     [{q,                ?hashtag(Tracker)},
-                                      {include_entities, true},
-                                      {since_id,         SinceID},
-                                      {count,            100}],
-                                     0),
-                    ?notice("Inserted ~B tweets", [TwCnt])
-            end
+            Launcher(lists:last(Lefts), Right)                  % [..Latest]-----[Earliest..]
     end.
 
 
@@ -830,7 +842,7 @@ handle_call({api_get, API, Cmd, Body, Opts}, _From, State = #state{consumer     
 
     URL = make_api_url(API, Cmd),
     %?debug("GET ~s: ~p", [URL, Body]),
-    Reply = case oauth:get(URL, Body, Consumer, Token, Secret, [{<<"body_format">>, <<"binary">>}]) of
+    Reply = case oauth:get(URL, Body, Consumer, Token, Secret, [{body_format, binary}]) of
 
         {ok, {{_, 200, _}, _, DataIn}} ->
 

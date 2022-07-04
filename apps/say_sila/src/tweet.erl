@@ -14,9 +14,12 @@
 -module(tweet).
 -author("Dennis Drown <den@sibyl.guru>").
 
--export([from_map/1]).
+-export([from_map/1,
+         pseudo_at/1]).
 
 -include("twitter.hrl").
+
+-define(MAX_ID, <<"1999999999999999999">>).
 
 
 %%====================================================================
@@ -67,6 +70,19 @@ from_map(Status = #{<<"id_str">>    := ID,
            %---------------------------------- % Retweeted author
            rt_id          = RetweetID,
            rt_screen_name = RetweetSN}.
+
+
+%%--------------------------------------------------------------------
+-spec pseudo_at(DTS :: datetime()) -> tweet().
+%%
+% @doc  Returns a (fake) pseudo-tweet, (not) published at the specified
+%       datetime.
+% @end  --
+pseudo_at(DTS) ->
+    #tweet{id = ?MAX_ID,
+           lang = <<"??">>,
+           screen_name = <<"NOBODY">>,
+           timestamp_ms = dts:to_unix(DTS, millisecond)}.
 
 
 %%====================================================================
