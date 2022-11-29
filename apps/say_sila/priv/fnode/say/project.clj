@@ -21,7 +21,7 @@
   :repositories [["maven.aksw.internal"  {:url "https://maven.aksw.org/repository/internal/"}]
                  ["maven.aksw.snapshots" {:url "https://maven.aksw.org/repository/snapshots/"}]]
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [org.erlang.otp/jinterface "1.9.1"]
+                 [org.erlang.otp/jinterface "1.12.2"]
                  [org.clojure/core.async "1.0.567"]
                  [org.clojure/core.logic "0.8.11"]
                  [org.clojure/data.csv "0.1.4"]
@@ -58,9 +58,9 @@
 ; External JARs [ lein localrepo install ]
 ;
 ; * Erlang jInterface:
-;   /usr/lib/erlang/lib/jinterface-1.9.1/priv/OtpErlang.jar
+;   /usr/lib64/erlang/lib/jinterface-1.12.2/priv/OtpErlang.jar
 ;   org.erlang.otp/jinterface
-;   1.9.1
+;   1.12.2
 ;   NOTE: Not up-to-date @ https://mvnrepository.com/artifact/org.erlang.otp/jinterface
 ;
 ; * Snowball Stemmers
