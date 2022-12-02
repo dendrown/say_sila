@@ -16,7 +16,10 @@ pom.xml.asc
 .settings/
 bin/
 config/*.config
-resources/gw-2019/
+resources/gw-2019/breakout
+resources/gw-2019/*.arff
+resources/gw-2019/*.csv
+resources/gw-2019/*.txt
 resources/emo-sa/*.*.arff
 resources/emo-sa/*.csv
 resources/emo-sa/*.edn
