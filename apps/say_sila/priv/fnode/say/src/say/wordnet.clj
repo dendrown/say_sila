@@ -37,7 +37,7 @@
   #{"SID-09389659-N"}   ;gloss "the natural physical world including plants and animals and landscapes etc."
 
  ;; --------------------------------------------------------------------------
-  "conservagtion"
+  "conservation"
   #{"SID-07434199-N"    ;gloss "an occurrence of improvement by virtue of preventing loss or injury or other change"
     "SID-00820935-N"}   ;gloss "the preservation and careful management of the environment and of natural resources"
 
